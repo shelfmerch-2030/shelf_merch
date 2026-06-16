@@ -350,6 +350,9 @@ export function ProductWizard({ mode, productId }: { mode: "create" | "edit"; pr
                   <TintedGarment src={product?.maskImageUrl} hex={firstHex} />
                 </div>
                 <input type="file" accept="image/png" disabled={busy} onChange={(e) => uploadMaster(e.target.files?.[0], "mask")} />
+                <p className="mut3" style={{ fontSize: 11, marginTop: 6, maxWidth: 180 }}>
+                  Background removed, light/white garment — recolours per variant colour.
+                </p>
               </div>
             </div>
             <div className="row" style={{ gap: 8, marginTop: 18 }}>

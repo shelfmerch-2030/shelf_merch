@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /**
- * Recolours a garment image to `hex`, colouring ONLY the garment and not the
- * background — works for a flat cut-out whether or not the PNG is transparent.
+ * Recolours a garment image to `hex`. The transparency must live in the asset:
+ * a mask should be a PNG with its background already removed (alpha cleared
+ * outside the garment). The code does NOT try to detect the garment — it just
+ * luminance-tints the opaque pixels, so a light/white garment takes the colour
+ * strongly while dark areas (and transparent background) barely change.
  *
- * A canvas step (1) removes a plain/uniform background by flood-filling from the
- * edges, then (2) multiply-tints the remaining pixels by the target colour so
- * folds/shadows are preserved. Falls back to a plain <img> when there's no hex,
- * no src, or the canvas is tainted (cross-origin without CORS).
+ * Two modes, chosen by whether the four corners are opaque:
+ *  - Template (transparent corners — a cut-out): per opaque pixel, out = colour
+ *    × brightness, with a small specular lift on near-white highlights.
+ *  - Knockout (opaque corners — flat garment on a solid backdrop): fill with
+ *    the colour, then multiply the photo over it.
  *
- * Note: results are best on a flat garment shot. An on-model photo will also
- * tint any non-garment pixels (skin, etc.) that survive background removal —
- * an inherent limitation of a pixel heuristic with no true cut-out.
+ * Falls back to a plain <img> with no hex/src or a tainted canvas (cross-origin
+ * without CORS).
  */
-const MAX_DIM = 1000; // cap working resolution for performance
-const BG_THRESHOLD = 60; // colour distance treated as "background"
+const MAX_DIM = 1000;
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -23,67 +25,21 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function dist(r: number, g: number, b: number, c: [number, number, number]) {
-  return Math.sqrt((r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2);
+function cornersOpaque(data: Uint8ClampedArray, w: number, h: number) {
+  const a = (x: number, y: number) => data[(y * w + x) * 4 + 3];
+  return a(0, 0) > 250 && a(w - 1, 0) > 250 && a(0, h - 1) > 250 && a(w - 1, h - 1) > 250;
 }
 
-/** Remove a uniform background (flood fill from edges), then multiply-tint. */
-function recolorImageData(img: ImageData, target: [number, number, number]) {
-  const { data, width: w, height: h } = img;
-  const idx = (x: number, y: number) => (y * w + x) * 4;
-
-  // Already a cut-out? If many border pixels are transparent, trust the alpha.
-  let borderTransparent = 0;
-  let borderCount = 0;
-  for (let x = 0; x < w; x += 1) {
-    for (const y of [0, h - 1]) {
-      borderCount += 1;
-      if (data[idx(x, y) + 3] < 16) borderTransparent += 1;
-    }
-  }
-  const hasAlphaCutout = borderTransparent / Math.max(1, borderCount) > 0.5;
-
-  if (!hasAlphaCutout) {
-    // Background colour = average of the four corners.
-    const corners = [idx(0, 0), idx(w - 1, 0), idx(0, h - 1), idx(w - 1, h - 1)];
-    const bg: [number, number, number] = [0, 0, 0];
-    for (const c of corners) {
-      bg[0] += data[c];
-      bg[1] += data[c + 1];
-      bg[2] += data[c + 2];
-    }
-    bg[0] /= 4; bg[1] /= 4; bg[2] /= 4;
-
-    // Flood fill from every edge pixel; clear pixels close to the bg colour.
-    const stack: number[] = [];
-    const seen = new Uint8Array(w * h);
-    const push = (x: number, y: number) => {
-      if (x < 0 || y < 0 || x >= w || y >= h) return;
-      const p = y * w + x;
-      if (seen[p]) return;
-      seen[p] = 1;
-      stack.push(x, y);
-    };
-    for (let x = 0; x < w; x += 1) { push(x, 0); push(x, h - 1); }
-    for (let y = 0; y < h; y += 1) { push(0, y); push(w - 1, y); }
-    while (stack.length) {
-      const y = stack.pop() as number;
-      const x = stack.pop() as number;
-      const i = idx(x, y);
-      if (data[i + 3] < 16 || dist(data[i], data[i + 1], data[i + 2], bg) < BG_THRESHOLD) {
-        data[i + 3] = 0;
-        push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-      }
-    }
-  }
-
-  // Multiply-tint remaining (garment) pixels by the target colour.
+/** Template mode: luminance-multiply tint of opaque pixels (in place). */
+function tintTemplate(data: Uint8ClampedArray, target: [number, number, number]) {
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i + 3] === 0) continue;
-    const luma = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
-    data[i] = target[0] * luma;
-    data[i + 1] = target[1] * luma;
-    data[i + 2] = target[2] * luma;
+    if (data[i + 3] < 10) continue;
+    let lum = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
+    // Lift specular highlights so folds/sheen on white fabric stay natural.
+    const boost = lum > 0.97 ? ((lum - 0.97) / 0.03) * 0.6 : 0;
+    data[i] = Math.min(255, target[0] * lum + boost * 255);
+    data[i + 1] = Math.min(255, target[1] * lum + boost * 255);
+    data[i + 2] = Math.min(255, target[2] * lum + boost * 255);
   }
 }
 
@@ -119,13 +75,27 @@ export function TintedGarment({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(image, 0, 0, w, h);
       try {
+        // Read once to choose a mode without tainting the destination context.
+        ctx.drawImage(image, 0, 0, w, h);
         const data = ctx.getImageData(0, 0, w, h);
-        recolorImageData(data, hexToRgb(hex));
-        ctx.putImageData(data, 0, 0);
+        const target = hexToRgb(hex);
+        if (cornersOpaque(data.data, w, h)) {
+          // Knockout: colour fill, then multiply the photo through it.
+          ctx.clearRect(0, 0, w, h);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.fillStyle = hex;
+          ctx.fillRect(0, 0, w, h);
+          ctx.globalCompositeOperation = "multiply";
+          ctx.drawImage(image, 0, 0, w, h);
+          ctx.globalCompositeOperation = "source-over";
+        } else {
+          // Template: luminance tint of the opaque (garment) pixels.
+          tintTemplate(data.data, target);
+          ctx.putImageData(data, 0, 0);
+        }
       } catch {
-        setFailed(true); // tainted canvas (cross-origin w/o CORS)
+        setFailed(true); // tainted canvas (cross-origin without CORS)
       }
     };
     image.onerror = () => !cancelled && setFailed(true);
