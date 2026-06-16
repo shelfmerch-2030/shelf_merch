@@ -47,7 +47,7 @@ type CartLine = {
 };
 
 function productImage(p: StoreProduct) {
-  return p.maskImageUrl || p.primaryImageUrl || p.imageUrls?.[0] || "";
+  return p.baseImageUrl || p.primaryImageUrl || p.imageUrls?.[0] || p.maskImageUrl || "";
 }
 
 function distinct(values: Array<string | undefined>) {
@@ -405,7 +405,7 @@ function ProductGrid({ products, onOpen, fmt }: { products: StoreProduct[]; onOp
           <button key={p._id} type="button" onClick={() => onOpen(p._id)} className="card" style={{ padding: 0, overflow: "hidden", textAlign: "left", cursor: "pointer", border: "1px solid var(--line)", background: "var(--surface)" }}>
             <div style={{ aspectRatio: "1 / 1", background: "var(--surface-2)", padding: 8 }}>
               {p.maskImageUrl ? (
-                <TintedGarment src={p.maskImageUrl} hex={hex} alt={p.name} />
+                <TintedGarment base={p.baseImageUrl} src={p.maskImageUrl} hex={hex} alt={p.name} />
               ) : img ? (
                 <img src={img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
@@ -463,7 +463,7 @@ function ProductDetail({ product, mode, fmt, onBack, onAdd }: {
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 28, alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden", aspectRatio: "1 / 1", background: "var(--surface-2)", padding: product.maskImageUrl ? 16 : 0, display: "grid", placeItems: "center" }}>
           {product.maskImageUrl ? (
-            <TintedGarment src={product.maskImageUrl} hex={hexForColor(product, color)} alt={product.name} />
+            <TintedGarment base={product.baseImageUrl} src={product.maskImageUrl} hex={hexForColor(product, color)} alt={product.name} />
           ) : img ? (
             <img src={img} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (

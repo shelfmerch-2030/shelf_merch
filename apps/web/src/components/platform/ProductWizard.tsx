@@ -332,26 +332,27 @@ export function ProductWizard({ mode, productId }: { mode: "create" | "edit"; pr
 
         {step === 2 && (
           <>
-            <h3 style={{ marginBottom: 4 }}>Master images</h3>
+            <h3 style={{ marginBottom: 4 }}>Product images</h3>
             <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
-              Upload a neutral (white) pair. They recolour to each variant's colour automatically.
+              The photo is shown to customers; the region mask marks just the garment, so only it
+              recolours per variant colour. The preview shows the two composited.
             </p>
             <div className="row" style={{ gap: 18, flexWrap: "wrap", marginBottom: 22 }}>
               <div>
-                <label className="lbl">Base image — print areas &amp; production</label>
+                <label className="lbl">Product photo (shown to customers)</label>
                 <div style={{ width: 140, height: 140, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface-2)", overflow: "hidden", marginBottom: 8 }}>
-                  <TintedGarment src={product?.baseImageUrl} />
+                  <TintedGarment base={product?.baseImageUrl} src={product?.maskImageUrl} hex={firstHex} />
                 </div>
                 <input type="file" accept="image/png,image/webp,image/jpeg" disabled={busy} onChange={(e) => uploadMaster(e.target.files?.[0], "base")} />
               </div>
               <div>
-                <label className="lbl">Mask image (transparent PNG)</label>
+                <label className="lbl">Garment region mask</label>
                 <div style={{ width: 140, height: 140, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface-2)", overflow: "hidden", marginBottom: 8 }}>
-                  <TintedGarment src={product?.maskImageUrl} hex={firstHex} />
+                  <TintedGarment src={product?.maskImageUrl} />
                 </div>
                 <input type="file" accept="image/png" disabled={busy} onChange={(e) => uploadMaster(e.target.files?.[0], "mask")} />
                 <p className="mut3" style={{ fontSize: 11, marginTop: 6, maxWidth: 180 }}>
-                  Background removed, light/white garment — recolours per variant colour.
+                  Garment painted white/opaque, everything else transparent — aligned to the photo.
                 </p>
               </div>
             </div>
@@ -366,7 +367,8 @@ export function ProductWizard({ mode, productId }: { mode: "create" | "edit"; pr
           <>
             <h3 style={{ marginBottom: 12 }}>Design placeholders</h3>
             <PrintAreaEditor
-              images={[product?.baseImageUrl, product?.maskImageUrl].filter(Boolean) as string[]}
+              images={[product?.baseImageUrl, ...(product?.imageUrls ?? [])].filter(Boolean) as string[]}
+              mask={product?.maskImageUrl}
               colors={(product?.variants ?? []).filter((v) => v.colorHex).map((v) => ({ name: v.color || "", hex: v.colorHex || "" }))}
               value={printAreas}
               onChange={setAreas}

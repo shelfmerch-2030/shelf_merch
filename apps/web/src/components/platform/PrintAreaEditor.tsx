@@ -33,11 +33,13 @@ const DEFAULT_BOX = { xPct: 30, yPct: 30, widthPct: 40, heightPct: 30 };
  */
 export function PrintAreaEditor({
   images,
+  mask,
   colors = [],
   value,
   onChange,
 }: {
   images: string[];
+  mask?: string;
   colors?: { name: string; hex: string }[];
   value: PrintArea[];
   onChange: (areas: PrintArea[]) => void;
@@ -165,7 +167,7 @@ export function PrintAreaEditor({
         >
           {mockup ? (
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-              <TintedGarment src={mockup} hex={tintHex} alt="mockup" />
+              <TintedGarment base={mockup} src={mask} hex={tintHex} alt="mockup" />
             </div>
           ) : (
             <div className="muted" style={{ display: "grid", placeItems: "center", height: "100%" }}>

@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /**
- * Recolours a garment image to `hex`. The transparency must live in the asset:
- * a mask should be a PNG with its background already removed (alpha cleared
- * outside the garment). The code does NOT try to detect the garment — it just
- * luminance-tints the opaque pixels, so a light/white garment takes the colour
- * strongly while dark areas (and transparent background) barely change.
+ * Recolours a garment by compositing two layers:
+ *  - `base`  — the photo shown to customers (lifestyle or flat); never globally tinted.
+ *  - `src`   — a garment-REGION mask: the garment area in white/opaque, everything else
+ *              transparent (or black). Defines *where* to recolour.
  *
- * Two modes, chosen by whether the four corners are opaque:
- *  - Template (transparent corners — a cut-out): per opaque pixel, out = colour
- *    × brightness, with a small specular lift on near-white highlights.
- *  - Knockout (opaque corners — flat garment on a solid backdrop): fill with
- *    the colour, then multiply the photo over it.
+ * Only the pixels the mask marks as garment are recoloured (using the base photo's own
+ * luminance for fold/shadow realism); skin, jeans, background stay exactly as photographed.
  *
- * Falls back to a plain <img> with no hex/src or a tainted canvas (cross-origin
- * without CORS).
+ * Modes:
+ *  - Composite (base + src + hex): recolour the base's garment region only.
+ *  - Mask-only (src + hex, no base): luminance-tint the cut-out itself (flat garment assets).
+ *  - No hex / tainted canvas: plain <img> of `base ?? src`.
  */
 const MAX_DIM = 1000;
 
@@ -25,30 +23,38 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function cornersOpaque(data: Uint8ClampedArray, w: number, h: number) {
-  const a = (x: number, y: number) => data[(y * w + x) * 4 + 3];
-  return a(0, 0) > 250 && a(w - 1, 0) > 250 && a(0, h - 1) > 250 && a(w - 1, h - 1) > 250;
+const luma = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 }
 
-/** Template mode: luminance-multiply tint of opaque pixels (in place). */
-function tintTemplate(data: Uint8ClampedArray, target: [number, number, number]) {
+/** Mask-only luminance tint of the opaque cut-out pixels (in place). */
+function tintMaskOnly(data: Uint8ClampedArray, target: [number, number, number]) {
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 10) continue;
-    let lum = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
-    // Lift specular highlights so folds/sheen on white fabric stay natural.
-    const boost = lum > 0.97 ? ((lum - 0.97) / 0.03) * 0.6 : 0;
-    data[i] = Math.min(255, target[0] * lum + boost * 255);
-    data[i + 1] = Math.min(255, target[1] * lum + boost * 255);
-    data[i + 2] = Math.min(255, target[2] * lum + boost * 255);
+    const l = luma(data[i], data[i + 1], data[i + 2]) / 255;
+    const boost = l > 0.97 ? ((l - 0.97) / 0.03) * 0.6 * 255 : 0;
+    data[i] = Math.min(255, target[0] * l + boost);
+    data[i + 1] = Math.min(255, target[1] * l + boost);
+    data[i + 2] = Math.min(255, target[2] * l + boost);
   }
 }
 
 export function TintedGarment({
+  base,
   src,
   hex,
   alt = "",
   style,
 }: {
+  base?: string;
   src?: string;
   hex?: string;
   alt?: string;
@@ -56,56 +62,76 @@ export function TintedGarment({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
+  const display = base || src; // what a plain <img> falls back to
 
   useEffect(() => {
-    if (!src || !hex) return;
+    if (!hex || (!base && !src)) return;
     setFailed(false);
     let cancelled = false;
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      if (cancelled) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const scale = Math.min(1, MAX_DIM / Math.max(image.naturalWidth, image.naturalHeight));
-      const w = Math.max(1, Math.round(image.naturalWidth * scale));
-      const h = Math.max(1, Math.round(image.naturalHeight * scale));
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.clearRect(0, 0, w, h);
+
+    (async () => {
       try {
-        // Read once to choose a mode without tainting the destination context.
-        ctx.drawImage(image, 0, 0, w, h);
-        const data = ctx.getImageData(0, 0, w, h);
         const target = hexToRgb(hex);
-        if (cornersOpaque(data.data, w, h)) {
-          // Knockout: colour fill, then multiply the photo through it.
+        const maskImg = src ? await loadImage(src) : null;
+        const baseImg = base ? await loadImage(base) : null;
+        if (cancelled) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const ref = baseImg ?? maskImg!;
+        const scale = Math.min(1, MAX_DIM / Math.max(ref.naturalWidth, ref.naturalHeight));
+        const w = Math.max(1, Math.round(ref.naturalWidth * scale));
+        const h = Math.max(1, Math.round(ref.naturalHeight * scale));
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        if (baseImg && maskImg) {
+          // Composite: recolour only the base pixels the mask marks as garment.
           ctx.clearRect(0, 0, w, h);
-          ctx.globalCompositeOperation = "source-over";
-          ctx.fillStyle = hex;
-          ctx.fillRect(0, 0, w, h);
-          ctx.globalCompositeOperation = "multiply";
-          ctx.drawImage(image, 0, 0, w, h);
-          ctx.globalCompositeOperation = "source-over";
+          ctx.drawImage(baseImg, 0, 0, w, h);
+          const out = ctx.getImageData(0, 0, w, h);
+
+          const scratch = document.createElement("canvas");
+          scratch.width = w;
+          scratch.height = h;
+          const sctx = scratch.getContext("2d");
+          if (!sctx) return;
+          sctx.drawImage(maskImg, 0, 0, w, h);
+          const mask = sctx.getImageData(0, 0, w, h).data;
+
+          const d = out.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const isGarment = mask[i + 3] > 64 && luma(mask[i], mask[i + 1], mask[i + 2]) > 96;
+            if (!isGarment) continue;
+            const l = luma(d[i], d[i + 1], d[i + 2]) / 255;
+            const boost = l > 0.97 ? ((l - 0.97) / 0.03) * 0.6 * 255 : 0;
+            d[i] = Math.min(255, target[0] * l + boost);
+            d[i + 1] = Math.min(255, target[1] * l + boost);
+            d[i + 2] = Math.min(255, target[2] * l + boost);
+          }
+          ctx.putImageData(out, 0, 0);
         } else {
-          // Template: luminance tint of the opaque (garment) pixels.
-          tintTemplate(data.data, target);
+          // Mask-only: tint the cut-out itself.
+          const only = maskImg ?? baseImg!;
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(only, 0, 0, w, h);
+          const data = ctx.getImageData(0, 0, w, h);
+          tintMaskOnly(data.data, target);
           ctx.putImageData(data, 0, 0);
         }
       } catch {
-        setFailed(true); // tainted canvas (cross-origin without CORS)
+        if (!cancelled) setFailed(true); // tainted canvas or load error
       }
-    };
-    image.onerror = () => !cancelled && setFailed(true);
-    image.src = src;
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [src, hex]);
+  }, [base, src, hex]);
 
-  if (!src) {
+  if (!display) {
     return (
       <div style={{ display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 12, ...style }}>
         No image
@@ -113,7 +139,7 @@ export function TintedGarment({
     );
   }
   if (!hex || failed) {
-    return <img src={src} alt={alt} style={{ width: "100%", height: "100%", objectFit: "contain", ...style }} />;
+    return <img src={display} alt={alt} style={{ width: "100%", height: "100%", objectFit: "contain", ...style }} />;
   }
   return (
     <canvas
