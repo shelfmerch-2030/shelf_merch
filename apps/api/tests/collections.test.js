@@ -58,6 +58,38 @@ beforeEach(async () => {
   });
 });
 
+describe('collection product mockup', () => {
+  const pngBuf = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  it('persists a baked mockup url onto the product ref', async () => {
+    const res = await request(app)
+      .post(`/api/v1/collections/${collection._id}/product-mockup`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('catalogProductId', String(product._id))
+      .attach('mockup', pngBuf, { filename: 'mockup.png', contentType: 'image/png' });
+    expect(res.status).toBe(200);
+    expect(res.body.productRefs[0].mockupUrl).toBeTruthy();
+  });
+
+  it('rejects a product not in the collection', async () => {
+    const other = await CatalogProduct.create({
+      sku: `SM-OTHER-${Date.now()}`,
+      name: 'Other',
+      category: 'Apparel',
+      basePriceInr: 100,
+    });
+    const res = await request(app)
+      .post(`/api/v1/collections/${collection._id}/product-mockup`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('catalogProductId', String(other._id))
+      .attach('mockup', pngBuf, { filename: 'mockup.png', contentType: 'image/png' });
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('collections archive / restore / delete', () => {
   it('archives a collection', async () => {
     const res = await request(app)

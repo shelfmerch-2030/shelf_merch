@@ -29,6 +29,8 @@ export type UiProduct = {
   imgUrl?: string;
   /** Transparent design/production image used by artwork mockups. */
   maskImageUrl?: string;
+  /** Pre-baked design mockup (mask + artwork flattened) for this collection. */
+  mockupUrl?: string;
   /** Super-admin design zones — artwork is clipped to the first matching area. */
   printAreas?: UiPrintArea[];
 };
@@ -251,6 +253,7 @@ export function mapProductRef(ref: ApiProduct, catalogById?: Map<string, UiProdu
     colorHexByName: fromCatalog?.colorHexByName,
     imgUrl,
     maskImageUrl: resolveMediaUrl(ref.maskImageUrl) || fromCatalog?.maskImageUrl,
+    mockupUrl: resolveMediaUrl(ref.mockupUrl) || "",
     printAreas: fromCatalog?.printAreas,
   };
 }

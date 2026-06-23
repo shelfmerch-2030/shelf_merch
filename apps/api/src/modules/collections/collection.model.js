@@ -8,6 +8,10 @@ const productRefSchema = new mongoose.Schema(
     brand: String,
     name: String,
     group: String,
+    // Pre-baked design mockup (mask + placed artwork flattened to one image) so
+    // the design renders as a single asset and flows into orders/production.
+    mockupUrl: { type: String, default: '' },
+    placement: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { _id: false },
 );

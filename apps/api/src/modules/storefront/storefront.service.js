@@ -58,6 +58,7 @@ export async function getStorefront(shopId) {
         brand: ref.brand ?? base.brand,
         group: ref.group ?? base.group,
         artworkUrl: col.artworkUrl || '',
+        mockupUrl: ref.mockupUrl || '',
         preferredColors: col.preferredColors || [],
       });
     }

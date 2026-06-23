@@ -247,6 +247,7 @@ export async function getCatalog(token) {
   const { campaign } = await loadCampaignContext(recipient);
 
   const artworkByProductId = new Map();
+  const mockupByProductId = new Map();
   const preferredColorsByProductId = new Map();
   let shopCollections = [];
   if (campaign.shopId) {
@@ -262,6 +263,7 @@ export async function getCatalog(token) {
         const pid = ref.catalogProductId ? String(ref.catalogProductId) : '';
         if (!pid) continue;
         if (col.artworkUrl && !artworkByProductId.has(pid)) artworkByProductId.set(pid, col.artworkUrl);
+        if (ref.mockupUrl && !mockupByProductId.has(pid)) mockupByProductId.set(pid, ref.mockupUrl);
         if (col.preferredColors?.length && !preferredColorsByProductId.has(pid)) {
           preferredColorsByProductId.set(pid, col.preferredColors);
         }
@@ -291,6 +293,7 @@ export async function getCatalog(token) {
       rows.map((p) => ({
         ...p,
         artworkUrl: artworkByProductId.get(String(p._id)) || '',
+        mockupUrl: mockupByProductId.get(String(p._id)) || '',
         preferredColors: preferredColorsByProductId.get(String(p._id)) || [],
       })),
     );
@@ -556,6 +559,26 @@ export async function submitRedemption(token, { items, shippingAddress }) {
     }
   }
 
+  // Baked design mockups for this shop's products, so the order item image is
+  // the composited mockup (what production should print against), not the bare
+  // mask. Only relevant for store (non-kit) redemptions.
+  const mockupByProductId = new Map();
+  if (!kitFulfillment && campaign.shopId) {
+    const cols = await Collection.find({
+      ...collectionsForShopFilter(campaign.shopId),
+      tenantId: recipient.tenantId,
+      status: { $ne: 'archived' },
+    })
+      .select('productRefs')
+      .lean();
+    for (const col of cols) {
+      for (const ref of col.productRefs || []) {
+        const pid = ref.catalogProductId ? String(ref.catalogProductId) : '';
+        if (pid && ref.mockupUrl && !mockupByProductId.has(pid)) mockupByProductId.set(pid, ref.mockupUrl);
+      }
+    }
+  }
+
   // Non-negotiable #4: every order item carries a full product snapshot
   // (price, cost, GST, HSN, image) frozen at order time.
   const lineItems = [];
@@ -595,7 +618,7 @@ export async function submitRedemption(token, { items, shippingAddress }) {
       costPriceInr: product.costPriceInr ?? 0,
       gstRate: product.gstRate ?? 18,
       hsnCode: product.hsnCode ?? '',
-      imageUrl: kitProductImageUrl(product, kitRef || {}) || product.maskImageUrl || product.primaryImageUrl || product.imageUrls?.[0] || '',
+      imageUrl: mockupByProductId.get(String(product._id)) || kitProductImageUrl(product, kitRef || {}) || product.maskImageUrl || product.primaryImageUrl || product.imageUrls?.[0] || '',
     });
   }
 

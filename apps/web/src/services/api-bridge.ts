@@ -312,6 +312,7 @@ export async function createCollectionFlow(payload: {
   catalog: UiProduct[];
   preferredColors?: string[];
   artwork?: { file?: File; preview?: string; name?: string };
+  mockups?: Array<{ catalogProductId: string; dataUrl: string }>;
 }) {
   return createCollectionApi(payload);
 }
@@ -464,6 +465,7 @@ export type StorefrontData = {
     maskImageUrl?: string;
     baseImageUrl?: string;
     artworkUrl?: string;
+    mockupUrl?: string;
     preferredColors?: string[];
     printAreas?: Array<{
       key?: string;
@@ -508,6 +510,7 @@ export type KitRedemptionItem = {
   isDrinkware?: boolean;
   imageUrl: string;
   artworkUrl: string;
+  mockupUrl?: string;
   maskImageUrl?: string;
   baseImageUrl?: string;
   primaryImageUrl?: string;

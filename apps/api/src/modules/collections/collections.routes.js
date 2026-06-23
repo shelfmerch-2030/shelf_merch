@@ -167,6 +167,40 @@ router.delete(
   }),
 );
 
+// Persist a baked design mockup (mask + placed artwork) for one product so it
+// survives reloads and flows into the storefront and orders as a real asset.
+router.post(
+  '/:id/product-mockup',
+  adminOnly,
+  validate({ params: z.object({ id: objectId }) }),
+  upload.single('mockup'),
+  asyncHandler(async (req, res) => {
+    const catalogProductId = String(req.body.catalogProductId || '');
+    if (!objectId.safeParse(catalogProductId).success) {
+      throw new ApiError(400, 'Valid catalogProductId is required', 'CATALOG_PRODUCT_ID_REQUIRED');
+    }
+    const collection = await Collection.findOne({ _id: req.params.id, tenantId: req.tenantId });
+    if (!collection) throw new NotFoundError('Collection not found');
+    const ref = (collection.productRefs || []).find(
+      (r) => String(r.catalogProductId) === catalogProductId,
+    );
+    if (!ref) throw new NotFoundError('Product is not in this collection');
+    const { url } = await uploadFile({ tenantId: req.tenantId, kind: 'production', file: req.file });
+    ref.mockupUrl = url;
+    if (req.body.placement) {
+      try {
+        ref.placement = JSON.parse(req.body.placement);
+      } catch {
+        // ignore malformed placement
+      }
+    }
+    collection.markModified('productRefs');
+    await collection.save();
+    writeAudit({ req, action: 'collection.mockup', entityType: 'Collection', entityId: collection._id, after: { catalogProductId, mockupUrl: url } });
+    res.json(collection);
+  }),
+);
+
 // §7.6 — artwork upload flips the collection to "ready".
 router.post(
   '/:id/artwork',

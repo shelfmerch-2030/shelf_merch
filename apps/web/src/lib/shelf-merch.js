@@ -1288,15 +1288,17 @@ async function swGenerate(){
   }
   try{
     S.loading=true; render();
+    const mockups=f.picked.map((i,idx)=>({catalogProductId:String(catalog[i]?.id||''),dataUrl:baked[idx]||''})).filter(m=>m.catalogProductId&&m.dataUrl);
     const col=await api.createCollectionFlow({
       name:f.colName||'New collection',
       pickedIndices:f.picked,
       catalog,
       artwork:f.artFile?{file:f.artFile.file,preview:f.artFile.preview,name:f.artFile.name}:undefined,
+      mockups,
     });
     col.by=S.user.name;
-    // Attach the baked single-image mockups to the returned products (by index).
-    if(Array.isArray(col.products)) col.products.forEach((p,idx)=>{ if(baked[idx]) p.mockupUrl=baked[idx]; });
+    // Show the freshly-baked mockups immediately even if a persist upload lagged.
+    if(Array.isArray(col.products)) col.products.forEach((p,idx)=>{ if(!p.mockupUrl&&baked[idx]) p.mockupUrl=baked[idx]; });
     S.collections.push(col);
     S.loading=false;
     go('swag');

@@ -184,6 +184,25 @@ export async function uploadCollectionArtworkApi(collectionId: string, file: Fil
   return mapCollection(col);
 }
 
+async function fileFromDataUrl(dataUrl: string, name: string): Promise<File | null> {
+  if (!dataUrl?.startsWith("data:")) return null;
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type || "image/png" });
+}
+
+/** Persist one product's baked mockup (mask + artwork flattened) to a collection. */
+export async function uploadCollectionMockupApi(collectionId: string, catalogProductId: string, file: File) {
+  const form = new FormData();
+  form.append("mockup", file);
+  form.append("catalogProductId", catalogProductId);
+  const col = await apiFetch<Record<string, unknown>>(`/collections/${collectionId}/product-mockup`, {
+    method: "POST",
+    body: form,
+  });
+  return mapCollection(col);
+}
+
 export async function linkCollectionToShopApi(collectionId: string, shopId: string) {
   const col = await apiFetch<Record<string, unknown>>(`/collections/${collectionId}`, {
     method: "PATCH",
@@ -218,6 +237,7 @@ export async function createCollectionApi(payload: {
   preferredColors?: string[];
   artworkUrl?: string;
   artwork?: ArtworkInput;
+  mockups?: Array<{ catalogProductId: string; dataUrl: string }>;
   isShopSpecific?: boolean;
 }) {
   const productRefs = payload.pickedIndices.map((i) => {
@@ -244,6 +264,20 @@ export async function createCollectionApi(payload: {
   if (payload.artwork) {
     const file = await artworkFileFromInput(payload.artwork);
     if (file) result = await uploadCollectionArtworkApi(result.id, file);
+  }
+  // Persist each baked mockup so the design is a single image that survives
+  // reloads and flows into the storefront and orders.
+  for (const m of payload.mockups || []) {
+    if (!m.catalogProductId || !m.dataUrl) continue;
+    const file = await fileFromDataUrl(m.dataUrl, "mockup.png");
+    if (file) {
+      try {
+        result = await uploadCollectionMockupApi(result.id, m.catalogProductId, file);
+      } catch {
+        // Non-fatal: the collection is still saved; the view falls back to the
+        // live mask+overlay composite if a mockup fails to upload.
+      }
+    }
   }
   return result;
 }
