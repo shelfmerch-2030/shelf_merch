@@ -210,8 +210,12 @@ function hexToRgb(hex: string): [number, number, number] {
  * True only when the image is a real transparent garment cutout (a mask with a
  * see-through background), so recolouring touches just the garment. A full
  * opaque product/model photo returns false — tinting it would recolour the
- * model, skin and background, not the garment. Border-transparency heuristic,
- * same idea as TintedGarment's alpha-cutout check.
+ * model, skin and background, not the garment.
+ *
+ * We look at the WHOLE image's transparent fraction, not just the border: a
+ * garment cutout can fill the frame edge-to-edge (sleeves/hem touching the
+ * sides) yet still have a see-through background, whereas an opaque photo has
+ * essentially zero transparent pixels.
  */
 function isTintableMask(img: HTMLImageElement): boolean {
   try {
@@ -221,23 +225,17 @@ function isTintableMask(img: HTMLImageElement): boolean {
     c.height = S;
     const x = c.getContext("2d");
     if (!x) return false;
+    x.clearRect(0, 0, S, S);
     x.drawImage(img, 0, 0, S, S);
     const d = x.getImageData(0, 0, S, S).data;
-    const alphaAt = (px: number, py: number) => d[(py * S + px) * 4 + 3];
     let transparent = 0;
-    let total = 0;
-    for (let px = 0; px < S; px += 1) {
-      transparent += alphaAt(px, 0) < 16 ? 1 : 0;
-      transparent += alphaAt(px, S - 1) < 16 ? 1 : 0;
-      total += 2;
+    const total = S * S;
+    for (let i = 3; i < d.length; i += 4) {
+      if (d[i] < 16) transparent += 1;
     }
-    for (let py = 0; py < S; py += 1) {
-      transparent += alphaAt(0, py) < 16 ? 1 : 0;
-      transparent += alphaAt(S - 1, py) < 16 ? 1 : 0;
-      total += 2;
-    }
-    // A cutout's border is background (transparent); a photo's border is opaque.
-    return total > 0 && transparent / total > 0.5;
+    // A cutout has a see-through background (a few % at minimum); an opaque
+    // photo has ~none.
+    return transparent / total > 0.03;
   } catch {
     return false;
   }
