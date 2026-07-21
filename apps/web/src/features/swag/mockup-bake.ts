@@ -199,13 +199,47 @@ export function buildRealisticArtwork(
   }
 }
 
-/** Flatten mask + placed artwork into one PNG data URL. */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/**
+ * Luma-multiply recolour of the opaque garment pixels already drawn on `ctx`.
+ * Same maths as the store's TintedGarment — preserves fold/shadow shading so a
+ * tinted garment keeps its depth. The mask has a transparent background, so we
+ * only touch pixels with alpha > 0.
+ */
+function tintGarmentInPlace(ctx: CanvasRenderingContext2D, size: number, hex: string) {
+  const [tr, tg, tb] = hexToRgb(hex);
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const luma = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+    d[i] = tr * luma;
+    d[i + 1] = tg * luma;
+    d[i + 2] = tb * luma;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * Flatten mask + placed artwork into one PNG data URL. When `tintHex` is given,
+ * the garment is recoloured before the artwork is composited — producing a
+ * per-colour mockup with the exact same realistic treatment (warp, fabric
+ * texture, sheen, multiply @ 0.96) as the default bake, so every colour blends
+ * identically.
+ */
 export async function bakeMockup(
   ep: UiProduct,
   artUrl: string,
   placement: Placement | null,
   size = 1000,
   requireProductBase = false,
+  tintHex?: string,
 ): Promise<string> {
   if (!artUrl) return "";
   try {
@@ -224,6 +258,7 @@ export async function bakeMockup(
       const w = maskImg.naturalWidth * s;
       const h = maskImg.naturalHeight * s;
       ctx.drawImage(maskImg, (size - w) / 2, (size - h) / 2, w, h);
+      if (tintHex) tintGarmentInPlace(ctx, size, tintHex);
     }
     const aspect = (artImg.naturalHeight || 1) / (artImg.naturalWidth || 1);
     const pl = placement ?? defaultPlacement(ep, aspect);

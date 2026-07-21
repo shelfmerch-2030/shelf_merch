@@ -1,108 +1,62 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import { TintedGarment } from "@/components/store/TintedGarment";
 import type { UiProduct } from "@/services/mappers";
 import { DEFAULT_MOCKUP_TINT_HEX } from "./colors";
-import {
-  defaultPlacement,
-  designImgUrl,
-  pickPrintArea,
-  productThumbUrl,
-  type Placement,
-} from "./mockup-bake";
+import { bakeMockup, designImgUrl, pickPrintArea, productThumbUrl } from "./mockup-bake";
 
-function placementStyle(pl: Placement, artAspect: number): CSSProperties {
-  return {
-    position: "absolute",
-    left: `${pl.xPct}%`,
-    top: `${pl.yPct}%`,
-    width: `${pl.wPct}%`,
-    aspectRatio: `${1 / Math.max(artAspect, 0.01)}`,
-    transform: `translate(-50%, -50%) rotate(${pl.rot || 0}deg)`,
-    transformOrigin: "center center",
-    objectFit: "contain",
-    pointerEvents: "none",
-  };
-}
+/**
+ * Baked composites are memoised per product + artwork + colour so re-selecting a
+ * colour on the PDP is instant and grids don't re-bake.
+ */
+const bakeCache = new Map<string, string>();
 
-/** Live mask + artwork on the full square stage (Konva / bake coordinate system). */
-function LiveArtworkComposite({
+/**
+ * Renders a design at a given garment colour by re-running the SAME bake
+ * pipeline used at the artwork step (realistic artwork + luma-tinted garment +
+ * multiply @ 0.96) — so every colour blends identically to the default mockup.
+ * While a new colour bakes, the previous frame (or the baked default) stays
+ * visible to avoid flicker.
+ */
+function DesignComposite({
   product,
-  base,
-  overlay,
-  savedPlacement,
+  artUrl,
+  tintHex,
+  fallback,
 }: {
   product: UiProduct;
-  base: string;
-  overlay: string;
-  savedPlacement?: Placement | null;
+  artUrl: string;
+  tintHex?: string;
+  fallback: string;
 }) {
-  const [artAspect, setArtAspect] = useState(1);
-  const placement = useMemo(
-    () => savedPlacement ?? defaultPlacement(product, artAspect),
-    [savedPlacement, product, artAspect],
-  );
+  const key = `${product.id ?? product.nm}|${resolveMediaUrl(artUrl)}|${tintHex ?? "default"}`;
+  const [src, setSrc] = useState<string>(() => bakeCache.get(key) ?? fallback);
+
+  useEffect(() => {
+    const cached = bakeCache.get(key);
+    if (cached) {
+      setSrc(cached);
+      return;
+    }
+    let cancelled = false;
+    bakeMockup(product, artUrl, product.placement ?? null, 1000, false, tintHex)
+      .then((url) => {
+        if (cancelled || !url) return;
+        bakeCache.set(key, url);
+        setSrc(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [key, product, artUrl, tintHex]);
 
   return (
-    <div className="img img-mockup" style={{ position: "relative" }}>
+    <div className="img img-mockup">
       <img
-        src={base}
+        src={src || fallback}
         alt={product.nm}
         loading="lazy"
         style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-      />
-      <img
-        className="art-overlay-img"
-        src={overlay}
-        alt="Artwork"
-        style={placementStyle(placement, artAspect)}
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          const aspect = (img.naturalHeight || 1) / (img.naturalWidth || 1);
-          if (aspect > 0) setArtAspect(aspect);
-        }}
-      />
-    </div>
-  );
-}
-
-function MaskArtworkComposite({
-  product,
-  mask,
-  overlay,
-  tintHex,
-  savedPlacement,
-}: {
-  product: UiProduct;
-  mask: string;
-  overlay: string;
-  tintHex: string;
-  savedPlacement?: Placement | null;
-}) {
-  const [artAspect, setArtAspect] = useState(1);
-  const placement = useMemo(
-    () => savedPlacement ?? defaultPlacement(product, artAspect),
-    [savedPlacement, product, artAspect],
-  );
-
-  return (
-    <div className="img img-mockup" style={{ position: "relative" }}>
-      <TintedGarment
-        src={mask}
-        hex={tintHex}
-        alt={product.nm}
-        style={{ width: "100%", height: "100%" }}
-      />
-      <img
-        className="art-overlay-img"
-        src={overlay}
-        alt="Artwork"
-        style={placementStyle(placement, artAspect)}
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          const aspect = (img.naturalHeight || 1) / (img.naturalWidth || 1);
-          if (aspect > 0) setArtAspect(aspect);
-        }}
       />
     </div>
   );
@@ -143,42 +97,33 @@ export function DesignedProductThumb({
 
   const isDefaultTint =
     !tintHex || tintHex.toLowerCase() === DEFAULT_MOCKUP_TINT_HEX.toLowerCase();
-  const savedPlacement = product.placement ?? null;
+  // Re-bake only when we have both the artwork and a garment mask/stage to
+  // composite on; otherwise there is nothing to recolour.
+  const canRebake = Boolean(overlay && maskStage);
+
+  const bakedImg = baked ? (
+    <div className="img img-mockup">
+      <img
+        src={baked}
+        alt={product.nm}
+        loading="lazy"
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+      />
+    </div>
+  ) : null;
 
   const inner =
     baked && isDefaultTint ? (
-      <div className="img img-mockup">
-        <img
-          src={baked}
-          alt={product.nm}
-          loading="lazy"
-          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-        />
-      </div>
-    ) : overlay && resolvedMask ? (
-      <MaskArtworkComposite
+      bakedImg
+    ) : canRebake ? (
+      <DesignComposite
         product={product}
-        mask={resolvedMask}
-        overlay={overlay}
-        tintHex={tintHex}
-        savedPlacement={savedPlacement}
-      />
-    ) : overlay && maskStage ? (
-      <LiveArtworkComposite
-        product={product}
-        base={maskStage}
-        overlay={overlay}
-        savedPlacement={savedPlacement}
+        artUrl={overlay}
+        tintHex={isDefaultTint ? undefined : tintHex}
+        fallback={baked || base}
       />
     ) : baked ? (
-      <div className="img img-mockup">
-        <img
-          src={baked}
-          alt={product.nm}
-          loading="lazy"
-          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-        />
-      </div>
+      bakedImg
     ) : (
       <div className={`img${base ? " img-mockup" : ""}`}>
         {base ? (
