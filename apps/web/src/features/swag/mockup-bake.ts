@@ -207,6 +207,43 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 /**
+ * True only when the image is a real transparent garment cutout (a mask with a
+ * see-through background), so recolouring touches just the garment. A full
+ * opaque product/model photo returns false — tinting it would recolour the
+ * model, skin and background, not the garment. Border-transparency heuristic,
+ * same idea as TintedGarment's alpha-cutout check.
+ */
+function isTintableMask(img: HTMLImageElement): boolean {
+  try {
+    const S = 100;
+    const c = document.createElement("canvas");
+    c.width = S;
+    c.height = S;
+    const x = c.getContext("2d");
+    if (!x) return false;
+    x.drawImage(img, 0, 0, S, S);
+    const d = x.getImageData(0, 0, S, S).data;
+    const alphaAt = (px: number, py: number) => d[(py * S + px) * 4 + 3];
+    let transparent = 0;
+    let total = 0;
+    for (let px = 0; px < S; px += 1) {
+      transparent += alphaAt(px, 0) < 16 ? 1 : 0;
+      transparent += alphaAt(px, S - 1) < 16 ? 1 : 0;
+      total += 2;
+    }
+    for (let py = 0; py < S; py += 1) {
+      transparent += alphaAt(0, py) < 16 ? 1 : 0;
+      transparent += alphaAt(S - 1, py) < 16 ? 1 : 0;
+      total += 2;
+    }
+    // A cutout's border is background (transparent); a photo's border is opaque.
+    return total > 0 && transparent / total > 0.5;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Luma-multiply recolour of the opaque garment pixels already drawn on `ctx`.
  * Same maths as the store's TintedGarment — preserves fold/shadow shading so a
  * tinted garment keeps its depth. The mask has a transparent background, so we
@@ -258,7 +295,9 @@ export async function bakeMockup(
       const w = maskImg.naturalWidth * s;
       const h = maskImg.naturalHeight * s;
       ctx.drawImage(maskImg, (size - w) / 2, (size - h) / 2, w, h);
-      if (tintHex) tintGarmentInPlace(ctx, size, tintHex);
+      // Only recolour a genuine garment cutout — never an opaque model/product
+      // photo (that would tint the person and background, not the garment).
+      if (tintHex && isTintableMask(maskImg)) tintGarmentInPlace(ctx, size, tintHex);
     }
     const aspect = (artImg.naturalHeight || 1) / (artImg.naturalWidth || 1);
     const pl = placement ?? defaultPlacement(ep, aspect);
