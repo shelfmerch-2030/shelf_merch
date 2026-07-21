@@ -199,13 +199,82 @@ export function buildRealisticArtwork(
   }
 }
 
-/** Flatten mask + placed artwork into one PNG data URL. */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/**
+ * True only when the image is a real transparent garment cutout (a mask with a
+ * see-through background), so recolouring touches just the garment. A full
+ * opaque product/model photo returns false — tinting it would recolour the
+ * model, skin and background, not the garment.
+ *
+ * We look at the WHOLE image's transparent fraction, not just the border: a
+ * garment cutout can fill the frame edge-to-edge (sleeves/hem touching the
+ * sides) yet still have a see-through background, whereas an opaque photo has
+ * essentially zero transparent pixels.
+ */
+function isTintableMask(img: HTMLImageElement): boolean {
+  try {
+    const S = 100;
+    const c = document.createElement("canvas");
+    c.width = S;
+    c.height = S;
+    const x = c.getContext("2d");
+    if (!x) return false;
+    x.clearRect(0, 0, S, S);
+    x.drawImage(img, 0, 0, S, S);
+    const d = x.getImageData(0, 0, S, S).data;
+    let transparent = 0;
+    const total = S * S;
+    for (let i = 3; i < d.length; i += 4) {
+      if (d[i] < 16) transparent += 1;
+    }
+    // A cutout has a see-through background (a few % at minimum); an opaque
+    // photo has ~none.
+    return transparent / total > 0.03;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Luma-multiply recolour of the opaque garment pixels already drawn on `ctx`.
+ * Same maths as the store's TintedGarment — preserves fold/shadow shading so a
+ * tinted garment keeps its depth. The mask has a transparent background, so we
+ * only touch pixels with alpha > 0.
+ */
+function tintGarmentInPlace(ctx: CanvasRenderingContext2D, size: number, hex: string) {
+  const [tr, tg, tb] = hexToRgb(hex);
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const luma = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+    d[i] = tr * luma;
+    d[i + 1] = tg * luma;
+    d[i + 2] = tb * luma;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * Flatten mask + placed artwork into one PNG data URL. When `tintHex` is given,
+ * the garment is recoloured before the artwork is composited — producing a
+ * per-colour mockup with the exact same realistic treatment (warp, fabric
+ * texture, sheen, multiply @ 0.96) as the default bake, so every colour blends
+ * identically.
+ */
 export async function bakeMockup(
   ep: UiProduct,
   artUrl: string,
   placement: Placement | null,
   size = 1000,
   requireProductBase = false,
+  tintHex?: string,
 ): Promise<string> {
   if (!artUrl) return "";
   try {
@@ -224,6 +293,9 @@ export async function bakeMockup(
       const w = maskImg.naturalWidth * s;
       const h = maskImg.naturalHeight * s;
       ctx.drawImage(maskImg, (size - w) / 2, (size - h) / 2, w, h);
+      // Only recolour a genuine garment cutout — never an opaque model/product
+      // photo (that would tint the person and background, not the garment).
+      if (tintHex && isTintableMask(maskImg)) tintGarmentInPlace(ctx, size, tintHex);
     }
     const aspect = (artImg.naturalHeight || 1) / (artImg.naturalWidth || 1);
     const pl = placement ?? defaultPlacement(ep, aspect);
