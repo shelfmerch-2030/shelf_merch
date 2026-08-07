@@ -378,6 +378,7 @@ export function SendKitView(vm: SendKitVm) {
                       <DesignedProductThumb
                         product={p}
                         artworkUrl={p.mockupUrl ? undefined : kit.artworkUrl}
+                        frontOnly
                       />
                     </div>
                     {p.brand && <div className="mut3" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em" }}>{p.brand}</div>}
@@ -698,7 +699,7 @@ export function SendKitView(vm: SendKitVm) {
                                 flexShrink: 0,
                               }}
                             >
-                              <DesignedProductThumb product={p} artworkUrl={kit.artworkUrl} />
+                              <DesignedProductThumb product={p} artworkUrl={kit.artworkUrl} frontOnly />
                             </div>
                             <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ink)" }}>
                               {p.nm}

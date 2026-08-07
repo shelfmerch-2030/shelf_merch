@@ -1,4 +1,11 @@
+import {
+  bannerImageUrlKey,
+  bannerPresetKey,
+  bannerThemeKey,
+  type BannerSource,
+} from "./banner";
 import { DEFAULT_BUILDER_CATEGORIES } from "./types";
+import type { UiShop } from "@/services/mappers";
 
 export type ShopDraft = {
   step: 0 | 1 | 2;
@@ -12,6 +19,25 @@ export type ShopDraft = {
   bannerPreset: string;
   bannerImageUrl: string;
 };
+
+/** Hydrate the create/publish builder draft from an existing shop (e.g. duplicate). */
+export function shopDraftFromShop(shop: UiShop): ShopDraft {
+  const source: BannerSource = {
+    bannerConfig: shop.bannerConfig,
+    logoUrl: shop.logoUrl,
+  };
+  return {
+    step: 1,
+    name: shop.name,
+    currency: shop.currency,
+    companyEmailDomain: shop.companyEmailDomain || "",
+    logoUrl: shop.logoUrl || "",
+    categories: shop.categories.length ? shop.categories : DEFAULT_BUILDER_CATEGORIES,
+    bannerTheme: bannerThemeKey(source),
+    bannerPreset: bannerPresetKey(source),
+    bannerImageUrl: bannerImageUrlKey(source),
+  };
+}
 
 export const INITIAL_SHOP_DRAFT: ShopDraft = {
   step: 0,

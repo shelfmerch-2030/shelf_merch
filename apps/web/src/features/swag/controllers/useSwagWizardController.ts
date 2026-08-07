@@ -88,8 +88,10 @@ export function useSwagWizardController(): SwagWizardVm {
       : editCollection.shopId
         ? [editCollection.shopId]
         : [];
-    if (linked.length) setPickedShops(new Set(linked));
-  }, [editCollection, catalog, navigate]);
+    const available = new Set(shops.map((s) => s.id));
+    const validLinked = linked.filter((id) => available.has(id));
+    if (validLinked.length) setPickedShops(new Set(validLinked));
+  }, [editCollection, catalog, navigate, shops]);
 
   const pickedProducts = draft.picked.map((i) => catalog[i]).filter(Boolean) as UiProduct[];
   const shopName = shopId ? workspace?.shops.find((s) => s.id === shopId)?.name : undefined;
@@ -208,11 +210,12 @@ export function useSwagWizardController(): SwagWizardVm {
 
       await syncPublish.mutateAsync({
         collectionId: col.id,
-        shopIds: [...pickedShops],
+        shopIds: [...pickedShops].filter((id) => shops.some((s) => s.id === id)),
       });
 
+      const publishedCount = [...pickedShops].filter((id) => shops.some((s) => s.id === id)).length;
       toast.success(
-        `Published "${col.name}" to ${pickedShops.size} ${pickedShops.size === 1 ? "shop" : "shops"}`,
+        `Published "${col.name}" to ${publishedCount} ${publishedCount === 1 ? "shop" : "shops"}`,
       );
       onExit();
     } catch (err) {

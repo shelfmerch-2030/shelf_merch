@@ -40,18 +40,15 @@ export function ProductInfoTabs({
   );
 
   const [activeTab, setActiveTab] = useState<Tab>("description");
-  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     setActiveTab(tabs[0]?.id ?? "description");
-    setDescExpanded(false);
   }, [product.id, product.nm, tabs]);
 
   if (!tabs.length) {
     return <p className="muted">No product information available.</p>;
   }
 
-  const shortDesc = desc.length > 280 && !descExpanded ? `${desc.slice(0, 280).trim()}…` : desc;
   const featureRows = detailRows(keyFeatures);
   const useTabs = tabs.length > 1;
   const currentTab = useTabs ? activeTab : tabs[0].id;
@@ -82,17 +79,7 @@ export function ProductInfoTabs({
         role="tabpanel"
         hidden={currentTab !== "description"}
       >
-        <p style={{ whiteSpace: "pre-line" }}>{detailText(shortDesc)}</p>
-        {desc.length > 280 ? (
-          <button
-            type="button"
-            className="lnk"
-            style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }}
-            onClick={() => setDescExpanded((v) => !v)}
-          >
-            {descExpanded ? "See less" : "See more"}
-          </button>
-        ) : null}
+        <p style={{ whiteSpace: "pre-line" }}>{detailText(desc)}</p>
       </div>
 
       <div

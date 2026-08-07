@@ -32,6 +32,7 @@ export type ShopDetailVm = {
   onSendPoints: (campaignId?: string) => void;
   onStartDesigning: () => void;
   onViewLiveShop: () => void;
+  onPublishShop: () => void;
 };
 
 /** Controller for the shop detail page: route param, tab state (URL-synced), navigation. */
@@ -140,6 +141,10 @@ export function useShopDetailController(): ShopDetailVm {
     onViewLiveShop: () => {
       if (!shop) return;
       window.open(shopStorefrontHref(shop), "_blank", "noopener");
+    },
+    onPublishShop: () => {
+      if (!shop || !canEditShop || shop.live) return;
+      navigate(`/app/shops/${shop.id}/publish`);
     },
   };
 }

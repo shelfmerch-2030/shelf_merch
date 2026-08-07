@@ -27,6 +27,11 @@ import { transitionRedemption, finalizeRecipientRedemption } from '../campaigns/
 import { computeAmountBreakdown, amountBreakdownForKitCampaign } from '../../services/pricing.service.js';
 import { recordUsage } from '../../services/usage.service.js';
 import { sumKitProductPrices } from '../kits/kitPricing.js';
+import {
+  isCuratedKitMeta,
+  parseCuratedKitMeta,
+  resolveCuratedApproxValueInr,
+} from '../kits/curatedKitMeta.js';
 import { env } from '../../config/env.js';
 import { redemptionSignOptions, redemptionVerifyOptions } from '../../config/jwt.js';
 import { sendOtpSms } from '../../services/msg91.service.js';
@@ -50,23 +55,12 @@ const KIT_PRODUCT_SELECT =
   'name brand group category description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl maskLeftImageUrl baseLeftImageUrl maskRightImageUrl baseRightImageUrl variants printAreas physicalDimensions dpi'
 
 /** Active catalog rows for a kit — same list shown to recipients and validated on submit. */
-function parseCuratedMeta(designNotes) {
-  try {
-    if (!designNotes) return null;
-    const parsed = typeof designNotes === 'string' ? JSON.parse(designNotes) : designNotes;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.curated || parsed.originalId) return parsed;
-    if (Array.isArray(parsed.itemImages) && parsed.itemImages.length) {
-      return { ...parsed, curated: true };
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
+function isCuratedBundle(kitEntries, curatedMeta) {
+  return isCuratedKitMeta(curatedMeta);
 }
 
-function curatedKitUnitPriceInr(kit, meta) {
-  return Math.round(Number(meta?.approxValueInr) || Number(kit?.kitPrice) || 0);
+async function curatedKitUnitPriceInr(kit, meta) {
+  return resolveCuratedApproxValueInr(kit, meta);
 }
 
 /** Display rows for curated kits that have no tenant catalog productRefs. */
@@ -125,8 +119,8 @@ function buildCuratedRedemptionItems(kit, meta) {
   ];
 }
 
-function buildCuratedOrderLineItem(kit, meta) {
-  const pricePerKit = curatedKitUnitPriceInr(kit, meta);
+async function buildCuratedOrderLineItem(kit, meta) {
+  const pricePerKit = await curatedKitUnitPriceInr(kit, meta);
   const hero = meta?.heroImage || kit.artworkUrl || meta?.imageUrls?.[0] || '';
   return {
     name: kit.name || 'Kit',
@@ -611,8 +605,8 @@ export async function getKitContents(token) {
   if (!kit) throw new NotFoundError('Kit not found');
 
   const entries = await loadActiveKitEntries(kit);
-  const curatedMeta = parseCuratedMeta(kit.designNotes);
-  const curatedBundle = entries.length === 0 && Boolean(curatedMeta);
+  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  const curatedBundle = isCuratedBundle(entries, curatedMeta);
   const items = curatedBundle
     ? buildCuratedRedemptionItems(kit, curatedMeta)
     : entries.map((entry) => mapKitEntryToItem(entry, kit));
@@ -626,8 +620,41 @@ export async function getKitContents(token) {
 
 async function nextOrderNumber() {
   const year = new Date().getFullYear();
-  const count = await Order.countDocuments({}).setOptions({ skipTenantGuard: true });
-  return `SM-${year}-${String(count + 1).padStart(6, '0')}`;
+  const prefix = `SM-${year}-`;
+  // Must use max sequence, not count — gaps / deleted rows make count+1 collide
+  // with an existing unique orderNumber (Mongo 409 DUPLICATE).
+  const latest = await Order.findOne({ orderNumber: { $regex: `^${prefix}` } })
+    .sort({ orderNumber: -1 })
+    .select('orderNumber')
+    .setOptions({ skipTenantGuard: true, includeDeleted: true })
+    .lean();
+  let seq = 1;
+  if (latest?.orderNumber) {
+    const parsed = Number.parseInt(String(latest.orderNumber).slice(prefix.length), 10);
+    if (Number.isFinite(parsed) && parsed >= 0) seq = parsed + 1;
+  }
+  return `${prefix}${String(seq).padStart(6, '0')}`;
+}
+
+async function createOrderWithNumber(doc, { attempts = 5 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await Order.create({
+        ...doc,
+        orderNumber: doc.orderNumber || (await nextOrderNumber()),
+      });
+    } catch (err) {
+      lastErr = err;
+      if (err?.code !== 11000) throw err;
+      // Retry only orderNumber collisions.
+      if (!String(err?.message || '').includes('orderNumber') && !err?.keyPattern?.orderNumber) {
+        throw err;
+      }
+      doc = { ...doc, orderNumber: undefined };
+    }
+  }
+  throw lastErr;
 }
 
 async function applyOrderInventory(order, campaign) {
@@ -660,7 +687,11 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
   const kit = await Kit.findOne({ _id: campaign.kitId, tenantId });
   if (!kit) throw new NotFoundError('Kit not found');
   const kitEntries = await loadActiveKitEntries(kit);
-  if (!kitEntries.length) throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
+  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
+  if (!kitEntries.length && !curatedBundle) {
+    throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
+  }
 
   const recipients = await Recipient.find({ tenantId, campaignId: campaign._id });
   const recipientContacts = [];
@@ -682,45 +713,62 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
   for (const { recipient, contact, address } of recipientContacts) {
     const existing = await Order.findOne({ tenantId, recipientId: recipient._id });
     if (existing) continue;
-    const lineItems = [];
-    for (const { ref, product: entryProduct } of kitEntries) {
-      const product = await CatalogProduct.findById(entryProduct._id).select('+costPriceInr');
-      if (!product) throw new NotFoundError(`Product ${entryProduct._id} not found`);
-      const options = resolveKitItemOptions(product, ref);
-      const chosen = recipient.variants?.[String(entryProduct._id)];
-      const variant = {
-        size: chosen?.size ?? options.sizes[0] ?? '',
-        color: chosen?.color ?? options.colors[0] ?? '',
-      };
-      const selectedVariant = (product.variants || []).find(
-        (v) =>
-          (!variant.size || v.size === variant.size) &&
-          (!variant.color || v.color === variant.color),
-      );
-      lineItems.push({
-        catalogProductId: product._id,
-        name: product.name,
-        sku: selectedVariant?.sku || product.sku,
-        variant,
-        qty: 1,
-        unitPriceInr: product.basePriceInr,
-        costPriceInr: product.costPriceInr ?? 0,
-        gstRate: product.gstRate ?? 18,
-        hsnCode: product.hsnCode ?? '',
-        imageUrl:
-          kitProductImageUrl(product, ref) ||
-          product.maskImageUrl ||
-          product.primaryImageUrl ||
-          product.imageUrls?.[0] ||
-          '',
+
+    let lineItems;
+    let amountBreakdown;
+    if (curatedBundle) {
+      lineItems = [await buildCuratedOrderLineItem(kit, curatedMeta)];
+      amountBreakdown = amountBreakdownForKitCampaign(campaign, {
+        kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
+        packaging: campaign.packaging,
+        orderKitCount: 1,
+      });
+    } else {
+      lineItems = [];
+      for (const { ref, product: entryProduct } of kitEntries) {
+        const product = await CatalogProduct.findById(entryProduct._id).select('+costPriceInr');
+        if (!product) throw new NotFoundError(`Product ${entryProduct._id} not found`);
+        const options = resolveKitItemOptions(product, ref);
+        const chosen = recipient.variants?.[String(entryProduct._id)];
+        const variant = {
+          size: chosen?.size ?? options.sizes[0] ?? '',
+          color: chosen?.color ?? options.colors[0] ?? '',
+        };
+        const selectedVariant = (product.variants || []).find(
+          (v) =>
+            (!variant.size || v.size === variant.size) &&
+            (!variant.color || v.color === variant.color),
+        );
+        lineItems.push({
+          catalogProductId: product._id,
+          name: product.name,
+          sku: selectedVariant?.sku || product.sku,
+          variant,
+          qty: 1,
+          unitPriceInr: product.basePriceInr,
+          costPriceInr: product.costPriceInr ?? 0,
+          gstRate: product.gstRate ?? 18,
+          hsnCode: product.hsnCode ?? '',
+          imageUrl:
+            kitProductImageUrl(product, ref) ||
+            product.maskImageUrl ||
+            product.primaryImageUrl ||
+            product.imageUrls?.[0] ||
+            '',
+        });
+      }
+      amountBreakdown = amountBreakdownForKitCampaign(campaign, {
+        kitUnitPriceInr: sumKitProductPrices(kitEntries.map((e) => e.product)),
+        packaging: campaign.packaging,
+        orderKitCount: 1,
+        products: kitEntries.map((e) => e.product),
       });
     }
 
-    const order = await Order.create({
+    const order = await createOrderWithNumber({
       tenantId,
       campaignId: campaign._id,
       recipientId: recipient._id,
-      orderNumber: await nextOrderNumber(),
       items: lineItems,
       shippingAddress: {
         name: recipient.name,
@@ -732,12 +780,7 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
         pincode: address.pincode,
         country: address.country || 'IN',
       },
-      amountBreakdown: amountBreakdownForKitCampaign(campaign, {
-        kitUnitPriceInr: sumKitProductPrices(kitEntries.map((e) => e.product)),
-        packaging: campaign.packaging,
-        orderKitCount: 1,
-        products: kitEntries.map((e) => e.product),
-      }),
+      amountBreakdown,
       status: 'created',
       statusHistory: [
         { status: 'created', at: new Date(), actorUserId: null, note: 'Surprise gift auto-fulfillment' },
@@ -747,7 +790,9 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
     scheduleOrderInvoiceGeneration(order);
     transitionRedemption(recipient, 'order_created');
     await recipient.save();
-    await applyOrderInventory(order, campaign);
+    if (!curatedBundle) {
+      await applyOrderInventory(order, campaign);
+    }
   }
 }
 
@@ -777,61 +822,82 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
   const kit = await Kit.findOne({ _id: campaign.kitId, tenantId });
   if (!kit) throw new NotFoundError('Kit not found');
   const kitEntries = await loadActiveKitEntries(kit);
-  if (!kitEntries.length) throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
-
-  const lineItems = [];
-  for (const { ref, product: entryProduct } of kitEntries) {
-    const product = await CatalogProduct.findById(entryProduct._id).select('+costPriceInr');
-    if (!product) throw new NotFoundError(`Product ${entryProduct._id} not found`);
-    const options = resolveKitItemOptions(product, ref);
-
-    const variantGroups = {}; // key: "size|color" -> { variant, qty }
-    for (const recipient of recipients) {
-      const chosen = recipient.variants?.[String(entryProduct._id)];
-      const size = chosen?.size ?? options.sizes[0] ?? '';
-      const color = chosen?.color ?? options.colors[0] ?? '';
-      const key = `${size}|${color}`;
-      if (!variantGroups[key]) {
-        variantGroups[key] = {
-          variant: { size, color },
-          qty: 0,
-        };
-      }
-      variantGroups[key].qty += 1;
-    }
-
-    for (const key of Object.keys(variantGroups)) {
-      const { variant, qty } = variantGroups[key];
-      const selectedVariant = (product.variants || []).find(
-        (v) =>
-          (!variant.size || v.size === variant.size) &&
-          (!variant.color || v.color === variant.color),
-      );
-      lineItems.push({
-        catalogProductId: product._id,
-        name: product.name,
-        sku: selectedVariant?.sku || product.sku,
-        variant,
-        qty,
-        unitPriceInr: product.basePriceInr,
-        costPriceInr: product.costPriceInr ?? 0,
-        gstRate: product.gstRate ?? 18,
-        hsnCode: product.hsnCode ?? '',
-        imageUrl:
-          kitProductImageUrl(product, ref) ||
-          product.maskImageUrl ||
-          product.primaryImageUrl ||
-          product.imageUrls?.[0] ||
-          '',
-      });
-    }
+  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
+  if (!kitEntries.length && !curatedBundle) {
+    throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
   }
 
-  const order = await Order.create({
+  let lineItems;
+  let amountBreakdown;
+  if (curatedBundle) {
+    const unit = await buildCuratedOrderLineItem(kit, curatedMeta);
+    lineItems = [{ ...unit, qty: recipients.length }];
+    amountBreakdown = amountBreakdownForKitCampaign(campaign, {
+      kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
+      packaging: campaign.packaging,
+      orderKitCount: recipients.length,
+    });
+  } else {
+    lineItems = [];
+    for (const { ref, product: entryProduct } of kitEntries) {
+      const product = await CatalogProduct.findById(entryProduct._id).select('+costPriceInr');
+      if (!product) throw new NotFoundError(`Product ${entryProduct._id} not found`);
+      const options = resolveKitItemOptions(product, ref);
+
+      const variantGroups = {}; // key: "size|color" -> { variant, qty }
+      for (const recipient of recipients) {
+        const chosen = recipient.variants?.[String(entryProduct._id)];
+        const size = chosen?.size ?? options.sizes[0] ?? '';
+        const color = chosen?.color ?? options.colors[0] ?? '';
+        const key = `${size}|${color}`;
+        if (!variantGroups[key]) {
+          variantGroups[key] = {
+            variant: { size, color },
+            qty: 0,
+          };
+        }
+        variantGroups[key].qty += 1;
+      }
+
+      for (const key of Object.keys(variantGroups)) {
+        const { variant, qty } = variantGroups[key];
+        const selectedVariant = (product.variants || []).find(
+          (v) =>
+            (!variant.size || v.size === variant.size) &&
+            (!variant.color || v.color === variant.color),
+        );
+        lineItems.push({
+          catalogProductId: product._id,
+          name: product.name,
+          sku: selectedVariant?.sku || product.sku,
+          variant,
+          qty,
+          unitPriceInr: product.basePriceInr,
+          costPriceInr: product.costPriceInr ?? 0,
+          gstRate: product.gstRate ?? 18,
+          hsnCode: product.hsnCode ?? '',
+          imageUrl:
+            kitProductImageUrl(product, ref) ||
+            product.maskImageUrl ||
+            product.primaryImageUrl ||
+            product.imageUrls?.[0] ||
+            '',
+        });
+      }
+    }
+    amountBreakdown = amountBreakdownForKitCampaign(campaign, {
+      kitUnitPriceInr: sumKitProductPrices(kitEntries.map((e) => e.product)),
+      packaging: campaign.packaging,
+      orderKitCount: recipients.length,
+      products: kitEntries.map((e) => e.product),
+    });
+  }
+
+  const order = await createOrderWithNumber({
     tenantId,
     campaignId: campaign._id,
     recipientId: recipients[0]._id,
-    orderNumber: await nextOrderNumber(),
     items: lineItems,
     shippingAddress: {
       name: location.name,
@@ -843,12 +909,7 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
       pincode: location.pincode,
       country: location.country || 'IN',
     },
-    amountBreakdown: amountBreakdownForKitCampaign(campaign, {
-      kitUnitPriceInr: sumKitProductPrices(kitEntries.map((e) => e.product)),
-      packaging: campaign.packaging,
-      orderKitCount: recipients.length,
-      products: kitEntries.map((e) => e.product),
-    }),
+    amountBreakdown,
     status: 'created',
     statusHistory: [
       { status: 'created', at: new Date(), actorUserId: null, note: 'Single-location auto-fulfillment' },
@@ -860,8 +921,53 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
     transitionRedemption(recipient, 'order_created');
     await recipient.save();
   }
-  await applyOrderInventory(order, campaign);
+  if (!curatedBundle) {
+    await applyOrderInventory(order, campaign);
+  }
   return order;
+}
+
+/**
+ * Create Orders for surprise/single kit campaigns that launched without them
+ * (historical curated KIT_EMPTY failures). Idempotent per recipient.
+ */
+export async function repairMissingKitFulfillmentOrders({ tenantId = null } = {}) {
+  const filter = {
+    type: { $in: ['kit', 'items'] },
+    fulfillmentMode: { $in: ['surprise', 'single'] },
+    status: { $in: ['launched', 'redemption_open'] },
+  };
+  if (tenantId) filter.tenantId = tenantId;
+
+  const campaigns = await Campaign.find(filter)
+    .select('_id tenantId fulfillmentMode')
+    .setOptions(tenantId ? {} : { skipTenantGuard: true })
+    .lean();
+  if (!campaigns.length) return { repaired: 0 };
+
+  let repaired = 0;
+  for (const row of campaigns) {
+    const tid = row.tenantId;
+    const existing = await Order.exists({ tenantId: tid, campaignId: row._id });
+    if (existing) continue;
+
+    const campaign = await Campaign.findOne({ _id: row._id, tenantId: tid });
+    if (!campaign) continue;
+    try {
+      if (campaign.fulfillmentMode === 'surprise') {
+        await createSurpriseOrdersForCampaign({ tenantId: tid, campaign });
+      } else if (campaign.fulfillmentMode === 'single') {
+        await createSingleLocationOrderForCampaign({ tenantId: tid, campaign });
+      }
+      repaired += 1;
+    } catch (err) {
+      console.error(
+        `repairMissingKitFulfillmentOrders failed for campaign ${campaign._id}:`,
+        err?.message || err,
+      );
+    }
+  }
+  return { repaired };
 }
 
 /** §7.9 /submit — idempotent order creation from redemption. */
@@ -893,8 +999,8 @@ export async function submitRedemption(
     kit = await Kit.findOne({ _id: campaign.kitId, tenantId: recipient.tenantId });
     if (!kit) throw new NotFoundError('Kit not found');
     kitEntries = await loadActiveKitEntries(kit);
-    curatedMeta = parseCuratedMeta(kit.designNotes);
-    const curatedBundle = kitEntries.length === 0 && Boolean(curatedMeta);
+    curatedMeta = parseCuratedKitMeta(kit.designNotes);
+    const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
 
     if (!curatedBundle) {
       if (!kitEntries.length) {
@@ -916,10 +1022,10 @@ export async function submitRedemption(
   const lineItems = [];
   let breakdown;
 
-  if (kitFulfillment && kitEntries.length === 0 && curatedMeta) {
-    lineItems.push(buildCuratedOrderLineItem(kit, curatedMeta));
+  if (kitFulfillment && isCuratedBundle(kitEntries, curatedMeta)) {
+    lineItems.push(await buildCuratedOrderLineItem(kit, curatedMeta));
     breakdown = amountBreakdownForKitCampaign(campaign, {
-      kitUnitPriceInr: curatedKitUnitPriceInr(kit, curatedMeta),
+      kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
       packaging: campaign.packaging,
       orderKitCount: 1,
     });
@@ -1060,12 +1166,10 @@ export async function submitRedemption(
     }
   }
 
-  const orderNumber = await nextOrderNumber();
-  const order = await Order.create({
+  const order = await createOrderWithNumber({
     tenantId: recipient.tenantId,
     campaignId: campaign._id,
     recipientId: recipient._id,
-    orderNumber,
     items: lineItems,
     shippingAddress,
     amountBreakdown: breakdown,

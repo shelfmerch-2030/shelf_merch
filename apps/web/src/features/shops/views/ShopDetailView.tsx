@@ -95,6 +95,10 @@ export function ShopDetailView(vm: ShopDetailVm) {
                   View shop
                 </button>
               </>
+            ) : vm.canEditShop ? (
+              <button type="button" className="btn btn-brand btn-sm" onClick={vm.onPublishShop}>
+                Publish
+              </button>
             ) : (
               <span className="mut3" style={{ fontSize: 13 }}>
                 Publish to view shop

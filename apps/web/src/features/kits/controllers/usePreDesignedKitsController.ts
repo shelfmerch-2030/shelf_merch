@@ -63,23 +63,8 @@ function buildProductRefs(
     });
   }
 
-  if (productRefs.length === 0 && catalogProducts.length > 0) {
-    const fallbackCount = Math.max(
-      1,
-      (Array.isArray(kit.itemImages) && kit.itemImages.length
-        ? kit.itemImages.length
-        : (kit.imageUrls?.length || 1) - 1) || 1,
-    );
-    for (const product of catalogProducts.slice(0, fallbackCount)) {
-      if (!product.id) continue;
-      productRefs.push({
-        catalogProductId: product.id,
-        brand: product.brand || "",
-        name: product.nm || "Product",
-        group: product.g || product.category || "",
-      });
-    }
-  }
+  // Curated templates may have no catalog items — keep productRefs empty so
+  // fulfillment uses curated designNotes (itemImages / approxValueInr).
 
   return productRefs;
 }
