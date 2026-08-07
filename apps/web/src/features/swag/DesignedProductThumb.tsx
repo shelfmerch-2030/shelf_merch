@@ -257,6 +257,8 @@ export function DesignedProductThumb({
   onViewChange,
   /** Show back on hover instead of Front/Back buttons (Swag collection cards). */
   hoverSwapViews = false,
+  /** Force front view and hide Front/Back chips (e.g. Send Kit recipient table). */
+  frontOnly = false,
   className,
   style,
 }: {
@@ -271,6 +273,7 @@ export function DesignedProductThumb({
   onViewChange?: (view: ProductViewKey) => void;
   /** Hover swaps to back when a back asset exists; hides Front/Back chips. */
   hoverSwapViews?: boolean;
+  frontOnly?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -280,12 +283,13 @@ export function DesignedProductThumb({
   const canShowBack = availableViews.includes("back");
   const canShowFront = availableViews.includes("front");
   const [uncontrolledView, setUncontrolledView] = useState<ProductViewKey>("front");
-  const view = viewProp ?? uncontrolledView;
+  const view = frontOnly ? "front" : (viewProp ?? uncontrolledView);
   const setView = (next: ProductViewKey) => {
+    if (frontOnly) return;
     onViewChange?.(next);
     if (viewProp == null) setUncontrolledView(next);
   };
-  const useHoverSwap = hoverSwapViews && canShowBack && canShowFront && viewProp == null;
+  const useHoverSwap = !frontOnly && hoverSwapViews && canShowBack && canShowFront && viewProp == null;
 
   // Only use the bake that matches the active view — never fall back to the other side.
   const viewBaked = view === "back" ? bakedBack : view === "front" ? bakedFront : "";
@@ -335,7 +339,7 @@ export function DesignedProductThumb({
   const isDefaultTint = isDefaultMockupTint(tintHex);
   const showBaked = Boolean(viewBaked && isDefaultTint && preferBakedMockup);
   const liveTintHex = tintHex || DEFAULT_MOCKUP_TINT_HEX;
-  const showViewToggle = availableViews.length > 1 && viewProp == null && !hoverSwapViews;
+  const showViewToggle = !frontOnly && availableViews.length > 1 && viewProp == null && !hoverSwapViews;
   const viewLabel = (v: ProductViewKey) =>
     v === "front" ? "Front" : v === "back" ? "Back" : v === "left" ? "Left" : "Right";
 

@@ -21,9 +21,15 @@ export function PublishCollectionDialog({
 
   useEffect(() => {
     if (open && collection) {
-      setPicked(new Set(collection.shopIds.length ? collection.shopIds : collection.shopId ? [collection.shopId] : []));
+      const available = new Set(shops.map((s) => s.id));
+      const linked = collection.shopIds.length
+        ? collection.shopIds
+        : collection.shopId
+          ? [collection.shopId]
+          : [];
+      setPicked(new Set(linked.filter((id) => available.has(id))));
     }
-  }, [open, collection]);
+  }, [open, collection, shops]);
 
   function toggle(shopId: string) {
     setPicked((prev) => {
@@ -36,14 +42,16 @@ export function PublishCollectionDialog({
 
   async function save() {
     if (!collection) return;
+    const available = new Set(shops.map((s) => s.id));
+    const shopIds = [...picked].filter((id) => available.has(id));
     try {
       await syncPublish.mutateAsync({
         collectionId: collection.id,
-        shopIds: [...picked],
+        shopIds,
       });
       toast.success(
-        picked.size
-          ? `Published to ${picked.size} ${picked.size === 1 ? "shop" : "shops"}`
+        shopIds.length
+          ? `Published to ${shopIds.length} ${shopIds.length === 1 ? "shop" : "shops"}`
           : "Collection unpublished from all shops",
       );
       onOpenChange(false);

@@ -19,12 +19,15 @@ export function ShopBuilderStep({
   onExit,
   onPublish,
   publishing,
+  publishLabel = "Save & publish",
 }: {
   draft: ShopDraft;
   dispatch: Dispatch<ShopDraftAction>;
   onExit: () => void;
   onPublish: () => void;
   publishing: boolean;
+  /** Top-bar confirm label (create uses Save & publish; draft publish uses Publish). */
+  publishLabel?: string;
 }) {
   const [bannerOpen, setBannerOpen] = useState(false);
   const source: BannerSource = {
@@ -71,7 +74,7 @@ export function ShopBuilderStep({
           disabled={publishing}
           onClick={onPublish}
         >
-          {publishing ? "Publishing…" : "Save & publish"}
+          {publishing ? "Publishing…" : publishLabel}
         </button>
       </div>
 

@@ -37,6 +37,11 @@ const tenantChildren: RouteObject[] = [
             lazy: page(() => import("@/features/shops/ShopDetailPage"), "ShopDetailPage"),
           },
           {
+            path: "publish",
+            loader: () => (requireTenantArea("shops", "write"), null),
+            lazy: page(() => import("@/features/shops/PublishShopWizard"), "PublishShopWizard"),
+          },
+          {
             path: "designs/:collectionId",
             lazy: page(
               () => import("@/features/shops/ShopDesignDetailPage"),

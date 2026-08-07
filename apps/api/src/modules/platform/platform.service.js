@@ -50,6 +50,13 @@ function buildOrderFilter(query) {
 }
 
 export async function listPlatformOrders({ query }) {
+  try {
+    const { repairMissingKitFulfillmentOrders } = await import('../redemptions/redemptions.service.js');
+    await repairMissingKitFulfillmentOrders({});
+  } catch (err) {
+    console.error('repairMissingKitFulfillmentOrders (platform) failed:', err);
+  }
+
   const { page, limit, skip } = getPagination(query);
   const filter = buildOrderFilter(query);
 
@@ -231,8 +238,18 @@ export async function attachOrderMockup({ orderId, url, actor }) {
 
 async function nextOrderNumber() {
   const year = new Date().getFullYear();
-  const count = await Order.countDocuments({}).setOptions({ skipTenantGuard: true });
-  return `SM-${year}-${String(count + 1).padStart(6, '0')}`;
+  const prefix = `SM-${year}-`;
+  const latest = await Order.findOne({ orderNumber: { $regex: `^${prefix}` } })
+    .sort({ orderNumber: -1 })
+    .select('orderNumber')
+    .setOptions({ skipTenantGuard: true, includeDeleted: true })
+    .lean();
+  let seq = 1;
+  if (latest?.orderNumber) {
+    const parsed = Number.parseInt(String(latest.orderNumber).slice(prefix.length), 10);
+    if (Number.isFinite(parsed) && parsed >= 0) seq = parsed + 1;
+  }
+  return `${prefix}${String(seq).padStart(6, '0')}`;
 }
 
 /**
