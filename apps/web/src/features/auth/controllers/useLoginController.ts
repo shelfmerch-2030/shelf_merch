@@ -35,6 +35,9 @@ function loginErrorMessage(err: unknown): string {
         "Your organization account has been suspended. Please contact Shelf Merch support."
       );
     }
+    if (err.code === "NO_ACCOUNT") {
+      return "No account exists with this email. Sign up to create one.";
+    }
     if (err.code === "INVALID_CREDENTIALS") {
       return "Incorrect password.";
     }

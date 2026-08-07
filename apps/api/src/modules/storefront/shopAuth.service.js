@@ -131,6 +131,47 @@ async function findShopCredits({ tenantId, shopId, email }) {
 }
 
 /**
+ * Self-serve checkout campaigns require an Entity (schema FK). Tenants that
+ * published a shop before sending points/kits may have a wallet but no entity
+ * yet — bootstrap one so external shoppers can still log in and pay.
+ */
+async function ensureTenantEntity(tenantId) {
+  const { Entity } = await import('../entities/entity.model.js');
+  const { Wallet } = await import('../wallets/wallet.model.js');
+
+  let entity = await Entity.findOne({ tenantId })
+    .sort({ createdAt: 1 })
+    .setOptions({ skipTenantGuard: true });
+  if (entity) return entity;
+
+  let wallet = await Wallet.findOne({ tenantId })
+    .sort({ createdAt: 1 })
+    .setOptions({ skipTenantGuard: true });
+  if (!wallet) {
+    wallet = await Wallet.create({
+      tenantId,
+      name: 'Storefront',
+      currency: 'INR',
+      status: 'wallet_created',
+    });
+  }
+
+  // Race: another login may have created the entity between the find and now.
+  entity = await Entity.findOne({ tenantId })
+    .sort({ createdAt: 1 })
+    .setOptions({ skipTenantGuard: true });
+  if (entity) return entity;
+
+  entity = await Entity.create({
+    tenantId,
+    walletId: wallet._id,
+    name: wallet.name?.trim() || 'General',
+    description: 'Default department for storefront self-serve checkout',
+  });
+  return entity;
+}
+
+/**
  * Always return a redemption token shop customers can use with existing
  * redeem checkout / Razorpay APIs. Invited users keep their credit token;
  * public (0-credit) shoppers get a hidden self-serve recipient.
@@ -143,7 +184,6 @@ async function ensureCheckoutAccess({ shop, customer }) {
   });
   if (credits.redemptionToken) return credits;
 
-  const { Entity } = await import('../entities/entity.model.js');
   let campaign = await Campaign.findOne({
     tenantId: shop.tenantId,
     shopId: shop._id,
@@ -152,28 +192,30 @@ async function ensureCheckoutAccess({ shop, customer }) {
   }).setOptions({ skipTenantGuard: true });
 
   if (!campaign) {
-    const entity = await Entity.findOne({ tenantId: shop.tenantId })
-      .sort({ createdAt: 1 })
-      .setOptions({ skipTenantGuard: true });
-    if (!entity) {
-      throw new ApiError(
-        422,
-        'This store cannot accept paid checkout yet. Contact the store admin.',
-        'NO_ENTITY',
-      );
+    const entity = await ensureTenantEntity(shop.tenantId);
+    try {
+      campaign = await Campaign.create({
+        tenantId: shop.tenantId,
+        entityId: entity._id,
+        shopId: shop._id,
+        name: '__storefront_self_serve__',
+        type: 'points',
+        status: 'redemption_open',
+        fulfillmentMode: 'redeem',
+        pointsScope: 'shop',
+        creditsPerRecipient: 0,
+        createdBy: null,
+      });
+    } catch (err) {
+      // Concurrent signup/login may create the same hidden campaign.
+      campaign = await Campaign.findOne({
+        tenantId: shop.tenantId,
+        shopId: shop._id,
+        type: 'points',
+        name: '__storefront_self_serve__',
+      }).setOptions({ skipTenantGuard: true });
+      if (!campaign) throw err;
     }
-    campaign = await Campaign.create({
-      tenantId: shop.tenantId,
-      entityId: entity._id,
-      shopId: shop._id,
-      name: '__storefront_self_serve__',
-      type: 'points',
-      status: 'redemption_open',
-      fulfillmentMode: 'redeem',
-      pointsScope: 'shop',
-      creditsPerRecipient: 0,
-      createdBy: null,
-    });
   } else if (campaign.status !== 'redemption_open' && campaign.status !== 'launched') {
     campaign.status = 'redemption_open';
     await campaign.save();
@@ -338,7 +380,14 @@ export async function loginShopCustomer({ shopId, email, password }) {
   const customer = await ShopCustomer.findOne({ shopId: shop._id, email: normalized }).select(
     '+passwordHash',
   );
-  if (!customer?.passwordHash) {
+  if (!customer) {
+    throw new ApiError(
+      401,
+      'No account exists with this email. Sign up to create one.',
+      'NO_ACCOUNT',
+    );
+  }
+  if (!customer.passwordHash) {
     throw new UnauthorizedError('Incorrect email or password.');
   }
   const ok = await bcrypt.compare(password, customer.passwordHash);
