@@ -359,8 +359,15 @@ export async function login({ email, password, ip, userAgent }) {
   await assertAllowedAuthEmail(email);
 
   const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
-  if (!user || !user.passwordHash) {
-    throw new UnauthorizedError('Incorrect password.');
+  if (!user) {
+    throw new ApiError(
+      401,
+      'No account exists with this email. Sign up to create one.',
+      'NO_ACCOUNT',
+    );
+  }
+  if (!user.passwordHash) {
+    throw new ApiError(401, 'Incorrect password.', 'INVALID_CREDENTIALS');
   }
   if (user.status === 'suspended') {
     throw new ApiError(

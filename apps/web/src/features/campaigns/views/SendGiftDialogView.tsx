@@ -69,7 +69,7 @@ export function SendGiftDialogView({
                   style={actionBtnStyle}
                   onClick={onStartSendPoints}
                 >
-                  Send points
+                  Send points/credits
                 </button>
               </div>
             </>
