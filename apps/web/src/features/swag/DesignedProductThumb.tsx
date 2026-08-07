@@ -201,11 +201,14 @@ function TintedMockupImage({
   product,
   layers,
   tintHex,
+  maskUrl,
   fallback,
 }: {
   product: UiProduct;
   layers: Array<{ artUrl: string; placement: Placement; areaKey: string }>;
   tintHex: string;
+  /** View-specific garment mask (front/back/side) — required so back tint uses the back asset. */
+  maskUrl?: string;
   fallback: ReactElement;
 }) {
   const [src, setSrc] = useState("");
@@ -216,7 +219,7 @@ function TintedMockupImage({
   useEffect(() => {
     const req = ++reqRef.current;
     setFailed(false);
-    bakeTintedMockupLayers(product, layers, tintHex)
+    bakeTintedMockupLayers(product, layers, tintHex, 1000, maskUrl)
       .then((url) => {
         if (req !== reqRef.current) return;
         if (url) setSrc(url);
@@ -225,7 +228,7 @@ function TintedMockupImage({
       .catch(() => {
         if (req === reqRef.current) setFailed(true);
       });
-  }, [product, layersKey, tintHex]);
+  }, [product, layersKey, tintHex, maskUrl]);
 
   if (failed || !src) return fallback;
   return (
@@ -386,13 +389,15 @@ export function DesignedProductThumb({
           style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
         />
       </div>
-    ) : !isDefaultTint && tintMask && layers.length ? (
+    ) : !isDefaultTint && tintMask ? (
+      // Tint the active view even when it has no print artwork (e.g. blank back).
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {viewToggle}
         <TintedMockupImage
           product={product}
           layers={layers}
           tintHex={liveTintHex}
+          maskUrl={tintMask}
           fallback={
             <MaskArtworkComposite
               product={product}

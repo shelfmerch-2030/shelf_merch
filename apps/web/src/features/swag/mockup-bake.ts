@@ -806,8 +806,11 @@ export async function bakeTintedMockupLayers(
   layers: Array<{ artUrl: string; placement: Placement | null; areaKey: string }>,
   tintHex: string,
   size = 1000,
+  /** Explicit view mask (back/side). When omitted, derived from the first layer area or front. */
+  maskUrlOverride?: string,
 ): Promise<string> {
-  const maskUrl = designImgUrl(ep);
+  const fromLayer = layers[0]?.areaKey ? designImgUrl(ep, layers[0].areaKey) : "";
+  const maskUrl = resolveMediaUrl(maskUrlOverride) || fromLayer || designImgUrl(ep);
   if (!maskUrl || !tintHex) return "";
   const usable = layers.filter((l) => l.artUrl);
   try {
