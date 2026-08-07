@@ -632,6 +632,10 @@ export type PlatformProduct = {
   maskImageUrl?: string;
   baseBackImageUrl?: string;
   maskBackImageUrl?: string;
+  baseLeftImageUrl?: string;
+  maskLeftImageUrl?: string;
+  baseRightImageUrl?: string;
+  maskRightImageUrl?: string;
   printAreas: PrintArea[];
   inventory?: { available?: number; mode?: string };
   source?: { provider?: string; domain?: string; externalId?: string; handle?: string };
@@ -687,12 +691,18 @@ export function updateVariant(id: string, variantId: string, patch: Partial<Prod
   });
 }
 
-/** Upload a production image. Front: 'base'|'mask'. Back: 'base_back'|'mask_back'. */
-export function uploadProductImage(
-  id: string,
-  file: File,
-  role: "base" | "mask" | "base_back" | "mask_back",
-) {
+export type ProductImageRole =
+  | "base"
+  | "mask"
+  | "base_back"
+  | "mask_back"
+  | "base_left"
+  | "mask_left"
+  | "base_right"
+  | "mask_right";
+
+/** Upload a production image by view role (front / back / left / right). */
+export function uploadProductImage(id: string, file: File, role: ProductImageRole) {
   const form = new FormData();
   form.append("images", file);
   form.append("role", role);
@@ -701,6 +711,10 @@ export function uploadProductImage(
     maskImageUrl: string;
     baseBackImageUrl?: string;
     maskBackImageUrl?: string;
+    baseLeftImageUrl?: string;
+    maskLeftImageUrl?: string;
+    baseRightImageUrl?: string;
+    maskRightImageUrl?: string;
   }>(`/platform/products/${id}/images`, { method: "POST", body: form });
 }
 

@@ -13,6 +13,7 @@ export {
   type PrintArea,
   type ProductInput,
   type ProductVariant,
+  type ProductImageRole,
 } from "@/services/platform-api";
 
 export const PRODUCT_WIZARD_STEPS = ["Details", "Variants", "Images", "Print areas", "Review"] as const;

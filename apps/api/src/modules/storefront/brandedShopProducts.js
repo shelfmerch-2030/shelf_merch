@@ -5,7 +5,7 @@ import { bootstrapActiveListingKeys } from '../shops/shopCatalogSync.js';
 import { listingKey } from '../shops/listingKeys.js';
 
 export const CATALOG_SELECT =
-  'name brand group category description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl variants printAreas physicalDimensions dpi';
+  'name brand group category description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl maskLeftImageUrl baseLeftImageUrl maskRightImageUrl baseRightImageUrl variants printAreas physicalDimensions dpi';
 
 /** One storefront row per Branded Swag design (collection × productRef). */
 export function mapBrandedListing(col, ref, base) {

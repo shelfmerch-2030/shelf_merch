@@ -191,16 +191,29 @@ export async function addImages(productId, urls) {
   return product;
 }
 
+const ROLE_IMAGE_FIELDS = {
+  base: 'baseImageUrl',
+  mask: 'maskImageUrl',
+  base_back: 'baseBackImageUrl',
+  mask_back: 'maskBackImageUrl',
+  base_left: 'baseLeftImageUrl',
+  mask_left: 'maskLeftImageUrl',
+  base_right: 'baseRightImageUrl',
+  mask_right: 'maskRightImageUrl',
+};
+
 /**
  * Set a production image by role.
- * Front: 'base' | 'mask'. Back: 'base_back' | 'mask_back'.
+ * Front: 'base' | 'mask'.
+ * Back / left / right: 'base_*' | 'mask_*'.
  */
 export async function setRoleImage(productId, role, url) {
   const product = await getProduct(productId);
-  if (role === 'base') product.baseImageUrl = url;
-  else if (role === 'base_back') product.baseBackImageUrl = url;
-  else if (role === 'mask_back') product.maskBackImageUrl = url;
-  else if (role === 'mask') {
+  const field = ROLE_IMAGE_FIELDS[role];
+  if (!field) {
+    throw new ApiError(422, `Unknown image role "${role}"`, 'INVALID_IMAGE_ROLE');
+  }
+  if (role === 'mask') {
     // Legacy Shopify imports stored the marketing photo in maskImageUrl.
     // Preserve that photo in the marketing fields before replacing the mask.
     if (
@@ -212,8 +225,8 @@ export async function setRoleImage(productId, role, url) {
       product.primaryImageUrl = product.maskImageUrl;
       product.imageUrls = [product.maskImageUrl];
     }
-    product.maskImageUrl = url;
   }
+  product[field] = url;
   await product.save();
   return product;
 }

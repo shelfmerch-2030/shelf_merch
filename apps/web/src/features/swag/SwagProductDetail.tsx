@@ -29,8 +29,8 @@ export function SwagProductDetail({
   // Only tint once the user actually picks a swatch, so the baked white Konva
   // mockup is shown on first paint (matches the storefront product page).
   const [hasUserPickedColor, setHasUserPickedColor] = useState(false);
-  const hasBackView = listProductViews(product).includes("back");
-  const productViews: ProductViewKey[] = hasBackView ? ["front", "back"] : ["front"];
+  const productViews = listProductViews(product);
+  const hasMultipleViews = productViews.length > 1;
   const [mockupView, setMockupView] = useState<ProductViewKey>("front");
 
   // Reset the selection back to the default (White) whenever the product changes.
@@ -41,15 +41,15 @@ export function SwagProductDetail({
   }, [product.id, collection.id]);
 
   useEffect(() => {
-    if (!hasBackView && mockupView === "back") setMockupView("front");
-  }, [hasBackView, mockupView]);
+    if (!productViews.includes(mockupView)) setMockupView("front");
+  }, [productViews, mockupView]);
 
   const selectedName = names[sel];
   const tintHex = getMockupTintHex(
     selectedName ? productColorHex(product, selectedName) : undefined,
     hasUserPickedColor,
   );
-  const activeView: ProductViewKey = hasBackView ? mockupView : "front";
+  const activeView: ProductViewKey = productViews.includes(mockupView) ? mockupView : "front";
 
   return (
     <div>
@@ -95,8 +95,8 @@ export function SwagProductDetail({
             product={product}
             artworkUrl={collection.artworkUrl}
             tintHex={tintHex}
-            view={hasBackView ? activeView : undefined}
-            onViewChange={hasBackView ? setMockupView : undefined}
+            view={hasMultipleViews ? activeView : undefined}
+            onViewChange={hasMultipleViews ? setMockupView : undefined}
           />
         </MockupViewGallery>
 

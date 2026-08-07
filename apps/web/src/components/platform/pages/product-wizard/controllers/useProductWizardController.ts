@@ -20,10 +20,26 @@ import {
   type ProductVariant,
   updateProduct,
   uploadProductImage,
+  type ProductImageRole,
 } from "../model";
 import { DEFAULT_DPI, DEFAULT_PHYSICAL, resolvePhysical } from "@/lib/printCoords";
 
 export type ProductWizardVm = ReturnType<typeof useProductWizardController>;
+export type ProductImageView = "front" | "back" | "left" | "right";
+
+const IMAGE_VIEWS: Array<{ key: ProductImageView; label: string }> = [
+  { key: "front", label: "Front view" },
+  { key: "back", label: "Back view" },
+  { key: "left", label: "Left side" },
+  { key: "right", label: "Right side" },
+];
+
+const VIEW_ROLES: Record<ProductImageView, { base: ProductImageRole; mask: ProductImageRole }> = {
+  front: { base: "base", mask: "mask" },
+  back: { base: "base_back", mask: "mask_back" },
+  left: { base: "base_left", mask: "mask_left" },
+  right: { base: "base_right", mask: "mask_right" },
+};
 
 /** Controller for the platform product create/edit wizard. */
 export function useProductWizardController(mode: "create" | "edit", productId?: string) {
@@ -43,7 +59,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   });
   const [dpi, setDpi] = useState(DEFAULT_DPI);
   const [previewColor, setPreviewColor] = useState<string>("");
-  const [imageView, setImageView] = useState<"front" | "back">("front");
+  const [imageView, setImageView] = useState<ProductImageView>("front");
 
   const categoryOptions = useMemo(
     () =>
@@ -117,41 +133,103 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     !product.primaryImageUrl &&
     !product.imageUrls?.length &&
     /^https?:\/\//i.test(product.maskImageUrl || "");
-  const marketingImageUrl = useMemo(() => {
-    const raw =
-      product?.primaryImageUrl ||
-      product?.imageUrls?.[0] ||
-      (legacyShopifyImageInMask ? product?.maskImageUrl : undefined);
-    return raw ? resolveMediaUrl(raw) : undefined;
-  }, [legacyShopifyImageInMask, product?.primaryImageUrl, product?.imageUrls, product?.maskImageUrl]);
-  const marketingBackImageUrl = useMemo(() => {
-    const urls = product?.imageUrls ?? [];
-    const primary = product?.primaryImageUrl || urls[0];
-    const back = urls.find((u) => u && u !== primary) || (urls.length > 1 ? urls[1] : undefined);
-    return back ? resolveMediaUrl(back) : undefined;
-  }, [product?.imageUrls, product?.primaryImageUrl]);
-  const baseStageImageUrl = product?.baseImageUrl ? resolveMediaUrl(product.baseImageUrl) : undefined;
-  const productionMaskImageUrl =
-    product?.maskImageUrl && !legacyShopifyImageInMask ? product.maskImageUrl : undefined;
-  const baseBackStageImageUrl = product?.baseBackImageUrl
-    ? resolveMediaUrl(product.baseBackImageUrl)
-    : undefined;
-  const productionMaskBackImageUrl = product?.maskBackImageUrl || undefined;
+  /** All Shopify / marketing gallery URLs (deduped), not just front+back. */
+  const marketingImageUrls = useMemo(() => {
+    const raw = [
+      product?.primaryImageUrl,
+      ...(product?.imageUrls ?? []),
+      legacyShopifyImageInMask ? product?.maskImageUrl : undefined,
+    ].filter((u): u is string => Boolean(u && String(u).trim()));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const url of raw) {
+      const resolved = resolveMediaUrl(url);
+      if (!resolved || seen.has(resolved)) continue;
+      seen.add(resolved);
+      out.push(resolved);
+    }
+    return out;
+  }, [
+    legacyShopifyImageInMask,
+    product?.primaryImageUrl,
+    product?.imageUrls,
+    product?.maskImageUrl,
+  ]);
+  const marketingImageUrl = marketingImageUrls[0];
+  const stageByView = useMemo(
+    () => ({
+      front: product?.baseImageUrl ? resolveMediaUrl(product.baseImageUrl) : undefined,
+      back: product?.baseBackImageUrl ? resolveMediaUrl(product.baseBackImageUrl) : undefined,
+      left: product?.baseLeftImageUrl ? resolveMediaUrl(product.baseLeftImageUrl) : undefined,
+      right: product?.baseRightImageUrl ? resolveMediaUrl(product.baseRightImageUrl) : undefined,
+    }),
+    [
+      product?.baseImageUrl,
+      product?.baseBackImageUrl,
+      product?.baseLeftImageUrl,
+      product?.baseRightImageUrl,
+    ],
+  );
+  const maskByView = useMemo(
+    () => ({
+      front:
+        product?.maskImageUrl && !legacyShopifyImageInMask ? product.maskImageUrl : undefined,
+      back: product?.maskBackImageUrl || undefined,
+      left: product?.maskLeftImageUrl || undefined,
+      right: product?.maskRightImageUrl || undefined,
+    }),
+    [
+      legacyShopifyImageInMask,
+      product?.maskImageUrl,
+      product?.maskBackImageUrl,
+      product?.maskLeftImageUrl,
+      product?.maskRightImageUrl,
+    ],
+  );
+  const baseStageImageUrl = stageByView.front;
+  const productionMaskImageUrl = maskByView.front;
+  const baseBackStageImageUrl = stageByView.back;
+  const productionMaskBackImageUrl = maskByView.back;
+  const baseLeftStageImageUrl = stageByView.left;
+  const productionMaskLeftImageUrl = maskByView.left;
+  const baseRightStageImageUrl = stageByView.right;
+  const productionMaskRightImageUrl = maskByView.right;
+  const activeStageUrl = stageByView[imageView];
+  const activeMaskUrl = maskByView[imageView];
   const printAreaImages = useMemo(
     () =>
-      [productionMaskImageUrl, productionMaskBackImageUrl].filter(Boolean) as string[],
-    [productionMaskImageUrl, productionMaskBackImageUrl],
+      [
+        productionMaskImageUrl,
+        productionMaskBackImageUrl,
+        productionMaskLeftImageUrl,
+        productionMaskRightImageUrl,
+      ].filter(Boolean) as string[],
+    [
+      productionMaskImageUrl,
+      productionMaskBackImageUrl,
+      productionMaskLeftImageUrl,
+      productionMaskRightImageUrl,
+    ],
   );
   const printAreaImageViews = useMemo(() => {
     const views: Array<{ url: string; key: string; label: string }> = [];
-    if (productionMaskImageUrl) {
-      views.push({ url: productionMaskImageUrl, key: "front", label: "Front" });
-    }
+    if (productionMaskImageUrl) views.push({ url: productionMaskImageUrl, key: "front", label: "Front" });
     if (productionMaskBackImageUrl) {
       views.push({ url: productionMaskBackImageUrl, key: "back", label: "Back" });
     }
+    if (productionMaskLeftImageUrl) {
+      views.push({ url: productionMaskLeftImageUrl, key: "left", label: "Left" });
+    }
+    if (productionMaskRightImageUrl) {
+      views.push({ url: productionMaskRightImageUrl, key: "right", label: "Right" });
+    }
     return views;
-  }, [productionMaskImageUrl, productionMaskBackImageUrl]);
+  }, [
+    productionMaskImageUrl,
+    productionMaskBackImageUrl,
+    productionMaskLeftImageUrl,
+    productionMaskRightImageUrl,
+  ]);
 
   async function refresh() {
     if (!id) return;
@@ -197,11 +275,11 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     }
   }
 
-  async function uploadMask(file: File | undefined) {
+  async function uploadActiveMask(file: File | undefined) {
     if (!id || !file) return;
     const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
     if (!isPng) {
-      setError("Design mask must be a PNG file.");
+      setError(`${IMAGE_VIEWS.find((v) => v.key === imageView)?.label || "Design"} mask must be a PNG file.`);
       return;
     }
     setBusy(true);
@@ -211,7 +289,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
         setError("Design mask must contain transparent pixels. Please upload a transparent PNG.");
         return;
       }
-      await uploadProductImage(id, file, "mask");
+      await uploadProductImage(id, file, VIEW_ROLES[imageView].mask);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -220,7 +298,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     }
   }
 
-  async function uploadBase(file: File | undefined) {
+  async function uploadActiveBase(file: File | undefined) {
     if (!id || !file) return;
     if (!file.type.startsWith("image/")) {
       setError("Product stage image must be an image file.");
@@ -229,48 +307,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     setBusy(true);
     setError("");
     try {
-      await uploadProductImage(id, file, "base");
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function uploadMaskBack(file: File | undefined) {
-    if (!id || !file) return;
-    const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
-    if (!isPng) {
-      setError("Back design mask must be a PNG file.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      if (!(await pngHasTransparency(file))) {
-        setError("Back design mask must contain transparent pixels. Please upload a transparent PNG.");
-        return;
-      }
-      await uploadProductImage(id, file, "mask_back");
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function uploadBaseBack(file: File | undefined) {
-    if (!id || !file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Back product stage image must be an image file.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      await uploadProductImage(id, file, "base_back");
+      await uploadProductImage(id, file, VIEW_ROLES[imageView].base);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -385,12 +422,19 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     colorSwatches,
     activeSwatch,
     firstHex,
+    marketingImageUrls,
     marketingImageUrl,
-    marketingBackImageUrl,
+    imageViews: IMAGE_VIEWS,
+    activeStageUrl,
+    activeMaskUrl,
     baseStageImageUrl,
     productionMaskImageUrl,
     baseBackStageImageUrl,
     productionMaskBackImageUrl,
+    baseLeftStageImageUrl,
+    productionMaskLeftImageUrl,
+    baseRightStageImageUrl,
+    productionMaskRightImageUrl,
     printAreaImages,
     printAreaImageViews,
     onBack: () => navigate("/platform/catalog"),
@@ -404,10 +448,8 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     onImageView: setImageView,
     onSaveDetails: saveDetails,
     onAddVariant: addOneVariant,
-    onUploadMask: uploadMask,
-    onUploadBase: uploadBase,
-    onUploadMaskBack: uploadMaskBack,
-    onUploadBaseBack: uploadBaseBack,
+    onUploadActiveMask: uploadActiveMask,
+    onUploadActiveBase: uploadActiveBase,
     onSaveAreas: saveAreas,
     onContinueFromVariants: continueFromVariants,
     onGoToStep: setStep,

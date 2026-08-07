@@ -7,12 +7,13 @@ import {
   bakeTintedMockupLayers,
   defaultPlacement,
   designImgUrl,
-  listPrintAreasForView,
+  listProductViews,
   pickPrintArea,
   printAreaViewKey,
   productThumbUrl,
   resolveProductArtworkLayers,
   type Placement,
+  type ProductViewKey,
 } from "./mockup-bake";
 
 function hexToRgbTuple(hex: string): [number, number, number] {
@@ -262,9 +263,9 @@ export function DesignedProductThumb({
   tintHex?: string;
   /** When true, prefer the saved baked mockup unless a non-white tint is set. */
   preferBakedMockup?: boolean;
-  /** Controlled front/back view (shop PDP gallery). */
-  view?: "front" | "back";
-  onViewChange?: (view: "front" | "back") => void;
+  /** Controlled garment view (shop PDP gallery). */
+  view?: ProductViewKey;
+  onViewChange?: (view: ProductViewKey) => void;
   /** Hover swaps to back when a back asset exists; hides Front/Back chips. */
   hoverSwapViews?: boolean;
   className?: string;
@@ -272,31 +273,22 @@ export function DesignedProductThumb({
 }) {
   const bakedFront = resolveMediaUrl(product.mockupUrl);
   const bakedBack = resolveMediaUrl(product.mockupBackUrl);
-  const canShowBack = Boolean(
-    bakedBack ||
-      resolveMediaUrl(product.maskBackImageUrl) ||
-      resolveMediaUrl(product.baseBackImageUrl) ||
-      listPrintAreasForView(product, "back").length,
-  );
-  const canShowFront = Boolean(
-    bakedFront ||
-      resolveMediaUrl(product.maskImageUrl) ||
-      resolveMediaUrl(product.baseImageUrl) ||
-      listPrintAreasForView(product, "front").length,
-  );
-  const [uncontrolledView, setUncontrolledView] = useState<"front" | "back">("front");
+  const availableViews = listProductViews(product);
+  const canShowBack = availableViews.includes("back");
+  const canShowFront = availableViews.includes("front");
+  const [uncontrolledView, setUncontrolledView] = useState<ProductViewKey>("front");
   const view = viewProp ?? uncontrolledView;
-  const setView = (next: "front" | "back") => {
+  const setView = (next: ProductViewKey) => {
     onViewChange?.(next);
     if (viewProp == null) setUncontrolledView(next);
   };
   const useHoverSwap = hoverSwapViews && canShowBack && canShowFront && viewProp == null;
 
   // Only use the bake that matches the active view — never fall back to the other side.
-  const viewBaked = view === "back" ? bakedBack : bakedFront;
+  const viewBaked = view === "back" ? bakedBack : view === "front" ? bakedFront : "";
   const allLayers = resolveProductArtworkLayers(product, artworkUrl);
   const layers =
-    canShowBack
+    availableViews.length > 1
       ? allLayers.filter((l) => {
           const area = pickPrintArea(product, l.areaKey);
           return printAreaViewKey(product, area) === view;
@@ -304,8 +296,8 @@ export function DesignedProductThumb({
       : allLayers;
   const overlay =
     layers[0]?.artUrl ||
-    // Shared collection artwork is front-only; never overlay it onto the back view.
-    (canShowBack && view === "back"
+    // Shared collection artwork is front-only; never overlay it onto non-front views.
+    (view !== "front"
       ? ""
       : artworkUrl
         ? resolveMediaUrl(artworkUrl)
@@ -315,11 +307,19 @@ export function DesignedProductThumb({
   const stageBase =
     view === "back"
       ? resolveMediaUrl(product.baseBackImageUrl)
-      : resolveMediaUrl(product.baseImageUrl);
+      : view === "left"
+        ? resolveMediaUrl(product.baseLeftImageUrl)
+        : view === "right"
+          ? resolveMediaUrl(product.baseRightImageUrl)
+          : resolveMediaUrl(product.baseImageUrl);
   const resolvedMask =
     view === "back"
       ? resolveMediaUrl(product.maskBackImageUrl)
-      : resolveMediaUrl(product.maskImageUrl);
+      : view === "left"
+        ? resolveMediaUrl(product.maskLeftImageUrl)
+        : view === "right"
+          ? resolveMediaUrl(product.maskRightImageUrl)
+          : resolveMediaUrl(product.maskImageUrl);
   /** Production garment image used for live colour tinting (never the marketing photo). */
   const tintMask = resolvedMask || stageBase || printAreaBase;
   const maskStage = tintMask || resolveMediaUrl(designImgUrl(product, layers[0]?.areaKey));
@@ -332,7 +332,9 @@ export function DesignedProductThumb({
   const isDefaultTint = isDefaultMockupTint(tintHex);
   const showBaked = Boolean(viewBaked && isDefaultTint && preferBakedMockup);
   const liveTintHex = tintHex || DEFAULT_MOCKUP_TINT_HEX;
-  const showViewToggle = canShowBack && canShowFront && viewProp == null && !hoverSwapViews;
+  const showViewToggle = availableViews.length > 1 && viewProp == null && !hoverSwapViews;
+  const viewLabel = (v: ProductViewKey) =>
+    v === "front" ? "Front" : v === "back" ? "Back" : v === "left" ? "Left" : "Right";
 
   const viewToggle = showViewToggle ? (
     <div
@@ -345,9 +347,7 @@ export function DesignedProductThumb({
         gap: 4,
       }}
     >
-      {(["front", "back"] as const).map((v) => {
-        const available = v === "front" ? canShowFront : canShowBack;
-        if (!available) return null;
+      {availableViews.map((v) => {
         return (
           <button
             key={v}
@@ -367,7 +367,7 @@ export function DesignedProductThumb({
               cursor: "pointer",
             }}
           >
-            {v === "front" ? "Front" : "Back"}
+            {viewLabel(v)}
           </button>
         );
       })}
@@ -494,6 +494,10 @@ export function storeProductAsUi(p: {
   baseImageUrl?: string;
   maskBackImageUrl?: string;
   baseBackImageUrl?: string;
+  maskLeftImageUrl?: string;
+  baseLeftImageUrl?: string;
+  maskRightImageUrl?: string;
+  baseRightImageUrl?: string;
   mockupUrl?: string;
   mockupBackUrl?: string;
   placement?: UiProduct["placement"];
@@ -544,6 +548,10 @@ export function storeProductAsUi(p: {
     baseImageUrl: base,
     maskBackImageUrl: resolveMediaUrl(p.maskBackImageUrl),
     baseBackImageUrl: resolveMediaUrl(p.baseBackImageUrl),
+    maskLeftImageUrl: resolveMediaUrl(p.maskLeftImageUrl),
+    baseLeftImageUrl: resolveMediaUrl(p.baseLeftImageUrl),
+    maskRightImageUrl: resolveMediaUrl(p.maskRightImageUrl),
+    baseRightImageUrl: resolveMediaUrl(p.baseRightImageUrl),
     imgUrl: mask || base,
     photoUrl: photo,
     mockupUrl: p.mockupUrl,
