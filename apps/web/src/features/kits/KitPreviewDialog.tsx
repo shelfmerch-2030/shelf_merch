@@ -5,6 +5,7 @@ import { resolveColorHex } from "@/lib/colorMap";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { PlatformKitTemplate } from "@/services/api-bridge";
 import type { UiKit, UiProduct } from "@/services/mappers";
+import { inr } from "@/components/platform/platform-ui";
 
 export type KitPreviewProduct = {
   key: string;
@@ -21,6 +22,8 @@ export type KitPreviewData = {
   coverImage?: string;
   artworkUrl?: string;
   packaging?: string;
+  /** GST-inclusive curated kit price (platformkits.approxValueInr). */
+  pricePerKitInr?: number;
   products: KitPreviewProduct[];
   /** Curated kits only — visual appearance options (selection is local/UI-only). */
   variantImages?: string[];
@@ -86,6 +89,7 @@ type CuratedImageSource = {
   imageUrls?: string[];
   itemImages?: Array<{ imageUrl: string; label?: string }>;
   variantImages?: string[];
+  approxValueInr?: number;
 };
 
 function galleryUrlsExcludingHero(source: CuratedImageSource): string[] {
@@ -200,6 +204,7 @@ export function buildKitPreviewFromWorkspace(
         heroImage?: string;
         itemImages?: Array<{ imageUrl: string; label?: string }>;
         variantImages?: string[];
+        approxValueInr?: number;
       };
       if (meta.curated) {
         isCurated = true;
@@ -251,6 +256,21 @@ export function buildKitPreviewFromWorkspace(
       };
     });
 
+  const platformKitForPrice = isCurated
+    ? findPlatformKitForMeta(curatedMeta, platformKits)
+    : undefined;
+  const pricePerKitInr = isCurated
+    ? Math.max(
+        0,
+        Math.round(
+          Number(platformKitForPrice?.approxValueInr) ||
+            Number((curatedMeta as { approxValueInr?: number } | null)?.approxValueInr) ||
+            Number(kit.kitPrice) ||
+            0,
+        ),
+      )
+    : undefined;
+
   return {
     name: kit.name,
     description: description || "No description available.",
@@ -260,6 +280,7 @@ export function buildKitPreviewFromWorkspace(
       fallbackCover,
     artworkUrl: kit.artworkUrl,
     packaging: kit.packaging === "box" ? "Premium box" : kit.packaging === "none" ? "No packaging" : kit.packaging,
+    pricePerKitInr: pricePerKitInr && pricePerKitInr > 0 ? pricePerKitInr : undefined,
     products,
     variantImages,
   };
@@ -298,6 +319,10 @@ export function buildKitPreviewFromPlatform(
     name: kit.name,
     description: kit.description?.trim() || "No description available.",
     coverImage: heroImage,
+    pricePerKitInr: (() => {
+      const n = Math.round(Number(kit.approxValueInr) || 0);
+      return n > 0 ? n : undefined;
+    })(),
     products,
     variantImages: (kit.variantImages || [])
       .map((url) => resolveMediaUrl(url) || url)
@@ -445,7 +470,8 @@ export function KitPreviewDialog({
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: "flex-start",
+                gap: 16,
                 marginBottom: 12,
               }}
             >
@@ -454,6 +480,14 @@ export function KitPreviewDialog({
               >
                 {data.name}
               </DialogTitle>
+              {data.pricePerKitInr != null && data.pricePerKitInr > 0 ? (
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ ...labelStyle, marginBottom: 2 }}>Price per kit</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>
+                    {inr(data.pricePerKitInr)}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <p style={{ color: "var(--gray-500)", fontSize: 14, lineHeight: 1.5, margin: "0 0 12px" }}>

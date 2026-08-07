@@ -153,26 +153,9 @@ router.post(
       }
     }
 
-    // Shopify-imported curated kits often have empty `items`. Fall back to
-    // active catalog products when available (optional — not required for send).
-    if (productRefs.length === 0) {
-      const itemCount = Array.isArray(platformKit.itemImages) && platformKit.itemImages.length
-        ? platformKit.itemImages.length
-        : Math.max(1, (platformKit.imageUrls?.length || 1) - 1 || 1);
-      const fallbackProducts = await CatalogProduct.find({ status: 'active' })
-        .sort({ name: 1 })
-        .limit(itemCount)
-        .lean();
-      productRefs = fallbackProducts.map((product) => ({
-        catalogProductId: product._id,
-        brand: product.brand || '',
-        name: product.name || 'Product',
-        group: product.category || product.group || '',
-      }));
-    }
-
-    // Curated kits are self-contained (itemImages, approxValueInr in designNotes).
-    // productRefs may be empty when the tenant catalog has no matching products.
+    // Shopify-imported curated kits often have empty `items`. Do not invent
+    // tenant catalog productRefs — curated fulfillment uses designNotes
+    // (itemImages / approxValueInr) when productRefs stay empty.
 
     const heroImage = String(platformKit.heroImage || '').trim() || platformKit.imageUrls?.[0] || '';
     const itemImages = Array.isArray(platformKit.itemImages)

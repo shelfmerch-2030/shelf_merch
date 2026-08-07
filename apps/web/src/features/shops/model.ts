@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/services/api";
 import { createShopFlow, updateShopFlow } from "@/services/api-bridge";
-import { archiveShopApi, duplicateShopApi } from "@/services/workspace-api";
+import { archiveShopApi, duplicateShopApi, publishShopApi } from "@/services/workspace-api";
 import type { UiShop } from "@/services/mappers";
 import { useInvalidateWorkspace } from "@/hooks/useWorkspace";
 
@@ -63,6 +63,14 @@ export function useCreateShop() {
   const invalidate = useInvalidateWorkspace();
   return useMutation({
     mutationFn: (input: CreateShopInput) => createShopFlow(input),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function usePublishShop() {
+  const invalidate = useInvalidateWorkspace();
+  return useMutation({
+    mutationFn: (shopId: string) => publishShopApi(shopId),
     onSuccess: () => invalidate(),
   });
 }

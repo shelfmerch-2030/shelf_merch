@@ -8,6 +8,7 @@ import { Shop } from '../shops/shop.model.js';
 import { Kit } from '../kits/kit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { customisedKitSendTotals, curatedKitSendTotals, kitSendTotals, sumKitProductPrices } from '../kits/kitPricing.js';
+import { resolveCuratedApproxValueInr, parseCuratedKitMeta, isCuratedKitMeta } from '../kits/curatedKitMeta.js';
 import { Wallet } from '../wallets/wallet.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
 import * as ledger from '../../services/ledger.service.js';
@@ -362,16 +363,10 @@ export async function importRecipients({
             .lean();
           computed = customisedKitSendTotals(campaign.recipientCount, pkg, products);
         } else {
-          let meta = null;
-          try {
-            meta = kit.designNotes ? JSON.parse(kit.designNotes) : null;
-          } catch {
-            meta = null;
-          }
-          let pricePerKit = Math.round(Number(meta?.approxValueInr) || 0);
-          if (pricePerKit <= 0) {
-            pricePerKit = Math.round(Number(kit.kitPrice) || 0);
-          }
+          const meta = parseCuratedKitMeta(kit.designNotes);
+          let pricePerKit = isCuratedKitMeta(meta)
+            ? await resolveCuratedApproxValueInr(kit, meta)
+            : Math.round(Number(kit.kitPrice) || 0);
           if (pricePerKit <= 0 && kit.productRefs?.length) {
             const products = await CatalogProduct.find({
               _id: { $in: kit.productRefs.map((r) => r.catalogProductId).filter(Boolean) },
@@ -717,6 +712,13 @@ export async function launchCampaign({
   const entity = await Entity.findOne({ _id: campaign.entityId, tenantId });
   if (!entity) throw new NotFoundError('Entity not found');
 
+  // Surprise/single: create Orders before charging so a failure (e.g. curated
+  // kit with no lines, missing addresses) does not debit the wallet orphaned.
+  // Redeem mode is a no-op here — Orders form when recipients submit.
+  if (openRedemptionNow) {
+    await createFulfillmentOrdersIfNeeded(campaign, tenantId);
+  }
+
   const mode = isExternalPay(paymentMode)
     ? paymentMode
     : isExternalPay(campaign.paymentMode)
@@ -770,13 +772,6 @@ export async function launchCampaign({
   transitionState('campaign', campaign, 'launched', { userId: user.userId });
 
   if (openRedemptionNow) {
-    // Immediate / self: create fulfillment orders and open redemption now.
-    // Self mode skips emails (recipient opens link themselves).
-    try {
-      await createFulfillmentOrdersIfNeeded(campaign, tenantId);
-    } catch (err) {
-      console.error('Fulfillment order creation failed after launch:', err);
-    }
     transitionState('campaign', campaign, 'redemption_open', { userId: user.userId });
   }
   // Scheduled: stay at `launched` until sendAt — no emails, no point credit yet.

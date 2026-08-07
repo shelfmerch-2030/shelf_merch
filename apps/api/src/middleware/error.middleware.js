@@ -25,8 +25,16 @@ export function errorHandler(err, req, res, _next) {
     return res.status(status).json({ error: { code: err.code ?? 'UPLOAD_ERROR', message } });
   }
   if (err?.code === 11000) {
+    const field = err.keyPattern ? Object.keys(err.keyPattern).join(', ') : undefined;
+    logger.warn({ err, path: safeRequestPath(req), field }, 'Duplicate key conflict');
     return res.status(409).json({
-      error: { code: 'DUPLICATE', message: 'A record with this value already exists' },
+      error: {
+        code: 'DUPLICATE',
+        message: field
+          ? `A record with this ${field} already exists`
+          : 'A record with this value already exists',
+        details: field ? { field } : undefined,
+      },
     });
   }
 

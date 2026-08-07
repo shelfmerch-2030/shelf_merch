@@ -5,11 +5,17 @@ import {
   sumKitProductPrices,
 } from '../kits/kitPricing.js';
 import {
+  isCuratedKitMeta,
+  parseCuratedKitMeta,
+  resolveCuratedApproxValueInr,
+} from '../kits/curatedKitMeta.js';
+import {
   gstProfileForCategory,
   lineTaxAmounts,
   priceWithoutGst,
   formatHsn,
 } from './orderInvoice.pricing.js';
+
 
 async function catalogMetaByProductId(ids) {
   const unique = [...new Set(ids.filter(Boolean).map(String))];
@@ -68,10 +74,23 @@ function kitUnitPriceInclGst(order, campaign, kitEntries) {
 /**
  * Ex-GST kit unit rate + GST profile for a kit campaign invoice line.
  * Customised kits: net product sum (same as checkout), never per-product lines.
- * Curated kits: strip 18% from GST-inclusive approxValue / kit price.
+ * Curated kits: always platformkits.approxValueInr (GST-inclusive), never catalog refs.
  */
 async function kitInvoiceUnit(order, campaign, kit, kitEntries, qty) {
   const name = kit?.name || campaign?.name || order.items?.[0]?.name || 'Kit';
+  const curatedMeta = parseCuratedKitMeta(kit?.designNotes);
+
+  // Curated must use live platform approxValueInr — ignore leftover productRefs.
+  if (isCuratedKitMeta(curatedMeta)) {
+    const unitIncl = await resolveCuratedApproxValueInr(kit, curatedMeta);
+    const frozenIncl = Math.round(Number(order.items?.[0]?.unitPriceInr) || 0);
+    const inclusive = unitIncl > 0 ? unitIncl : frozenIncl;
+    return {
+      name: order.items?.[0]?.name || name,
+      rate: priceWithoutGst(inclusive, 'kit'),
+      profile: 'kit',
+    };
+  }
 
   if (kitEntries.length > 0) {
     const products = kitEntries.map((e) => e.product);
@@ -80,11 +99,10 @@ async function kitInvoiceUnit(order, campaign, kit, kitEntries, qty) {
     return { name, rate, profile };
   }
 
-  // Curated (or no active catalog refs): order items store GST-inclusive kit price.
+  // Non-curated fallback when refs are missing: order items store GST-inclusive kit price.
   if (Array.isArray(order.items) && order.items.length > 0) {
     const hasCatalogLines = order.items.some((i) => i.catalogProductId);
     if (hasCatalogLines) {
-      // Fallback when kitEntries empty but order froze catalog products.
       const catalogMeta = await catalogMetaByProductId(order.items.map((i) => i.catalogProductId));
       let totalNet = 0;
       const products = [];

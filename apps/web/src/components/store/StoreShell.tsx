@@ -3594,69 +3594,24 @@ function PdpSizeSelect({
   sizes: string[];
   onChange: (size: string | undefined) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [value]);
-
-  const showPlaceholder = !value;
-
   return (
-    <div className="sf-pdp-size-select" ref={wrapRef}>
-      <button
-        type="button"
-        className={`sf-pdp-size-trigger${open ? " sf-pdp-size-trigger--open" : ""}${showPlaceholder ? " sf-pdp-size-trigger--placeholder" : ""}`}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span>{value || "Select"}</span>
-        <ChevronDown className="sf-pdp-size-chevron" />
-      </button>
-
-      {open ? (
-        <ul className="sf-pdp-size-menu" role="listbox" aria-label="Size">
-          {sizes.length > 1 ? (
-            <li>
-              <button
-                type="button"
-                role="option"
-                aria-selected={!value}
-                className={`sf-pdp-size-option${!value ? " sf-pdp-size-option--on" : ""}`}
-                onClick={() => onChange(undefined)}
-              >
-                Select
-              </button>
-            </li>
-          ) : null}
-          {sizes.map((s) => (
-            <li key={s}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={value === s}
-                className={`sf-pdp-size-option${value === s ? " sf-pdp-size-option--on" : ""}`}
-                onClick={() => onChange(s)}
-              >
-                {s}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+    <div className="sf-pdp-size-circles" role="listbox" aria-label="Size">
+      {sizes.map((s) => {
+        const selected = value === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            aria-label={s}
+            className={`sf-pdp-size-circle${selected ? " sf-pdp-size-circle--on" : ""}`}
+            onClick={() => onChange(selected ? undefined : s)}
+          >
+            {s}
+          </button>
+        );
+      })}
     </div>
   );
 }

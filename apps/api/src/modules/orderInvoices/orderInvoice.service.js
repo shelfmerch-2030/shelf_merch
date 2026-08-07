@@ -7,12 +7,14 @@ import { User } from '../users/user.model.js';
 import { Entity } from '../entities/entity.model.js';
 import { loadActiveKitEntriesForInvoice } from './orderInvoice.kit.js';
 import { uploadBuffer } from '../../services/storage.service.js';
-import { sendEmail, appUrl } from '../../services/email.service.js';
+import { sendEmail } from '../../services/email.service.js';
 import { logger } from '../../config/logger.js';
 import { NotFoundError } from '../../utils/errors.js';
 import { amountInWordsInr } from '../../utils/amountInWords.js';
 import { buildOrderInvoiceLines, buildHsnSummary } from './orderInvoice.lines.js';
 import { computeInvoiceTotals, renderOrderInvoicePdf } from './orderInvoice.pdf.js';
+import { buildOrderAdminInvoiceEmail } from '../../services/email-templates/orderAdminInvoice.template.js';
+import { RoleAssignment } from '../roles/roleAssignment.model.js';
 
 function formatInvoiceDate(date) {
   return new Date(date).toLocaleDateString('en-GB', {
@@ -143,51 +145,112 @@ export async function generateAndStoreOrderInvoice(orderDoc, { force = false, sk
   );
 
   if (!skipEmail && !existing && !isShopOrder(campaign)) {
-    await emailInvoiceToCompanyAdmin({ order, campaign, wallet, invoice, pdfBuffer });
+    await emailInvoiceToCompanyAdmin({ order, campaign, invoice, pdfBuffer });
   }
 
   return invoice;
 }
 
-async function emailInvoiceToCompanyAdmin({ order, campaign, wallet, invoice, pdfBuffer }) {
+function formatRoleLabel(role) {
+  if (role === 'company_admin') return 'Company Admin';
+  if (role === 'entity_manager') return 'Entity Manager';
+  if (!role) return '';
+  return String(role)
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+function deliveryModeLabel(campaign) {
+  if (!campaign) return '';
+  if (campaign.type === 'points' && campaign.shopId) return 'Storefront checkout';
+  switch (campaign.fulfillmentMode) {
+    case 'surprise':
+      return 'Surprise recipient';
+    case 'single':
+      return 'Single location';
+    case 'redeem':
+      return 'Recipient chooses';
+    default:
+      return campaign.fulfillmentMode || '';
+  }
+}
+
+function paymentStatusLabel(campaign) {
+  const mode = campaign?.paymentMode || 'wallet';
+  if (mode === 'wallet') return 'Paid (Wallet)';
+  if (mode === 'upi') return 'Paid (UPI)';
+  if (mode === 'card') return 'Paid (Card)';
+  return `Paid (${mode})`;
+}
+
+function formatOrderValue(total) {
+  const n = Math.round(Number(total) || 0);
+  return n.toLocaleString('en-IN');
+}
+
+async function resolvePlacedBy(campaign) {
+  if (!campaign?.createdBy) {
+    return { placedByName: 'Workspace user', placedByRole: '' };
+  }
+  const [user, assignment] = await Promise.all([
+    User.findById(campaign.createdBy).select('name email').lean(),
+    RoleAssignment.findOne({ tenantId: campaign.tenantId, userId: campaign.createdBy })
+      .select('role')
+      .lean(),
+  ]);
+  return {
+    placedByName: user?.name || user?.email || 'Workspace user',
+    placedByRole: formatRoleLabel(assignment?.role),
+  };
+}
+
+async function emailInvoiceToCompanyAdmin({ order, campaign, invoice, pdfBuffer }) {
   try {
-    let adminEmail = null;
-    if (wallet?.ownerUserId) {
-      const owner = await User.findById(wallet.ownerUserId).select('email name').lean();
-      adminEmail = owner?.email;
+    const assignment = await RoleAssignment.findOne({
+      tenantId: order.tenantId,
+      role: 'company_admin',
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+    if (!assignment?.userId) {
+      logger.warn({ orderId: order._id, tenantId: order.tenantId }, 'No company_admin for invoice email');
+      return;
     }
+    const admin = await User.findById(assignment.userId).select('email name').lean();
+    const adminEmail = admin?.email;
     if (!adminEmail) {
-      const admin = await User.findOne({ tenantId: order.tenantId, role: 'company_admin' })
-        .select('email')
-        .lean();
-      adminEmail = admin?.email;
+      logger.warn({ orderId: order._id, userId: assignment.userId }, 'company_admin has no email');
+      return;
     }
-    if (!adminEmail) return;
 
-    const orderUrl = appUrl(`/app/orders`);
-    const subject = `Invoice ${invoice.invoiceNumber} — recipient order placed`;
-    const text = [
-      `A recipient has placed an order through your ${campaign.name || 'campaign'}.`,
-      '',
-      `Order Number: ${order.orderNumber}`,
-      `Invoice Number: ${invoice.invoiceNumber}`,
-      `Order Date: ${formatInvoiceDate(order.createdAt)}`,
-      '',
-      'The tax invoice PDF is attached to this email.',
-      '',
-      `View orders in ShelfMerch: ${orderUrl}`,
-    ].join('\n');
+    const entity = campaign?.entityId
+      ? await Entity.findOne({ _id: campaign.entityId, tenantId: order.tenantId }).select('name').lean()
+      : null;
+    const { placedByName, placedByRole } = await resolvePlacedBy(campaign);
 
-    const html = `
-      <p>A recipient has placed an order through your <strong>${campaign.name || 'campaign'}</strong>.</p>
-      <ul>
-        <li><strong>Order Number:</strong> ${order.orderNumber}</li>
-        <li><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</li>
-        <li><strong>Order Date:</strong> ${formatInvoiceDate(order.createdAt)}</li>
-      </ul>
-      <p>The tax invoice PDF is attached to this email.</p>
-      <p><a href="${orderUrl}">View orders in ShelfMerch</a></p>
-    `;
+    const items = order.items || [];
+    const itemCount = items.length;
+    const totalQuantity = items.reduce((sum, i) => sum + (Number(i.qty) || 0), 0);
+    const orderTotal =
+      order.amountBreakdown?.total ??
+      items.reduce((sum, i) => sum + Number(i.unitPriceInr || 0) * Number(i.qty || 0), 0);
+
+    const { subject, text, html } = buildOrderAdminInvoiceEmail({
+      companyAdminName: admin.name || 'Admin',
+      placedByName,
+      placedByRole,
+      orderNumber: order.orderNumber,
+      orderDate: formatInvoiceDate(order.createdAt),
+      entityName: entity?.name || '',
+      campaignName: campaign?.name || '',
+      deliveryMode: deliveryModeLabel(campaign),
+      recipientCount: Number(campaign?.recipientCount) || 1,
+      itemCount,
+      totalQuantity,
+      orderTotal: formatOrderValue(orderTotal),
+      paymentStatus: paymentStatusLabel(campaign),
+    });
 
     await sendEmail({
       to: adminEmail,
@@ -196,7 +259,7 @@ async function emailInvoiceToCompanyAdmin({ order, campaign, wallet, invoice, pd
       html,
       attachments: [
         {
-          filename: `${invoice.invoiceNumber}.pdf`,
+          filename: `Invoice_${order.orderNumber}.pdf`,
           content: pdfBuffer,
           contentType: 'application/pdf',
         },

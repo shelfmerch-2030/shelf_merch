@@ -83,6 +83,15 @@ function withMeta(order, extras = {}) {
 }
 
 export async function listOrders({ tenantId, user, query }) {
+  // Heal surprise/single kit campaigns that launched before order creation
+  // succeeded (e.g. curated KIT_EMPTY) so Orders pages stay complete.
+  try {
+    const { repairMissingKitFulfillmentOrders } = await import('../redemptions/redemptions.service.js');
+    await repairMissingKitFulfillmentOrders({ tenantId });
+  } catch (err) {
+    console.error('repairMissingKitFulfillmentOrders failed:', err);
+  }
+
   const { page, limit, skip } = getPagination(query);
   const filter = { tenantId };
   if (query.status) filter.status = query.status;
