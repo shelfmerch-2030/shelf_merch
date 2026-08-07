@@ -106,12 +106,16 @@ const catalogProductSchema = new mongoose.Schema(
     imageUrls: { type: [String], default: [] },
     primaryImageUrl: { type: String, default: '' },
     // Production imagery is separate from primaryImageUrl/imageUrls (marketing).
-    // baseImageUrl / maskImageUrl = front view; *Back* fields = optional back view.
+    // baseImageUrl / maskImageUrl = front; *Back* / *Left* / *Right* = optional side views.
     // mask* is the transparent PNG used for design/production; base* is the visible stage.
     baseImageUrl: { type: String, default: '' },
     maskImageUrl: { type: String, default: '' },
     baseBackImageUrl: { type: String, default: '' },
     maskBackImageUrl: { type: String, default: '' },
+    baseLeftImageUrl: { type: String, default: '' },
+    maskLeftImageUrl: { type: String, default: '' },
+    baseRightImageUrl: { type: String, default: '' },
+    maskRightImageUrl: { type: String, default: '' },
     // §3.2 — available/reserved are derived from InventoryTransactions only.
     inventory: {
       mode: { type: String, enum: INVENTORY_MODES, default: 'physical' },

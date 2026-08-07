@@ -319,9 +319,19 @@ platformProductsRouter.post(
     // Also accept pre-uploaded URLs in the body for API-driven imports.
     if (Array.isArray(req.body?.urls)) urls.push(...req.body.urls);
 
-    // role 'base'|'mask' (front) or 'base_back'|'mask_back' (back); otherwise mask image.
+    // role: front base|mask, or base_*/mask_* for back|left|right; otherwise mask image.
     const role = req.body?.role;
-    if ((role === 'base' || role === 'mask' || role === 'base_back' || role === 'mask_back') && urls[0]) {
+    const knownRoles = [
+      'base',
+      'mask',
+      'base_back',
+      'mask_back',
+      'base_left',
+      'mask_left',
+      'base_right',
+      'mask_right',
+    ];
+    if (knownRoles.includes(role) && urls[0]) {
       const product = await catalogService.setRoleImage(req.params.id, role, urls[0]);
       writeAudit({ req, action: 'product.images_add', entityType: 'CatalogProduct', entityId: product._id, after: { role, url: urls[0] } });
       return res.status(201).json({
@@ -329,6 +339,10 @@ platformProductsRouter.post(
         maskImageUrl: product.maskImageUrl,
         baseBackImageUrl: product.baseBackImageUrl,
         maskBackImageUrl: product.maskBackImageUrl,
+        baseLeftImageUrl: product.baseLeftImageUrl,
+        maskLeftImageUrl: product.maskLeftImageUrl,
+        baseRightImageUrl: product.baseRightImageUrl,
+        maskRightImageUrl: product.maskRightImageUrl,
       });
     }
 

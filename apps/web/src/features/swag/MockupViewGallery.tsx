@@ -35,7 +35,15 @@ export function MockupViewGallery({
               type="button"
               role="tab"
               aria-selected={activeView === v}
-              aria-label={v === "front" ? "Front view" : "Back view"}
+              aria-label={
+                v === "front"
+                  ? "Front view"
+                  : v === "back"
+                    ? "Back view"
+                    : v === "left"
+                      ? "Left side"
+                      : "Right side"
+              }
               className={`sf-pdp-thumb-btn${activeView === v ? " sf-pdp-thumb-btn--on" : ""}`}
               onClick={() => onChange(v)}
             >

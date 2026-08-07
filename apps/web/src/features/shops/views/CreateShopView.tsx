@@ -24,6 +24,54 @@ export function CreateShopView(vm: CreateShopVm) {
 
   return (
     <FullscreenOverlay className="sm-create-shop-bg">
+      <div className="sm-create-shop-decor" aria-hidden>
+        <span className="sm-create-shop-glow sm-create-shop-glow--tl" />
+        <span className="sm-create-shop-glow sm-create-shop-glow--tr" />
+        <span className="sm-create-shop-glow sm-create-shop-glow--bl" />
+        <span className="sm-create-shop-glow sm-create-shop-glow--br" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--1" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--2" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--3" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--4" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--5" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--6" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--7" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--8" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--9" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--10" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--11" />
+        <span className="sm-create-shop-confetti sm-create-shop-confetti--12" />
+        <img
+          src="/create-shop/star.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__star-tl"
+        />
+        <img
+          src="/create-shop/shops.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__shops"
+        />
+        <img
+          src="/create-shop/gift.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__gift"
+        />
+        <img
+          src="/create-shop/dress.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__dress"
+        />
+        <img
+          src="/create-shop/online-shopping.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__bags"
+        />
+        <img
+          src="/create-shop/star.png"
+          alt=""
+          className="sm-create-shop-decor__item sm-create-shop-decor__star-br"
+        />
+      </div>
       <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 24 }}>
         <div className="card sm-create-shop-card">
           <div className="sm-create-shop-intro">

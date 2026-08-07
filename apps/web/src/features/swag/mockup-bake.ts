@@ -91,7 +91,7 @@ export function listPrintAreas(p: UiProduct | undefined) {
   return areas.filter((a) => (a?.widthIn ?? 0) > 0 || (a?.box?.widthPct ?? 0) > 0);
 }
 
-export type ProductViewKey = "front" | "back";
+export type ProductViewKey = "front" | "back" | "left" | "right";
 
 function sameMediaPath(a: string, b: string): boolean {
   if (!a || !b) return false;
@@ -104,41 +104,76 @@ export function printAreaViewKey(
   area: { key?: string; label?: string; mockupImageUrl?: string } | null | undefined,
 ): ProductViewKey {
   const mockup = resolveMediaUrl(area?.mockupImageUrl);
-  const backMask = resolveMediaUrl(p?.maskBackImageUrl);
-  const backBase = resolveMediaUrl(p?.baseBackImageUrl);
-  const frontMask = resolveMediaUrl(p?.maskImageUrl);
-  const frontBase = resolveMediaUrl(p?.baseImageUrl);
+  const views: Array<{ key: ProductViewKey; mask?: string; base?: string }> = [
+    {
+      key: "back",
+      mask: resolveMediaUrl(p?.maskBackImageUrl),
+      base: resolveMediaUrl(p?.baseBackImageUrl),
+    },
+    {
+      key: "left",
+      mask: resolveMediaUrl(p?.maskLeftImageUrl),
+      base: resolveMediaUrl(p?.baseLeftImageUrl),
+    },
+    {
+      key: "right",
+      mask: resolveMediaUrl(p?.maskRightImageUrl),
+      base: resolveMediaUrl(p?.baseRightImageUrl),
+    },
+    {
+      key: "front",
+      mask: resolveMediaUrl(p?.maskImageUrl),
+      base: resolveMediaUrl(p?.baseImageUrl),
+    },
+  ];
   if (mockup) {
-    if (
-      (backMask && sameMediaPath(mockup, backMask)) ||
-      (backBase && sameMediaPath(mockup, backBase))
-    ) {
-      return "back";
-    }
-    if (
-      (frontMask && sameMediaPath(mockup, frontMask)) ||
-      (frontBase && sameMediaPath(mockup, frontBase))
-    ) {
-      return "front";
+    for (const view of views) {
+      if (
+        (view.mask && sameMediaPath(mockup, view.mask)) ||
+        (view.base && sameMediaPath(mockup, view.base))
+      ) {
+        return view.key;
+      }
     }
   }
   const token = `${area?.key || ""} ${area?.label || ""}`.toLowerCase();
   if (/\bback\b/.test(token)) return "back";
+  if (/\bleft\b/.test(token)) return "left";
+  if (/\bright\b/.test(token)) return "right";
   return "front";
 }
 
-/** Views available for a product (always front; back when mask/stage/areas exist). */
+/** Views available for a product (always front; others when mask/stage/areas exist). */
 export function listProductViews(p: UiProduct | undefined): ProductViewKey[] {
   const views: ProductViewKey[] = ["front"];
-  const hasBackAssets = Boolean(
-    resolveMediaUrl(p?.maskBackImageUrl) || resolveMediaUrl(p?.baseBackImageUrl),
-  );
-  const hasBackArea = listPrintAreas(p).some((a) => printAreaViewKey(p, a) === "back");
-  if (hasBackAssets || hasBackArea) views.push("back");
+  const extras: Array<{ key: ProductViewKey; hasAssets: boolean }> = [
+    {
+      key: "back",
+      hasAssets: Boolean(
+        resolveMediaUrl(p?.maskBackImageUrl) || resolveMediaUrl(p?.baseBackImageUrl),
+      ),
+    },
+    {
+      key: "left",
+      hasAssets: Boolean(
+        resolveMediaUrl(p?.maskLeftImageUrl) || resolveMediaUrl(p?.baseLeftImageUrl),
+      ),
+    },
+    {
+      key: "right",
+      hasAssets: Boolean(
+        resolveMediaUrl(p?.maskRightImageUrl) || resolveMediaUrl(p?.baseRightImageUrl),
+      ),
+    },
+  ];
+  for (const extra of extras) {
+    const hasArea = listPrintAreas(p).some((a) => printAreaViewKey(p, a) === extra.key);
+    if (extra.hasAssets || hasArea) views.push(extra.key);
+  }
   return views;
 }
 
-/** Print areas that belong to a front/back view. */
+/** Print areas that belong to a garment view. */
 export function listPrintAreasForView(p: UiProduct | undefined, view: ProductViewKey) {
   return listPrintAreas(p).filter((a) => printAreaViewKey(p, a) === view);
 }
@@ -147,11 +182,13 @@ export function listPrintAreasForView(p: UiProduct | undefined, view: ProductVie
 export function designImgUrlForView(p: UiProduct | undefined, view: ProductViewKey = "front"): string {
   if (!p) return "";
   if (view === "back") {
-    return (
-      resolveMediaUrl(p.maskBackImageUrl) ||
-      resolveMediaUrl(p.baseBackImageUrl) ||
-      ""
-    );
+    return resolveMediaUrl(p.maskBackImageUrl) || resolveMediaUrl(p.baseBackImageUrl) || "";
+  }
+  if (view === "left") {
+    return resolveMediaUrl(p.maskLeftImageUrl) || resolveMediaUrl(p.baseLeftImageUrl) || "";
+  }
+  if (view === "right") {
+    return resolveMediaUrl(p.maskRightImageUrl) || resolveMediaUrl(p.baseRightImageUrl) || "";
   }
   return resolveMediaUrl(p.maskImageUrl) || resolveMediaUrl(p.baseImageUrl) || "";
 }
@@ -256,6 +293,17 @@ export function pickPrintArea(p: UiProduct, areaKey?: string | null) {
   if (p.baseBackImageUrl) {
     const baseNorm = normMediaPath(p.baseBackImageUrl);
     const match = all.find((a) => normMediaPath(a.mockupImageUrl) === baseNorm);
+    if (match) return match;
+  }
+  for (const url of [
+    p.maskLeftImageUrl,
+    p.baseLeftImageUrl,
+    p.maskRightImageUrl,
+    p.baseRightImageUrl,
+  ]) {
+    if (!url) continue;
+    const norm = normMediaPath(url);
+    const match = all.find((a) => normMediaPath(a.mockupImageUrl) === norm);
     if (match) return match;
   }
   return (

@@ -170,6 +170,19 @@ describe('product variant colorHex + master image roles', () => {
     expect(reloaded.maskBackImageUrl).toBe('/uploads/platform/product/mask-back.png');
   });
 
+  it('setRoleImage stores left and right side base and mask images', async () => {
+    const { setRoleImage } = await import('../src/modules/catalog/platformCatalog.service.js');
+    await setRoleImage(product._id, 'base_left', '/uploads/platform/product/base-left.png');
+    await setRoleImage(product._id, 'mask_left', '/uploads/platform/product/mask-left.png');
+    await setRoleImage(product._id, 'base_right', '/uploads/platform/product/base-right.png');
+    await setRoleImage(product._id, 'mask_right', '/uploads/platform/product/mask-right.png');
+    const reloaded = await CatalogProduct.findById(product._id);
+    expect(reloaded.baseLeftImageUrl).toBe('/uploads/platform/product/base-left.png');
+    expect(reloaded.maskLeftImageUrl).toBe('/uploads/platform/product/mask-left.png');
+    expect(reloaded.baseRightImageUrl).toBe('/uploads/platform/product/base-right.png');
+    expect(reloaded.maskRightImageUrl).toBe('/uploads/platform/product/mask-right.png');
+  });
+
   it('keeps a legacy Shopify photo as marketing when a production mask is uploaded', async () => {
     product.source = {
       provider: 'shopify',

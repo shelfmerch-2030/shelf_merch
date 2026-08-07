@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { detailRows, productSwatches, productUniqueId } from "../types";
@@ -12,22 +12,65 @@ const TABS: [Tab, string][] = [
   ["size", "Size Guide"],
 ];
 
+type GalleryItem = { key: string; label: string; url: string };
+
+/** Stage + marketing photos only — never production mask PNGs. */
+function catalogGalleryItems(product: UiProduct): GalleryItem[] {
+  const items: GalleryItem[] = [];
+  const seen = new Set<string>();
+  const add = (key: string, label: string, raw?: string) => {
+    const url = resolveMediaUrl(raw);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    items.push({ key, label, url });
+  };
+
+  add("front", "Front", product.baseImageUrl || product.mockupUrl || product.photoUrl);
+  add("back", "Back", product.baseBackImageUrl || product.mockupBackUrl);
+  add("left", "Left", product.baseLeftImageUrl);
+  add("right", "Right", product.baseRightImageUrl);
+
+  const marketing = product.imageUrls?.length
+    ? product.imageUrls
+    : product.photoUrl
+      ? [product.photoUrl]
+      : [];
+  marketing.forEach((url, i) => {
+    add(`photo-${i}`, marketing.length > 1 ? `Photo ${i + 1}` : "Photo", url);
+  });
+
+  if (!items.length) {
+    add("fallback", "Photo", product.mockupUrl || product.photoUrl);
+  }
+  return items;
+}
+
 /** Read-only catalog product detail (description / key features / size guide). */
 export function ProductDetail({ product, index }: { product: UiProduct; index: number }) {
   const [tab, setTab] = useState<Tab>("description");
+  const gallery = useMemo(() => catalogGalleryItems(product), [product]);
+  const [activeKey, setActiveKey] = useState(gallery[0]?.key || "");
 
   useEffect(() => {
     setTab("description");
   }, [product.id]);
 
+  useEffect(() => {
+    setActiveKey(gallery[0]?.key || "");
+  }, [product.id, gallery]);
+
+  useEffect(() => {
+    if (!gallery.some((item) => item.key === activeKey)) {
+      setActiveKey(gallery[0]?.key || "");
+    }
+  }, [activeKey, gallery]);
+
   const title = product.brand ? `${product.brand} ${product.nm}` : product.nm;
-  const src =
-    resolveMediaUrl(product.mockupUrl) ||
-    resolveMediaUrl(product.photoUrl) ||
-    resolveMediaUrl(product.imgUrl);
+  const active = gallery.find((item) => item.key === activeKey) || gallery[0];
   const desc = String(product.description || "");
   const featureRows = detailRows(product.keyFeatures);
   const swatches = productSwatches(product);
+  const showThumbs = gallery.length > 1;
 
   return (
     <div>
@@ -41,26 +84,52 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 18, marginTop: 14 }}>
-        <div
-          className="img"
-          style={{
-            background: "#f4f6f4",
-            borderRadius: "var(--r-sm)",
-            aspectRatio: "1 / 1",
-            display: "grid",
-            placeItems: "center",
-            overflow: "hidden",
-          }}
-        >
-          {src ? (
-            <img
-              src={src}
-              alt={product.nm}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          ) : (
-            <span className="mut3">No image</span>
-          )}
+        <div className="sf-pdp-gallery">
+          {showThumbs ? (
+            <div className="sf-pdp-thumbs" role="tablist" aria-label="Product views">
+              {gallery.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active?.key === item.key}
+                  aria-label={item.label}
+                  className={`sf-pdp-thumb-btn${active?.key === item.key ? " sf-pdp-thumb-btn--on" : ""}`}
+                  onClick={() => setActiveKey(item.key)}
+                >
+                  <div className="sf-pdp-thumb-mini">
+                    <img
+                      src={item.url}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div
+            className="img"
+            style={{
+              background: "#f4f6f4",
+              borderRadius: "var(--r-sm)",
+              aspectRatio: "1 / 1",
+              display: "grid",
+              placeItems: "center",
+              overflow: "hidden",
+            }}
+          >
+            {active?.url ? (
+              <img
+                src={active.url}
+                alt={`${product.nm} — ${active.label}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
+            ) : (
+              <span className="mut3">No image</span>
+            )}
+          </div>
         </div>
 
         <div>

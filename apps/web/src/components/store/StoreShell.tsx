@@ -8,6 +8,7 @@ import { DesignedProductThumb,
   storeProductAsUi,
 } from "@/features/swag/DesignedProductThumb";
 import { ensureWhiteSwatch, getMockupTintHex, defaultWhiteColorIndex } from "@/features/swag/colors";
+import { listProductViews, type ProductViewKey } from "@/features/swag/mockup-bake";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import {
   appliedLabel,
@@ -55,6 +56,10 @@ export type StoreProduct = {
   baseImageUrl?: string;
   maskBackImageUrl?: string;
   baseBackImageUrl?: string;
+  maskLeftImageUrl?: string;
+  baseLeftImageUrl?: string;
+  maskRightImageUrl?: string;
+  baseRightImageUrl?: string;
   artworkUrl?: string;
   /** Pre-baked design mockup (mask + artwork flattened) — shown as-is when set. */
   mockupUrl?: string;
@@ -110,8 +115,8 @@ function ArtworkMockup({
 }: {
   product: StoreProduct;
   tintHex?: string;
-  view?: "front" | "back";
-  onViewChange?: (view: "front" | "back") => void;
+  view?: ProductViewKey;
+  onViewChange?: (view: ProductViewKey) => void;
   hoverSwapViews?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -138,18 +143,15 @@ function ArtworkMockup({
   );
 }
 
-function productHasBackView(product: StoreProduct) {
-  if (
-    resolveMediaUrl(product.mockupBackUrl) ||
-    resolveMediaUrl(product.maskBackImageUrl) ||
-    resolveMediaUrl(product.baseBackImageUrl)
-  ) {
-    return true;
-  }
-  return (product.printAreas || []).some((a) => {
-    const token = `${a?.key || ""} ${a?.label || ""}`.toLowerCase();
-    return /\bback\b/.test(token);
-  });
+function productViewKeys(product: StoreProduct): ProductViewKey[] {
+  return listProductViews(storeProductAsUi(product));
+}
+
+function viewAriaLabel(view: ProductViewKey) {
+  if (view === "front") return "Front view";
+  if (view === "back") return "Back view";
+  if (view === "left") return "Left side";
+  return "Right side";
 }
 
 function ColorSwatches({
@@ -3951,13 +3953,14 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   const [qty, setQty] = useState(1);
   const [infoOpen, setInfoOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [mockupView, setMockupView] = useState<"front" | "back">("front");
+  const [mockupView, setMockupView] = useState<ProductViewKey>("front");
   const selectedColor = colorOptions[selColor];
   const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor);
   const hasProductInfo = !!(product.description?.trim() || product.keyFeatures?.trim() || product.sizeGuide?.trim());
   const sizeRequired = sizes.length > 1;
   const canAdd = !sizeRequired || !!size;
-  const hasBackView = productHasBackView(product);
+  const productViews = productViewKeys(product);
+  const hasMultipleViews = productViews.length > 1;
 
   useEffect(() => {
     setSelColor(primaryColorIndex(colorOptions));
@@ -3970,8 +3973,8 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   }, [product._id, colorOptions]);
 
   useEffect(() => {
-    if (!hasBackView && mockupView === "back") setMockupView("front");
-  }, [hasBackView, mockupView]);
+    if (!productViews.includes(mockupView)) setMockupView("front");
+  }, [productViews, mockupView]);
 
   const openSizeGuide = () => setSizeGuideOpen(true);
 
@@ -3983,15 +3986,15 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
 
       <div className="sf-pdp-layout">
         <div className="sf-pdp-gallery">
-          {hasBackView ? (
+          {hasMultipleViews ? (
             <div className="sf-pdp-thumbs" role="tablist" aria-label="Product views">
-              {(["front", "back"] as const).map((v) => (
+              {productViews.map((v) => (
                 <button
                   key={v}
                   type="button"
                   role="tab"
                   aria-selected={mockupView === v}
-                  aria-label={v === "front" ? "Front view" : "Back view"}
+                  aria-label={viewAriaLabel(v)}
                   className={`sf-pdp-thumb-btn${mockupView === v ? " sf-pdp-thumb-btn--on" : ""}`}
                   onClick={() => setMockupView(v)}
                 >
@@ -4009,8 +4012,8 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
             <ArtworkMockup
               product={product}
               tintHex={previewTintHex}
-              view={hasBackView ? mockupView : undefined}
-              onViewChange={hasBackView ? setMockupView : undefined}
+              view={hasMultipleViews ? mockupView : undefined}
+              onViewChange={hasMultipleViews ? setMockupView : undefined}
               className="sf-pdp-main-image"
             />
             <button type="button" className="sf-pdp-zoom" aria-label="Zoom image">

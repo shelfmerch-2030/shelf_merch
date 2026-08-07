@@ -48,6 +48,8 @@ export type UiProduct = {
   colorHexByName?: Record<string, string>;
   /** Resolved marketing/catalog photo URL (primary product image). */
   photoUrl?: string;
+  /** All marketing/catalog gallery URLs (e.g. Shopify product images). */
+  imageUrls?: string[];
   /** Display URL for mockup/design flows — prefers production mask when set. */
   imgUrl?: string;
   /** Product-stage/base image used behind artwork previews. */
@@ -58,6 +60,14 @@ export type UiProduct = {
   baseBackImageUrl?: string;
   /** Optional back-view transparent design/production mask. */
   maskBackImageUrl?: string;
+  /** Optional left-side stage image. */
+  baseLeftImageUrl?: string;
+  /** Optional left-side transparent design/production mask. */
+  maskLeftImageUrl?: string;
+  /** Optional right-side stage image. */
+  baseRightImageUrl?: string;
+  /** Optional right-side transparent design/production mask. */
+  maskRightImageUrl?: string;
   /** Pre-baked design mockup served to shop/storefront. */
   mockupUrl?: string;
   /** Pre-baked back-view design mockup (optional). */
@@ -356,11 +366,18 @@ export function mapCatalogProduct(p: ApiProduct): UiProduct {
     colors: variantColors,
     colorHexByName: Object.keys(colorHexByName).length ? colorHexByName : undefined,
     photoUrl,
+    imageUrls: Array.isArray(p.imageUrls)
+      ? p.imageUrls.map((u: string) => resolveMediaUrl(u)).filter(Boolean)
+      : undefined,
     baseImageUrl,
     imgUrl,
     maskImageUrl: resolveMediaUrl(p.maskImageUrl),
     baseBackImageUrl,
     maskBackImageUrl: resolveMediaUrl(p.maskBackImageUrl),
+    baseLeftImageUrl: resolveMediaUrl(p.baseLeftImageUrl),
+    maskLeftImageUrl: resolveMediaUrl(p.maskLeftImageUrl),
+    baseRightImageUrl: resolveMediaUrl(p.baseRightImageUrl),
+    maskRightImageUrl: resolveMediaUrl(p.maskRightImageUrl),
     physicalDimensions:
       physicalDimensions && physicalDimensions.width > 0 && physicalDimensions.height > 0
         ? physicalDimensions
@@ -397,7 +414,12 @@ export function mergeCatalogProductDetails(
     baseImageUrl: product.baseImageUrl || fromCatalog.baseImageUrl,
     maskBackImageUrl: product.maskBackImageUrl || fromCatalog.maskBackImageUrl,
     baseBackImageUrl: product.baseBackImageUrl || fromCatalog.baseBackImageUrl,
+    maskLeftImageUrl: product.maskLeftImageUrl || fromCatalog.maskLeftImageUrl,
+    baseLeftImageUrl: product.baseLeftImageUrl || fromCatalog.baseLeftImageUrl,
+    maskRightImageUrl: product.maskRightImageUrl || fromCatalog.maskRightImageUrl,
+    baseRightImageUrl: product.baseRightImageUrl || fromCatalog.baseRightImageUrl,
     photoUrl: product.photoUrl || fromCatalog.photoUrl,
+    imageUrls: product.imageUrls?.length ? product.imageUrls : fromCatalog.imageUrls,
     imgUrl: product.imgUrl || fromCatalog.imgUrl,
     printAreas: product.printAreas?.length ? product.printAreas : fromCatalog.printAreas,
     physicalDimensions: product.physicalDimensions || fromCatalog.physicalDimensions,
@@ -440,6 +462,14 @@ export function mapProductRef(ref: ApiProduct, catalogById?: Map<string, UiProdu
       resolveMediaUrl(ref.baseBackImageUrl) || fromCatalog?.baseBackImageUrl,
     maskBackImageUrl:
       resolveMediaUrl(ref.maskBackImageUrl) || fromCatalog?.maskBackImageUrl,
+    baseLeftImageUrl:
+      resolveMediaUrl(ref.baseLeftImageUrl) || fromCatalog?.baseLeftImageUrl,
+    maskLeftImageUrl:
+      resolveMediaUrl(ref.maskLeftImageUrl) || fromCatalog?.maskLeftImageUrl,
+    baseRightImageUrl:
+      resolveMediaUrl(ref.baseRightImageUrl) || fromCatalog?.baseRightImageUrl,
+    maskRightImageUrl:
+      resolveMediaUrl(ref.maskRightImageUrl) || fromCatalog?.maskRightImageUrl,
     mockupUrl: resolveMediaUrl(ref.mockupUrl),
     mockupBackUrl: resolveMediaUrl(ref.mockupBackUrl),
     placement: mapPlacement((ref as { placement?: unknown }).placement),

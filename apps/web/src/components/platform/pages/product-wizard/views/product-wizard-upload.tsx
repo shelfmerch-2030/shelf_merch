@@ -158,45 +158,83 @@ export function MasterImageUpload({
   );
 }
 
-export function MarketingImageCard({
-  imageUrl,
-  label = "Shopify marketing image",
+/** Read-only gallery of all imported Shopify / marketing product images. */
+export function MarketingImageGallery({
+  imageUrls,
+  selectedIndex,
+  onSelect,
 }: {
-  imageUrl?: string;
-  label?: string;
+  imageUrls: string[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
 }) {
+  const active = imageUrls[selectedIndex] || imageUrls[0];
+
   return (
-    <div style={{ flex: "1 1 200px", maxWidth: 220 }}>
-      <label className="lbl">{label}</label>
-      <div style={{ overflow: "hidden", border: "1px solid var(--line)", borderRadius: 10, background: "#fff" }}>
-        <div
-          style={{
-            width: "100%",
-            height: 168,
-            background: "var(--surface-2)",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt="Shopify product"
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-            />
-          ) : (
-            <div className="muted" style={{ padding: 16, textAlign: "center", fontSize: 12, lineHeight: 1.5 }}>
-              No Shopify product image was imported.
-            </div>
-          )}
-        </div>
-        <div style={{ padding: "10px 12px", borderTop: "1px solid var(--line)" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Marketing only</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2, lineHeight: 1.4 }}>
-            Read-only Shopify image · not used for artwork or production
+    <div style={{ width: "100%", marginBottom: 22 }}>
+      <label className="lbl">Shopify marketing images</label>
+      <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>
+        All imported product photos · read-only · not used for artwork or production
+      </p>
+      {!imageUrls.length ? (
+        <p className="muted" style={{ fontSize: 13 }}>
+          No Shopify product images were imported.
+        </p>
+      ) : (
+        <div className="row" style={{ gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div
+            style={{
+              width: 220,
+              height: 220,
+              borderRadius: 10,
+              border: "1px solid var(--line)",
+              background: "var(--surface-2)",
+              overflow: "hidden",
+              display: "grid",
+              placeItems: "center",
+              flex: "0 0 auto",
+            }}
+          >
+            {active ? (
+              <img
+                src={active}
+                alt={`Shopify product ${selectedIndex + 1}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              />
+            ) : null}
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", flex: 1, minWidth: 160 }}>
+            {imageUrls.map((url, idx) => {
+              const selected = idx === selectedIndex;
+              return (
+                <button
+                  type="button"
+                  key={url}
+                  onClick={() => onSelect(idx)}
+                  title={`Image ${idx + 1}`}
+                  aria-pressed={selected}
+                  style={{
+                    width: 72,
+                    height: 72,
+                    padding: 0,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    background: "var(--surface-2)",
+                    border: selected ? "2px solid var(--brand)" : "1px solid var(--line)",
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
