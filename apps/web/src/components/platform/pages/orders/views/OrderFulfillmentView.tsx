@@ -180,12 +180,14 @@ export function OrderFulfillmentView({
                 // Prefer the production mask — print-area % coords are authored
                 // against it in the product wizard (same stage as Konva bake).
                 const mockup = resolveMediaUrl(
-                  product?.maskImageUrl ||
+                  // Prefer frozen line image (selected curated variant / order snapshot).
+                  item.imageUrl ||
+                    product?.designedMockupUrl ||
+                    product?.maskImageUrl ||
                     printAreas[0]?.mockupImageUrl ||
                     product?.baseImageUrl ||
                     product?.primaryImageUrl ||
                     product?.imageUrls?.[0] ||
-                    item.imageUrl ||
                     "",
                 );
                 const placement = item.placement ?? null;
@@ -249,7 +251,7 @@ export function OrderFulfillmentView({
                         placement={placement}
                         product={product}
                         designedMockupUrl={product?.designedMockupUrl}
-                        sku={item.sku}
+                        sku={item.sku || item.name || "kit"}
                       />
                     </div>
                   </div>

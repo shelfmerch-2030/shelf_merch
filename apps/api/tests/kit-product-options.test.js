@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveKitItemOptions, isDrinkwareProduct, effectiveProductGroup } from '../src/modules/kits/kitProductOptions.js';
 
 describe('kitProductOptions', () => {
-  it('bottle never requires size or colour even with variant noise', () => {
+  it('bottle never requires size but keeps colour when catalog has colour variants', () => {
     const product = {
       group: 'bottle',
       category: 'Drinkware',
@@ -12,9 +12,25 @@ describe('kitProductOptions', () => {
     };
     const opts = resolveKitItemOptions(product, { group: 'bottle' });
     expect(opts.requiresSize).toBe(false);
-    expect(opts.requiresColor).toBe(false);
     expect(opts.sizes).toEqual([]);
+    expect(opts.requiresColor).toBe(true);
+    expect(opts.colors).toEqual(['White']);
     expect(isDrinkwareProduct(product, { group: 'bottle' })).toBe(true);
+  });
+
+  it('notebook / tech expose colour variants without inventing sizes', () => {
+    const product = {
+      group: 'notebook',
+      category: 'Office',
+      variants: [
+        { color: 'Black', colorHex: '#111111' },
+        { color: 'Navy', colorHex: '#001f5b' },
+      ],
+    };
+    const opts = resolveKitItemOptions(product, { group: 'notebook' });
+    expect(opts.requiresSize).toBe(false);
+    expect(opts.requiresColor).toBe(true);
+    expect(opts.colors).toEqual(['Black', 'Navy']);
   });
 
   it('detects drinkware from product name when group is missing', () => {

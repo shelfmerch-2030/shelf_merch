@@ -32,6 +32,7 @@ import {
   parseCuratedKitMeta,
   resolveCuratedApproxValueInr,
 } from '../kits/curatedKitMeta.js';
+import { PlatformKit } from '../kits/platformKit.model.js';
 import { env } from '../../config/env.js';
 import { redemptionSignOptions, redemptionVerifyOptions } from '../../config/jwt.js';
 import { sendOtpSms } from '../../services/msg91.service.js';
@@ -63,6 +64,33 @@ async function curatedKitUnitPriceInr(kit, meta) {
   return resolveCuratedApproxValueInr(kit, meta);
 }
 
+/** Sentinel key on recipient.variants for curated kit appearance picks. */
+export const CURATED_VARIANT_KEY = '__curated__';
+
+function resolveCuratedVariantImages(meta) {
+  return [...new Set((Array.isArray(meta?.variantImages) ? meta.variantImages : []).map((u) => String(u || '').trim()).filter(Boolean))];
+}
+
+function curatedItemLabel(entry, index) {
+  const label = String(entry?.label || '').trim();
+  return label || `Item ${index + 1}`;
+}
+
+function curatedVariantLabel(variantImages, chosenUrl) {
+  const idx = variantImages.findIndex((u) => u === chosenUrl);
+  return idx >= 0 ? `Variant ${idx + 1}` : 'Variant';
+}
+
+function resolveChosenCuratedVariantImage(meta, chosen) {
+  const variantImages = resolveCuratedVariantImages(meta);
+  if (!variantImages.length) return { url: '', label: '' };
+  const fromRecipient =
+    (chosen?.variantImage && String(chosen.variantImage).trim()) ||
+    (chosen?.color && variantImages.includes(String(chosen.color).trim()) ? String(chosen.color).trim() : '');
+  const url = fromRecipient && variantImages.includes(fromRecipient) ? fromRecipient : variantImages[0];
+  return { url, label: curatedVariantLabel(variantImages, url) };
+}
+
 /** Display rows for curated kits that have no tenant catalog productRefs. */
 function buildCuratedRedemptionItems(kit, meta) {
   const kitId = String(kit._id);
@@ -70,13 +98,14 @@ function buildCuratedRedemptionItems(kit, meta) {
   if (itemImages.length) {
     return itemImages.map((entry, index) => ({
       productId: `curated:${kitId}:${index}`,
-      name: entry.label || kit.name || `Item ${index + 1}`,
+      name: curatedItemLabel(entry, index),
       brand: '',
       group: '',
       category: '',
       isDrinkware: false,
       imageUrl: entry.imageUrl || '',
-      artworkUrl: kit.artworkUrl || meta?.heroImage || '',
+      // Never pass kit artwork — recipients should see plain item photos.
+      artworkUrl: '',
       printAreas: [],
       maskImageUrl: '',
       baseImageUrl: '',
@@ -96,13 +125,13 @@ function buildCuratedRedemptionItems(kit, meta) {
   return [
     {
       productId: `curated:${kitId}:0`,
-      name: kit.name || 'Kit',
+      name: 'Kit contents',
       brand: '',
       group: '',
       category: '',
       isDrinkware: false,
       imageUrl: hero,
-      artworkUrl: kit.artworkUrl || hero,
+      artworkUrl: '',
       printAreas: [],
       maskImageUrl: '',
       baseImageUrl: '',
@@ -119,19 +148,54 @@ function buildCuratedRedemptionItems(kit, meta) {
   ];
 }
 
-async function buildCuratedOrderLineItem(kit, meta) {
+async function buildCuratedOrderLineItem(kit, meta, chosenVariant = null) {
   const pricePerKit = await curatedKitUnitPriceInr(kit, meta);
   const hero = meta?.heroImage || kit.artworkUrl || meta?.imageUrls?.[0] || '';
+  const { url, label } = resolveChosenCuratedVariantImage(meta, chosenVariant);
+  const brandLogo =
+    (meta?.brandLogoUploaded && (kit.artworkUrl || meta?.brandLogoUrl)) ||
+    (kit.artworkUrl && kit.artworkUrl !== hero ? kit.artworkUrl : '') ||
+    meta?.brandLogoUrl ||
+    '';
   return {
     name: kit.name || 'Kit',
     sku: '',
-    variant: {},
+    variant: label ? { color: label } : {},
     qty: 1,
     unitPriceInr: pricePerKit,
     costPriceInr: 0,
     gstRate: 18,
     hsnCode: '',
-    imageUrl: hero,
+    imageUrl: url || hero,
+    artworkUrl: brandLogo || kit.artworkUrl || '',
+  };
+}
+
+/** Enrich curated designNotes with live platform kit gallery roles when stale. */
+async function enrichCuratedMetaFromPlatform(meta) {
+  if (!meta?.originalId) return meta;
+  const platformKit = await PlatformKit.findById(meta.originalId)
+    .select('heroImage imageUrls itemImages variantImages approxValueInr description')
+    .lean();
+  if (!platformKit) return meta;
+  return {
+    ...meta,
+    description: meta.description || platformKit.description || '',
+    approxValueInr:
+      Number(meta.approxValueInr) > 0
+        ? meta.approxValueInr
+        : Math.round(Number(platformKit.approxValueInr) || 0),
+    heroImage: meta.heroImage || platformKit.heroImage || platformKit.imageUrls?.[0] || '',
+    imageUrls: meta.imageUrls?.length ? meta.imageUrls : platformKit.imageUrls || [],
+    itemImages: meta.itemImages?.length
+      ? meta.itemImages
+      : (platformKit.itemImages || []).map((it) => ({
+          imageUrl: it.imageUrl,
+          label: it.label || '',
+        })),
+    variantImages: meta.variantImages?.length
+      ? meta.variantImages
+      : [...(platformKit.variantImages || [])],
   };
 }
 
@@ -605,16 +669,23 @@ export async function getKitContents(token) {
   if (!kit) throw new NotFoundError('Kit not found');
 
   const entries = await loadActiveKitEntries(kit);
-  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  let curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  if (isCuratedKitMeta(curatedMeta)) {
+    curatedMeta = await enrichCuratedMetaFromPlatform(curatedMeta);
+  }
   const curatedBundle = isCuratedBundle(entries, curatedMeta);
   const items = curatedBundle
     ? buildCuratedRedemptionItems(kit, curatedMeta)
     : entries.map((entry) => mapKitEntryToItem(entry, kit));
 
+  const variantImages = curatedBundle ? resolveCuratedVariantImages(curatedMeta) : [];
+
   return {
     kit: { name: kit.name, artworkUrl: kit.artworkUrl || curatedMeta?.heroImage || '', packaging: kit.packaging || 'none' },
     items,
     curatedBundle,
+    variantImages,
+    requiresKitVariant: curatedBundle && variantImages.length > 0,
   };
 }
 
@@ -647,10 +718,12 @@ async function createOrderWithNumber(doc, { attempts = 5 } = {}) {
     } catch (err) {
       lastErr = err;
       if (err?.code !== 11000) throw err;
-      // Retry only orderNumber collisions.
-      if (!String(err?.message || '').includes('orderNumber') && !err?.keyPattern?.orderNumber) {
-        throw err;
-      }
+      // Retry only orderNumber collisions (keyPattern or keyValue, message may vary by driver).
+      const isOrderNumberClash =
+        Boolean(err?.keyPattern?.orderNumber) ||
+        Boolean(err?.keyValue && Object.prototype.hasOwnProperty.call(err.keyValue, 'orderNumber')) ||
+        String(err?.message || '').includes('orderNumber');
+      if (!isOrderNumberClash) throw err;
       doc = { ...doc, orderNumber: undefined };
     }
   }
@@ -687,7 +760,10 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
   const kit = await Kit.findOne({ _id: campaign.kitId, tenantId });
   if (!kit) throw new NotFoundError('Kit not found');
   const kitEntries = await loadActiveKitEntries(kit);
-  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  let curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  if (isCuratedKitMeta(curatedMeta)) {
+    curatedMeta = await enrichCuratedMetaFromPlatform(curatedMeta);
+  }
   const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
   if (!kitEntries.length && !curatedBundle) {
     throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
@@ -717,7 +793,8 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
     let lineItems;
     let amountBreakdown;
     if (curatedBundle) {
-      lineItems = [await buildCuratedOrderLineItem(kit, curatedMeta)];
+      const chosen = recipient.variants?.[CURATED_VARIANT_KEY] || null;
+      lineItems = [await buildCuratedOrderLineItem(kit, curatedMeta, chosen)];
       amountBreakdown = amountBreakdownForKitCampaign(campaign, {
         kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
         packaging: campaign.packaging,
@@ -822,7 +899,10 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
   const kit = await Kit.findOne({ _id: campaign.kitId, tenantId });
   if (!kit) throw new NotFoundError('Kit not found');
   const kitEntries = await loadActiveKitEntries(kit);
-  const curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  let curatedMeta = parseCuratedKitMeta(kit.designNotes);
+  if (isCuratedKitMeta(curatedMeta)) {
+    curatedMeta = await enrichCuratedMetaFromPlatform(curatedMeta);
+  }
   const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
   if (!kitEntries.length && !curatedBundle) {
     throw new ApiError(422, 'Kit has no active products', 'KIT_EMPTY');
@@ -831,8 +911,21 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
   let lineItems;
   let amountBreakdown;
   if (curatedBundle) {
-    const unit = await buildCuratedOrderLineItem(kit, curatedMeta);
-    lineItems = [{ ...unit, qty: recipients.length }];
+    const variantGroups = {}; // key: variantUrl|label -> { chosen, qty }
+    for (const recipient of recipients) {
+      const chosen = recipient.variants?.[CURATED_VARIANT_KEY] || null;
+      const resolved = resolveChosenCuratedVariantImage(curatedMeta, chosen);
+      const key = `${resolved.url}|${resolved.label}`;
+      if (!variantGroups[key]) {
+        variantGroups[key] = { chosen: resolved.url ? { variantImage: resolved.url } : null, qty: 0 };
+      }
+      variantGroups[key].qty += 1;
+    }
+    lineItems = [];
+    for (const group of Object.values(variantGroups)) {
+      const unit = await buildCuratedOrderLineItem(kit, curatedMeta, group.chosen);
+      lineItems.push({ ...unit, qty: group.qty });
+    }
     amountBreakdown = amountBreakdownForKitCampaign(campaign, {
       kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
       packaging: campaign.packaging,
@@ -973,7 +1066,7 @@ export async function repairMissingKitFulfillmentOrders({ tenantId = null } = {}
 /** §7.9 /submit — idempotent order creation from redemption. */
 export async function submitRedemption(
   token,
-  { items, shippingAddress, paymentMode = 'points', razorpayPayment },
+  { items, shippingAddress, paymentMode = 'points', razorpayPayment, kitVariantImage },
 ) {
   const recipient = await Recipient.findOne({ redemptionToken: token }).setOptions({ skipTenantGuard: true });
   if (!recipient) throw new NotFoundError('Invalid redemption link');
@@ -987,6 +1080,28 @@ export async function submitRedemption(
       idempotentReplay: true,
     };
   }
+
+  // Heal: order may exist from a prior attempt that failed after create (e.g. later unique collision).
+  if (campaign.type !== 'points') {
+    const prior = await Order.findOne({ recipientId: recipient._id, tenantId: recipient.tenantId });
+    if (prior) {
+      try {
+        transitionRedemption(recipient, 'redeemed');
+        transitionRedemption(recipient, 'order_created');
+        await recipient.save();
+      } catch {
+        recipient.redemptionStatus = 'order_created';
+        await recipient.save();
+      }
+      return {
+        orderNumber: prior.orderNumber,
+        estimatedDelivery: '7-10 business days',
+        orderId: String(prior._id),
+        idempotentReplay: true,
+      };
+    }
+  }
+
   if (recipient.redemptionStatus !== 'verified') {
     throw new ApiError(403, 'Verify OTP before submitting your order', 'NOT_VERIFIED');
   }
@@ -1000,6 +1115,9 @@ export async function submitRedemption(
     if (!kit) throw new NotFoundError('Kit not found');
     kitEntries = await loadActiveKitEntries(kit);
     curatedMeta = parseCuratedKitMeta(kit.designNotes);
+    if (isCuratedKitMeta(curatedMeta)) {
+      curatedMeta = await enrichCuratedMetaFromPlatform(curatedMeta);
+    }
     const curatedBundle = isCuratedBundle(kitEntries, curatedMeta);
 
     if (!curatedBundle) {
@@ -1023,7 +1141,16 @@ export async function submitRedemption(
   let breakdown;
 
   if (kitFulfillment && isCuratedBundle(kitEntries, curatedMeta)) {
-    lineItems.push(await buildCuratedOrderLineItem(kit, curatedMeta));
+    const variantImages = resolveCuratedVariantImages(curatedMeta);
+    let chosen = null;
+    if (variantImages.length) {
+      const selected = String(kitVariantImage || '').trim();
+      if (!selected || !variantImages.includes(selected)) {
+        throw new ApiError(422, 'Please choose a kit variant', 'KIT_VARIANT_REQUIRED');
+      }
+      chosen = { variantImage: selected };
+    }
+    lineItems.push(await buildCuratedOrderLineItem(kit, curatedMeta, chosen));
     breakdown = amountBreakdownForKitCampaign(campaign, {
       kitUnitPriceInr: await curatedKitUnitPriceInr(kit, curatedMeta),
       packaging: campaign.packaging,

@@ -501,6 +501,16 @@ export async function updateKitFlow(payload: {
   return kit;
 }
 
+/** Upload logo/artwork onto an existing kit without a metadata PATCH (campaignOps-safe). */
+export async function uploadKitArtworkFlow(
+  kitId: string,
+  artwork: { file?: File; preview?: string; name?: string },
+) {
+  const file = await prepareArtworkUploadFile(artwork);
+  if (!file) throw new Error("No artwork file to upload");
+  return uploadKitArtworkApi(kitId, file);
+}
+
 export async function createCollectionFlow(payload: {
   shopId?: string;
   name: string;
@@ -648,7 +658,7 @@ export async function launchKitCampaignFlow(payload: {
   schedule?: { mode: "now" | "scheduled" | "self"; sendAt?: string | null; timezone?: string };
   contactIds: string[];
   contacts: Array<{ id: string; name: string; email: string; phone?: string }>;
-  recipVariants?: Record<string, Record<string, { size?: string; color?: string }>>;
+  recipVariants?: Record<string, Record<string, { size?: string; color?: string; variantImage?: string }>>;
 }) {
   const recipients = payload.contactIds
     .map((id) => {
@@ -925,8 +935,11 @@ export type KitRedemptionItem = {
 export type KitRedemptionData = {
   kit: { name: string; artworkUrl: string; packaging: string };
   items: KitRedemptionItem[];
-  /** Curated kit with no catalog products — recipient confirms address only. */
+  /** Curated kit with no catalog products — recipient confirms address (+ optional kit variant). */
   curatedBundle?: boolean;
+  /** Curated kit appearance variants (same gallery roles as superadmin). */
+  variantImages?: string[];
+  requiresKitVariant?: boolean;
 };
 
 export async function getRedemptionKit(token: string, sessionToken: string) {

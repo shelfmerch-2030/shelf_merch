@@ -139,14 +139,16 @@ export async function getPlatformOrderDetail(orderId) {
       }
     }
   }
+  let kitArtworkUrl = '';
   if (campaign?.type === 'kit' && campaign?.kitId) {
     const kit = await Kit.findOne({ _id: campaign.kitId, tenantId: order.tenantId })
       .select('artworkUrl productRefs')
       .lean();
-    if (kit?.artworkUrl) {
+    kitArtworkUrl = kit?.artworkUrl || '';
+    if (kitArtworkUrl) {
       for (const item of order.items ?? []) {
         if (item.catalogProductId) {
-          artworkByProductId[String(item.catalogProductId)] = kit.artworkUrl;
+          artworkByProductId[String(item.catalogProductId)] = kitArtworkUrl;
         }
       }
     }
@@ -165,9 +167,11 @@ export async function getPlatformOrderDetail(orderId) {
   const items = (obj.items ?? []).map((item) => {
     const pid = item.catalogProductId ? String(item.catalogProductId) : '';
     const product = pid ? productById[pid] : null;
-    const artworkUrl = pid ? artworkByProductId[pid] ?? '' : '';
+    const artworkUrl =
+      item.artworkUrl || (pid ? artworkByProductId[pid] ?? '' : '') || (!pid ? kitArtworkUrl : '');
     const placement = pid ? placementByProductId[pid] ?? null : null;
-    const designedMockupUrl = pid ? designedMockupByProductId[pid] ?? '' : '';
+    const designedMockupUrl =
+      (pid ? designedMockupByProductId[pid] ?? '' : '') || (!pid && item.imageUrl ? item.imageUrl : '');
     return {
       ...item,
       artworkUrl,
@@ -186,7 +190,21 @@ export async function getPlatformOrderDetail(orderId) {
             placement,
             designedMockupUrl,
           }
-        : null,
+        : item.imageUrl
+          ? {
+              _id: null,
+              name: item.name,
+              baseImageUrl: '',
+              maskImageUrl: '',
+              primaryImageUrl: item.imageUrl,
+              imageUrls: [item.imageUrl],
+              printAreas: [],
+              variants: [],
+              artworkUrl,
+              placement: null,
+              designedMockupUrl: item.imageUrl,
+            }
+          : null,
     };
   });
 

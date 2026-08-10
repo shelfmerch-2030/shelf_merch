@@ -5,6 +5,7 @@ import {
   launchKitCampaignFlow,
   refreshPlatformKits,
   updateKitFlow,
+  uploadKitArtworkFlow,
   type PlatformKitTemplate,
 } from "@/services/api-bridge";
 import { useInvalidateWorkspace } from "@/hooks/useWorkspace";
@@ -80,6 +81,16 @@ export function useUpdateKit() {
   const invalidate = useInvalidateWorkspace();
   return useMutation({
     mutationFn: (input: UpdateKitInput) => updateKitFlow(input),
+    onSuccess: () => invalidate(),
+  });
+}
+
+/** Artwork-only upload (safe for campaignOps / curated send). */
+export function useUploadKitArtwork() {
+  const invalidate = useInvalidateWorkspace();
+  return useMutation({
+    mutationFn: (input: { kitId: string; artwork: KitArtworkInput }) =>
+      uploadKitArtworkFlow(input.kitId, input.artwork),
     onSuccess: () => invalidate(),
   });
 }
