@@ -444,6 +444,15 @@ describe('auth flow', () => {
       .send({ email: adminA.email, password: 'wrong-password' });
     expect(badLogin.status).toBe(401);
   });
+
+  it('login returns NO_ACCOUNT when the email is unknown', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'missing-user@test.io', password: 'demo1234' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('NO_ACCOUNT');
+    expect(res.body.error.message).toMatch(/sign up/i);
+  });
 });
 
 describe('user invite', () => {

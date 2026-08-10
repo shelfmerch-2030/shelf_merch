@@ -1,9 +1,9 @@
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import type { Plugin } from "vite";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 
 const API_UPLOADS_DIR = path.resolve(__dirname, "../api/uploads");
 const UPLOAD_MIME: Record<string, string> = {
@@ -62,5 +62,11 @@ export default defineConfig({
         proxyTimeout: 120_000,
       },
     },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    css: false,
   },
 });

@@ -103,11 +103,14 @@ Reference source: `apps/api/src/seed/demoReference.js`
 ### Tests
 
 ```bash
-npm test           # runs the API suite (vitest)
+npm test           # API suite (vitest) then web suite (vitest)
+npm run test:api   # API only
+npm run test:web   # frontend unit tests only
 ```
 
-Tests prefer the Docker Mongo replica set (`shelfmerch_test` db) and fall back
-to `mongodb-memory-server` when Docker isn't available.
+API tests prefer the Docker Mongo replica set (`shelfmerch_test` db) and fall back
+to `mongodb-memory-server` when Docker isn't available. Web tests run in jsdom
+via Vitest + Testing Library.
 
 ## Architecture Invariants (enforced in code)
 
