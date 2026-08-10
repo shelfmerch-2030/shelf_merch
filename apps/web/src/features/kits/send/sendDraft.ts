@@ -20,7 +20,7 @@ export type SendKitDraft = {
   preview: "landing" | "email";
   pay: PaymentMethod;
   pkg: "none" | "box";
-  recipVariants: Record<string, Record<string, { size?: string; color?: string }>>;
+  recipVariants: Record<string, Record<string, { size?: string; color?: string; variantImage?: string }>>;
 };
 
 export type SendKitAction =
@@ -39,7 +39,7 @@ export type SendKitAction =
   | { type: "setPay"; pay: PaymentMethod }
   | { type: "setPkg"; pkg: "none" | "box" }
   | { type: "hydrate"; draft: SendKitDraft }
-  | { type: "setRecipVariant"; contactId: string; productId: string; key: "size" | "color"; value: string };
+  | { type: "setRecipVariant"; contactId: string; productId: string; key: "size" | "color" | "variantImage"; value: string };
 
 export function sendKitReducer(state: SendKitDraft, action: SendKitAction): SendKitDraft {
   switch (action.type) {

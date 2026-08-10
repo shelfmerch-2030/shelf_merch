@@ -23,8 +23,9 @@ import {
   selectAllRecipientIds,
 } from "@/features/send/recipientSelection";
 import { kitPickedIndices } from "../wizard/kitDraft";
-import { useLaunchKitCampaign, useUpdateKit, usePlatformKits } from "../model";
+import { useLaunchKitCampaign, useUpdateKit, useUploadKitArtwork, usePlatformKits } from "../model";
 import type { UiKit } from "../model";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
   initialSendKitDraft,
   sendKitReducer,
@@ -106,6 +107,9 @@ function isDrinkwareProduct(product: UiProduct, ref: any = {}) {
   return false;
 }
 
+/** Sentinel matching API CURATED_VARIANT_KEY for curated kit appearance picks. */
+export const CURATED_VARIANT_KEY = "__curated__";
+
 function isApparelProduct(product: UiProduct, ref: any = {}) {
   if (isDrinkwareProduct(product, ref)) return false;
   const group = effectiveProductGroup(product, ref);
@@ -123,9 +127,9 @@ export function resolveKitItemOptions(product: UiProduct, ref: any = {}) {
 
   if (isDrinkwareProduct(product, ref)) {
     return {
-      sizes: rawSizes,
+      sizes: [],
       colors: rawColors,
-      requiresSize: rawSizes.length > 0,
+      requiresSize: false,
       requiresColor: rawColors.length > 0,
     };
   }
@@ -163,12 +167,26 @@ export function getCuratedKitMeta(kit: UiKit | undefined) {
         heroImage?: string;
         itemImages?: Array<{ imageUrl: string; label?: string }>;
         variantImages?: string[];
+        brandLogoUploaded?: boolean;
+        brandLogoUrl?: string;
       };
     }
   } catch {
     // ignore
   }
   return null;
+}
+
+/** True when the tenant has uploaded a brand logo (not just the platform hero image). */
+export function curatedKitHasBrandLogo(kit: UiKit | undefined) {
+  const meta = getCuratedKitMeta(kit);
+  if (!meta) return false;
+  if (meta.brandLogoUploaded && (kit?.artworkUrl || meta.brandLogoUrl)) return true;
+  const hero = String(meta.heroImage || meta.imageUrls?.[0] || "").trim();
+  const art = String(kit?.artworkUrl || "").trim();
+  if (!art) return false;
+  if (!hero) return true;
+  return art !== hero;
 }
 
 export type SendKitStep = 0 | 1 | 2 | 3 | 4;
@@ -208,6 +226,11 @@ export type SendKitVm = {
   onPayAndSend: () => void;
   kitName: string;
   setKitName: (name: string) => void;
+  /** Curated kits: logo upload on Items step. */
+  curatedLogoPreview: string;
+  hasCuratedLogo: boolean;
+  isUploadingCuratedLogo: boolean;
+  onCuratedLogoFile: (file: File | null) => void;
 };
 
 function missingAddress(contacts: UiContact[], selected: string[]): UiContact[] {
@@ -224,9 +247,12 @@ export function useSendKitController(): SendKitVm {
   const refreshWorkspace = useInvalidateWorkspace();
   const launch = useLaunchKitCampaign();
   const updateKit = useUpdateKit();
+  const uploadArtwork = useUploadKitArtwork();
   const [step, setStep] = useState<SendKitStep>(0);
   const [sending, setSending] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState("");
+  const [curatedLogoPreview, setCuratedLogoPreview] = useState("");
+  const logoObjectUrlRef = useRef<string | null>(null);
 
   const catalog: UiProduct[] = useMemo(() => workspace?.catalogProducts ?? [], [workspace]);
   const contacts: UiContact[] = useMemo(() => workspace?.contacts ?? [], [workspace]);
@@ -294,6 +320,22 @@ export function useSendKitController(): SendKitVm {
   const { data: platformKits } = usePlatformKits();
 
   const isCuratedKit = !!getCuratedKitMeta(kit);
+
+  useEffect(() => {
+    if (!kit || !isCuratedKit) return;
+    if (logoObjectUrlRef.current) return; // keep local blob preview while uploading
+    const meta = getCuratedKitMeta(kit);
+    const url = meta?.brandLogoUrl || (curatedKitHasBrandLogo(kit) ? kit.artworkUrl : "") || "";
+    if (url) setCuratedLogoPreview(resolveMediaUrl(url) || url);
+  }, [kit, isCuratedKit]);
+
+  useEffect(() => {
+    return () => {
+      if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
+    };
+  }, []);
+
+  const hasCuratedLogo = curatedKitHasBrandLogo(kit) || Boolean(curatedLogoPreview);
 
   const pickedProducts = useMemo(
     () => draft.picked.map((idx) => catalog[idx]).filter(Boolean) as UiProduct[],
@@ -407,6 +449,10 @@ export function useSendKitController(): SendKitVm {
 
   function onNext() {
     if (step === 0) {
+      if (isCuratedKit && !hasCuratedLogo) {
+        toast.error("Please upload a logo before continuing");
+        return;
+      }
       if (kit && kitName.trim() && kitName !== kit.name) {
         updateKit.mutateAsync({
           id: kit.id,
@@ -437,19 +483,36 @@ export function useSendKitController(): SendKitVm {
         }
       }
       const isCurated = !!getCuratedKitMeta(kit);
-      if (!isCurated && (draft.mode === "surprise" || draft.mode === "single")) {
+      if ((draft.mode === "surprise" || draft.mode === "single")) {
         const missingList: string[] = [];
-        const pickedProds = draft.picked.map((idx) => catalog[idx]).filter(Boolean);
-        for (const rid of draft.selRecips) {
-          const contact = pickerContacts.find((c) => c.id === rid);
-          const name = contact?.name || "Recipient";
-          const variants = draft.recipVariants[rid] || {};
-          for (const prod of pickedProds) {
-            const ref = kit?.productRefs?.find((r) => r.catalogProductId === prod.id) ?? {};
-            const opts = resolveKitItemOptions(prod, ref);
-            const sel = variants[prod.id || ""] || {};
-            if (opts.requiresSize && !sel.size) missingList.push(`${name}'s size for ${prod.nm}`);
-            if (opts.requiresColor && !sel.color) missingList.push(`${name}'s color for ${prod.nm}`);
+        if (isCurated) {
+          const meta = getCuratedKitMeta(kit);
+          const variantImages =
+            meta?.variantImages?.length
+              ? meta.variantImages
+              : platformKits?.find((k) => String(k._id) === String(meta?.originalId))?.variantImages ||
+                [];
+          if (variantImages.length) {
+            for (const rid of draft.selRecips) {
+              const contact = pickerContacts.find((c) => c.id === rid);
+              const name = contact?.name || "Recipient";
+              const sel = draft.recipVariants[rid]?.[CURATED_VARIANT_KEY];
+              if (!sel?.variantImage) missingList.push(`${name}'s kit variant`);
+            }
+          }
+        } else {
+          const pickedProds = draft.picked.map((idx) => catalog[idx]).filter(Boolean);
+          for (const rid of draft.selRecips) {
+            const contact = pickerContacts.find((c) => c.id === rid);
+            const name = contact?.name || "Recipient";
+            const variants = draft.recipVariants[rid] || {};
+            for (const prod of pickedProds) {
+              const ref = kit?.productRefs?.find((r) => r.catalogProductId === prod.id) ?? {};
+              const opts = resolveKitItemOptions(prod, ref);
+              const sel = variants[prod.id || ""] || {};
+              if (opts.requiresSize && !sel.size) missingList.push(`${name}'s size for ${prod.nm}`);
+              if (opts.requiresColor && !sel.color) missingList.push(`${name}'s color for ${prod.nm}`);
+            }
           }
         }
         if (missingList.length > 0) {
@@ -546,6 +609,38 @@ export function useSendKitController(): SendKitVm {
     void refreshWorkspace().catch(() => undefined);
   }
 
+  async function onCuratedLogoFile(file: File | null) {
+    if (!kit || !file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPG, or SVG)");
+      return;
+    }
+    if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
+    const localUrl = URL.createObjectURL(file);
+    logoObjectUrlRef.current = localUrl;
+    setCuratedLogoPreview(localUrl);
+    try {
+      const updated = await uploadArtwork.mutateAsync({
+        kitId: kit.id,
+        artwork: { file, preview: localUrl, name: file.name },
+      });
+      const saved = updated.artworkUrl ? resolveMediaUrl(updated.artworkUrl) || updated.artworkUrl : localUrl;
+      if (logoObjectUrlRef.current) {
+        URL.revokeObjectURL(logoObjectUrlRef.current);
+        logoObjectUrlRef.current = null;
+      }
+      setCuratedLogoPreview(saved);
+      toast.success("Logo uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload logo");
+      setCuratedLogoPreview("");
+      if (logoObjectUrlRef.current) {
+        URL.revokeObjectURL(logoObjectUrlRef.current);
+        logoObjectUrlRef.current = null;
+      }
+    }
+  }
+
   return {
     isLoading: isLoading && !workspace,
     isSending: sending || launch.isPending,
@@ -578,5 +673,9 @@ export function useSendKitController(): SendKitVm {
     onPayAndSend,
     kitName,
     setKitName,
+    curatedLogoPreview,
+    hasCuratedLogo,
+    isUploadingCuratedLogo: uploadArtwork.isPending,
+    onCuratedLogoFile,
   };
 }

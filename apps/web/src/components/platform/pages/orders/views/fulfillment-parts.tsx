@@ -43,6 +43,26 @@ export function matchVariantHex(
   return match?.colorHex;
 }
 
+/** Infer a safe download filename that keeps the uploaded file extension. */
+export function artworkDownloadFilename(url: string, fallbackBase: string, blobType?: string) {
+  const base = (fallbackBase || "artwork").replace(/\.[^.]+$/, "") || "artwork";
+  try {
+    const pathOnly = new URL(url, "https://local.invalid").pathname;
+    const fromUrl = pathOnly.match(/\.([a-z0-9]{2,5})$/i)?.[1]?.toLowerCase();
+    if (fromUrl && fromUrl !== "bin") return `${base}.${fromUrl}`;
+  } catch {
+    /* ignore */
+  }
+  const mime = (blobType || "").toLowerCase();
+  if (mime.includes("png")) return `${base}.png`;
+  if (mime.includes("jpeg") || mime.includes("jpg")) return `${base}.jpg`;
+  if (mime.includes("webp")) return `${base}.webp`;
+  if (mime.includes("gif")) return `${base}.gif`;
+  if (mime.includes("svg")) return `${base}.svg`;
+  if (mime.includes("pdf")) return `${base}.pdf`;
+  return `${base}.png`;
+}
+
 /** Triggers a download of the artwork; falls back to opening it if blocked (CORS). */
 export async function downloadArtwork(url: string, filename: string) {
   try {
@@ -51,7 +71,7 @@ export async function downloadArtwork(url: string, filename: string) {
     const href = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = href;
-    a.download = filename;
+    a.download = artworkDownloadFilename(url, filename, blob.type);
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -462,12 +482,12 @@ export function FulfillmentAssetStrip({
       >
         {artworkUrl && (
           <FulfillmentTile
-            label="Artwork — to print"
+            label="Logo / artwork — to print"
             onOpen={() =>
               setPreview({
-                title: "Artwork — to print",
+                title: "Logo / artwork — to print",
                 downloadUrl: artworkUrl,
-                downloadName: `${fileBase}-design`,
+                downloadName: `${fileBase}-logo`,
                 body: (
                   <img
                     src={artworkUrl}
@@ -484,7 +504,7 @@ export function FulfillmentAssetStrip({
                 style={{ width: "100%" }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  void downloadArtwork(artworkUrl, `${fileBase}-design`);
+                  void downloadArtwork(artworkUrl, `${fileBase}-logo`);
                 }}
               >
                 ↓ Download
@@ -495,6 +515,44 @@ export function FulfillmentAssetStrip({
               src={artworkUrl}
               alt="Artwork"
               style={{ maxWidth: "82%", maxHeight: "82%", objectFit: "contain" }}
+            />
+          </FulfillmentTile>
+        )}
+        {mockup && printAreas.length === 0 && (
+          <FulfillmentTile
+            label={variantColor ? `Variant — ${variantColor}` : "Variant image"}
+            onOpen={() =>
+              setPreview({
+                title: variantColor ? `Variant — ${variantColor}` : "Variant image",
+                downloadUrl: mockup,
+                downloadName: `${fileBase}-variant`,
+                body: (
+                  <img
+                    src={mockup}
+                    alt="Selected variant"
+                    style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
+                  />
+                ),
+              })
+            }
+            footer={
+              <button
+                type="button"
+                className="btn btn-soft btn-sm"
+                style={{ width: "100%" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void downloadArtwork(mockup, `${fileBase}-variant`);
+                }}
+              >
+                ↓ Download
+              </button>
+            }
+          >
+            <img
+              src={mockup}
+              alt="Selected variant"
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </FulfillmentTile>
         )}

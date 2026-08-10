@@ -702,7 +702,8 @@ describe('redemption portal (§11.1)', () => {
     const hoodieItem = kitView.body.items.find((i) => i.name === 'Forge Hoodie');
     const jockeyItem = kitView.body.items.find((i) => i.name === 'Jockey');
     expect(bottleItem.requiresSize).toBe(false);
-    expect(bottleItem.requiresColor).toBe(false);
+    expect(bottleItem.requiresColor).toBe(true);
+    expect(bottleItem.colors).toContain('White');
     expect(bottleItem.imageUrl).toBe('/uploads/platform/product/bottle.png');
     expect(bottleItem.artworkUrl).toBeTruthy();
     expect(hoodieItem.requiresSize).toBe(true);
@@ -716,7 +717,7 @@ describe('redemption portal (§11.1)', () => {
       .set('Idempotency-Key', 'kit-submit-missing-size')
       .send({
         items: [
-          { productId: String(bottle._id), qty: 1 },
+          { productId: String(bottle._id), qty: 1, variant: { color: 'White' } },
           { productId: String(tee._id), qty: 1 },
           { productId: String(jockey._id), qty: 1 },
         ],
@@ -732,13 +733,35 @@ describe('redemption portal (§11.1)', () => {
     expect(missingSize.status).toBe(422);
     expect(missingSize.body.error.code).toBe('SIZE_REQUIRED');
 
+    const missingColor = await request(app)
+      .post(`/api/v1/redemptions/${token}/submit`)
+      .set('Authorization', `Bearer ${sessionToken}`)
+      .set('Idempotency-Key', 'kit-submit-missing-color')
+      .send({
+        items: [
+          { productId: String(bottle._id), qty: 1 },
+          { productId: String(tee._id), qty: 1, variant: { size: 'M' } },
+          { productId: String(jockey._id), qty: 1, variant: { size: 'L' } },
+        ],
+        shippingAddress: {
+          name: 'Alice',
+          phone: '+91 99999 99999',
+          line1: '123 Street',
+          city: 'Hyderabad',
+          state: 'Telangana',
+          pincode: '500001',
+        },
+      });
+    expect(missingColor.status).toBe(422);
+    expect(missingColor.body.error.code).toBe('COLOR_REQUIRED');
+
     const submit = await request(app)
       .post(`/api/v1/redemptions/${token}/submit`)
       .set('Authorization', `Bearer ${sessionToken}`)
       .set('Idempotency-Key', 'kit-submit-ok')
       .send({
         items: [
-          { productId: String(bottle._id), qty: 1 },
+          { productId: String(bottle._id), qty: 1, variant: { color: 'White' } },
           { productId: String(tee._id), qty: 1, variant: { size: 'M' } },
           { productId: String(jockey._id), qty: 1, variant: { size: 'L' } },
         ],
@@ -759,6 +782,7 @@ describe('redemption portal (§11.1)', () => {
     const order = await Order.findOne({ recipientId: recipient._id, tenantId: tenant._id });
     expect(order.items).toHaveLength(3);
     expect(order.items.find((i) => i.name === 'Forge Hoodie').variant.size).toBe('M');
+    expect(order.items.find((i) => i.name === 'Work Well Bottle').variant.color).toBe('White');
   });
 
   it('kit submit validates against active kit items only (inactive refs ignored)', async () => {

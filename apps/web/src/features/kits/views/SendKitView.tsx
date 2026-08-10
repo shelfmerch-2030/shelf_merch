@@ -8,7 +8,7 @@ import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
 import type { SendKitVm } from "../controllers/useSendKitController";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
-import { resolveKitItemOptions, getCuratedKitMeta } from "../controllers/useSendKitController";
+import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
 import { curatedIncludedItems } from "../KitPreviewDialog";
 import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
@@ -229,15 +229,16 @@ export function SendKitView(vm: SendKitVm) {
       return { product: branded, opts: resolveKitItemOptions(p, ref ?? {}) };
     });
 
-  /** Only show when sender must configure real size/color options. */
+  /** Only show when sender must configure real size/color options — or curated kit variants. */
   const showVariantCols =
-    !isCurated &&
     (draft.mode === "surprise" || draft.mode === "single") &&
-    kitItems.some(
-      ({ opts }) =>
-        (opts.requiresSize && opts.sizes.length > 0) ||
-        (opts.requiresColor && opts.colors.length > 0),
-    );
+    (isCurated
+      ? curatedVariantImages.length > 0
+      : kitItems.some(
+          ({ opts }) =>
+            (opts.requiresSize && opts.sizes.length > 0) ||
+            (opts.requiresColor && opts.colors.length > 0),
+        ));
 
   const filteredContacts = vm.pickerContacts.filter(
     (c) =>
@@ -326,6 +327,88 @@ export function SendKitView(vm: SendKitVm) {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{item.label}</div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Brand logo — required before continuing */}
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                  Add logo <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <div
+                  className="card"
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    display: "flex",
+                    gap: 16,
+                    alignItems: "stretch",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}>
+                    <div
+                      style={{
+                        width: 140,
+                        height: 140,
+                        borderRadius: 12,
+                        border: "1px dashed var(--line)",
+                        background: "var(--gray-50)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        padding: 12,
+                      }}
+                    >
+                      {vm.curatedLogoPreview ? (
+                        <img
+                          src={vm.curatedLogoPreview}
+                          alt="Logo preview"
+                          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                        />
+                      ) : (
+                        <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: 8 }}>
+                          Logo preview
+                        </span>
+                      )}
+                    </div>
+                    <label
+                      className="btn btn-ghost btn-sm"
+                      style={{
+                        cursor: vm.isUploadingCuratedLogo ? "wait" : "pointer",
+                        textAlign: "center",
+                        opacity: vm.isUploadingCuratedLogo ? 0.7 : 1,
+                      }}
+                    >
+                      {vm.isUploadingCuratedLogo
+                        ? "Uploading…"
+                        : vm.curatedLogoPreview
+                          ? "Replace logo"
+                          : "Upload logo"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        hidden
+                        disabled={vm.isUploadingCuratedLogo}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          vm.onCuratedLogoFile(file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ flex: "1 1 220px", minWidth: 200, display: "flex", alignItems: "center" }}>
+                    <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
+                      This logo will be printed on the items in the designated placeholders.
+                      {!vm.hasCuratedLogo ? (
+                        <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
+                          Upload a logo to continue.
+                        </span>
+                      ) : null}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -647,7 +730,7 @@ export function SendKitView(vm: SendKitVm) {
                     </th>
                     {showVariantCols && (
                       <th
-                        colSpan={kitItems.length || 1}
+                        colSpan={isCurated ? 1 : kitItems.length || 1}
                         style={{
                           ...thStyle,
                           borderLeft: "2px solid var(--line)",
@@ -655,7 +738,7 @@ export function SendKitView(vm: SendKitVm) {
                         }}
                       >
                         <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: ".05em" }}>
-                          Kit items &amp; variants
+                          {isCurated ? "Kit variant" : "Kit items & variants"}
                         </div>
                         <div
                           style={{
@@ -667,12 +750,14 @@ export function SendKitView(vm: SendKitVm) {
                             letterSpacing: 0,
                           }}
                         >
-                          Configure size &amp; color for each recipient
+                          {isCurated
+                            ? "Choose appearance variant for each recipient"
+                            : "Configure size & color for each recipient"}
                         </div>
                       </th>
                     )}
                   </tr>
-                  {showVariantCols && kitItems.length > 0 && (
+                  {showVariantCols && !isCurated && kitItems.length > 0 && (
                     <tr style={{ background: "#fff" }}>
                       <th style={stickHeadCheckbox2}></th>
                       <th style={stickHeadName2}></th>
@@ -744,7 +829,37 @@ export function SendKitView(vm: SendKitVm) {
                         <td style={{ ...cellAddr(bg), borderRight: "none" }}>
                           {addr || "—"}
                         </td>
+                        {showVariantCols && isCurated && (
+                          <td style={{ ...tdStyle, borderLeft: "1px solid var(--line)", minWidth: 220 }}>
+                            <select
+                              className="inp"
+                              value={
+                                draft.recipVariants[contact.id]?.[CURATED_VARIANT_KEY]?.variantImage ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                dispatch({
+                                  type: "setRecipVariant",
+                                  contactId: contact.id,
+                                  productId: CURATED_VARIANT_KEY,
+                                  key: "variantImage",
+                                  value: e.target.value,
+                                })
+                              }
+                              style={{ fontSize: 12, height: 32, minWidth: 180 }}
+                              disabled={!isSelected}
+                            >
+                              <option value="">Select variant…</option>
+                              {curatedVariantImages.map((url, idx) => (
+                                <option key={`${url}-${idx}`} value={url}>
+                                  Variant {idx + 1}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
                         {showVariantCols &&
+                          !isCurated &&
                           kitItems.map(({ product: prod, opts }) => {
                             const selection =
                               draft.recipVariants[contact.id]?.[prod.id || ""] || {};

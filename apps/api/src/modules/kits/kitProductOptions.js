@@ -95,8 +95,14 @@ export function resolveKitItemOptions(product, ref = {}) {
   const rawSizes = distinctVariantValues(product.variants, 'size');
   const rawColors = distinctVariantValues(product.variants, 'color');
 
+  // Drinkware / fixed-SKU accessories: never ask for size, but colour must stay selectable.
   if (isDrinkwareProduct(product, ref)) {
-    return { sizes: [], colors: [], requiresSize: false, requiresColor: false };
+    return {
+      sizes: [],
+      colors: rawColors,
+      requiresSize: false,
+      requiresColor: rawColors.length > 0,
+    };
   }
 
   if (isApparelProduct(product, ref)) {

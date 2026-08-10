@@ -15,10 +15,13 @@ function KitItemCard({
   item,
   selection,
   onChange,
+  curatedPlain,
 }: {
   item: KitRedemptionItem;
   selection: Selection;
   onChange: (sel: Selection) => void;
+  /** Curated kits: show the product photo only — never overlay kit artwork. */
+  curatedPlain?: boolean;
 }) {
   const imageCandidates = (
     item.isDrinkware
@@ -31,13 +34,18 @@ function KitItemCard({
     colorHexByName: item.colorHexByName,
   });
 
+  const plainSrc = resolveMediaUrl(
+    item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
+  );
+
   const mockupProduct = {
     name: item.name,
     maskImageUrl: item.isDrinkware ? undefined : item.maskImageUrl || item.imageUrl,
     primaryImageUrl: item.imageUrl || item.primaryImageUrl,
     imageUrls: item.imageUrls,
-    artworkUrl: item.artworkUrl,
-    printAreas: item.printAreas,
+    // Curated redeem must not brand-overlay item photos.
+    artworkUrl: curatedPlain ? undefined : item.artworkUrl,
+    printAreas: curatedPlain ? [] : item.printAreas,
   };
 
   return (
@@ -53,11 +61,27 @@ function KitItemCard({
           position: "relative",
         }}
       >
-        <ProductArtworkMockup
-          product={mockupProduct}
-          imageCandidates={imageCandidates}
-          style={{ height: "100%" }}
-        />
+        {curatedPlain ? (
+          plainSrc ? (
+            <img
+              src={plainSrc}
+              alt={item.name}
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+            />
+          ) : (
+            <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
+              <span className="mut3" style={{ fontSize: 12 }}>
+                No image
+              </span>
+            </div>
+          )
+        ) : (
+          <ProductArtworkMockup
+            product={mockupProduct}
+            imageCandidates={imageCandidates}
+            style={{ height: "100%" }}
+          />
+        )}
       </div>
       {item.brand && (
         <div className="mut3" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em" }}>
@@ -66,7 +90,7 @@ function KitItemCard({
       )}
       <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>{item.name}</div>
 
-      {item.requiresColor && colorSwatches.length > 0 && (
+      {!curatedPlain && item.requiresColor && colorSwatches.length > 0 && (
         <div className="field" style={{ marginBottom: 10 }}>
           <label className="lbl">Colour *</label>
           <div className="pd-swatches kit-redeem-swatches">
@@ -86,7 +110,7 @@ function KitItemCard({
         </div>
       )}
 
-      {item.requiresSize && item.sizes.length > 0 && (
+      {!curatedPlain && item.requiresSize && item.sizes.length > 0 && (
         <div className="field">
           <label className="lbl">Size *</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -138,6 +162,10 @@ export default function KitAcceptPortal({
   const [selections, setSelections] = useState<Record<string, Selection>>(() =>
     Object.fromEntries(kitData.items.map((i) => [i.productId, {}])),
   );
+  const variantImages = kitData.variantImages || [];
+  const [kitVariantImage, setKitVariantImage] = useState(
+    () => (kitData.requiresKitVariant ? variantImages[0] || "" : ""),
+  );
   const [address, setAddress] = useState<ShippingAddress>({ ...EMPTY_ADDRESS, name: recipientName });
   const [error, setError] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -157,12 +185,16 @@ export default function KitAcceptPortal({
 
   async function acceptOrder() {
     setError("");
-    if (missingSizes.length) {
+    if (!isCuratedAccept && missingSizes.length) {
       setError(`Please choose a size for: ${missingSizes.map((i) => i.name).join(", ")}`);
       return;
     }
-    if (missingColors.length) {
+    if (!isCuratedAccept && missingColors.length) {
       setError(`Please choose a colour for: ${missingColors.map((i) => i.name).join(", ")}`);
+      return;
+    }
+    if (isCuratedAccept && kitData.requiresKitVariant && !kitVariantImage) {
+      setError("Please choose a kit variant.");
       return;
     }
     const missing = (["name", "phone", "line1", "city", "state", "pincode"] as const).filter(
@@ -191,7 +223,11 @@ export default function KitAcceptPortal({
       const result = (await submitRedemption(
         token,
         sessionToken,
-        { items, shippingAddress: address },
+        {
+          items,
+          shippingAddress: address,
+          ...(isCuratedAccept && kitVariantImage ? { kitVariantImage } : {}),
+        },
         `kit-accept-${token}-${Date.now()}`,
       )) as { orderNumber: string };
       onAccepted(result.orderNumber);
@@ -212,7 +248,9 @@ export default function KitAcceptPortal({
         <p className="muted" style={{ marginBottom: 20, maxWidth: 560 }}>
           {welcome ||
             (isCuratedAccept
-              ? `Hi ${recipientName} — confirm your shipping address to accept your gift kit.`
+              ? `Hi ${recipientName} — confirm your shipping address${
+                  kitData.requiresKitVariant ? ", choose a kit variant," : ""
+                } to accept your gift kit.`
               : `Hi ${recipientName} — confirm your kit items${kitData.items.some((i) => i.requiresSize) ? ", choose sizes where needed" : ""}, then enter your shipping address to accept.`)}
         </p>
 
@@ -257,9 +295,64 @@ export default function KitAcceptPortal({
               item={item}
               selection={selections[item.productId] || {}}
               onChange={(sel) => setSelections((prev) => ({ ...prev, [item.productId]: sel }))}
+              curatedPlain={isCuratedAccept}
             />
           ))}
         </div>
+
+        {isCuratedAccept && variantImages.length > 0 && (
+          <>
+            <h2 style={{ fontSize: 17, marginBottom: 14 }}>Choose a variant</h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 12,
+                marginBottom: 32,
+              }}
+            >
+              {variantImages.map((url, idx) => {
+                const selected = kitVariantImage === url;
+                return (
+                  <button
+                    key={`${url}-${idx}`}
+                    type="button"
+                    className="card"
+                    onClick={() => setKitVariantImage(url)}
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      border: selected ? "2px solid var(--brand)" : "1px solid var(--line)",
+                      background: selected ? "var(--surface-2)" : undefined,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "var(--gray-100)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <img
+                        src={resolveMediaUrl(url)}
+                        alt={`Variant ${idx + 1}`}
+                        style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>Variant {idx + 1}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         <h2 style={{ fontSize: 17, marginBottom: 14 }}>Shipping address</h2>
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>

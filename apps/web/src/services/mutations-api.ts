@@ -491,7 +491,8 @@ function withUploadableArtworkName(file: File, preferredName?: string): File {
   return new File([file], filename, { type: mime });
 }
 
-/** Rasterize SVG (blocked by upload allowlist) to PNG so artwork can be stored. */
+/** Rasterize SVG (blocked by multer allowlist for XSS) to PNG so artwork can be stored.
+ *  Raster formats (PNG/JPEG/WebP) are kept as uploaded — bytes and extension preserved. */
 async function ensureUploadableArtworkFile(file: File, preferredName?: string): Promise<File> {
   const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
   if (!isSvg) return withUploadableArtworkName(file, preferredName);

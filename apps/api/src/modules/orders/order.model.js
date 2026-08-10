@@ -57,6 +57,8 @@ const orderSchema = new mongoose.Schema(
         gstRate: { type: Number, default: 18 },
         hsnCode: { type: String, default: '' },
         imageUrl: { type: String, default: '' },
+        /** Brand logo / kit artwork URL frozen at order time (curated kits). */
+        artworkUrl: { type: String, default: '' },
       },
     ],
     shippingAddress: {

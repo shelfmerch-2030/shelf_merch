@@ -12,8 +12,9 @@ import { PlatformKit } from './platformKit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { uploadFile } from '../../services/storage.service.js';
 import { writeAudit } from '../../services/audit.service.js';
-import { ApiError, NotFoundError } from '../../utils/errors.js';
+import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { sumKitProductPrices } from './kitPricing.js';
+import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 
 // Allow multiple mockup PNGs (one per kit product) — same cap as collections.
 const upload = uploader({ allow: DOCUMENT_TYPES, maxSizeMb: 25, files: 50 });
@@ -24,6 +25,19 @@ const canWrite = tenantArea('kits', 'write');
 const canRead = tenantArea('kits', 'read');
 /** Clone a curated platform kit into the tenant workspace for send — ops only. */
 const canOperate = tenantArea('campaignOps', 'write');
+
+/** Kit artwork upload during craft (kits write) or curated send (campaignOps write). */
+function canUploadKitArtwork(req, _res, next) {
+  const role = req.user?.role;
+  const allowed = new Set([
+    ...rolesForTenantArea('kits', 'write'),
+    ...rolesForTenantArea('campaignOps', 'write'),
+  ]);
+  if (!allowed.has(role)) {
+    return next(new ForbiddenError('Kit artwork upload requires kits or campaignOps write access'));
+  }
+  next();
+}
 
 const productRef = z.object({
   catalogProductId: objectId,
@@ -238,7 +252,7 @@ router.patch(
 
 router.post(
   '/:id/artwork',
-  canWrite,
+  canUploadKitArtwork,
   validate({ params: z.object({ id: objectId }) }),
   upload.single('artwork'),
   asyncHandler(async (req, res) => {
@@ -247,6 +261,15 @@ router.post(
     if (!req.file) throw new ApiError(400, 'No artwork file uploaded', 'FILE_REQUIRED');
     const { url } = await uploadFile({ tenantId: req.tenantId, kind: 'artwork', file: req.file });
     kit.artworkUrl = url;
+    // Mark curated clones so send-flow can require a real tenant logo (not platform hero).
+    try {
+      const meta = kit.designNotes ? JSON.parse(kit.designNotes) : null;
+      if (meta && typeof meta === 'object' && meta.curated) {
+        kit.designNotes = JSON.stringify({ ...meta, brandLogoUploaded: true, brandLogoUrl: url });
+      }
+    } catch {
+      /* leave designNotes unchanged */
+    }
     await kit.save();
     writeAudit({ req, action: 'kit.artwork', entityType: 'Kit', entityId: kit._id, after: { artworkUrl: url } });
     res.json(kit);

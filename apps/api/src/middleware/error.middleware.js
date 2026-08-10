@@ -25,7 +25,10 @@ export function errorHandler(err, req, res, _next) {
     return res.status(status).json({ error: { code: err.code ?? 'UPLOAD_ERROR', message } });
   }
   if (err?.code === 11000) {
-    const field = err.keyPattern ? Object.keys(err.keyPattern).join(', ') : undefined;
+    const field =
+      (err.keyPattern && Object.keys(err.keyPattern).join(', ')) ||
+      (err.keyValue && Object.keys(err.keyValue).join(', ')) ||
+      undefined;
     logger.warn({ err, path: safeRequestPath(req), field }, 'Duplicate key conflict');
     return res.status(409).json({
       error: {

@@ -128,6 +128,8 @@ router.post(
           }),
         )
         .min(0),
+      /** Curated kit appearance variant image URL (from /kit variantImages). */
+      kitVariantImage: z.string().min(1).optional(),
       shippingAddress: z.object({
         name: z.string().min(1),
         phone: z.string().min(1),

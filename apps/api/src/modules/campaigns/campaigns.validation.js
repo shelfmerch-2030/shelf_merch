@@ -55,6 +55,8 @@ export const importRecipientsSchema = z.object({
             z.object({
               size: z.string().optional(),
               color: z.string().optional(),
+              /** Curated kit appearance variant image URL. */
+              variantImage: z.string().optional(),
             }),
           )
           .optional(),
