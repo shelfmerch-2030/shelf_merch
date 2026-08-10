@@ -375,7 +375,7 @@ export function SendPointsView({
                     k="Purchase amount"
                     v={`${inr(purchaseAmount)} (${purchasePointsLabel})`}
                   />
-                  <SumRow k="Amount paid now" v={inr(0)} />
+                  <SumRow k="Amount to be paid now" v={inr(0)} />
                   <div
                     className="row"
                     style={{
