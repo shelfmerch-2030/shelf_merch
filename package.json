@@ -15,7 +15,9 @@
     "start:worker": "npm run worker -w @shelfmerch/api",
     "seed": "npm run seed -w @shelfmerch/api",
     "worker": "npm run worker -w @shelfmerch/api",
-    "test": "npm test -w @shelfmerch/api"
+    "test": "npm test -w @shelfmerch/api && npm test -w @shelfmerch/web",
+    "test:api": "npm test -w @shelfmerch/api",
+    "test:web": "npm test -w @shelfmerch/web"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4"

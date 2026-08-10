@@ -34,7 +34,7 @@ jobs:
           NODE_ENV: test
 
   web-checks:
-    name: Web typecheck, lint & build
+    name: Web typecheck, tests & build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -55,6 +55,9 @@ jobs:
       # would need a separate repo-wide format pass first.)
       - name: Typecheck
         run: npm run typecheck -w @shelfmerch/web
+
+      - name: Run web tests
+        run: npm test -w @shelfmerch/web
 
       - name: Build
         run: npm run build -w @shelfmerch/web

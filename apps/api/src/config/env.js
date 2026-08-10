@@ -172,7 +172,9 @@ export const razorpayWebhookConfigured = () => Boolean(env.RAZORPAY_WEBHOOK_SECR
 export const msg91Configured = () =>
   Boolean(env.MSG91_AUTH_KEY && env.MSG91_OTP_TEMPLATE_ID);
 
-export const emailConfigured = () => Boolean(env.EMAIL_USER && env.EMAIL_PASSWORD);
+/** Never open real SMTP in the Vitest suite (root .env often has credentials). */
+export const emailConfigured = () =>
+  !isTest && Boolean(env.EMAIL_USER && env.EMAIL_PASSWORD);
 
 export const googleAuthConfigured = () =>
   Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);

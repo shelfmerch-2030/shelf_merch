@@ -24,6 +24,7 @@ export type UpdateShopInput = {
   companyEmailDomain?: string;
   logoUrl?: string;
   bannerConfig?: Record<string, unknown>;
+  categories?: string[];
   selectedCatalogProductIds?: string[];
   featuredCatalogProductIds?: string[];
   activeListingKeys?: string[];
