@@ -194,4 +194,122 @@ describe('orders API (Phase 6)', () => {
       .send({ status: 'approved' });
     expect(res.status).toBe(403);
   });
+
+  it('gets a single order with response schema fields', async () => {
+    const list = await request(app).get('/api/v1/orders').set('Authorization', `Bearer ${adminToken}`);
+    const orderId = list.body.items[0]._id;
+    const res = await request(app)
+      .get(`/api/v1/orders/${orderId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.orderNumber).toBe('SM-2026-000001');
+    expect(res.body).toHaveProperty('validNextStatuses');
+    expect(res.body).toHaveProperty('amountBreakdown');
+    expect(res.body.campaignName).toBe('Diwali Gifts');
+    expect(res.body.recipient?.email).toBe('alice@test.io');
+  });
+
+  it('filters orders by status and paginates', async () => {
+    const second = await Order.create({
+      tenantId: tenant._id,
+      campaignId: (await Campaign.findOne({ tenantId: tenant._id, name: 'Diwali Gifts' }))._id,
+      recipientId: (await Recipient.findOne({ tenantId: tenant._id, email: 'alice@test.io' }))._id,
+      orderNumber: 'SM-2026-000002',
+      items: [{ name: 'Mug', qty: 1, unitPriceInr: 200 }],
+      shippingAddress: { name: 'Alice', line1: '123 St', city: 'Hyderabad', state: 'TS', pincode: '500001' },
+      amountBreakdown: { subtotal: 200, serviceFee: 0, gst: 36, total: 236 },
+      status: 'approved',
+    });
+
+    const filtered = await request(app)
+      .get('/api/v1/orders')
+      .query({ status: 'approved' })
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.items).toHaveLength(1);
+    expect(filtered.body.items[0]._id).toBe(String(second._id));
+
+    const page1 = await request(app)
+      .get('/api/v1/orders')
+      .query({ page: 1, limit: 1 })
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(page1.body.items).toHaveLength(1);
+    expect(page1.body.pagination.total).toBe(2);
+    expect(page1.body.pagination.totalPages).toBe(2);
+
+    const page2 = await request(app)
+      .get('/api/v1/orders')
+      .query({ page: 2, limit: 1 })
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(page2.body.items).toHaveLength(1);
+    expect(page2.body.items[0]._id).not.toBe(page1.body.items[0]._id);
+  });
+
+  it('returns 401 without auth and 404 for unknown order', async () => {
+    expect((await request(app).get('/api/v1/orders')).status).toBe(401);
+
+    const res = await request(app)
+      .get('/api/v1/orders/507f1f77bcf86cd799439011')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+  });
+
+  it('rejects invalid status filter (400)', async () => {
+    const res = await request(app)
+      .get('/api/v1/orders')
+      .query({ status: 'not_a_real_status' })
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects invalid tenant status transition from created → mockup_approved', async () => {
+    const list = await request(app).get('/api/v1/orders').set('Authorization', `Bearer ${adminToken}`);
+    const orderId = list.body.items[0]._id;
+    const res = await request(app)
+      .patch(`/api/v1/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'mockup_approved' });
+    // mockup_approved is tenant-allowed, but state machine forbids created → mockup_approved
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('INVALID_STATE_TRANSITION');
+  });
+
+  it('entity manager cannot get order from another entity campaign (ABAC)', async () => {
+    const list = await request(app).get('/api/v1/orders').set('Authorization', `Bearer ${adminToken}`);
+    const orderId = list.body.items[0]._id;
+    const res = await request(app)
+      .get(`/api/v1/orders/${orderId}`)
+      .set('Authorization', `Bearer ${manager2Token}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('isolates orders across tenants', async () => {
+    const otherTenant = await Tenant.create({ name: 'Other', slug: 'orders-other' });
+    const otherAdmin = await User.create({
+      tenantId: otherTenant._id,
+      name: 'Other Admin',
+      email: 'other-orders@test.io',
+      status: 'active',
+    });
+    const otherToken = signAccessToken(
+      otherAdmin,
+      await RoleAssignment.create({
+        tenantId: otherTenant._id,
+        userId: otherAdmin._id,
+        role: 'company_admin',
+        scopeType: 'tenant',
+      }),
+    );
+
+    const list = await request(app).get('/api/v1/orders').set('Authorization', `Bearer ${otherToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.items).toHaveLength(0);
+
+    const adminList = await request(app).get('/api/v1/orders').set('Authorization', `Bearer ${adminToken}`);
+    const orderId = adminList.body.items[0]._id;
+    const get = await request(app)
+      .get(`/api/v1/orders/${orderId}`)
+      .set('Authorization', `Bearer ${otherToken}`);
+    expect(get.status).toBe(404);
+  });
 });

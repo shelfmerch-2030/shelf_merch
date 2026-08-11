@@ -327,8 +327,9 @@ describe('tenants (§3.4)', () => {
     const login = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: 'locked@rubix.net', password: 'demo1234' });
-    expect(login.status).toBe(401);
-    expect(login.body.error.message).toMatch(/archived/i);
+    expect(login.status).toBe(403);
+    expect(login.body.error.code).toBe('TENANT_ARCHIVED');
+    expect(login.body.error.message).toMatch(/archived|suspended/i);
   });
 
   it('only the super admin governs tenants', async () => {
