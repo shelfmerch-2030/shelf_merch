@@ -174,7 +174,7 @@ export function MarketingImageGallery({
     <div style={{ width: "100%", marginBottom: 22 }}>
       <label className="lbl">Shopify marketing images</label>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>
-        All imported product photos · read-only · not used for artwork or production
+        All imported product photos · read-only · primary is used for artwork if no mask is uploaded
       </p>
       {!imageUrls.length ? (
         <p className="muted" style={{ fontSize: 13 }}>

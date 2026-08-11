@@ -186,16 +186,28 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
       product?.maskRightImageUrl,
     ],
   );
+  /** Uploaded mask, or Shopify primary for front when admin skips the mask upload. */
+  const effectiveMaskByView = useMemo(
+    () => ({
+      front: maskByView.front || marketingImageUrl || undefined,
+      back: maskByView.back,
+      left: maskByView.left,
+      right: maskByView.right,
+    }),
+    [maskByView.front, maskByView.back, maskByView.left, maskByView.right, marketingImageUrl],
+  );
   const baseStageImageUrl = stageByView.front;
-  const productionMaskImageUrl = maskByView.front;
+  const productionMaskImageUrl = effectiveMaskByView.front;
   const baseBackStageImageUrl = stageByView.back;
-  const productionMaskBackImageUrl = maskByView.back;
+  const productionMaskBackImageUrl = effectiveMaskByView.back;
   const baseLeftStageImageUrl = stageByView.left;
-  const productionMaskLeftImageUrl = maskByView.left;
+  const productionMaskLeftImageUrl = effectiveMaskByView.left;
   const baseRightStageImageUrl = stageByView.right;
-  const productionMaskRightImageUrl = maskByView.right;
+  const productionMaskRightImageUrl = effectiveMaskByView.right;
   const activeStageUrl = stageByView[imageView];
-  const activeMaskUrl = maskByView[imageView];
+  const activeMaskUrl = effectiveMaskByView[imageView];
+  const activeMaskIsShopifyFallback =
+    imageView === "front" && !maskByView.front && Boolean(marketingImageUrl);
   const printAreaImages = useMemo(
     () =>
       [
@@ -427,6 +439,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     imageViews: IMAGE_VIEWS,
     activeStageUrl,
     activeMaskUrl,
+    activeMaskIsShopifyFallback,
     baseStageImageUrl,
     productionMaskImageUrl,
     baseBackStageImageUrl,

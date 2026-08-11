@@ -104,34 +104,39 @@ export function printAreaViewKey(
   area: { key?: string; label?: string; mockupImageUrl?: string } | null | undefined,
 ): ProductViewKey {
   const mockup = resolveMediaUrl(area?.mockupImageUrl);
-  const views: Array<{ key: ProductViewKey; mask?: string; base?: string }> = [
+  const views: Array<{ key: ProductViewKey; urls: string[] }> = [
     {
       key: "back",
-      mask: resolveMediaUrl(p?.maskBackImageUrl),
-      base: resolveMediaUrl(p?.baseBackImageUrl),
+      urls: [resolveMediaUrl(p?.maskBackImageUrl), resolveMediaUrl(p?.baseBackImageUrl)].filter(
+        Boolean,
+      ) as string[],
     },
     {
       key: "left",
-      mask: resolveMediaUrl(p?.maskLeftImageUrl),
-      base: resolveMediaUrl(p?.baseLeftImageUrl),
+      urls: [resolveMediaUrl(p?.maskLeftImageUrl), resolveMediaUrl(p?.baseLeftImageUrl)].filter(
+        Boolean,
+      ) as string[],
     },
     {
       key: "right",
-      mask: resolveMediaUrl(p?.maskRightImageUrl),
-      base: resolveMediaUrl(p?.baseRightImageUrl),
+      urls: [resolveMediaUrl(p?.maskRightImageUrl), resolveMediaUrl(p?.baseRightImageUrl)].filter(
+        Boolean,
+      ) as string[],
     },
     {
       key: "front",
-      mask: resolveMediaUrl(p?.maskImageUrl),
-      base: resolveMediaUrl(p?.baseImageUrl),
+      urls: [
+        resolveMediaUrl(p?.maskImageUrl),
+        resolveMediaUrl(p?.baseImageUrl),
+        // Print areas authored on the Shopify primary when no mask was uploaded.
+        resolveMediaUrl(p?.photoUrl),
+        ...(p?.imageUrls || []).map((u) => resolveMediaUrl(u)).filter(Boolean),
+      ].filter(Boolean) as string[],
     },
   ];
   if (mockup) {
     for (const view of views) {
-      if (
-        (view.mask && sameMediaPath(mockup, view.mask)) ||
-        (view.base && sameMediaPath(mockup, view.base))
-      ) {
+      if (view.urls.some((url) => sameMediaPath(mockup, url))) {
         return view.key;
       }
     }
@@ -190,7 +195,14 @@ export function designImgUrlForView(p: UiProduct | undefined, view: ProductViewK
   if (view === "right") {
     return resolveMediaUrl(p.maskRightImageUrl) || resolveMediaUrl(p.baseRightImageUrl) || "";
   }
-  return resolveMediaUrl(p.maskImageUrl) || resolveMediaUrl(p.baseImageUrl) || "";
+  // Front: prefer uploaded mask/stage; if admin skipped the mask, use Shopify primary.
+  return (
+    resolveMediaUrl(p.maskImageUrl) ||
+    resolveMediaUrl(p.baseImageUrl) ||
+    resolveMediaUrl(p.photoUrl) ||
+    resolveMediaUrl(p.imageUrls?.[0]) ||
+    ""
+  );
 }
 
 /** Draft / upload key for artwork on one print area of one product. */
@@ -221,7 +233,8 @@ function normMediaPath(url: string | undefined): string {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
-/** Production mask used behind artwork in design previews and baked mockups (never the marketing photo). */
+/** Production mask used behind artwork in design previews and baked mockups.
+ * Front falls back to the Shopify primary when no mask was uploaded. */
 export function designImgUrl(p: UiProduct, areaKey?: string | null): string {
   if (areaKey) {
     const area = pickPrintArea(p, areaKey);
@@ -237,13 +250,12 @@ export function designImgUrl(p: UiProduct, areaKey?: string | null): string {
 /** Same-origin path compare — ignores scheme/host so catalog vs collection refs match. */
 
 /**
- * Production garment image for live colour tinting. Never returns the marketing
- * photo (`photoUrl`) — only mask, stage, print-area mockup, or imgUrl when it
- * differs from the catalog photo.
+ * Production garment image for live colour tinting. Prefers a dedicated mask /
+ * stage / print-area mockup; falls back to the Shopify primary when no mask was uploaded.
  */
 export function resolveGarmentMaskUrl(p: UiProduct | undefined, areaKey?: string | null): string {
   if (!p) return "";
-  const photo = resolveMediaUrl(p.photoUrl);
+  const photo = resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imageUrls?.[0]);
   if (areaKey) {
     const fromArea = resolveMediaUrl(designImgUrl(p, areaKey));
     if (fromArea && !sameMediaPath(fromArea, photo)) return fromArea;
@@ -258,7 +270,7 @@ export function resolveGarmentMaskUrl(p: UiProduct | undefined, areaKey?: string
   if (design && !sameMediaPath(design, photo)) return design;
   const img = resolveMediaUrl(p.imgUrl);
   if (img && !sameMediaPath(img, photo)) return img;
-  return "";
+  return photo || "";
 }
 
 /**
@@ -626,7 +638,9 @@ export async function bakeMockupLayers(
     const maskUrl =
       designImgUrlForView(ep, bakeView) || designImgUrl(ep, layersToBake[0]?.areaKey);
     const maskImg = maskUrl ? await loadImageEl(maskUrl, true).catch(() => null) : null;
-    if (requireProductBase && !maskImg) return "";
+    // Never save artwork-only "mockups" when a product base was expected but failed
+    // to load (common for Shopify CDN photos before the media proxy allowlist).
+    if ((requireProductBase || maskUrl) && !maskImg) return "";
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;

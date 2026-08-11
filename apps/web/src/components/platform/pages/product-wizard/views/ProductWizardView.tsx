@@ -32,6 +32,7 @@ export function ProductWizardView({
   imageViews,
   activeStageUrl,
   activeMaskUrl,
+  activeMaskIsShopifyFallback,
   baseStageImageUrl,
   productionMaskImageUrl,
   baseBackStageImageUrl,
@@ -340,7 +341,7 @@ export function ProductWizardView({
             <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
               Marketing and production imagery are kept separate. Browse every imported Shopify photo
               below, then upload a visible product stage image and transparent production mask for
-              each view you need.
+              each view you need. If you skip the front mask, the Shopify primary image is used.
             </p>
 
             <MarketingImageGallery
@@ -384,7 +385,11 @@ export function ProductWizardView({
               />
               <MasterImageUpload
                 label={`Design & production mask (${imageView})`}
-                hint="Transparent PNG · used for artwork, print areas and production"
+                hint={
+                  activeMaskIsShopifyFallback
+                    ? "Using Shopify primary · upload a transparent PNG to override"
+                    : "Transparent PNG · used for artwork, print areas and production · optional if Shopify primary exists"
+                }
                 accept="image/png"
                 imageUrl={activeMaskUrl ? resolveMediaUrl(activeMaskUrl) : undefined}
                 tintHex={firstHex}
@@ -513,11 +518,13 @@ export function ProductWizardView({
             <h3 style={{ marginBottom: 12 }}>Design placeholders</h3>
             <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
               Place design areas on any uploaded mask (front, back, left, or right). Switch the mockup
-              image to edit each view — areas are saved with the selected mask.
+              image to edit each view — areas are saved with the selected mask. Front falls back to
+              the Shopify primary when no mask was uploaded.
             </p>
             {!printAreaImages.length && (
               <p className="muted" style={{ marginBottom: 12 }}>
-                Upload at least one production mask on the Images step before placing design areas.
+                Upload a production mask or ensure a Shopify primary image exists before placing
+                design areas.
               </p>
             )}
             <PrintAreaEditor

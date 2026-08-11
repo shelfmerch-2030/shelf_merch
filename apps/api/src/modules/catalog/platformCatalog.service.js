@@ -121,8 +121,10 @@ export async function publishProduct(productId) {
     && !product.primaryImageUrl
     && !product.imageUrls?.length
     && /^https?:\/\//i.test(product.maskImageUrl || '');
-  if (!product.maskImageUrl || legacyShopifyImageInMask) {
-    problems.push('Transparent design and production mask image is required');
+  const hasMarketingImage = Boolean(product.primaryImageUrl || product.imageUrls?.length);
+  // Dedicated transparent mask preferred; otherwise fall back to Shopify / marketing primary.
+  if ((!product.maskImageUrl || legacyShopifyImageInMask) && !hasMarketingImage) {
+    problems.push('Design mask or Shopify primary product image is required');
   }
   if (problems.length) {
     throw new ApiError(422, 'Product is not ready to publish', 'PUBLISH_VALIDATION_FAILED', problems);

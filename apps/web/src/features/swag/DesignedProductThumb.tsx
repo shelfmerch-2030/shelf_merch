@@ -327,8 +327,14 @@ export function DesignedProductThumb({
         : view === "right"
           ? resolveMediaUrl(product.maskRightImageUrl)
           : resolveMediaUrl(product.maskImageUrl);
-  /** Production garment image used for live colour tinting (never the marketing photo). */
-  const tintMask = resolvedMask || stageBase || printAreaBase;
+  /** Garment image for live colour tinting — mask/stage first, then Shopify primary. */
+  const tintMask =
+    resolvedMask ||
+    stageBase ||
+    printAreaBase ||
+    (view === "front"
+      ? resolveMediaUrl(product.photoUrl) || resolveMediaUrl(product.imageUrls?.[0])
+      : undefined);
   const maskStage = tintMask || resolveMediaUrl(designImgUrl(product, layers[0]?.areaKey));
   const base =
     maskStage ||

@@ -27,6 +27,9 @@ function allowedRemoteTargets() {
   }
   if (env.S3_PUBLIC_BASE_URL) raw.push(`${env.S3_PUBLIC_BASE_URL.replace(/\/$/, '')}/`);
   if (env.R2_ENDPOINT && env.R2_BUCKET) raw.push(`${env.R2_ENDPOINT.replace(/\/$/, '')}/${env.R2_BUCKET}/`);
+  // Shopify product photos used as production-mask fallbacks need canvas proxying.
+  raw.push('https://cdn.shopify.com/');
+  raw.push('https://cdn.shopifycdn.net/');
 
   const targets = [];
   for (const entry of raw) {
@@ -43,6 +46,10 @@ function allowedRemoteTargets() {
 /** @param {URL} target */
 function isAllowedRemoteTarget(target) {
   const host = target.hostname.toLowerCase();
+  // Exact CDN hosts, plus shop-scoped Shopify CDN paths (…myshopify.com/cdn/…).
+  if (host.endsWith('.myshopify.com') && target.pathname.startsWith('/cdn/')) {
+    return true;
+  }
   return allowedRemoteTargets().some(
     (allowed) => host === allowed.host && target.pathname.startsWith(allowed.pathPrefix),
   );
