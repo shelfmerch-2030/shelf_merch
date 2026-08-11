@@ -60,7 +60,7 @@ beforeEach(async () => {
 });
 
 describe('Phase 1 tenant list', () => {
-  it('defaults to active+suspended and excludes archived', async () => {
+  it('defaults to all statuses including archived and suspended', async () => {
     await Tenant.create({ name: 'Archived Co', slug: 'archived-co', status: 'archived' });
     await Tenant.create({ name: 'Suspended Co', slug: 'suspended-co', status: 'suspended' });
 
@@ -71,7 +71,7 @@ describe('Phase 1 tenant list', () => {
     const slugs = res.body.items.map((t) => t.slug);
     expect(slugs).toContain('dell');
     expect(slugs).toContain('suspended-co');
-    expect(slugs).not.toContain('archived-co');
+    expect(slugs).toContain('archived-co');
   });
 
   it('filters archived when requested and supports search + pagination', async () => {
@@ -177,7 +177,8 @@ describe('Phase 1 status transitions', () => {
     const login = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: 'locked@dell.test', password: 'demo1234' });
-    expect(login.status).toBe(401);
+    expect(login.status).toBe(403);
+    expect(login.body.error.code).toBe('TENANT_SUSPENDED');
     expect(login.body.error.message).toMatch(/suspended/i);
 
     const me = await request(app).get('/api/v1/tenants/me').set(auth(adminToken));
