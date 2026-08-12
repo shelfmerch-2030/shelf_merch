@@ -566,7 +566,7 @@ export function useSendPointsController(): SendPointsVm {
       }
       if (message.includes("temporarily unavailable") || message.includes("GATEWAY")) {
         toast.error("Could not reach the payment server", {
-          description: "Confirm the API is running on port 4000, then try Pay again.",
+          description: "Confirm the API is running (default dev port 3001), then try Pay again.",
         });
         return;
       }

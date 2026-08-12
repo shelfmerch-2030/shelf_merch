@@ -332,7 +332,12 @@ platformProductsRouter.post(
       urls.push(url);
     }
     // Also accept pre-uploaded URLs in the body for API-driven imports.
-    if (Array.isArray(req.body?.urls)) urls.push(...req.body.urls);
+    const bodyUrls = req.body?.urls;
+    if (Array.isArray(bodyUrls)) {
+      urls.push(...bodyUrls);
+    } else if (typeof bodyUrls === 'string' && bodyUrls.trim()) {
+      urls.push(bodyUrls.trim());
+    }
 
     // role: front base|mask, or base_*/mask_* for back|left|right; otherwise mask image.
     const role = req.body?.role;

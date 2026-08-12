@@ -720,6 +720,28 @@ export function uploadProductImage(id: string, file: File, role: ProductImageRol
   }>(`/platform/products/${id}/images`, { method: "POST", body: form });
 }
 
+/**
+ * Set a single role image (base/mask) by URL, without requiring file upload.
+ * Used by the product wizard when the admin chooses a Shopify photo as a
+ * temporary front mask fallback.
+ */
+export function setProductRoleImageByUrl(id: string, role: ProductImageRole, url: string) {
+  const form = new FormData();
+  form.append("role", role);
+  // Backend accepts `req.body.urls` as either string or array.
+  form.append("urls", url);
+  return apiFetch<{
+    baseImageUrl: string;
+    maskImageUrl: string;
+    baseBackImageUrl?: string;
+    maskBackImageUrl?: string;
+    baseLeftImageUrl?: string;
+    maskLeftImageUrl?: string;
+    baseRightImageUrl?: string;
+    maskRightImageUrl?: string;
+  }>(`/platform/products/${id}/images`, { method: "POST", body: form });
+}
+
 /** Drop non-positive inch fields so Zod `.positive()` does not reject legacy 0 defaults. */
 function sanitizePrintAreaForSave(a: PrintArea): PrintArea {
   const next: PrintArea = { ...a };

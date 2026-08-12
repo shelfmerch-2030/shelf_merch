@@ -65,7 +65,7 @@ export function validateZohoRedirectUri(raw) {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   HOST: z.string().default('0.0.0.0'),
-  PORT: z.coerce.number().int().positive().default(isProd ? 8080 : 4000),
+  PORT: z.coerce.number().int().positive().default(isProd ? 8080 : 3001),
   TRUST_PROXY: z.coerce.number().int().min(0).default(1),
 
   MONGODB_URI: mongoUriSchema,

@@ -13,6 +13,7 @@ import {
   PRODUCT_WIZARD_STEPS,
   publishProduct,
   setPrintAreas,
+  setProductRoleImageByUrl,
   type PhysicalDimensions,
   type PlatformProduct,
   type PrintArea,
@@ -61,6 +62,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const [dpi, setDpi] = useState(DEFAULT_DPI);
   const [previewColor, setPreviewColor] = useState<string>("");
   const [imageView, setImageView] = useState<ProductImageView>("front");
+  const [marketingIndex, setMarketingIndex] = useState(0);
 
   const categoryOptions = useMemo(
     () =>
@@ -157,6 +159,14 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     product?.maskImageUrl,
   ]);
   const marketingImageUrl = marketingImageUrls[0];
+  // Selected Shopify marketing image used as fallback "mask" for the front view
+  // when the admin skips uploading a transparent PNG mask.
+  const activeMarketingImageUrl =
+    marketingImageUrls[Math.min(marketingIndex, Math.max(marketingImageUrls.length - 1, 0))];
+
+  useEffect(() => {
+    setMarketingIndex(0);
+  }, [product?._id, marketingImageUrls.length]);
   const stageByView = useMemo(
     () => ({
       front: product?.baseImageUrl ? resolveMediaUrl(product.baseImageUrl) : undefined,
@@ -190,12 +200,12 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   /** Uploaded mask, or Shopify primary for front when admin skips the mask upload. */
   const effectiveMaskByView = useMemo(
     () => ({
-      front: maskByView.front || marketingImageUrl || undefined,
+      front: maskByView.front || activeMarketingImageUrl || undefined,
       back: maskByView.back,
       left: maskByView.left,
       right: maskByView.right,
     }),
-    [maskByView.front, maskByView.back, maskByView.left, maskByView.right, marketingImageUrl],
+    [maskByView.front, maskByView.back, maskByView.left, maskByView.right, activeMarketingImageUrl],
   );
   const baseStageImageUrl = stageByView.front;
   const productionMaskImageUrl = effectiveMaskByView.front;
@@ -208,7 +218,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const activeStageUrl = stageByView[imageView];
   const activeMaskUrl = effectiveMaskByView[imageView];
   const activeMaskIsShopifyFallback =
-    imageView === "front" && !maskByView.front && Boolean(marketingImageUrl);
+    imageView === "front" && !maskByView.front && Boolean(activeMarketingImageUrl);
   const printAreaImages = useMemo(
     () =>
       [
@@ -417,6 +427,13 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
       if (printAreas.length) {
         await applyPrintAreasSave();
       }
+      // Persist admin-selected Shopify image as the front mask fallback
+      // when no transparent PNG mask was uploaded.
+      const needsFrontMaskFallback = !maskByView.front && Boolean(activeMarketingImageUrl);
+      if (needsFrontMaskFallback) {
+        await setProductRoleImageByUrl(id, VIEW_ROLES.front.mask, activeMarketingImageUrl);
+        await refresh();
+      }
       await publishProduct(id);
       navigate("/platform/catalog");
     } catch (e) {
@@ -451,6 +468,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     firstHex,
     marketingImageUrls,
     marketingImageUrl,
+    marketingIndex,
     imageViews: IMAGE_VIEWS,
     activeStageUrl,
     activeMaskUrl,
@@ -477,6 +495,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     onSaveDetails: saveDetails,
     onAddVariant: addOneVariant,
     onToggleVariantEnabled: toggleVariantEnabled,
+    onSetMarketingIndex: setMarketingIndex,
     onUploadActiveMask: uploadActiveMask,
     onUploadActiveBase: uploadActiveBase,
     onSaveAreas: saveAreas,

@@ -17,6 +17,11 @@ async function main() {
 
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
+    const addr = server.address();
+    if (!addr) {
+      logger.fatal({ port: env.PORT, host: env.HOST }, 'HTTP server failed to bind');
+      process.exit(1);
+    }
     const base = env.APP_URL.replace(/\/$/, '') || `http://${env.HOST}:${env.PORT}`;
     logger.info(
       {
@@ -31,6 +36,19 @@ async function main() {
       // Safe: redirect URI only — never Client ID, secret, codes, or tokens.
       logger.info(`Zoho OAuth redirect URI: ${env.ZOHO_REDIRECT_URI}`);
     }
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EACCES') {
+      logger.fatal(
+        { port: env.PORT, err: err.message },
+        `Cannot bind to port ${env.PORT} (permission denied). On Windows, Hyper-V/Docker often reserves port ranges — set PORT to a free port (e.g. 3001) in .env`,
+      );
+    } else if (err.code === 'EADDRINUSE') {
+      logger.fatal({ port: env.PORT, err: err.message }, `Port ${env.PORT} is already in use`);
+    } else {
+      logger.fatal({ err: err.message }, 'HTTP server failed to start');
+    }
+    process.exit(1);
   });
 
   const shutdown = async (signal) => {

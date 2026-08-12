@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { isPlaceholderColorHex, resolveColorHex } from "@/lib/colorMap";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { TintedGarment } from "@/components/store/TintedGarment";
@@ -29,6 +28,7 @@ export function ProductWizardView({
   activeSwatch,
   firstHex,
   marketingImageUrls,
+  marketingIndex,
   imageViews,
   activeStageUrl,
   activeMaskUrl,
@@ -55,6 +55,7 @@ export function ProductWizardView({
   onSaveDetails,
   onAddVariant,
   onToggleVariantEnabled,
+  onSetMarketingIndex,
   onUploadActiveMask,
   onUploadActiveBase,
   onSaveAreas,
@@ -63,18 +64,7 @@ export function ProductWizardView({
   onPublish,
   onSaveDraft,
 }: ProductWizardVm) {
-  const [marketingIndex, setMarketingIndex] = useState(0);
   const activeViewLabel = imageViews.find((v) => v.key === imageView)?.label || imageView;
-
-  useEffect(() => {
-    setMarketingIndex(0);
-  }, [product?._id, marketingImageUrls.length]);
-
-  useEffect(() => {
-    if (marketingIndex >= marketingImageUrls.length) {
-      setMarketingIndex(0);
-    }
-  }, [marketingIndex, marketingImageUrls.length]);
   return (
     <>
       <PlatformPageHeader
@@ -367,13 +357,13 @@ export function ProductWizardView({
             <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
               Marketing and production imagery are kept separate. Browse every imported Shopify photo
               below, then upload a visible product stage image and transparent production mask for
-              each view you need. If you skip the front mask, the Shopify primary image is used.
+              each view you need. If you skip the front mask, the selected Shopify image is used.
             </p>
 
             <MarketingImageGallery
               imageUrls={marketingImageUrls}
               selectedIndex={Math.min(marketingIndex, Math.max(marketingImageUrls.length - 1, 0))}
-              onSelect={setMarketingIndex}
+              onSelect={onSetMarketingIndex}
             />
 
             <h3 style={{ marginBottom: 4 }}>Production imagery</h3>
@@ -413,8 +403,8 @@ export function ProductWizardView({
                 label={`Design & production mask (${imageView})`}
                 hint={
                   activeMaskIsShopifyFallback
-                    ? "Using Shopify primary · upload a transparent PNG to override"
-                    : "Transparent PNG · used for artwork, print areas and production · optional if Shopify primary exists"
+                    ? "Using selected Shopify image · upload a transparent PNG to override"
+                    : "Transparent PNG · used for artwork, print areas and production · optional if a Shopify image exists"
                 }
                 accept="image/png"
                 imageUrl={activeMaskUrl ? resolveMediaUrl(activeMaskUrl) : undefined}
@@ -545,11 +535,11 @@ export function ProductWizardView({
             <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
               Place design areas on any uploaded mask (front, back, left, or right). Switch the mockup
               image to edit each view — areas are saved with the selected mask. Front falls back to
-              the Shopify primary when no mask was uploaded.
+              the selected Shopify image when no mask was uploaded.
             </p>
             {!printAreaImages.length && (
               <p className="muted" style={{ marginBottom: 12 }}>
-                Upload a production mask or ensure a Shopify primary image exists before placing
+                Upload a production mask or ensure a Shopify image is selected before placing
                 design areas.
               </p>
             )}

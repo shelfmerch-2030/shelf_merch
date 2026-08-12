@@ -1,5 +1,5 @@
 /**
- * In dev, always use the Vite proxy (`/api/v1` → localhost:4000) to avoid CORS issues.
+ * In dev, always use the Vite proxy (`/api/v1` → localhost:3001) to avoid CORS issues.
  * In production builds, use VITE_API_URL from the environment.
  */
 export const API_BASE = import.meta.env.DEV

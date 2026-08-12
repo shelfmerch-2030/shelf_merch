@@ -3900,16 +3900,34 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
 }) {
   const isShopper = mode === "redeem" || mode === "store";
   const variants = product.variants || [];
-  const sizes = useMemo(() => distinct(variants.map((v) => v.size)), [variants]);
   const colorOptions = useMemo(() => productColorOptions(product), [product]);
   const [selColor, setSelColor] = useState(() => primaryColorIndex(colorOptions));
   const [hasUserPickedColor, setHasUserPickedColor] = useState(false);
-  const [size, setSize] = useState<string | undefined>(() => (sizes.length === 1 ? sizes[0] : undefined));
   const [qty, setQty] = useState(1);
   const [infoOpen, setInfoOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [mockupView, setMockupView] = useState<ProductViewKey>("front");
   const selectedColor = colorOptions[selColor];
+  const sizes = useMemo(() => {
+    const colorName = selectedColor?.name;
+    const colorHex = selectedColor?.hex;
+    return distinct(
+      variants
+        .filter((v) => {
+          if (!colorName) return true;
+          const vName = String(v.color || "").trim();
+          if (vName && vName === String(colorName).trim()) return true;
+          if (colorHex) {
+            const vResolvedHex = resolveColorHex(vName || undefined, v.colorHex);
+            if (vResolvedHex && vResolvedHex.toLowerCase() === colorHex.toLowerCase()) return true;
+          }
+          return false;
+        })
+        .map((v) => v.size),
+    );
+  }, [variants, selectedColor?.name, selectedColor?.hex]);
+
+  const [size, setSize] = useState<string | undefined>(() => (sizes.length === 1 ? sizes[0] : undefined));
   const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor);
   const hasProductInfo = !!(product.description?.trim() || product.keyFeatures?.trim() || product.sizeGuide?.trim());
   const sizeRequired = sizes.length > 1;
@@ -3920,12 +3938,23 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   useEffect(() => {
     setSelColor(primaryColorIndex(colorOptions));
     setHasUserPickedColor(false);
-    setSize(sizes.length === 1 ? sizes[0] : undefined);
+    // Size depends on the selected color; the next effect will sync it after `selColor` updates.
+    setSize(undefined);
     setQty(1);
     setInfoOpen(false);
     setSizeGuideOpen(false);
     setMockupView("front");
   }, [product._id, colorOptions]);
+
+  useEffect(() => {
+    // Keep size in sync with the selected color. If current size isn't available for this color,
+    // clear it (or auto-pick if there's only one available size).
+    setSize((cur) => {
+      if (sizes.length === 1) return sizes[0];
+      if (cur && sizes.includes(cur)) return cur;
+      return undefined;
+    });
+  }, [selColor, sizes]);
 
   useEffect(() => {
     if (!productViews.includes(mockupView)) setMockupView("front");

@@ -9,6 +9,7 @@ export {
   updateProduct,
   updateVariant,
   uploadProductImage,
+  setProductRoleImageByUrl,
   type PhysicalDimensions,
   type PlatformProduct,
   type PrintArea,

@@ -34,11 +34,11 @@ docker compose up -d
 
 # 4. Run
 npm run seed       # WIPES and re-seeds demo data — only run on dev/staging Atlas DBs
-npm run dev:api    # http://localhost:4000/api/v1
+npm run dev:api    # http://localhost:3001/api/v1
 npm run dev:web    # http://localhost:8080
 
 # Frontend talks to the API when VITE_USE_MOCKS is not "true" (see .env.example).
-# Vite proxies /api → localhost:4000 in dev.
+# Vite proxies /api → localhost:3001 in dev.
 ```
 
 ### Redemption portal (public)
