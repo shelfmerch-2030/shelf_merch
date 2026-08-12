@@ -101,6 +101,8 @@ const catalogProductSchema = new mongoose.Schema(
         sku: String,
         priceOverrideInr: { type: Number, default: null },
         stock: { type: Number, default: 0 },
+        /** When false, hidden from tenant/storefront catalog responses. */
+        enabled: { type: Boolean, default: true },
       },
     ],
     imageUrls: { type: [String], default: [] },

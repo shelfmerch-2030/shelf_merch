@@ -54,6 +54,7 @@ export function ProductWizardView({
   onImageView,
   onSaveDetails,
   onAddVariant,
+  onToggleVariantEnabled,
   onUploadActiveMask,
   onUploadActiveBase,
   onSaveAreas,
@@ -225,6 +226,10 @@ export function ProductWizardView({
         {step === 1 && (
           <>
             <h3 style={{ marginBottom: 12 }}>Variants</h3>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              Disable a variant to hide it from tenant catalog and storefront. Enabled variants stay
+              available to clients.
+            </p>
             {product?.variants?.length ? (
               <table className="tbl" style={{ marginBottom: 14 }}>
                 <thead>
@@ -233,13 +238,15 @@ export function ProductWizardView({
                     <th>Size</th>
                     <th>Color</th>
                     <th>Stock</th>
+                    <th>Client</th>
                   </tr>
                 </thead>
                 <tbody>
                   {product.variants.map((v) => {
                     const hex = resolveColorHex(v.color, v.colorHex);
+                    const enabled = v.enabled !== false;
                     return (
-                      <tr key={v.sku}>
+                      <tr key={v._id || v.sku} style={enabled ? undefined : { opacity: 0.55 }}>
                         <td>{v.sku}</td>
                         <td>{v.size || "—"}</td>
                         <td>
@@ -260,6 +267,25 @@ export function ProductWizardView({
                           </span>
                         </td>
                         <td>{v.stock ?? 0}</td>
+                        <td>
+                          <label
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                              cursor: v._id && !busy ? "pointer" : "not-allowed",
+                              fontSize: 13,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              disabled={busy || !v._id}
+                              onChange={(e) => onToggleVariantEnabled(v._id, e.target.checked)}
+                            />
+                            {enabled ? "Enabled" : "Disabled"}
+                          </label>
+                        </td>
                       </tr>
                     );
                   })}

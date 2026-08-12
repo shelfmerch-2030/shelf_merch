@@ -1,3 +1,20 @@
+/** Legacy rows without `enabled` are treated as enabled. */
+export function isVariantEnabled(variant) {
+  return variant?.enabled !== false;
+}
+
+/** Variants visible to tenants / storefront / redemption clients. */
+export function filterEnabledVariants(variants) {
+  return (variants || []).filter(isVariantEnabled);
+}
+
+/** Shallow-copy a product (lean or document) with only enabled variants. */
+export function withEnabledVariants(product) {
+  if (!product) return product;
+  const obj = product.toObject ? product.toObject() : { ...product };
+  return { ...obj, variants: filterEnabledVariants(obj.variants) };
+}
+
 /** Mongo filter for platform catalog/inventory source tabs. */
 export function sourceProviderFilter(source) {
   if (source === 'shopify') return { 'source.provider': 'shopify' };

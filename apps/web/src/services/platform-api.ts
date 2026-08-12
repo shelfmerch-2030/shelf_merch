@@ -580,6 +580,8 @@ export type ProductVariant = {
   sku: string;
   priceOverrideInr?: number | null;
   stock?: number;
+  /** When false, hidden from tenant/storefront catalog. Defaults to true. */
+  enabled?: boolean;
 };
 
 export type PrintAreaBox = { xPct: number; yPct: number; widthPct: number; heightPct: number };

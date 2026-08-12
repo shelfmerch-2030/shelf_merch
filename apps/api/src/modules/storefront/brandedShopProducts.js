@@ -1,6 +1,7 @@
 import { Collection } from '../collections/collection.model.js';
 import { collectionsForShopFilter } from '../collections/collectionQueries.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
+import { withEnabledVariants } from '../catalog/catalogFilters.js';
 import { bootstrapActiveListingKeys } from '../shops/shopCatalogSync.js';
 import { listingKey } from '../shops/listingKeys.js';
 
@@ -109,7 +110,7 @@ export async function buildBrandedProductListings(shop, { skipTenantGuard = true
     .select(CATALOG_SELECT)
     .lean();
 
-  const catalogById = new Map(catalogRows.map((row) => [String(row._id), row]));
+  const catalogById = new Map(catalogRows.map((row) => [String(row._id), withEnabledVariants(row)]));
 
   const products = [];
   for (const col of collections) {

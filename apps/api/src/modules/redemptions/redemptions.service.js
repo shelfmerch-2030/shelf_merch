@@ -20,6 +20,7 @@ import {
   resolveKitItemOptions,
 } from '../kits/kitProductOptions.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
+import { filterEnabledVariants } from '../catalog/catalogFilters.js';
 import { Order, sanitizeOrderItems } from '../orders/order.model.js';
 import { scheduleOrderInvoiceGeneration } from '../orderInvoices/orderInvoice.hooks.js';
 import { Contact } from '../contacts/contact.model.js';
@@ -221,7 +222,7 @@ async function loadActiveKitEntries(kit) {
 
 function colorHexByNameFromVariants(variants) {
   const map = {};
-  for (const v of variants || []) {
+  for (const v of filterEnabledVariants(variants)) {
     const name = String(v?.color || '').trim();
     const hex = String(v?.colorHex || '').trim();
     if (!name || !hex || map[name]) continue;
@@ -811,7 +812,7 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
           size: chosen?.size ?? options.sizes[0] ?? '',
           color: chosen?.color ?? options.colors[0] ?? '',
         };
-        const selectedVariant = (product.variants || []).find(
+        const selectedVariant = filterEnabledVariants(product.variants).find(
           (v) =>
             (!variant.size || v.size === variant.size) &&
             (!variant.color || v.color === variant.color),
@@ -955,7 +956,7 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
 
       for (const key of Object.keys(variantGroups)) {
         const { variant, qty } = variantGroups[key];
-        const selectedVariant = (product.variants || []).find(
+        const selectedVariant = filterEnabledVariants(product.variants).find(
           (v) =>
             (!variant.size || v.size === variant.size) &&
             (!variant.color || v.color === variant.color),

@@ -19,6 +19,7 @@ import {
   type ProductInput,
   type ProductVariant,
   updateProduct,
+  updateVariant,
   uploadProductImage,
   type ProductImageRole,
 } from "../model";
@@ -277,11 +278,25 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     setBusy(true);
     setError("");
     try {
-      await addVariant(id, { ...variant, color, colorHex });
+      await addVariant(id, { ...variant, color, colorHex, enabled: true });
       setVariant(emptyVariant);
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add variant");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleVariantEnabled(variantId: string | undefined, enabled: boolean) {
+    if (!id || !variantId) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateVariant(id, variantId, { enabled });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update variant");
     } finally {
       setBusy(false);
     }
@@ -461,6 +476,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     onImageView: setImageView,
     onSaveDetails: saveDetails,
     onAddVariant: addOneVariant,
+    onToggleVariantEnabled: toggleVariantEnabled,
     onUploadActiveMask: uploadActiveMask,
     onUploadActiveBase: uploadActiveBase,
     onSaveAreas: saveAreas,

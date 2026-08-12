@@ -149,7 +149,39 @@ describe('product variant colorHex + master image roles', () => {
       .send({ sku: 'TEE-NVY-M', color: 'Navy', colorHex: '#1e3a8a', size: 'M' });
     expect(res.status).toBe(201);
     const reloaded = await CatalogProduct.findById(product._id);
-    expect(reloaded.variants[0]).toMatchObject({ color: 'Navy', colorHex: '#1e3a8a' });
+    expect(reloaded.variants[0]).toMatchObject({ color: 'Navy', colorHex: '#1e3a8a', enabled: true });
+  });
+
+  it('can disable a variant and hides it from tenant catalog', async () => {
+    const add = await request(app)
+      .post(`/api/v1/platform/products/${product._id}/variants`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({ sku: 'TEE-BLK-M', color: 'Black', colorHex: '#111111', size: 'M' });
+    expect(add.status).toBe(201);
+    const variantId = add.body[0]._id;
+
+    const patch = await request(app)
+      .patch(`/api/v1/platform/products/${product._id}/variants/${variantId}`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({ enabled: false });
+    expect(patch.status).toBe(200);
+    expect(patch.body[0]).toMatchObject({ sku: 'TEE-BLK-M', color: 'Black', enabled: false });
+
+    product.status = 'active';
+    await product.save();
+
+    const tenant = await request(app)
+      .get(`/api/v1/catalog/products/${product._id}`)
+      .set('Authorization', `Bearer ${supportToken}`);
+    expect(tenant.status).toBe(200);
+    expect(tenant.body.variants).toEqual([]);
+
+    const platform = await request(app)
+      .get(`/api/v1/platform/products/${product._id}`)
+      .set('Authorization', `Bearer ${catalogToken}`);
+    expect(platform.status).toBe(200);
+    expect(platform.body.variants).toHaveLength(1);
+    expect(platform.body.variants[0].enabled).toBe(false);
   });
 
   it('setRoleImage stores base and mask master images separately', async () => {

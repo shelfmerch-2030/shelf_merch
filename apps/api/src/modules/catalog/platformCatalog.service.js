@@ -171,7 +171,7 @@ export async function addVariant(productId, variant) {
   if (variant.sku && product.variants.some((v) => v.sku === variant.sku)) {
     throw new ConflictError(`Variant SKU "${variant.sku}" already exists on this product`);
   }
-  product.variants.push(variant);
+  product.variants.push({ enabled: true, ...variant });
   await product.save();
   return product;
 }

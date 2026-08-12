@@ -62,7 +62,22 @@ const variantSchema = z.object({
   sku: z.string().min(1),
   priceOverrideInr: z.number().positive().nullable().optional(),
   stock: z.number().int().nonnegative().optional().default(0),
+  enabled: z.boolean().optional().default(true),
 });
+
+/** PATCH body — no defaults, so omitted fields are not wiped. */
+const variantPatchSchema = z
+  .object({
+    size: z.string().optional(),
+    color: z.string().optional(),
+    colorHex: z.string().optional(),
+    material: z.string().optional(),
+    sku: z.string().min(1).optional(),
+    priceOverrideInr: z.number().positive().nullable().optional(),
+    stock: z.number().int().nonnegative().optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
 
 const customizationSchema = z.object({
   customization: z.array(
@@ -296,7 +311,7 @@ platformProductsRouter.post(
 platformProductsRouter.patch(
   '/:id/variants/:variantId',
   catalogWrite,
-  validate({ params: z.object({ id: objectId, variantId: objectId }), body: variantSchema.partial() }),
+  validate({ params: z.object({ id: objectId, variantId: objectId }), body: variantPatchSchema }),
   asyncHandler(async (req, res) => {
     const product = await catalogService.updateVariant(req.params.id, req.params.variantId, req.body);
     writeAudit({ req, action: 'product.variant_update', entityType: 'CatalogProduct', entityId: product._id, after: req.body });

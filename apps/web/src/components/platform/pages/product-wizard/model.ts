@@ -7,6 +7,7 @@ export {
   publishProduct,
   setPrintAreas,
   updateProduct,
+  updateVariant,
   uploadProductImage,
   type PhysicalDimensions,
   type PlatformProduct,
@@ -48,6 +49,7 @@ export const emptyVariant: ProductVariant = {
   colorHex: "#ffffff",
   sku: "",
   stock: 0,
+  enabled: true,
 };
 
 /** Returns true when a PNG contains any transparent pixel. */

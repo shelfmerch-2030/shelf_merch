@@ -5,7 +5,7 @@ import { authenticate } from '../../middleware/auth.middleware.js';
 import { resolveTenant, requireTenantContext } from '../../middleware/tenant.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { objectId } from '../users/users.validation.js';
-import { tenantCatalogFilter } from './catalogFilters.js';
+import { tenantCatalogFilter, withEnabledVariants } from './catalogFilters.js';
 import { CatalogProduct } from './catalogProduct.model.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
 import { NotFoundError } from '../../utils/errors.js';
@@ -38,7 +38,7 @@ router.get(
       CatalogProduct.find(filter).sort({ name: 1 }).skip(skip).limit(limit).lean(),
       CatalogProduct.countDocuments(filter),
     ]);
-    res.json(paginatedResponse(items, total, { page, limit }));
+    res.json(paginatedResponse(items.map(withEnabledVariants), total, { page, limit }));
   }),
 );
 
@@ -48,7 +48,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const product = await CatalogProduct.findById(req.params.id);
     if (!product) throw new NotFoundError('Product not found');
-    res.json(product);
+    res.json(withEnabledVariants(product));
   }),
 );
 

@@ -1,3 +1,5 @@
+import { filterEnabledVariants } from '../catalog/catalogFilters.js';
+
 /** Groups that never need a recipient size (fixed SKU / one-size items). */
 export const NO_SIZE_GROUPS = new Set([
   'bottle',
@@ -49,7 +51,7 @@ const GROUP_BY_CATEGORY = {
 const DRINKWARE_NAME = /\bbottle\b|\bmug\b|\btumbler\b|\bflask\b|\bdrinkware\b/i;
 
 function distinctVariantValues(variants, key) {
-  return [...new Set((variants || []).map((v) => v[key]).filter(Boolean))];
+  return [...new Set(filterEnabledVariants(variants).map((v) => v[key]).filter(Boolean))];
 }
 
 /** Prefer catalog group/category over kit ref — refs can be stale or wrong. */
