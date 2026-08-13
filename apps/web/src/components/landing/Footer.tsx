@@ -2,12 +2,12 @@ export function Footer() {
   return (
     <footer className="site-footer">
       <a href="#top" className="brand footer-brand">
-        <span className="brand-mark">S</span>
-        <span>
-          SHELF
-          <br />
-          MERCH
-        </span>
+        <img
+          className="brand-wordmark"
+          src="/images/logo/shelf-merch-wordmark.png"
+          alt="Shelf Merch"
+          height={28}
+        />
       </a>
       <p>
         Merch. Gifting. Recognition.
