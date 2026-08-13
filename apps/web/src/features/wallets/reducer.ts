@@ -27,6 +27,10 @@ export function seedAllocateWizard(org: OrgSnapshot, startStep = 2): WizardState
     done: false,
     wallet: {
       ...org.wallet,
+      address: org.wallet.address ?? "",
+      pinCode: org.wallet.pinCode ?? "",
+      mobileNumber: org.wallet.mobileNumber ?? "",
+      gstin: org.wallet.gstin ?? "",
       uploaded: org.wallet.uploaded ?? false,
       uploadFile: org.wallet.uploadFile ?? null,
       pay: org.wallet.pay || "card",

@@ -12,7 +12,7 @@
     "seed": "node src/seed/seed.js",
     "seed:chat": "node src/seed/seedChatFlow.js",
     "worker": "node src/jobs/index.js",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/super-admin-layer.test.js && vitest run tests/super-admin-layer.test.js",
     "test:watch": "vitest"
   },
   "dependencies": {

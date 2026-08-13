@@ -43,7 +43,7 @@ export function useUpdateCollection() {
       pickedIndices: number[];
       catalog: UiProduct[];
       artwork?: { file?: File; preview?: string; name?: string };
-      mockups?: Array<{ catalogProductId: string; dataUrl: string }>;
+      mockups?: MockupUploadItem[];
     }) => updateCollectionFlow(input),
     onSuccess: () => invalidate(),
   });

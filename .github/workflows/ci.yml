@@ -13,7 +13,7 @@ jobs:
   api-tests:
     name: API test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -25,11 +25,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Runs vitest for @shelfmerch/api, which includes app-boot.test.js —
-      # a native-Node import of app.js that catches load failures (e.g. a
-      # duplicate import from a bad merge) the Vitest transform alone tolerates.
+      # Runs vitest for @shelfmerch/api only (root `npm test` also runs web).
+      # Includes app-boot.test.js — a native-Node import of app.js that catches
+      # load failures (e.g. a duplicate import from a bad merge) the Vitest
+      # transform alone tolerates.
       - name: Run API tests
-        run: npm test
+        run: npm run test:api
         env:
           NODE_ENV: test
 

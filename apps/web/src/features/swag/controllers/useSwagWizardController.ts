@@ -160,8 +160,8 @@ export function useSwagWizardController(): SwagWizardVm {
           };
         }),
       );
-      const mockups = draft.picked
-        .map((i, idx) => {
+      const mockups: MockupUploadItem[] = draft.picked
+        .map((i, idx): MockupUploadItem | null => {
           const cp = catalog[i];
           const row = baked[idx];
           if (!cp?.id || !row?.dataUrl) return null;
@@ -183,7 +183,7 @@ export function useSwagWizardController(): SwagWizardVm {
                   },
                 }
               : {}),
-          } satisfies MockupUploadItem;
+          };
         })
         .filter((m): m is MockupUploadItem => m !== null);
 

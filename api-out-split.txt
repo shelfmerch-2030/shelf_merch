@@ -1,0 +1,676 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> @shelfmerch/api@0.1.0 test
+> vitest run --exclude tests/super-admin-layer.test.js && vitest run tests/super-admin-layer.test.js
+
+
+ RUN  v4.1.10 D:/shelf_merch/apps/api
+
+(node:29432) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:29432) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:29432) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:29432) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:29432) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:35092) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35092) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:35092) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:35092) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:35092) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:35092) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:35092) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:35092) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:21324) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21324) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:21324) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:21324) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:21324) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:7056) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7056) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is 
+often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:7056) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:7056) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:7056) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:7056) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:32584) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32584) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:32584) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32584) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32584) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:32944) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32944) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:32944) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32944) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32944) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:17336) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17336) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:17336) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:17336) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:17336) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:34968) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:34968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:34968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36792) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36792) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36792) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36792) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36792) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:6088) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:6088) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is 
+often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:6088) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:6088) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:6088) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:28384) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28384) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:28384) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:28384) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:28384) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:28384) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:28384) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:32872) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:32872) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:32872) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32872) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:32872) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36300) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36300) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36300) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36300) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36300) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36300) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:36300) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:36300) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:34700) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:34700) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:34700) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34700) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34700) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33228) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33228) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33228) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33228) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33228) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:35040) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:35040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:35040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:35040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:11488) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:11488) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:11488) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:11488) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:11488) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31284) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31284) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31284) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:31284) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:31284) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:5076) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:5076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is 
+often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:5076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:5076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:5076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33076) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33076) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:30880) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30880) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:30880) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:30880) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:30880) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36856) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36856) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:36856) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36856) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:36856) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31040) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:31040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31040) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:27484) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27484) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:27484) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:27484) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:27484) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:27484) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:27484) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:27484) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:29176) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:29176) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:29176) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:29176) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:29176) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:34320) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:34320) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:34320) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34320) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:34320) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:2768) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:2768) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:2768) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:2768) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:2768) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is 
+often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:4048) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4048) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is 
+often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:4048) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:4048) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:4048) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31972) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:31972) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:31972) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:31972) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:31972) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33968) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:33968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:33968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:33968) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:38012) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38012) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:38012) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:38012) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:38012) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:37640) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:37640) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:37640) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:37640) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:37640) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:7052) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8296) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27236) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27236) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:27236) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:27236) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:27236) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:29048) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:26080) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38104) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38232) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15992) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:12832) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:12832) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:12832) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:12832) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:12832) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+
+ Test Files  58 passed (58)
+      Tests  509 passed (509)
+   Start at  13:47:16
+   Duration  319.67s (transform 6.67s, setup 0ms, import 166.08s, tests 128.21s, environment 15ms)
+
+
+ RUN  v4.1.10 D:/shelf_merch/apps/api
+
+(node:22072) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are 
+allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema 
+option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22072) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:22072) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:22072) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". 
+This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate 
+index definition.
+(node:22072) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This 
+is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index 
+definition.
+(node:22072) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:22072) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:22072) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:22072) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+(node:22072) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is 
+deprecated. Use `returnDocument: 'after'` instead.
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  13:52:38
+   Duration  26.10s (transform 3.65s, setup 0ms, import 7.68s, tests 15.21s, environment 0ms)
+

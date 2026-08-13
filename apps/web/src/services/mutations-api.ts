@@ -13,6 +13,10 @@ type OrgWizardState = {
     amount: number;
     start: string;
     end: string;
+    address: string;
+    pinCode: string;
+    mobileNumber: string;
+    gstin: string;
     funding: string;
     docType: string;
     docNumber: string;

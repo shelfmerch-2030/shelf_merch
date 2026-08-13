@@ -68,5 +68,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     css: false,
+    // Prefer threads over forks — more reliable on Windows CI runners / constrained hosts.
+    pool: "threads",
   },
 });

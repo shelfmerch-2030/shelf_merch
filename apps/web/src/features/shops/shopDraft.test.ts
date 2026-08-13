@@ -11,9 +11,17 @@ const shop = {
   id: "s1",
   name: "Acme Store",
   currency: "INR",
+  currencyMode: "points",
+  pointsConversionEnabled: false,
   companyEmailDomain: "acme.com",
+  live: false,
   logoUrl: "/uploads/logo.png",
   categories: ["Merch"],
+  collections: [],
+  selectedCatalogProductIds: [],
+  featuredCatalogProductIds: [],
+  activeListingKeys: [],
+  featuredListingKeys: [],
   bannerConfig: { theme: "brand", preset: "exceptional-leader", imageUrl: "" },
 } as UiShop;
 

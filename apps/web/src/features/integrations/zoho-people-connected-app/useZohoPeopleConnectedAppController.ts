@@ -10,6 +10,7 @@ import {
   syncZohoEmployees,
   type ZohoConnectionStatus,
   type ZohoIntegrationPublic,
+  type ZohoStatusResponse,
 } from "@/services/zoho-api";
 import { isAuthenticated } from "@/services/auth-store";
 import { ApiError } from "@/services/api";
@@ -133,7 +134,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
     async (code: string, requestId: string, source: MessageEventSource | null) => {
       const sendAck = (ackRequestId: string) => {
         if (source && "postMessage" in source && typeof source.postMessage === "function") {
-          source.postMessage(buildEmbedAuthAck(ackRequestId), targetOrigin);
+          source.postMessage(buildEmbedAuthAck(ackRequestId), { targetOrigin });
         }
       };
 
@@ -173,7 +174,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
         if (source && "postMessage" in source && typeof source.postMessage === "function") {
           source.postMessage(
             { type: SHELFMERCH_ZOHO_OAUTH_LAUNCH, code, requestId },
-            targetOrigin,
+            { targetOrigin },
           );
         }
       } catch (err) {
@@ -199,7 +200,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
       oauthRequestIdRef.current = null;
       safeClosePopup(popup);
       toast.success("Zoho People connected");
-      queryClient.setQueryData(ZOHO_QUERY_KEY, (prev) => {
+      queryClient.setQueryData(ZOHO_QUERY_KEY, (prev: ZohoStatusResponse | undefined) => {
         if (!prev) return prev;
         return {
           ...prev,
@@ -290,7 +291,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
         const requestId = event.data.requestId;
         if (oauthDoneCompletedRef.current.has(requestId)) {
           if (event.source && "postMessage" in event.source && typeof event.source.postMessage === "function") {
-            event.source.postMessage(buildOAuthDoneAck(requestId), targetOrigin);
+            event.source.postMessage(buildOAuthDoneAck(requestId), { targetOrigin });
           }
           return;
         }
@@ -300,7 +301,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
           finishOAuthFailure(requestId, oauthLaunchSafeErrorMessage(event.data.reason));
         }
         if (event.source && "postMessage" in event.source && typeof event.source.postMessage === "function") {
-          event.source.postMessage(buildOAuthDoneAck(requestId), targetOrigin);
+          event.source.postMessage(buildOAuthDoneAck(requestId), { targetOrigin });
         }
       }
     }

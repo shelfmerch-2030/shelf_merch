@@ -303,7 +303,7 @@ export async function handleEmbedAuthMessage(
   state: EmbedAuthDedupState,
   message: { code: string; requestId: string },
   deps: {
-    exchange: (code: string, requestId: string) => Promise<void>;
+    exchange: (code: string, requestId: string) => Promise<unknown>;
     sendAck: (requestId: string) => void;
     onExchangeStart?: () => void;
     onExchangeSuccess: () => void | Promise<void>;

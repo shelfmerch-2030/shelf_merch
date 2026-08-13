@@ -3,13 +3,15 @@ import type { UiWallet } from "@/services/mappers";
 type WalletDept = { allocated?: number; spent?: number };
 
 /** Unallocated wallet balance (total cash − earmarked to departments). */
-export function walletUnallocated(w: Pick<UiWallet, "balance" | "unalloc" | "alloc">): number {
+export function walletUnallocated(
+  w: Pick<UiWallet, "balance" | "alloc"> & { unalloc?: number },
+): number {
   return Math.max(0, w.unalloc ?? (w.balance ?? 0) - (w.alloc ?? 0));
 }
 
 /** Cash remaining in a wallet after entity earmarks and spend — for send/checkout affordability. */
 export function walletSpendable(
-  w: Pick<UiWallet, "balance" | "unalloc" | "alloc">,
+  w: Pick<UiWallet, "balance" | "alloc"> & { unalloc?: number },
   departments: WalletDept[] = [],
 ): number {
   const entityRemaining = departments.reduce(
@@ -24,7 +26,9 @@ export function walletSpendable(
 }
 
 /** @deprecated Use walletUnallocated for header/dashboard display. */
-export function walletAvailable(w: Pick<UiWallet, "balance" | "unalloc" | "alloc">): number {
+export function walletAvailable(
+  w: Pick<UiWallet, "balance" | "alloc"> & { unalloc?: number },
+): number {
   return walletUnallocated(w);
 }
 
