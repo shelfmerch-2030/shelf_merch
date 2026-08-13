@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { requestPasswordReset, ApiError } from "@/services/api-bridge";
 import { AuthLabel, AuthLayout, authInputClassName } from "./views/AuthLayout";
@@ -55,7 +55,6 @@ export function ForgotPasswordPage() {
           ? undefined
           : "Enter your work email and we’ll send a link to reset your password."
       }
-      footerLink={{ hint: "Remembered it?", label: "Back to Login", to: "/login" }}
     >
       {sent ? (
         <div className="auth-success-panel" role="status">
@@ -71,7 +70,7 @@ export function ForgotPasswordPage() {
         <form className="auth-simple-form" onSubmit={onSubmit} aria-busy={busy} noValidate>
           <fieldset className="auth-simple-fieldset" disabled={busy}>
             <div className="auth-simple-field">
-              <AuthLabel htmlFor="forgot-email">Email Address</AuthLabel>
+              <AuthLabel htmlFor="forgot-email">Work email</AuthLabel>
               <input
                 id="forgot-email"
                 type="email"
@@ -124,15 +123,6 @@ export function ForgotPasswordPage() {
           </fieldset>
         </form>
       )}
-
-      {!sent ? (
-        <p className="auth-simple-switch">
-          Or{" "}
-          <Link to="/login" className="auth-simple-switch-link">
-            return to login
-          </Link>
-        </p>
-      ) : null}
     </AuthLayout>
   );
 }
