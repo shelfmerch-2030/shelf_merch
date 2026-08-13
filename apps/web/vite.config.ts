@@ -64,13 +64,12 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
+    // Node, not jsdom: jsdom 30 pulls undici, which throws
+    // `webidl.util.markAsUncloneable is not a function` on Node 20 (GitHub Actions).
+    environment: "node",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     css: false,
-    // Forks, not threads: jsdom → undici throws
-    // `webidl.util.markAsUncloneable is not a function` inside a thread worker
-    // (Node 20 on GitHub Actions).
     pool: "forks",
     maxWorkers: 1,
   },
