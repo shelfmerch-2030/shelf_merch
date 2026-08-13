@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { hydrateWorkspace } from "@/services/api-bridge";
+import { hydrateWorkspace, isAuthenticated } from "@/services/api-bridge";
 import type { WorkspaceSnapshot } from "@/services/workspace-api";
 
 /** Single cache key for the whole tenant workspace snapshot. */
@@ -15,6 +15,7 @@ export function useWorkspace() {
     queryKey: WORKSPACE_QUERY_KEY,
     queryFn: () => hydrateWorkspace(),
     staleTime: 30_000,
+    enabled: isAuthenticated(),
   });
 }
 

@@ -8,11 +8,34 @@ export const CATALOG_CATEGORIES = [
   "Bags",
   "Drinkware",
   "Technology",
-  "Office",
+  "Office Supplies",
   "Health & Wellness",
 ] as const;
 
 export const ALL_PRODUCTS = "All Products";
+
+const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
+  apparel: "Apparel",
+  bags: "Bags",
+  "bags & travel": "Bags",
+  "bags-travel": "Bags",
+  drinkware: "Drinkware",
+  technology: "Technology",
+  "tech accessories": "Technology",
+  "office supplies": "Office Supplies",
+  "office-supplies": "Office Supplies",
+  "health & wellness": "Health & Wellness",
+  "all products": "All Products",
+};
+
+/** Map a landing/query category string onto a catalog tab. */
+export function resolveCatalogCategory(raw: string | null | undefined): string {
+  const key = String(raw || "").trim().toLowerCase();
+  if (!key) return ALL_PRODUCTS;
+  const exact = CATALOG_CATEGORIES.find((c) => c.toLowerCase() === key);
+  if (exact) return exact;
+  return CATEGORY_ALIASES[key] ?? ALL_PRODUCTS;
+}
 
 /** Parse a "Label: value" newline block into rows (key features / size guide). */
 export function detailRows(value: string | undefined): [string, string][] {

@@ -2763,7 +2763,7 @@ const CATEGORY_GROUP_DEFAULTS: Record<string, string[]> = {
   Apparel: ["T-Shirts", "Hoodies", "Caps", "Jackets"],
   Drinkware: ["Tumblers", "Bottles", "Mugs"],
   Accessories: ["Bags", "Caps"],
-  Stationery: ["Notebooks"],
+  Stationery: ["Notebooks", "Pens"],
   Wellness: ["Pillows", "Bottles"],
   "Work Essentials": ["Notebooks", "Power Banks"],
   Merch: ["Bags", "Kits"],

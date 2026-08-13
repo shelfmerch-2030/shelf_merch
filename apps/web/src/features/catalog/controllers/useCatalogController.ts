@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useCatalog } from "../model";
-import { ALL_PRODUCTS, CATALOG_CATEGORIES } from "../types";
+import { ALL_PRODUCTS, CATALOG_CATEGORIES, resolveCatalogCategory } from "../types";
 import type { UiProduct } from "../model";
 
 export type CatalogVm = {
@@ -17,7 +18,8 @@ export type CatalogVm = {
 /** Controller for the catalog grid: category tabs + per-category product query. */
 export function useCatalogController(): CatalogVm {
   const { data: workspace } = useWorkspace();
-  const [category, setCategory] = useState<string>(ALL_PRODUCTS);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const category = resolveCatalogCategory(searchParams.get("category"));
 
   const seed = useMemo(
     () =>
@@ -39,6 +41,11 @@ export function useCatalogController(): CatalogVm {
         ? error.message
         : "Could not load catalog products"
       : null,
-    onCategory: setCategory,
+    onCategory: (next) => {
+      const nextParams = new URLSearchParams(searchParams);
+      if (next === ALL_PRODUCTS) nextParams.delete("category");
+      else nextParams.set("category", next);
+      setSearchParams(nextParams, { replace: true });
+    },
   };
 }

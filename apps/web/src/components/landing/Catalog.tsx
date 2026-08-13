@@ -1,18 +1,34 @@
+import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { ArrowIcon } from "./icons";
 
-const CATALOG_ITEMS = [
+type CatalogItem = {
+  count: string;
+  className: string;
+  icon: ReactNode;
+  title: string;
+  iconSize: number;
+  image?: string;
+  imageAlt?: string;
+  to: string;
+};
+
+const CATALOG_ITEMS: CatalogItem[] = [
   {
     count: "01",
     className: "catalog-card catalog-blue",
-    icon: (
-      <path d="M8 4l4 2 4-2 5 3-3 5-2-1v10H8V11l-2 1-3-5 5-3z" />
-    ),
-    title: "Apparel & Uniforms",
-    iconSize: 60,
+    image: "/images/landing/catalog/apparel.png",
+    imageAlt: "Customizable white polo shirt",
+    icon: <path d="M8 4l4 2 4-2 5 3-3 5-2-1v10H8V11l-2 1-3-5 5-3z" />,
+    title: "Apparel",
+    iconSize: 32,
+    to: "/apps/catalog?category=Apparel",
   },
   {
     count: "02",
     className: "catalog-card catalog-coral",
+    image: "/images/landing/catalog/drinkware.png",
+    imageAlt: "Insulated water bottle",
     icon: (
       <>
         <path d="M3 9h18v12H3z" />
@@ -21,12 +37,15 @@ const CATALOG_ITEMS = [
         <path d="M12 5c-1-4-6-4-6-1s4 2 6 1zm0 0c1-4 6-4 6-1s-4 2-6 1z" />
       </>
     ),
-    title: "Drinkware & Desk",
-    iconSize: 60,
+    title: "Drinkware",
+    iconSize: 32,
+    to: "/apps/catalog?category=Drinkware",
   },
   {
     count: "03",
     className: "catalog-card catalog-mint",
+    image: "/images/landing/catalog/tech.png",
+    imageAlt: "Wireless charging station",
     icon: (
       <>
         <path d="M8 3v6M16 3v6" />
@@ -35,11 +54,14 @@ const CATALOG_ITEMS = [
       </>
     ),
     title: "Tech Accessories",
-    iconSize: 60,
+    iconSize: 32,
+    to: "/apps/catalog?category=Technology",
   },
   {
     count: "04",
     className: "catalog-card catalog-lilac",
+    image: "/images/landing/catalog/bags-travel.png",
+    imageAlt: "Laptop bag for travel",
     icon: (
       <>
         <path d="M4 7l8-4 8 4-8 4-8-4z" />
@@ -48,7 +70,8 @@ const CATALOG_ITEMS = [
       </>
     ),
     title: "Bags & Travel",
-    iconSize: 60,
+    iconSize: 32,
+    to: "/apps/catalog?category=Bags",
   },
   {
     count: "05",
@@ -61,10 +84,13 @@ const CATALOG_ITEMS = [
     ),
     title: "Leadership Gifts",
     iconSize: 52,
+    to: "/apps/catalog",
   },
   {
     count: "06",
     className: "catalog-card catalog-yellow",
+    image: "/images/landing/catalog/stationery.png",
+    imageAlt: "Notebook and pen stationery set",
     icon: (
       <>
         <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -72,12 +98,15 @@ const CATALOG_ITEMS = [
         <path d="M8 15l2 2 5-5" />
       </>
     ),
-    title: "Stationery",
-    iconSize: 60,
+    title: "Office Supplies",
+    iconSize: 32,
+    to: "/apps/catalog?category=Office%20Supplies",
   },
   {
     count: "07",
     className: "catalog-card catalog-festive",
+    image: "/images/landing/catalog/festival-hampers.png",
+    imageAlt: "Festival puja hamper gift set",
     icon: (
       <>
         <path d="M3 9h18v12H3z" />
@@ -87,11 +116,14 @@ const CATALOG_ITEMS = [
       </>
     ),
     title: "Festival Hampers",
-    iconSize: 60,
+    iconSize: 32,
+    to: "/apps/catalog",
   },
   {
     count: "08",
     className: "catalog-card catalog-outline",
+    image: "/images/landing/catalog/ready-to-order.png",
+    imageAlt: "Ready-to-order notebook and pen gift set",
     icon: (
       <>
         <path d="M4 10v10h16V10" />
@@ -101,9 +133,28 @@ const CATALOG_ITEMS = [
       </>
     ),
     title: "Made-to-Order",
-    iconSize: 60,
+    iconSize: 32,
+    to: "/apps/catalog",
   },
-] as const;
+];
+
+function CatalogArrow() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
 
 export function Catalog() {
   return (
@@ -119,17 +170,24 @@ export function Catalog() {
         </div>
         <div>
           <p>From apparel to tech accessories, explore what you can put your logo on.</p>
-          <a href="#contact" className="text-link">
+          <Link to="/apps/catalog" className="text-link">
             View full catalog
             <span>
               <ArrowIcon />
             </span>
-          </a>
+          </Link>
         </div>
       </div>
       <div className="catalog-grid">
         {CATALOG_ITEMS.map((item) => (
-          <a key={item.count} href="#contact" className={item.className}>
+          <Link
+            key={item.count}
+            to={item.to}
+            className={`${item.className}${item.image ? " has-image" : ""}`}
+          >
+            {item.image ? (
+              <img className="catalog-photo" src={item.image} alt={item.imageAlt ?? item.title} />
+            ) : null}
             <span className="catalog-count">{item.count}</span>
             <div className="catalog-icon">
               <svg
@@ -147,8 +205,8 @@ export function Catalog() {
               </svg>
             </div>
             <h3>{item.title}</h3>
-            <span className="round-arrow">↗</span>
-          </a>
+            <span className="round-arrow">{item.image ? <CatalogArrow /> : "↗"}</span>
+          </Link>
         ))}
       </div>
     </section>

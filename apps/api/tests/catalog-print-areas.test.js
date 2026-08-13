@@ -232,3 +232,24 @@ describe('product variant colorHex + master image roles', () => {
     expect(reloaded.primaryImageUrl).toBe('/uploads/platform/product/shopify.png');
   });
 });
+
+describe('public catalog browse', () => {
+  it('lists and fetches products without a login', async () => {
+    const list = await request(app).get('/api/v1/catalog/products');
+    expect(list.status).toBe(200);
+    expect(list.body.items.length).toBeGreaterThan(0);
+
+    const apparel = await request(app).get('/api/v1/catalog/products?category=Apparel');
+    expect(apparel.status).toBe(200);
+    expect(apparel.body.items.every((item) => item.category === 'Apparel')).toBe(true);
+
+    const one = await request(app).get(`/api/v1/catalog/products/${product._id}`);
+    expect(one.status).toBe(200);
+    expect(one.body.name).toBe('Core Cotton Tee');
+  });
+
+  it('still requires auth for catalog kits', async () => {
+    const res = await request(app).get('/api/v1/catalog/kits');
+    expect(res.status).toBe(401);
+  });
+});

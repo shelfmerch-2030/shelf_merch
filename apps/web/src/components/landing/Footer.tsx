@@ -1,24 +1,26 @@
+import { Link } from "react-router";
+
 export function Footer() {
   return (
     <footer className="site-footer">
-      <a href="#top" className="brand footer-brand">
+      <Link to="/" className="brand footer-brand">
         <span className="brand-mark">S</span>
         <span>
           SHELF
           <br />
           MERCH
         </span>
-      </a>
+      </Link>
       <p>
         Merch. Gifting. Recognition.
         <br />
         Made and delivered across India.
       </p>
       <div>
-        <a href="#platform">Platform</a>
-        <a href="#solutions">Solutions</a>
-        <a href="#catalog">Catalog</a>
-        <a href="#contact">Contact</a>
+        <Link to="/">Platform</Link>
+        <Link to="/resources">Resources</Link>
+        <Link to="/apps/catalog">Catalog</Link>
+        <Link to="/#contact">Contact</Link>
       </div>
       <span>© 2026 Shelf Merch</span>
     </footer>

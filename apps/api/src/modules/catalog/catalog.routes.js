@@ -13,9 +13,6 @@ import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 
 const router = Router();
 
-// Platform-wide catalog: any authenticated user can browse (§7.6).
-router.use(authenticate);
-
 const listQuery = z.object({
   category: z.string().optional(),
   search: z.string().optional(),
@@ -51,6 +48,10 @@ router.get(
     res.json(withEnabledVariants(product));
   }),
 );
+
+// Kits remain tenant-authenticated. Product browse is public so the marketing
+// catalog can render without a login.
+router.use(authenticate);
 
 // Platform-curated kits a tenant can send. Tenant context required — platform
 // users (no tenant) get 403; only active kits are exposed.

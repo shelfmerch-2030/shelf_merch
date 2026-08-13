@@ -21,7 +21,7 @@ describe('kitProductOptions', () => {
   it('notebook / tech expose colour variants without inventing sizes', () => {
     const product = {
       group: 'notebook',
-      category: 'Office',
+      category: 'Office Supplies',
       variants: [
         { color: 'Black', colorHex: '#111111' },
         { color: 'Navy', colorHex: '#001f5b' },

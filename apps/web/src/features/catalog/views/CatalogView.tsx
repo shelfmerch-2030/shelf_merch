@@ -1,3 +1,4 @@
+import { useLocation } from "react-router";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import type { CatalogVm } from "../controllers/useCatalogController";
 import { ProductCard } from "./ProductCard";
@@ -24,6 +25,9 @@ function CatalogSkeleton() {
 
 /** Catalog grid: category tabs + product cards (loading/error/empty states). */
 export function CatalogView(vm: CatalogVm) {
+  const { pathname } = useLocation();
+  const productBase = pathname.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
+
   return (
     <>
       <PageHeader
@@ -65,7 +69,11 @@ export function CatalogView(vm: CatalogVm) {
       ) : (
         <div style={GRID_STYLE}>
           {vm.items.map((p, index) => (
-            <ProductCard key={p.id ?? `${p.nm}-${index}`} product={p} />
+            <ProductCard
+              key={p.id ?? `${p.nm}-${index}`}
+              product={p}
+              to={p.id ? `${productBase}/${p.id}` : undefined}
+            />
           ))}
         </div>
       )}
