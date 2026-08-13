@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { Header } from "../landing/Header";
-import { RESOURCE_NAV } from "./resources-data";
+import { Footer } from "../landing/Footer";
 import "../landing-page.css";
 import "./resources.css";
 
@@ -25,30 +25,9 @@ export function ResourcesShell({ title, tone, children }: ResourcesShellProps) {
         <Header />
       </div>
       {children}
-      <footer className="res-footer">
-        <Link className="brand" to="/">
-          <span className="brand-mark">S</span>
-          <span>
-            SHELF
-            <br />
-            MERCH
-          </span>
-        </Link>
-        <p>
-          Merch. Gifting. Recognition.
-          <br />
-          Made and delivered across India.
-        </p>
-        <div className="footer-links">
-          <Link to="/resources">Resources</Link>
-          {RESOURCE_NAV.map((item) => (
-            <Link key={item.slug} to={`/resources/${item.slug}`}>
-              {item.label}
-            </Link>
-          ))}
-        </div>
-        <span>© 2026 Shelf Merch</span>
-      </footer>
+      <div className="shelf-landing">
+        <Footer />
+      </div>
     </div>
   );
 }

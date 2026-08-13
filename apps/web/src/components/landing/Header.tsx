@@ -29,12 +29,7 @@ export function Header() {
   return (
     <header className="site-header">
       <Link to="/" className="brand" aria-label="Shelf Merch home" onClick={closeMenu}>
-        <span className="brand-mark">S</span>
-        <span>
-          SHELF
-          <br />
-          MERCH
-        </span>
+        <img src="/images/logo/shelfmerch-wordmark.png" alt="" className="brand-wordmark" />
       </Link>
 
       <nav

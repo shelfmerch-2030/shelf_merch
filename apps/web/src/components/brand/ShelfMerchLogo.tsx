@@ -1,8 +1,7 @@
 import { Link } from "react-router";
-import shelfmerchWordmark from "../../../assets/shelfmerch.png";
 
-export const SHELF_MERCH_LOGO_DARK = shelfmerchWordmark;
-export const SHELF_MERCH_LOGO_LIGHT = "/images/logo/shelfmerch-logo-light.svg";
+export const SHELF_MERCH_LOGO_DARK = "/images/logo/shelfmerch-wordmark.png";
+export const SHELF_MERCH_LOGO_LIGHT = "/images/logo/shelfmerch-wordmark.png";
 export const SHELF_MERCH_LOGO_ICON = "/images/logo/shelfmerch-logo-icon.svg";
 
 type ShelfMerchLogoProps = {
@@ -24,12 +23,7 @@ export function ShelfMerchLogo({
   alt = "Shelf Merch",
   href,
 }: ShelfMerchLogoProps) {
-  const src =
-    variant === "icon"
-      ? SHELF_MERCH_LOGO_ICON
-      : theme === "light"
-        ? SHELF_MERCH_LOGO_LIGHT
-        : SHELF_MERCH_LOGO_DARK;
+  const src = variant === "icon" ? SHELF_MERCH_LOGO_ICON : SHELF_MERCH_LOGO_DARK;
 
   const img = (
     <img
@@ -43,6 +37,7 @@ export function ShelfMerchLogo({
         maxWidth: "100%",
         objectFit: "contain",
         display: "block",
+        filter: variant === "full" && theme === "light" ? "brightness(0) invert(1)" : undefined,
       }}
     />
   );
