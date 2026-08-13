@@ -15,8 +15,8 @@ export function Hero() {
           <em>one shelf.</em>
         </h1>
         <p>
-          Run your company&apos;s swag, onboarding kits and employee gifting from a single platform
-          — designed, printed and delivered anywhere in India.
+          Run your company&apos;s swag, onboarding kits and employee gifting from a single platform,
+          designed, printed and delivered anywhere in India.
         </p>
         <div className="hero-actions">
           <a className="button button-dark" href="#contact">

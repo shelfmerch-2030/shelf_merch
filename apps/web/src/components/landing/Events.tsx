@@ -63,7 +63,7 @@ export function Events() {
           <em>worth showing up for.</em>
         </h2>
         <p>
-          From conference floors to leadership offsites, we bring your brand into the room — and
+          From conference floors to leadership offsites, we bring your brand into the room, and
           make the logistics disappear.
         </p>
         <a className="button button-light" href="#contact">

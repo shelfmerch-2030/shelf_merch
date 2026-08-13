@@ -11,7 +11,7 @@ export const SOLUTIONS: SolutionItem[] = [
   {
     tab: "Human Resources",
     title: "Empower every stage of the employee journey",
-    body: "Streamline onboarding, recognition, and milestone gifting — all from one HR-friendly dashboard.",
+    body: "Streamline onboarding, recognition, and milestone gifting, all from one HR-friendly dashboard.",
     points: [
       "Welcome kits or a dedicated onboarding shop",
       "Automated anniversary, birthday and milestone gifts",

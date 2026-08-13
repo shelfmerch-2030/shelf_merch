@@ -1,5 +1,26 @@
 import { useState } from "react";
-import { ArrowIcon } from "./icons";
+import { Link } from "react-router";
+
+const NAV_LINKS = [
+  { href: "#platform", label: "Platform" },
+  { href: "#solutions", label: "Solutions" },
+  { href: "#catalog", label: "Catalog" },
+  { href: "#production", label: "How it works" },
+] as const;
+
+function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
+  return (
+    <span className={`header-login${className ? ` ${className}` : ""}`}>
+      <Link to="/login" onClick={onNavigate}>
+        Log in
+      </Link>
+      <span aria-hidden="true"> / </span>
+      <Link to="/signup" onClick={onNavigate}>
+        Sign up
+      </Link>
+    </span>
+  );
+}
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -18,36 +39,36 @@ export function Header() {
           MERCH
         </span>
       </a>
+
       <nav
         className={`nav-links${menuOpen ? " open" : ""}`}
         aria-label="Main navigation"
       >
-        <a href="#platform" onClick={closeMenu}>
-          Platform
-        </a>
-        <a href="#solutions" onClick={closeMenu}>
-          Solutions
-        </a>
-        <a href="#catalog" onClick={closeMenu}>
-          Catalog
-        </a>
-        <a href="#production" onClick={closeMenu}>
-          How it works
-        </a>
+        {NAV_LINKS.map((link) => (
+          <a key={link.href} href={link.href} onClick={closeMenu}>
+            {link.label}
+          </a>
+        ))}
+        <AuthLinks className="mobile-only" onNavigate={closeMenu} />
       </nav>
-      <a className="header-cta" href="#contact">
-        Book a demo <ArrowIcon width={17} height={17} />
-      </a>
-      <button
-        type="button"
-        className="menu-button"
-        aria-label="Toggle menu"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <span />
-        <span />
-      </button>
+
+      <div className="header-end">
+        <AuthLinks className="desktop-only" />
+        <span className="header-divider desktop-only" aria-hidden="true" />
+        <a className="header-cta" href="#contact">
+          Book a demo
+        </a>
+        <button
+          type="button"
+          className="menu-button"
+          aria-label="Toggle menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span />
+          <span />
+        </button>
+      </div>
     </header>
   );
 }

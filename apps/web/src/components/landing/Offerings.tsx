@@ -59,7 +59,7 @@ export function Offerings() {
               Its own storefront.
             </h3>
             <p>
-              Launch a branded shop for employees, new hires, distributors or partners — without
+              Launch a branded shop for employees, new hires, distributors or partners, without
               touching code.
             </p>
             <a href="#contact" className="text-link">

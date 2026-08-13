@@ -8,7 +8,7 @@ export function Flexibility() {
           <br />
           <em>the gifting works.</em>
         </h2>
-        <p>Choosing the exact item doesn&apos;t have to be on you — unless you want it to be.</p>
+        <p>Choosing the exact item doesn&apos;t have to be on you, unless you want it to be.</p>
       </div>
       <div className="choice-grid">
         <article className="choice-one">
