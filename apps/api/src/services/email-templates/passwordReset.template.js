@@ -15,42 +15,48 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Password-reset email — GitHub-style transactional layout, ShelfMerch branding.
+ * Logo + page title above the card; content card; muted footer below.
+ */
 const SANS =
-  "'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const BG = '#F8F9FB';
+  "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const OUTER_BG = '#F6F8FA';
 const CARD = '#FFFFFF';
-const PRIMARY = '#3D5FD9';
-const BORDER = '#E5E7EB';
-const TITLE = '#111827';
-const BODY = '#374151';
-const MUTED = '#6B7280';
-const VALUE = '#111827';
-const ACCENT_SOFT = '#EEF2FF';
+const PRIMARY = '#3558F5';
+const CORAL = '#FF6A55';
+const TITLE = '#24292F';
+const BODY = '#24292F';
+const MUTED = '#57606A';
+const BORDER = '#D0D7DE';
+const LINK = '#0969DA';
 
-function logoAboveCard() {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0">
-    <tr>
-      <td valign="middle" style="padding-right:10px;">
-        <div style="width:32px;height:32px;border-radius:8px;background:${PRIMARY};color:#FFFFFF;font-family:${SANS};font-weight:700;font-size:15px;line-height:32px;text-align:center;">S</div>
-      </td>
-      <td valign="middle" style="font-family:${SANS};font-weight:700;font-size:18px;color:${VALUE};letter-spacing:-0.03em;">ShelfMerch</td>
-    </tr>
-  </table>`;
+function brandMark() {
+  return `<div style="width:48px;height:48px;margin:0 auto;border-radius:50%;background:${CORAL};color:#111111;font-family:${SANS};font-weight:800;font-size:22px;line-height:48px;text-align:center;">S</div>`;
 }
 
 export function buildPasswordResetEmail({ link, minutes = 30 }) {
   const subject = 'Reset your ShelfMerch password';
-  const year = new Date().getFullYear();
   const safeLink = escapeHtml(link);
+  const forgotUrl = escapeHtml(appUrl('/forgot-password'));
+
   const text = [
-    'Hello,',
+    'Reset your ShelfMerch password',
     '',
-    'We received a request to reset your ShelfMerch password.',
-    'Click the link below to create a new password:',
+    'ShelfMerch password configuration',
+    '',
+    'We heard that you lost your ShelfMerch password. Sorry about that!',
+    '',
+    "But don't worry! You can use the following link to reset your password:",
     link,
     '',
-    `This link expires in ${minutes} minutes.`,
-    "If you didn't request this, simply ignore this email.",
+    `If you don't use this link within ${minutes} minutes, it will expire.`,
+    `Request a new password reset link: ${appUrl('/forgot-password')}`,
+    '',
+    'Thanks,',
+    'The ShelfMerch Team',
+    '',
+    "You're receiving this email because a password reset was requested for your account.",
   ].join('\n');
 
   const html = `<!DOCTYPE html>
@@ -58,57 +64,82 @@ export function buildPasswordResetEmail({ link, minutes = 30 }) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${escapeHtml(subject)}</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="margin:0;padding:0;background:${BG};-webkit-text-size-adjust:100%;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Reset your ShelfMerch password — link expires in ${minutes} minutes.</div>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BG};">
+<body style="margin:0;padding:0;background:${OUTER_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">
+    Reset your ShelfMerch password — this link expires in ${minutes} minutes.
+  </div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${OUTER_BG};">
     <tr>
-      <td align="center" style="padding:40px 16px 24px 16px;">${logoAboveCard()}</td>
-    </tr>
-    <tr>
-      <td align="center" style="padding:0 16px 24px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(17,24,39,0.04),0 10px 28px rgba(17,24,39,0.06);">
-          <tr>
-            <td style="padding:40px;font-family:${SANS};">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
-                <tr>
-                  <td valign="top" width="52" style="padding-right:14px;">
-                    <div style="width:44px;height:44px;border-radius:50%;background:${ACCENT_SOFT};text-align:center;line-height:44px;">
-                      <span style="font-size:20px;line-height:44px;">🔑</span>
-                    </div>
-                  </td>
-                  <td valign="middle" style="font-family:${SANS};font-weight:700;font-size:24px;line-height:1.25;letter-spacing:-0.03em;color:${TITLE};">Reset your password</td>
-                </tr>
-              </table>
-              <p style="margin:0 0 12px 0;font-family:${SANS};font-size:15px;color:${BODY};line-height:1.5;">Hello,</p>
-              <p style="margin:0 0 14px 0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BODY};">
-                We received a request to reset your ShelfMerch password.
-                Click the button below to create a new password.
-              </p>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 24px 0;">
-                <tr>
-                  <td align="center" style="border-radius:8px;background:${PRIMARY};">
-                    <a href="${safeLink}" style="display:block;width:100%;box-sizing:border-box;padding:14px 24px;font-family:${SANS};font-size:15px;font-weight:600;color:#FFFFFF !important;text-decoration:none;text-align:center;border-radius:8px;line-height:20px;">
-                      Reset Password
-                    </a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0 0 10px 0;font-family:${SANS};font-size:14px;line-height:1.6;color:${MUTED};">
-                This link expires in <b style="color:${VALUE};">${minutes} minutes</b>.
-              </p>
-              <p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.6;color:${MUTED};">
-                If you didn't request this, simply ignore this email. Your password will stay the same.
-              </p>
-            </td>
-          </tr>
-        </table>
+      <td align="center" style="padding:40px 16px 16px 16px;">
+        ${brandMark()}
       </td>
     </tr>
     <tr>
-      <td align="center" style="padding:8px 16px 48px 16px;font-family:${SANS};font-size:11px;color:${MUTED};">
-        © ${year} ShelfMerch. All rights reserved.
+      <td align="center" style="padding:0 16px 24px 16px;font-family:${SANS};font-size:24px;font-weight:400;line-height:1.25;color:${TITLE};">
+        Reset your ShelfMerch password
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:0 16px 24px 16px;">
+        <!--[if mso]>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="480"><tr><td>
+        <![endif]-->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:480px;width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:6px;">
+          <tr>
+            <td style="padding:32px 32px 0 32px;font-family:${SANS};font-size:20px;font-weight:600;line-height:1.35;color:${TITLE};">
+              ShelfMerch password configuration
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 0 32px;font-family:${SANS};font-size:14px;line-height:1.5;color:${BODY};">
+              <p style="margin:0 0 16px 0;">We heard that you lost your ShelfMerch password. Sorry about that!</p>
+              <p style="margin:0;">But don't worry! You can use the following button to reset your password:</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:24px 32px 0 32px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${safeLink}" style="height:40px;v-text-anchor:middle;width:180px;" arcsize="15%" stroke="f" fillcolor="${PRIMARY}">
+                <w:anchorlock/>
+                <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">Reset your password</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <a href="${safeLink}" style="display:inline-block;background:${PRIMARY};color:#FFFFFF !important;font-family:${SANS};font-size:14px;font-weight:600;line-height:20px;text-decoration:none;padding:10px 20px;border-radius:6px;mso-hide:all;">
+                Reset your password
+              </a>
+              <!--<![endif]-->
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 0 32px;font-family:${SANS};font-size:14px;line-height:1.5;color:${BODY};">
+              If you don't use this link within ${minutes} minutes, it will expire.
+              <a href="${forgotUrl}" style="color:${LINK};text-decoration:none;">Click here to get a new password reset link.</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 32px 32px;font-family:${SANS};font-size:14px;line-height:1.5;color:${BODY};">
+              <p style="margin:0;">Thanks,</p>
+              <p style="margin:0;">The ShelfMerch Team</p>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]>
+        </td></tr></table>
+        <![endif]-->
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:8px 24px 48px 24px;font-family:${SANS};font-size:12px;line-height:1.5;color:${MUTED};">
+        You're receiving this email because a password reset was requested for your account.
       </td>
     </tr>
   </table>
