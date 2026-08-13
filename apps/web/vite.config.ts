@@ -68,7 +68,10 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     css: false,
-    // Prefer threads over forks — more reliable on Windows CI runners / constrained hosts.
-    pool: "threads",
+    // Forks, not threads: jsdom → undici throws
+    // `webidl.util.markAsUncloneable is not a function` inside a thread worker
+    // (Node 20 on GitHub Actions).
+    pool: "forks",
+    maxWorkers: 1,
   },
 });
