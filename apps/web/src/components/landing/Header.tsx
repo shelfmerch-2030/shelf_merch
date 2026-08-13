@@ -32,12 +32,12 @@ export function Header() {
   return (
     <header className="site-header">
       <a href="#top" className="brand" aria-label="Shelf Merch home">
-        <span className="brand-mark">S</span>
-        <span>
-          SHELF
-          <br />
-          MERCH
-        </span>
+        <img
+          className="brand-wordmark"
+          src="/images/logo/shelf-merch-wordmark.png"
+          alt="Shelf Merch"
+          height={28}
+        />
       </a>
 
       <nav
