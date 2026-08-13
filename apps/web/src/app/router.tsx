@@ -207,6 +207,26 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/components/LandingPage")),
       },
       {
+        path: "resources",
+        lazy: page(() => import("@/components/resources/ResourcesHub")),
+      },
+      {
+        path: "resources/:team",
+        lazy: page(() => import("@/components/resources/ResourcesTeamPage"), "ResourcesTeamPage"),
+      },
+      {
+        path: "apps/catalog",
+        lazy: page(() => import("@/features/catalog/PublicCatalogPage"), "PublicCatalogLayout"),
+        children: [
+          { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
+          {
+            path: ":id",
+            lazy: page(() => import("@/features/catalog/CatalogProductPage"), "CatalogProductPage"),
+          },
+        ],
+      },
+      { path: "catalog", loader: () => redirect("/apps/catalog") },
+      {
         path: "login",
         loader: redirectIfAuthed,
         lazy: page(() => import("@/features/auth/LoginPage"), "LoginPage"),

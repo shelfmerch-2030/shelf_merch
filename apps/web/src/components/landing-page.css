@@ -177,3 +177,347 @@
   font-weight: 400;
 }
 
+.shelf-landing .catalog-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  max-width: 68%;
+}
+.shelf-landing .catalog-card.has-image .catalog-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.shelf-landing .catalog-card.has-image .catalog-count,
+.shelf-landing .catalog-card.has-image .catalog-icon,
+.shelf-landing .catalog-card.has-image h3,
+.shelf-landing .catalog-card.has-image .round-arrow {
+  z-index: 1;
+}
+.shelf-landing .catalog-card.has-image .catalog-count {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  position: relative;
+}
+.shelf-landing .catalog-card.has-image .catalog-icon {
+  inset: auto;
+  top: 18px;
+  right: 18px;
+}
+.shelf-landing .catalog-card.has-image .catalog-icon svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18));
+  width: 32px;
+  height: 32px;
+}
+.shelf-landing .catalog-card.has-image h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.15;
+  max-width: 68%;
+}
+.shelf-landing .catalog-card.has-image .round-arrow {
+  color: var(--ink);
+}
+.shelf-landing .catalog-blue.has-image,
+.shelf-landing .catalog-coral.has-image,
+.shelf-landing .catalog-festive.has-image {
+  color: #fff;
+}
+.shelf-landing .catalog-blue.has-image .round-arrow {
+  color: var(--blue);
+}
+.shelf-landing .catalog-coral.has-image .round-arrow {
+  color: var(--coral);
+}
+.shelf-landing .catalog-mint.has-image .round-arrow {
+  color: var(--mint);
+}
+.shelf-landing .catalog-lilac.has-image .round-arrow {
+  color: var(--lilac);
+}
+.shelf-landing .catalog-festive.has-image .round-arrow {
+  color: var(--plum);
+}
+@media (max-width: 760px) {
+  .shelf-landing .catalog-card.has-image .catalog-icon {
+    top: 12px;
+    right: 12px;
+  }
+  .shelf-landing .catalog-card.has-image .catalog-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .shelf-landing .catalog-card.has-image .catalog-count {
+    font-size: 15px;
+  }
+  .shelf-landing .catalog-card h3,
+  .shelf-landing .catalog-card.has-image h3 {
+    font-size: 16px;
+    font-weight: 600;
+    max-width: 68%;
+  }
+}
+
+.shelf-landing .nav-links {
+  align-items: center;
+}
+.shelf-landing .resources-trigger {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.84;
+  letter-spacing: 0.02em;
+}
+.shelf-landing .resources-trigger:hover {
+  opacity: 1;
+}
+.shelf-landing .resources-menu > a {
+  opacity: 1;
+  font-size: inherit;
+  font-weight: 400;
+}
+
+/* Larger body copy under section headers */
+.shelf-landing .section-heading p,
+.shelf-landing .split-heading > p,
+.shelf-landing .split-heading > div > p {
+  font-size: 20px;
+  line-height: 1.7;
+}
+.shelf-landing .production-copy > p,
+.shelf-landing .recognition-copy > p,
+.shelf-landing .events-copy > p,
+.shelf-landing .festive-overlay > p,
+.shelf-landing .solution-copy > p,
+.shelf-landing .choice-grid p,
+.shelf-landing .final-cta > p {
+  font-size: 19px;
+  line-height: 1.7;
+}
+.shelf-landing .bento-copy > p,
+.shelf-landing .bento-mini p {
+  font-size: 22px;
+  line-height: 1.55;
+}
+.shelf-landing .bento-copy h3 {
+  font-size: clamp(42px, 3.4vw, 56px);
+  line-height: 0.94;
+}
+.shelf-landing .bento-mini h3 {
+  font-size: clamp(32px, 2.4vw, 42px);
+  line-height: 0.98;
+  margin: 14px 0 12px;
+}
+.shelf-landing .mini-label {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+.shelf-landing .bento-copy .text-link,
+.shelf-landing .recognition-copy .text-link {
+  font-size: 18px;
+  margin-top: 22px;
+}
+.shelf-landing .bento-copy .text-link span,
+.shelf-landing .recognition-copy .text-link span {
+  width: 32px;
+  height: 32px;
+}
+.shelf-landing .wallet-meter span {
+  font-size: 32px;
+}
+.shelf-landing .wallet-meter small {
+  font-size: 13px;
+}
+.shelf-landing .wallet-meter b {
+  font-size: 18px;
+}
+
+.shelf-landing .recognition-copy li {
+  gap: 16px;
+  padding: 18px 0;
+}
+.shelf-landing .recognition-copy li > span {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+}
+.shelf-landing .recognition-copy li b {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.shelf-landing .recognition-copy li small {
+  font-size: 17px;
+  color: #5c5868;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.shelf-landing .tag-line {
+  margin-top: 32px;
+  gap: 12px;
+}
+.shelf-landing .tag-line span {
+  padding: 14px 22px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.shelf-landing .hero-copy > p {
+  font-size: 20px;
+  line-height: 1.65;
+}
+.shelf-landing .event-grid p {
+  font-size: 16px;
+  line-height: 1.55;
+}
+.shelf-landing .solution-copy li {
+  font-size: 15px;
+}
+.shelf-landing .capability-list span {
+  font-size: 15px;
+}
+
+/* Gifting operations cards */
+.shelf-landing .feature-card {
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: auto;
+  padding: 22px 22px 24px;
+}
+.shelf-landing .feature-card.yellow,
+.shelf-landing .feature-card.lilac {
+  color: var(--ink);
+}
+.shelf-landing .feature-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+.shelf-landing .feature-icon {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+.shelf-landing .feature-number {
+  position: static;
+  right: auto;
+  top: auto;
+  font: 700 15px/1 var(--font-geist-mono), ui-monospace, monospace;
+  opacity: 0.9;
+}
+.shelf-landing .feature-card h3 {
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  margin: 18px 0 10px;
+  position: relative;
+  z-index: 1;
+}
+.shelf-landing .feature-card > p {
+  font-size: 17px;
+  line-height: 1.55;
+  max-width: 100%;
+  opacity: 0.92;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+.shelf-landing .feature-point {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 16px;
+  font-weight: 650;
+  position: relative;
+  z-index: 1;
+}
+.shelf-landing .feature-point > span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.shelf-landing .feature-card.lilac .feature-point > span {
+  background: #6b4fd8;
+  color: #fff;
+  border-color: #6b4fd8;
+}
+
+@media (max-width: 760px) {
+  .shelf-landing .section-heading p,
+  .shelf-landing .split-heading > p,
+  .shelf-landing .split-heading > div > p,
+  .shelf-landing .production-copy > p,
+  .shelf-landing .recognition-copy > p,
+  .shelf-landing .events-copy > p,
+  .shelf-landing .festive-overlay > p,
+  .shelf-landing .solution-copy > p,
+  .shelf-landing .choice-grid p,
+  .shelf-landing .final-cta > p,
+  .shelf-landing .hero-copy > p {
+    font-size: 17px;
+  }
+  .shelf-landing .bento-copy > p,
+  .shelf-landing .bento-mini p {
+    font-size: 18px;
+  }
+  .shelf-landing .recognition-copy li b {
+    font-size: 20px;
+  }
+  .shelf-landing .recognition-copy li small {
+    font-size: 15px;
+  }
+  .shelf-landing .tag-line span {
+    font-size: 15px;
+    padding: 12px 16px;
+  }
+  .shelf-landing .feature-card {
+    min-height: 0;
+    padding: 20px 20px 22px;
+  }
+  .shelf-landing .feature-icon {
+    width: 60px;
+    height: 60px;
+  }
+  .shelf-landing .feature-card h3 {
+    font-size: 28px;
+  }
+  .shelf-landing .feature-card > p {
+    font-size: 16px;
+  }
+  .shelf-landing .feature-point {
+    font-size: 15px;
+  }
+}
+
+.public-catalog {
+  min-height: 100vh;
+  background: #f7f3ea;
+}
+.public-catalog-chrome {
+  background: transparent;
+  overflow: visible;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+.public-catalog-main {
+  padding-top: 96px;
+}
+

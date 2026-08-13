@@ -1,12 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router";
-
-const NAV_LINKS = [
-  { href: "#platform", label: "Platform" },
-  { href: "#solutions", label: "Solutions" },
-  { href: "#catalog", label: "Catalog" },
-  { href: "#production", label: "How it works" },
-] as const;
+import { Link, useLocation } from "react-router";
+import { ResourceDropdown } from "../resources/ResourceDropdown";
+import "../resources/resource-nav.css";
 
 function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
   return (
@@ -24,6 +19,8 @@ function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?:
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const homePrefix = pathname === "/" ? "" : "/";
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -31,31 +28,36 @@ export function Header() {
 
   return (
     <header className="site-header">
-      <a href="#top" className="brand" aria-label="Shelf Merch home">
-        <img
-          className="brand-wordmark"
-          src="/images/logo/shelf-merch-wordmark.png"
-          alt="Shelf Merch"
-          height={28}
-        />
-      </a>
+      <Link to="/" className="brand" aria-label="Shelf Merch home" onClick={closeMenu}>
+        <span className="brand-mark">S</span>
+        <span>
+          SHELF
+          <br />
+          MERCH
+        </span>
+      </Link>
 
       <nav
         className={`nav-links${menuOpen ? " open" : ""}`}
         aria-label="Main navigation"
       >
-        {NAV_LINKS.map((link) => (
-          <a key={link.href} href={link.href} onClick={closeMenu}>
-            {link.label}
-          </a>
-        ))}
+        <Link to="/" onClick={closeMenu}>
+          Platform
+        </Link>
+        <ResourceDropdown onNavigate={closeMenu} />
+        <Link to="/apps/catalog" onClick={closeMenu}>
+          Catalog
+        </Link>
+        <a href={`${homePrefix}#production`} onClick={closeMenu}>
+          About  
+        </a>
         <AuthLinks className="mobile-only" onNavigate={closeMenu} />
       </nav>
 
       <div className="header-end">
         <AuthLinks className="desktop-only" />
         <span className="header-divider desktop-only" aria-hidden="true" />
-        <a className="header-cta" href="#contact">
+        <a className="header-cta" href={`${homePrefix}#contact`}>
           Book a demo
         </a>
         <button

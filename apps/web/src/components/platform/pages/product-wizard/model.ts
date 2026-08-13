@@ -24,7 +24,7 @@ export const MANUAL_CATEGORIES = [
   "Bags",
   "Drinkware",
   "Health & Wellness",
-  "Office",
+  "Office Supplies",
   "Technology",
 ] as const;
 

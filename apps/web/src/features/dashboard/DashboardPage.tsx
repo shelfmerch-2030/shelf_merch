@@ -495,7 +495,7 @@ function buildSwagStripCategories(products: UiProduct[]): SwagStripCategory[] {
         !/mug|cup/.test(productHaystack(p)),
     },
     {
-      label: "Stationery",
+      label: "Office Supplies",
       icon: NotebookPen,
       match: (p) =>
         p.category === "Office" || /note|pen|diary|journal|stationery|office/.test(productHaystack(p)),

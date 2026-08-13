@@ -57,7 +57,7 @@ export async function seedPlatformDemo({
     { name: 'Apparel', slug: 'apparel', description: 'Tees, hoodies, caps' },
     { name: 'Drinkware', slug: 'drinkware', description: 'Bottles and mugs' },
     { name: 'Bags', slug: 'bags', description: 'Backpacks and totes' },
-    { name: 'Office', slug: 'office', description: 'Notebooks and desk items' },
+    { name: 'Office Supplies', slug: 'office-supplies', description: 'Notebooks and desk items' },
     { name: 'Technology', slug: 'technology', description: 'Power banks and gadgets' },
   ]);
 
