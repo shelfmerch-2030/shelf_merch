@@ -121,6 +121,9 @@ const envSchema = z.object({
   TOKEN_ENCRYPTION_KEY: isProd
     ? z.string().optional().default('')
     : z.string().optional().default('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'),
+
+  /** Merge.dev test/production API key — server-only; never expose to the frontend. */
+  MERGE_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(processEnv);
@@ -193,6 +196,8 @@ export const googleClientUrl = () => {
 
 export const zohoPeopleConfigured = () =>
   Boolean(env.ZOHO_CLIENT_ID && env.ZOHO_CLIENT_SECRET && env.ZOHO_REDIRECT_URI && env.TOKEN_ENCRYPTION_KEY);
+
+export const mergeConfigured = () => Boolean(env.MERGE_API_KEY);
 
 export const zohoAccountsUrl = () =>
   (env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.in').replace(/\/$/, '');

@@ -62,6 +62,7 @@ import mediaRoutes from './modules/media/media.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
 import { platformReportsRouter } from './modules/reports/reports.routes.js';
 import zohoIntegrationsRoutes from './modules/integrations/zoho/zoho.routes.js';
+import mergeIntegrationsRoutes from './modules/integrations/merge/merge.routes.js';
 import {
   applyZohoPeopleEmbedHeaders,
   applyZohoPeopleCoopHeaders,
@@ -291,6 +292,12 @@ export function createApp() {
    * (outside the /api/v1 versioned surface, matching Zoho console config).
    */
   app.use('/api/integrations/zoho', globalHttpRateLimit, zohoIntegrationsRoutes);
+
+  /**
+   * Merge.dev HRIS Link — link_token issuance only (Phase 1).
+   * Mounted at /api/integrations/merge/* alongside Zoho (outside /api/v1).
+   */
+  app.use('/api/integrations/merge', globalHttpRateLimit, mergeIntegrationsRoutes);
 
   /**
    * Zoho People Connected App (externally hosted inside Zoho People / Sigma).
