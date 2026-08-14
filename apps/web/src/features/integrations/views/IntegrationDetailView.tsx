@@ -1,9 +1,36 @@
 import { Link } from "react-router";
-import { ArrowLeft, CircleHelp, Loader2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CircleAlert,
+  CircleHelp,
+  Loader2,
+  RefreshCw,
+  Unplug,
+} from "lucide-react";
 import type { Tile } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
 import { isMergeHrisIntegration } from "@/services/merge-api";
 import type { MergeConnectionPublic } from "@/services/merge-api";
+import {
+  canSaveSlackChannel,
+  canSendSlackTestMessage,
+  formatSlackChannelLabel,
+  resolveSlackNotificationPrefs,
+  SLACK_DETAIL_LEAD,
+  SLACK_NOTIFICATIONS_DESCRIPTION,
+  SLACK_NOTIFICATIONS_TITLE,
+  SLACK_NOTIFICATION_TOGGLE_OPTIONS,
+  slackChannelOptionLabel,
+} from "../slackDetailUi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +66,7 @@ function detailCopy(tile: Tile) {
     return `${tile.name} requires additional setup in Merge before it can be connected from ShelfMerch.`;
   }
   if (tile.id === "slack") {
-    return "Install our Slack app to announce gifting activity in Slack and create gift moments without leaving Slack.";
+    return SLACK_DETAIL_LEAD;
   }
   if (tile.id === "microsoft-teams") {
     return "Install our Microsoft Teams app to announce gifting activity and keep employee moments visible in team channels.";
@@ -71,9 +98,341 @@ function mergeSyncFailureCopy(connection: MergeConnectionPublic) {
     return "This HRIS connection is valid, but required Merge data scopes are disabled.";
   }
   if (connection.lastSyncStatus === "failed") {
-    return "Sync failed. Retry sync without reconnecting.";
+    return "Last sync failed. You can retry without reconnecting.";
   }
   return null;
+}
+
+function StatusPill({
+  tone,
+  label,
+}: {
+  tone: "success" | "warning" | "danger" | "neutral";
+  label: string;
+}) {
+  return (
+    <span className={`bonus-integ-status-pill bonus-integ-status-pill--${tone}`} role="status">
+      <span className="bonus-integ-status-pill__dot" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+function MetaPanel({ children }: { children: ReactNode }) {
+  return <div className="bonus-integ-meta-panel">{children}</div>;
+}
+
+function MetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bonus-integ-meta-row">
+      <span className="bonus-integ-meta-row__label">{label}</span>
+      <span className="bonus-integ-meta-row__value">{value}</span>
+    </div>
+  );
+}
+
+function MetaStats({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div className="bonus-integ-meta-stats">
+      {items.map((item) => (
+        <div key={item.label} className="bonus-integ-meta-stat">
+          <span className="bonus-integ-meta-stat__label">{item.label}</span>
+          <span className="bonus-integ-meta-stat__value">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Callout({
+  tone = "warning",
+  children,
+}: {
+  tone?: "warning" | "danger" | "info";
+  children: ReactNode;
+}) {
+  return (
+    <div className={`bonus-integ-callout bonus-integ-callout--${tone}`} role="status">
+      <CircleAlert size={16} aria-hidden="true" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function DisconnectConfirm({
+  title,
+  description,
+  disabled,
+  label = "Disconnect",
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  disabled?: boolean;
+  label?: string;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <button
+          type="button"
+          className="bonus-integ-btn bonus-integ-btn--danger"
+          disabled={disabled}
+        >
+          <Unplug size={15} aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Disconnect</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function SlackDetailBody({
+  slack,
+  busy,
+}: {
+  slack: NonNullable<IntegrationsVm["slack"]>;
+  busy: boolean;
+}) {
+  const connection = slack.connection;
+  const active =
+    connection &&
+    (connection.status === "connected" || connection.status === "needs_attention");
+  const [channelDraft, setChannelDraft] = useState(connection?.defaultChannelId || "");
+
+  useEffect(() => {
+    setChannelDraft(connection?.defaultChannelId || "");
+  }, [connection?.defaultChannelId]);
+
+  if (slack.loading && !connection) {
+    return (
+      <div className="bonus-integ-slack">
+        <p className="bonus-integ-meta-note">Checking Slack connection…</p>
+      </div>
+    );
+  }
+
+  if (!active) {
+    return (
+      <div className="bonus-integ-detail-actions">
+        {slack.canManage ? (
+          <button
+            type="button"
+            className="bonus-integ-btn bonus-integ-btn--primary"
+            disabled={busy || slack.connecting}
+            onClick={slack.onConnect}
+          >
+            {slack.connecting ? (
+              <>
+                <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                <span>Redirecting to Slack…</span>
+              </>
+            ) : (
+              <span>Connect Slack</span>
+            )}
+          </button>
+        ) : (
+          <Callout tone="info">Ask a company admin to connect Slack for this workspace.</Callout>
+        )}
+      </div>
+    );
+  }
+
+  const selectedId = channelDraft || connection.defaultChannelId || "";
+  const saveEnabled = canSaveSlackChannel({
+    draftId: selectedId,
+    defaultChannelId: connection.defaultChannelId,
+  });
+  const testEnabled = canSendSlackTestMessage(connection.defaultChannelId);
+  const statusTone = connection.status === "needs_attention" ? "warning" : "success";
+  const statusLabel =
+    connection.status === "needs_attention" ? "Needs attention" : "Connected";
+
+  return (
+    <div className="bonus-integ-slack">
+      <div className="bonus-integ-slack-summary" aria-label="Slack connection summary">
+        <div className="bonus-integ-slack-summary__item">
+          <span className="bonus-integ-slack-summary__label">Status</span>
+          <StatusPill tone={statusTone} label={statusLabel} />
+        </div>
+        <div className="bonus-integ-slack-summary__item">
+          <span className="bonus-integ-slack-summary__label">Workspace</span>
+          <span className="bonus-integ-slack-summary__value">
+            {connection.teamName || "Slack workspace"}
+          </span>
+        </div>
+        <div className="bonus-integ-slack-summary__item">
+          <span className="bonus-integ-slack-summary__label">Default channel</span>
+          <span className="bonus-integ-slack-summary__value">
+            {formatSlackChannelLabel(connection.defaultChannelName)}
+          </span>
+        </div>
+      </div>
+
+      {connection.status === "needs_attention" ? (
+        <Callout tone="warning">
+          Slack needs to be re-authorized. Disconnect and connect again if messages fail.
+        </Callout>
+      ) : null}
+
+      <section className="bonus-integ-slack-notifications" aria-labelledby="slack-notifications-heading">
+        <div className="bonus-integ-slack-channel__copy">
+          <h3 id="slack-notifications-heading">{SLACK_NOTIFICATIONS_TITLE}</h3>
+          <p>{SLACK_NOTIFICATIONS_DESCRIPTION}</p>
+        </div>
+        {slack.notificationsError ? <Callout tone="warning">{slack.notificationsError}</Callout> : null}
+        <ul className="bonus-integ-slack-notify-list">
+          {(() => {
+            const prefs = resolveSlackNotificationPrefs(connection);
+            return SLACK_NOTIFICATION_TOGGLE_OPTIONS.map((opt) => {
+            const checked = prefs[opt.key];
+            return (
+              <li key={opt.key} className="bonus-integ-slack-notify-item">
+                <label className="bonus-integ-slack-notify-label">
+                  <input
+                    type="checkbox"
+                    className="bonus-integ-slack-notify-checkbox"
+                    checked={checked}
+                    disabled={!slack.canManage || slack.savingNotifications || slack.disconnecting}
+                    onChange={(e) => {
+                      if (!slack.canManage) return;
+                      slack.onUpdateNotifications({ [opt.key]: e.target.checked });
+                    }}
+                    aria-label={opt.label}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+                <span className="bonus-integ-slack-notify-state" aria-hidden="true">
+                  {checked ? "ON" : "OFF"}
+                </span>
+              </li>
+            );
+          });
+          })()}
+        </ul>
+        {slack.savingNotifications ? (
+          <p className="bonus-integ-meta-note" aria-live="polite">
+            Saving notification preferences…
+          </p>
+        ) : null}
+      </section>
+
+      {slack.canManage ? (
+        <section className="bonus-integ-slack-channel" aria-labelledby="slack-default-channel-heading">
+          <div className="bonus-integ-slack-channel__copy">
+            <h3 id="slack-default-channel-heading">Default channel</h3>
+            <p>Choose where ShelfMerch should send Slack updates.</p>
+          </div>
+
+          {slack.channelsError ? <Callout tone="warning">{slack.channelsError}</Callout> : null}
+
+          {slack.channelsLoading && slack.channels.length === 0 ? (
+            <p className="bonus-integ-meta-note" aria-live="polite">
+              Loading channels…
+            </p>
+          ) : !slack.channelsLoading && slack.channels.length === 0 && !slack.channelsError ? (
+            <p className="bonus-integ-meta-note">No public channels available</p>
+          ) : (
+            <Select
+              value={selectedId || undefined}
+              onValueChange={setChannelDraft}
+              disabled={slack.savingChannel || (slack.channelsLoading && slack.channels.length === 0)}
+            >
+              <SelectTrigger
+                className="bonus-integ-slack-select"
+                aria-label="Default Slack channel"
+              >
+                <SelectValue placeholder="Choose a channel" />
+              </SelectTrigger>
+              <SelectContent className="bonus-integ-slack-select-content">
+                {slack.channels.map((ch) => (
+                  <SelectItem key={ch.id} value={ch.id}>
+                    {slackChannelOptionLabel(ch)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <div className="bonus-integ-slack-channel__actions">
+            <button
+              type="button"
+              className="bonus-integ-btn bonus-integ-btn--secondary"
+              disabled={!saveEnabled || slack.savingChannel || slack.sendingTest}
+              onClick={() => slack.onSaveChannel(selectedId)}
+            >
+              {slack.savingChannel ? (
+                <>
+                  <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                <span>Save channel</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="bonus-integ-btn bonus-integ-btn--ghost"
+              disabled={slack.channelsLoading || slack.savingChannel}
+              onClick={slack.onLoadChannels}
+            >
+              {slack.channelsLoading ? (
+                <>
+                  <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                  <span>Refreshing…</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={15} aria-hidden="true" />
+                  <span>Refresh</span>
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <div className="bonus-integ-detail-actions bonus-integ-slack-footer-actions">
+        {slack.canManage ? (
+          <button
+            type="button"
+            className="bonus-integ-btn bonus-integ-btn--primary"
+            disabled={!testEnabled || slack.sendingTest || slack.savingChannel || slack.disconnecting}
+            onClick={slack.onSendTest}
+          >
+            {slack.sendingTest ? (
+              <>
+                <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                <span>Sending…</span>
+              </>
+            ) : (
+              <span>Send test message</span>
+            )}
+          </button>
+        ) : null}
+        {slack.canManage ? (
+          <DisconnectConfirm
+            title="Disconnect Slack?"
+            description="ShelfMerch will remove access to this Slack workspace. Other company integrations are not affected. You can reconnect later."
+            disabled={slack.disconnecting || slack.sendingTest || slack.savingChannel}
+            label={slack.disconnecting ? "Disconnecting…" : "Disconnect"}
+            onConfirm={slack.onDisconnect}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function IntegrationDetailView({
@@ -89,6 +448,7 @@ export function IntegrationDetailView({
   onDisconnect,
   canManage = false,
   zoho = null,
+  slack = null,
 }: {
   tile: Tile;
   onBack: () => void;
@@ -102,6 +462,7 @@ export function IntegrationDetailView({
   onDisconnect?: (connectionId: string) => void;
   canManage?: boolean;
   zoho?: IntegrationsVm["zoho"] | null;
+  slack?: IntegrationsVm["slack"] | null;
 }) {
   const isMergeProvider = isMergeHrisIntegration(tile.id);
   const mergeHealthy = Boolean(connection && connection.status === "connected");
@@ -122,230 +483,252 @@ export function IntegrationDetailView({
     connection &&
     (mergeHealthy || mergeNeedsReconnect);
 
+  const detailKicker =
+    isMergeProvider || tile.id === "zoho-people"
+      ? "HRIS integration"
+      : tile.id === "slack"
+        ? "Collaboration"
+        : "Integration";
+
+  let body: ReactNode = null;
+
+  if (tile.id === "slack" && slack) {
+    body = <SlackDetailBody slack={slack} busy={busy || slack.connecting} />;
+  } else if (isMergeProvider && tile.requiresSetup && !connection) {
+    body = (
+      <>
+        <MetaPanel>
+          <div className="bonus-integ-meta-panel__top">
+            <StatusPill tone="neutral" label="Requires setup" />
+          </div>
+          <p className="bonus-integ-meta-note">
+            Connection is unavailable until Merge/org setup is complete for {tile.name}.
+          </p>
+        </MetaPanel>
+      </>
+    );
+  } else if (isMergeProvider && mergeHealthy && connection) {
+    body = (
+      <>
+        <MetaStats
+          items={[
+            { label: "Status", value: syncFailed ? "Sync failed" : "Connected" },
+            { label: "Last synced", value: formatDate(connection.lastSyncAt) },
+            {
+              label: "Provider",
+              value: connection.integrationName || tile.name,
+            },
+          ]}
+        />
+
+        {syncFailureMessage ? <Callout tone="warning">{syncFailureMessage}</Callout> : null}
+
+        <div className="bonus-integ-detail-actions">
+          {canManage && onSync ? (
+            <button
+              type="button"
+              className="bonus-integ-btn bonus-integ-btn--primary"
+              disabled={syncing || busy || disconnecting}
+              onClick={() => onSync(connection.id)}
+            >
+              {syncing ? (
+                <>
+                  <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                  <span>Syncing…</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={15} aria-hidden="true" />
+                  <span>{syncFailed ? "Retry sync" : "Sync now"}</span>
+                </>
+              )}
+            </button>
+          ) : null}
+          {showMergeDisconnect ? (
+            <DisconnectConfirm
+              title={`Disconnect ${tile.name}?`}
+              description={`ShelfMerch will unlink this ${tile.name} Linked Account. Imported HRIS employees and Workspace Contacts are kept. Other HRIS providers stay connected. You can reconnect later.`}
+              disabled={disconnecting || syncing || busy}
+              label={disconnecting ? "Disconnecting…" : "Disconnect"}
+              onConfirm={() => onDisconnect?.(connection.id)}
+            />
+          ) : null}
+        </div>
+
+        <div className="bonus-integ-quick-links">
+          <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
+            <span>
+              <strong>HRIS Directory</strong>
+              <span>Browse synced employees from this provider</span>
+            </span>
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+          <Link to="/app/contacts" className="bonus-integ-directory-link">
+            <span>
+              <strong>Workspace Contacts</strong>
+              <span>Employees are also available as contacts after sync</span>
+            </span>
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+      </>
+    );
+  } else if (isMergeProvider && mergeNeedsReconnect && connection) {
+    body = (
+      <>
+        <MetaStats
+          items={[
+            { label: "Status", value: "Needs reconnect" },
+            { label: "Last synced", value: formatDate(connection.lastSyncAt) },
+            { label: "Provider", value: connection.integrationName || tile.name },
+          ]}
+        />
+        <Callout tone="warning">
+          This Linked Account needs to be re-authorized with Merge before syncing can continue.
+        </Callout>
+        <div className="bonus-integ-detail-actions">
+          <button
+            type="button"
+            className="bonus-integ-btn bonus-integ-btn--primary"
+            disabled={busy || disconnecting}
+            onClick={() => onInstall(tile)}
+          >
+            <RefreshCw size={15} aria-hidden="true" />
+            <span>{busy ? "Working…" : `Reconnect ${tile.name}`}</span>
+          </button>
+          {showMergeDisconnect ? (
+            <DisconnectConfirm
+              title={`Disconnect ${tile.name}?`}
+              description={`ShelfMerch will unlink this ${tile.name} Linked Account. Imported HRIS employees and Workspace Contacts are kept. Other HRIS providers stay connected. You can reconnect later.`}
+              disabled={disconnecting || busy}
+              label={disconnecting ? "Disconnecting…" : "Disconnect"}
+              onConfirm={() => onDisconnect?.(connection.id)}
+            />
+          ) : null}
+        </div>
+      </>
+    );
+  } else if (zohoConnected && zoho) {
+    const zohoTone =
+      zoho.status === "connected"
+        ? "success"
+        : zoho.status === "expired" || zoho.status === "needs_attention"
+          ? "warning"
+          : "danger";
+    const zohoLabel =
+      zoho.status === "connected"
+        ? "Connected"
+        : zoho.status === "expired"
+          ? "Connection expired"
+          : zoho.status === "needs_attention"
+            ? "Needs attention"
+            : "Error";
+    body = (
+      <>
+        <MetaPanel>
+          <div className="bonus-integ-meta-panel__top">
+            <StatusPill tone={zohoTone} label={zohoLabel} />
+          </div>
+          <MetaRow label="Last synced" value={formatDate(zoho.integration?.lastSyncedAt)} />
+        </MetaPanel>
+        <div className="bonus-integ-detail-actions">
+          {canManage ? (
+            <button
+              type="button"
+              className="bonus-integ-btn bonus-integ-btn--primary"
+              disabled={zoho.syncing || zoho.status === "expired"}
+              onClick={zoho.onSync}
+            >
+              {zoho.syncing ? (
+                <>
+                  <Loader2 size={15} className="auth-spin" aria-hidden="true" />
+                  <span>Syncing…</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={15} aria-hidden="true" />
+                  <span>Sync employees</span>
+                </>
+              )}
+            </button>
+          ) : null}
+          {zoho.status === "expired" && canManage ? (
+            <button
+              type="button"
+              className="bonus-integ-btn bonus-integ-btn--secondary"
+              disabled={zoho.connecting}
+              onClick={zoho.onConnect}
+            >
+              Reconnect
+            </button>
+          ) : null}
+          {canManage ? (
+            <DisconnectConfirm
+              title="Disconnect Zoho People?"
+              description="ShelfMerch will stop syncing employees from Zoho People. Existing contacts and orders are kept. You can reconnect later."
+              disabled={zoho.disconnecting}
+              onConfirm={zoho.onDisconnect}
+            />
+          ) : null}
+        </div>
+      </>
+    );
+  } else if (tile.requiresSetup) {
+    body = (
+      <MetaPanel>
+        <div className="bonus-integ-meta-panel__top">
+          <StatusPill tone="neutral" label="Requires setup" />
+        </div>
+        <p className="bonus-integ-meta-note">
+          Connection is unavailable until setup is complete.
+        </p>
+      </MetaPanel>
+    );
+  } else {
+    body = (
+      <div className="bonus-integ-detail-actions">
+        <button
+          type="button"
+          className="bonus-integ-btn bonus-integ-btn--primary"
+          disabled={busy}
+          onClick={() => onInstall(tile)}
+        >
+          {tile.mark && !tile.icon ? <IntegrationMark tile={tile} /> : null}
+          <span>{busy ? "Working…" : `Connect ${tile.name}`}</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bonus-integ-detail-page">
       <button type="button" className="bonus-integ-back" onClick={onBack}>
         <ArrowLeft size={16} aria-hidden="true" />
         <span>Back to integrations</span>
       </button>
-      <div className="bonus-integ-detail-card">
-        {(tile.icon || tile.mark) && (
-          <div className="bonus-integ-detail-brand">
-            <IntegrationMark tile={tile} size="large" />
-          </div>
-        )}
-        <h1>{tile.name} Integration</h1>
-        <p>{detailCopy(tile)}</p>
 
-        {isMergeProvider && tile.requiresSetup && !connection ? (
-          <p className="bonus-integ-connected-badge" role="status">
-            Requires setup
-          </p>
-        ) : isMergeProvider && mergeHealthy && connection ? (
-          <>
-            <p className="bonus-integ-connected-badge" role="status">
-              Connected
-              {syncFailed ? " · Sync failed" : ""}
-            </p>
-            <p className="bonus-integ-desc">
-              Last synced: {formatDate(connection.lastSyncAt)}
-            </p>
-            {syncFailureMessage ? (
-              <p className="bonus-integ-desc" role="status">
-                {syncFailureMessage}
-              </p>
-            ) : null}
-            <div className="bonus-integ-detail-actions">
-              {canManage && onSync ? (
-                <button
-                  type="button"
-                  className="bonus-integ-install"
-                  disabled={syncing || busy || disconnecting}
-                  onClick={() => onSync(connection.id)}
-                >
-                  {syncing ? (
-                    <span className="auth-submit-busy">
-                      <Loader2 size={16} className="auth-spin" aria-hidden="true" />
-                      Syncing…
-                    </span>
-                  ) : (
-                    <span>{syncFailed ? "Retry sync" : "Sync now"}</span>
-                  )}
-                </button>
-              ) : null}
-              {showMergeDisconnect ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="bonus-integ-install bonus-integ-install--danger"
-                      disabled={disconnecting || syncing || busy}
-                    >
-                      {disconnecting ? "Disconnecting…" : "Disconnect"}
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Disconnect {tile.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        ShelfMerch will unlink this {tile.name} Linked Account. Imported HRIS
-                        employees are kept. Other HRIS providers stay connected. You can reconnect
-                        later.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDisconnect?.(connection.id)}>
-                        Disconnect
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : null}
+      <div className="bonus-integ-detail-card">
+        <header className="bonus-integ-detail-header">
+          {(tile.icon || tile.mark) && (
+            <div className="bonus-integ-detail-brand">
+              <IntegrationMark tile={tile} size="large" />
             </div>
-            <p className="bonus-integ-desc" style={{ marginTop: 12 }}>
-              <Link to="/app/integrations/hris-employees">View HRIS employees</Link>
-            </p>
-          </>
-        ) : isMergeProvider && mergeNeedsReconnect && connection ? (
-          <>
-            <p className="bonus-integ-connected-badge" role="status">
-              Needs attention
-            </p>
-            <p className="bonus-integ-desc">
-              This Linked Account needs to be re-authorized with Merge before syncing can continue.
-            </p>
-            <div className="bonus-integ-detail-actions">
-              <button
-                type="button"
-                className="bonus-integ-install"
-                disabled={busy || disconnecting}
-                onClick={() => onInstall(tile)}
-              >
-                <span>{busy ? "Working…" : `Reconnect ${tile.name}`}</span>
-              </button>
-              {showMergeDisconnect ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="bonus-integ-install bonus-integ-install--danger"
-                      disabled={disconnecting || busy}
-                    >
-                      {disconnecting ? "Disconnecting…" : "Disconnect"}
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Disconnect {tile.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        ShelfMerch will unlink this {tile.name} Linked Account. Imported HRIS
-                        employees are kept. Other HRIS providers stay connected. You can reconnect
-                        later.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDisconnect?.(connection.id)}>
-                        Disconnect
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : null}
-            </div>
-          </>
-        ) : zohoConnected && zoho ? (
-          <>
-            <p className="bonus-integ-connected-badge" role="status">
-              {zoho.status === "connected"
-                ? "Connected"
-                : zoho.status === "expired"
-                  ? "Connection expired"
-                  : zoho.status === "needs_attention"
-                    ? "Needs attention"
-                    : "Error"}
-            </p>
-            <p className="bonus-integ-desc">
-              Last synced: {formatDate(zoho.integration?.lastSyncedAt)}
-            </p>
-            <div className="bonus-integ-detail-actions">
-              {canManage ? (
-                <button
-                  type="button"
-                  className="bonus-integ-install"
-                  disabled={zoho.syncing || zoho.status === "expired"}
-                  onClick={zoho.onSync}
-                >
-                  {zoho.syncing ? (
-                    <span className="auth-submit-busy">
-                      <Loader2 size={16} className="auth-spin" aria-hidden="true" />
-                      Syncing…
-                    </span>
-                  ) : (
-                    <span>Sync Employees</span>
-                  )}
-                </button>
-              ) : null}
-              {zoho.status === "expired" && canManage ? (
-                <button
-                  type="button"
-                  className="bonus-integ-install"
-                  disabled={zoho.connecting}
-                  onClick={zoho.onConnect}
-                >
-                  Reconnect
-                </button>
-              ) : null}
-              {canManage ? (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="bonus-integ-install bonus-integ-install--danger"
-                      disabled={zoho.disconnecting}
-                    >
-                      Disconnect
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Disconnect Zoho People?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        ShelfMerch will stop syncing employees from Zoho People. Existing contacts
-                        and orders are kept. You can reconnect later.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={zoho.onDisconnect}>Disconnect</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              ) : null}
-            </div>
-          </>
-        ) : tile.requiresSetup ? (
-          <p className="bonus-integ-desc" role="status">
-            Connection is unavailable until setup is complete.
-          </p>
-        ) : (
-          <button
-            type="button"
-            className="bonus-integ-install"
-            disabled={busy}
-            onClick={() => onInstall(tile)}
-          >
-            {tile.mark && !tile.icon ? <IntegrationMark tile={tile} /> : null}
-            <span>{busy ? "Working…" : `Connect ${tile.name}`}</span>
-          </button>
-        )}
+          )}
+          <div className="bonus-integ-detail-heading">
+            <p className="bonus-integ-detail-kicker">{detailKicker}</p>
+            {/* Logo already identifies the provider — avoid repeating the name as a title. */}
+            {!tile.icon ? <h1>{tile.name}</h1> : null}
+            <p className="bonus-integ-detail-lead">{detailCopy(tile)}</p>
+          </div>
+        </header>
+
+        <div className="bonus-integ-detail-body">{body}</div>
 
         <div className="bonus-integ-help">
           <CircleHelp size={14} aria-hidden="true" />
-          <span>Can't figure it out? Just </span>
+          <span>Need help? </span>
           <button type="button" onClick={onSupport}>
-            drop us a line.
+            Drop us a line
           </button>
         </div>
       </div>

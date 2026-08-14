@@ -5,6 +5,8 @@ import { Order } from '../orders/order.model.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { ensureUniqueShopSlug, slugifyShopName } from '../../utils/shopSlug.js';
 import { syncShopCatalogVisibility, syncActiveListingKeys } from './shopCatalogSync.js';
+import { scheduleSlackBusinessNotification } from '../integrations/slack/slackNotify.service.js';
+import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
 
 async function backfillShopSlug(shop) {
   if (shop.slug?.trim()) return shop;
@@ -93,13 +95,36 @@ export async function updateShop({ tenantId, shopId, patch }) {
 }
 
 /** §7.6 — publish requires at least one category. */
-export async function publishShop({ tenantId, shopId }) {
+export async function publishShop({ tenantId, shopId, actorUserId = null }) {
   const shop = await getShop({ tenantId, shopId });
+  if (shop.status === 'live') {
+    return shop;
+  }
   if (!shop.categories.length) {
     throw new ApiError(422, 'Add at least one category before publishing', 'SHOP_NO_CATEGORIES');
   }
   shop.status = 'live';
   await shop.save();
+
+  const productCount = Array.isArray(shop.activeListingKeys) && shop.activeListingKeys.length
+    ? shop.activeListingKeys.length
+    : Array.isArray(shop.selectedCatalogProductIds)
+      ? shop.selectedCatalogProductIds.length
+      : 0;
+
+  scheduleSlackBusinessNotification({
+    tenantId,
+    type: SLACK_EVENT_TYPES.SHOP_LAUNCHED,
+    eventKey: `SHOP_LAUNCHED:${shop._id}`,
+    resourceType: 'Shop',
+    resourceId: shop._id,
+    actorUserId,
+    payload: {
+      shopName: shop.name,
+      productCount,
+    },
+  });
+
   return shop;
 }
 

@@ -5,6 +5,25 @@ type ResourceDropdownProps = {
   onNavigate?: () => void;
 };
 
+function ChevronDownIcon() {
+  return (
+    <svg
+      className="resources-trigger-chevron"
+      aria-hidden="true"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 export function ResourceDropdown({ onNavigate }: ResourceDropdownProps) {
   const { pathname } = useLocation();
   const isActive = pathname.startsWith("/resources");
@@ -16,7 +35,8 @@ export function ResourceDropdown({ onNavigate }: ResourceDropdownProps) {
         to="/resources"
         onClick={onNavigate}
       >
-        Resources <span>⌄</span>
+        Resources
+        <ChevronDownIcon />
       </Link>
       <div className="resources-menu">
         <small>BY TEAM</small>

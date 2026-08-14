@@ -12,6 +12,9 @@ export const MERGE_CONNECTIONS_QUERY_KEY = ["integrations", "merge", "connection
 
 export type HrisEmployeesVm = {
   employees: MergeHrisEmployeePublic[];
+  totalCount: number;
+  activeCount: number;
+  connectedProviderCount: number;
   connections: MergeConnectionPublic[];
   loading: boolean;
   error: string | null;
@@ -38,17 +41,34 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
     staleTime: 30_000,
   });
 
+  const allEmployees = employeesQuery.data ?? [];
+
   const providerOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const e of employeesQuery.data ?? []) {
+    for (const e of allEmployees) {
       if (e.provider) set.add(e.provider);
     }
     return Array.from(set).sort();
-  }, [employeesQuery.data]);
+  }, [allEmployees]);
+
+  const activeCount = useMemo(
+    () =>
+      allEmployees.filter((e) => String(e.employmentStatus || "").toUpperCase() === "ACTIVE")
+        .length,
+    [allEmployees],
+  );
+
+  const connectedProviderCount = useMemo(
+    () =>
+      (connectionsQuery.data ?? []).filter(
+        (c) => c.status === "connected" || c.status === "needs_attention",
+      ).length,
+    [connectionsQuery.data],
+  );
 
   const employees = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return (employeesQuery.data ?? []).filter((e) => {
+    return allEmployees.filter((e) => {
       if (providerFilter !== "all" && e.provider !== providerFilter) return false;
       if (!q) return true;
       const hay = [
@@ -59,7 +79,8 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
         e.jobTitle,
         e.employmentStatus,
         e.employmentType,
-        e.departmentName,
+        e.address,
+        e.locationName,
         e.country,
         e.provider,
       ]
@@ -68,10 +89,13 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [employeesQuery.data, search, providerFilter]);
+  }, [allEmployees, search, providerFilter]);
 
   return {
     employees,
+    totalCount: allEmployees.length,
+    activeCount,
+    connectedProviderCount,
     connections: connectionsQuery.data ?? [],
     loading: employeesQuery.isLoading || connectionsQuery.isLoading,
     error:

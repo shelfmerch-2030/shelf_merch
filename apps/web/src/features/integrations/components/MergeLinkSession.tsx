@@ -95,10 +95,11 @@ export function MergeLinkSession({ linkToken, provider, onSuccess, onExit }: Pro
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogPortal>
-        <DialogOverlay />
+        {/* Stadium-matched light overlay; do not use shared Dialog bg-black/80. */}
+        <DialogOverlay className="merge-link-modal-overlay bg-black/25" />
         {/*
           Compose Content without the shared DialogContent close (X) button.
-          Visual chrome is stripped so Merge's own modal floats on the dark overlay.
+          Visual chrome is stripped so Merge's own modal floats on the light overlay.
         */}
         <DialogPrimitive.Content
           className="merge-link-modal"

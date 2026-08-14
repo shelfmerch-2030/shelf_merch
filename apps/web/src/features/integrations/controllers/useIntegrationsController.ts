@@ -22,6 +22,18 @@ import {
   type MergeConnectionPublic,
   type MergeHrisIntegration,
 } from "@/services/merge-api";
+import {
+  disconnectSlack,
+  fetchSlackChannels,
+  fetchSlackConnection,
+  sendSlackTestMessage,
+  setSlackDefaultChannel,
+  startSlackConnect,
+  updateSlackNotifications,
+  type SlackChannelPublic,
+  type SlackConnectionPublic,
+  type SlackNotificationPreferences,
+} from "@/services/slack-api";
 import { canAccessTenantArea } from "@/services/tenant-access";
 import { getStoredUser } from "@/services/auth-store";
 import { ApiError } from "@/services/api";
@@ -58,15 +70,38 @@ export type IntegrationsVm = {
     onSync: () => void;
     onDisconnect: () => void;
   };
+  slack: {
+    connection: SlackConnectionPublic | null;
+    loading: boolean;
+    connecting: boolean;
+    disconnecting: boolean;
+    channels: SlackChannelPublic[];
+    channelsLoading: boolean;
+    channelsError: string | null;
+    savingChannel: boolean;
+    sendingTest: boolean;
+    savingNotifications: boolean;
+    notificationsError: string | null;
+    canManage: boolean;
+    onConnect: () => void;
+    onLoadChannels: () => void;
+    onSaveChannel: (channelId: string) => void;
+    onSendTest: () => void;
+    onDisconnect: () => void;
+    onUpdateNotifications: (patch: Partial<SlackNotificationPreferences>) => void;
+  };
 };
 
 const ZOHO_QUERY_KEY = ["integrations", "zoho", "status"] as const;
 const MERGE_QUERY_KEY = ["integrations", "merge", "connections"] as const;
+const SLACK_QUERY_KEY = ["integrations", "slack", "connection"] as const;
+const SLACK_CHANNELS_QUERY_KEY = ["integrations", "slack", "channels"] as const;
 
 /** Controller for the integrations screen: tile selection + Zoho / Merge actions. */
 export function useIntegrationsController(): IntegrationsVm {
   const [selected, setSelected] = useState<Tile | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [slackConnecting, setSlackConnecting] = useState(false);
   const [mergeLinking, setMergeLinking] = useState(false);
   const [mergeExchanging, setMergeExchanging] = useState(false);
   const [mergeLinkToken, setMergeLinkToken] = useState<string | null>(null);
@@ -87,6 +122,24 @@ export function useIntegrationsController(): IntegrationsVm {
     queryKey: MERGE_QUERY_KEY,
     queryFn: fetchMergeConnections,
     staleTime: 30_000,
+  });
+
+  const slackConnectionQuery = useQuery({
+    queryKey: SLACK_QUERY_KEY,
+    queryFn: fetchSlackConnection,
+    staleTime: 30_000,
+  });
+
+  const slackConnected =
+    slackConnectionQuery.data?.status === "connected" ||
+    slackConnectionQuery.data?.status === "needs_attention";
+
+  const slackChannelsQuery = useQuery({
+    queryKey: SLACK_CHANNELS_QUERY_KEY,
+    queryFn: fetchSlackChannels,
+    enabled: Boolean(selected?.id === "slack" && slackConnected && canManage),
+    staleTime: 60_000,
+    retry: false,
   });
 
   const mergeConnectionsByProvider = useMemo(() => {
@@ -116,6 +169,27 @@ export function useIntegrationsController(): IntegrationsVm {
     const next = new URLSearchParams(searchParams);
     next.delete("zoho");
     next.delete("reason");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, queryClient]);
+
+  useEffect(() => {
+    const slack = searchParams.get("slack");
+    if (!slack) return;
+    if (slack === "connected") {
+      toast.success("Slack connected");
+      void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+      setSelected({
+        id: "slack",
+        name: "Slack",
+        desc: "Announce gifting activity in Slack.",
+      });
+    } else if (slack === "cancelled") {
+      toast.message("Slack connection cancelled");
+    } else if (slack === "error") {
+      toast.error("Could not connect Slack — try again");
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("slack");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, queryClient]);
 
@@ -185,7 +259,7 @@ export function useIntegrationsController(): IntegrationsVm {
     onSuccess: (result) => {
       const s = result.sync;
       toast.success(
-        `Synced HRIS — employees +${s.employees.created}/${s.employees.updated}, departments +${s.departments.created}/${s.departments.updated}`,
+        `Synced HRIS — employees +${s.employees.created}/${s.employees.updated}, contacts +${s.contacts?.created ?? 0}/${s.contacts?.updated ?? 0}`,
       );
       void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
@@ -225,14 +299,79 @@ export function useIntegrationsController(): IntegrationsVm {
     }
   }, [canManage]);
 
+  const onSlackConnect = useCallback(async () => {
+    if (!canManage) {
+      toast.error("Only company administrators can connect Slack");
+      return;
+    }
+    setSlackConnecting(true);
+    try {
+      const authorizeUrl = await startSlackConnect();
+      window.location.assign(authorizeUrl);
+    } catch (err) {
+      setSlackConnecting(false);
+      toast.error(err instanceof ApiError ? err.message : "Could not start Slack connection");
+    }
+  }, [canManage]);
+
+  const slackSaveChannelMutation = useMutation({
+    mutationFn: setSlackDefaultChannel,
+    onSuccess: (connection) => {
+      toast.success(
+        connection.defaultChannelName
+          ? `Default channel updated to #${connection.defaultChannelName}`
+          : "Default channel updated",
+      );
+      void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Could not save channel");
+    },
+  });
+
+  const slackTestMutation = useMutation({
+    mutationFn: () => sendSlackTestMessage(),
+    onSuccess: () => {
+      const name = queryClient.getQueryData<SlackConnectionPublic | null>(SLACK_QUERY_KEY)
+        ?.defaultChannelName;
+      toast.success(
+        name ? `Test message sent to #${name}` : "Test message sent to Slack",
+      );
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Could not send test message");
+      if (err instanceof ApiError && err.code === "SLACK_AUTH_FAILED") {
+        void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+      }
+    },
+  });
+
+  const slackDisconnectMutation = useMutation({
+    mutationFn: disconnectSlack,
+    onSuccess: () => {
+      toast.success("Slack disconnected");
+      void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+      void queryClient.removeQueries({ queryKey: SLACK_CHANNELS_QUERY_KEY });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Disconnect failed");
+    },
+  });
+
+  const slackNotificationsMutation = useMutation({
+    mutationFn: updateSlackNotifications,
+    onSuccess: () => {
+      toast.success("Slack notification preferences saved");
+      void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : "Could not save notification preferences");
+    },
+  });
   const startMergeLink = useCallback(
     async (integration?: MergeHrisIntegration) => {
       if (!canManage) {
         toast.error("Only company administrators can connect HRIS providers");
-        return;
-      }
-      if (integration === "gusto") {
-        toast.message("Gusto requires additional Merge setup before it can be connected");
         return;
       }
       if (mergeLinking || mergeExchanging) return;
@@ -263,7 +402,11 @@ export function useIntegrationsController(): IntegrationsVm {
         void onConnect();
         return;
       }
-      if (tile.requiresSetup || tile.id === "gusto") {
+      if (tile.id === "slack") {
+        void onSlackConnect();
+        return;
+      }
+      if (tile.requiresSetup) {
         toast.message(`${tile.name} requires setup before connecting`);
         return;
       }
@@ -273,13 +416,12 @@ export function useIntegrationsController(): IntegrationsVm {
           toast.message(`${tile.name} is already connected`);
           return;
         }
-        // needs_attention → Reconnect via Merge Link; otherwise first-time connect.
         void startMergeLink(tile.id);
         return;
       }
       toast(`${tile.name} setup started`);
     },
-    [onConnect, startMergeLink, mergeConnectionsByProvider],
+    [onConnect, onSlackConnect, startMergeLink, mergeConnectionsByProvider],
   );
 
   const status = statusQuery.data?.status ?? "not_connected";
@@ -324,6 +466,52 @@ export function useIntegrationsController(): IntegrationsVm {
       onConnect,
       onSync: () => syncMutation.mutate(),
       onDisconnect: () => disconnectMutation.mutate(),
+    },
+    slack: {
+      connection: slackConnectionQuery.data ?? null,
+      loading: slackConnectionQuery.isLoading,
+      connecting: slackConnecting,
+      disconnecting: slackDisconnectMutation.isPending,
+      channels: slackChannelsQuery.data ?? [],
+      channelsLoading: slackChannelsQuery.isFetching,
+      channelsError:
+        slackChannelsQuery.error instanceof ApiError
+          ? slackChannelsQuery.error.message
+          : slackChannelsQuery.error
+            ? "Could not load Slack channels"
+            : null,
+      savingChannel: slackSaveChannelMutation.isPending,
+      sendingTest: slackTestMutation.isPending,
+      savingNotifications: slackNotificationsMutation.isPending,
+      notificationsError:
+        slackNotificationsMutation.error instanceof ApiError
+          ? slackNotificationsMutation.error.message
+          : slackNotificationsMutation.error
+            ? "Could not save notification preferences"
+            : null,
+      canManage,
+      onConnect: () => {
+        void onSlackConnect();
+      },
+      onLoadChannels: () => {
+        void queryClient.invalidateQueries({ queryKey: SLACK_CHANNELS_QUERY_KEY });
+      },
+      onSaveChannel: (channelId: string) => {
+        if (slackSaveChannelMutation.isPending) return;
+        slackSaveChannelMutation.mutate(channelId);
+      },
+      onSendTest: () => {
+        if (slackTestMutation.isPending) return;
+        slackTestMutation.mutate();
+      },
+      onDisconnect: () => {
+        if (slackDisconnectMutation.isPending) return;
+        slackDisconnectMutation.mutate();
+      },
+      onUpdateNotifications: (patch) => {
+        if (slackNotificationsMutation.isPending) return;
+        slackNotificationsMutation.mutate(patch);
+      },
     },
   };
 }

@@ -44,6 +44,14 @@ describe("Merge Link start session guards", () => {
     expect(mergeLinkProvider).toBe("workday");
   });
 
+  it("requests link token with integration gusto (no setup block)", async () => {
+    await startMergeLink("gusto");
+    expect(createMergeLinkToken).toHaveBeenCalledTimes(1);
+    expect(createMergeLinkToken).toHaveBeenCalledWith({ integration: "gusto" });
+    expect(mergeLinkToken).toMatch(/^token-for-gusto-/);
+    expect(mergeLinkProvider).toBe("gusto");
+  });
+
   it("clears prior token then fetches BambooHR after Workday", async () => {
     await startMergeLink("workday");
     const first = mergeLinkToken;

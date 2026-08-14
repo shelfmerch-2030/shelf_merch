@@ -2,7 +2,6 @@ import zohoPeopleIcon from "../../../assets/integrations/zoho-people.png";
 import googleChatIcon from "../../../assets/integrations/google-chat.svg";
 import microsoftTeamsIcon from "../../../assets/integrations/microsoft-teams.svg";
 import zapierIcon from "../../../assets/integrations/zapier.png";
-import darwinboxIcon from "../../../assets/integrations/darwinbox.jpg";
 import kekaIcon from "../../../assets/integrations/keka-logo.png";
 import bamboohrIcon from "../../../assets/integrations/bamboohr-logo.png";
 import workdayIcon from "../../../assets/integrations/workday-logo.png";
@@ -36,14 +35,6 @@ export const INTEGRATIONS: Integration[] = [
     desc: "Connect your Zoho People account to import employees and manage onboarding kit orders.",
     connected: false,
     icon: zohoPeopleIcon,
-  },
-  {
-    id: "darwinbox",
-    name: "Darwinbox",
-    category: "HRIS",
-    desc: "Sync employees, birthdays & start dates",
-    connected: true,
-    icon: darwinboxIcon,
   },
   {
     id: "keka",
@@ -211,7 +202,6 @@ export const MERGE_HRIS_TOOLS: Tile[] = [
     name: "Gusto",
     desc: "Import employee profiles and employment details from Gusto.",
     icon: gustoIcon,
-    requiresSetup: true,
   },
   {
     id: "keka",
@@ -243,7 +233,6 @@ export const MERGE_HRIS_TOOLS: Tile[] = [
 export const USER_MANAGEMENT_TOOLS: Tile[] = [
   ...MERGE_HRIS_TOOLS,
   app("zoho-people"),
-  app("darwinbox"),
 ].filter(Boolean) as Tile[];
 
 export const DISPLAY_TOOLS: Tile[] = [

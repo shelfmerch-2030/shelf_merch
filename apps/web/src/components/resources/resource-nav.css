@@ -8,6 +8,17 @@
   color: inherit;
   text-decoration: none;
 }
+.resources-trigger-chevron {
+  flex-shrink: 0;
+  display: block;
+  opacity: 0.72;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.resources-dropdown:hover .resources-trigger-chevron,
+.resources-dropdown:focus-within .resources-trigger-chevron {
+  opacity: 1;
+  transform: rotate(180deg);
+}
 .resources-menu {
   position: absolute;
   top: calc(100% + 18px);

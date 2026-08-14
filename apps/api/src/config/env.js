@@ -24,6 +24,7 @@ const mongoUriSchema = isTest
   : z.string().min(1, 'Set MONGO_URL or MONGODB_URI to your MongoDB Atlas connection string');
 
 const ZOHO_CALLBACK_PATH = '/api/integrations/zoho/callback';
+const SLACK_CALLBACK_PATH = '/api/integrations/slack/callback';
 
 /**
  * Validate ZOHO_REDIRECT_URI shape. Must be an absolute URL whose pathname is
@@ -58,6 +59,45 @@ export function validateZohoRedirectUri(raw) {
   }
   if (parsedUrl.search || parsedUrl.hash) {
     return { ok: false, message: 'ZOHO_REDIRECT_URI must not include query or hash' };
+  }
+  return { ok: true, value: raw };
+}
+
+/**
+ * Validate SLACK_REDIRECT_URI shape when explicitly set.
+ * Pathname must be exactly /api/integrations/slack/callback.
+ */
+export function validateSlackRedirectUri(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return { ok: false, message: 'SLACK_REDIRECT_URI is required when Slack is enabled' };
+  }
+  if (raw.endsWith('/')) {
+    return {
+      ok: false,
+      message:
+        'SLACK_REDIRECT_URI must not end with a trailing slash ' +
+        '(expected ...' +
+        SLACK_CALLBACK_PATH +
+        ')',
+    };
+  }
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(raw);
+  } catch {
+    return { ok: false, message: 'SLACK_REDIRECT_URI must be a valid absolute URL' };
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    return { ok: false, message: 'SLACK_REDIRECT_URI must use http or https' };
+  }
+  if (parsedUrl.pathname !== SLACK_CALLBACK_PATH) {
+    return {
+      ok: false,
+      message: 'SLACK_REDIRECT_URI pathname must be exactly ' + SLACK_CALLBACK_PATH,
+    };
+  }
+  if (parsedUrl.search || parsedUrl.hash) {
+    return { ok: false, message: 'SLACK_REDIRECT_URI must not include query or hash' };
   }
   return { ok: true, value: raw };
 }
@@ -124,6 +164,16 @@ const envSchema = z.object({
 
   /** Merge.dev test/production API key — server-only; never expose to the frontend. */
   MERGE_API_KEY: z.string().optional().default(''),
+
+  /** Slack OAuth (server-only) — Client Secret never exposed to the frontend. */
+  SLACK_CLIENT_ID: z.string().optional().default(''),
+  SLACK_CLIENT_SECRET: z.string().optional().default(''),
+  /**
+   * Absolute OAuth redirect URI. Local default via APP_URL when empty:
+   * http://localhost:8080/api/integrations/slack/callback
+   * Production: https://shelfmerch.io/api/integrations/slack/callback
+   */
+  SLACK_REDIRECT_URI: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(processEnv);
@@ -159,6 +209,32 @@ if (zohoPartial) {
   if (!redirectCheck.ok) {
     console.error('Invalid Zoho People configuration:\n  - ZOHO_REDIRECT_URI: ' + redirectCheck.message);
     process.exit(1);
+  }
+}
+
+const slackPartial =
+  Boolean(env.SLACK_CLIENT_ID) ||
+  Boolean(env.SLACK_CLIENT_SECRET) ||
+  Boolean(env.SLACK_REDIRECT_URI);
+if (slackPartial) {
+  const missing = [];
+  if (!env.SLACK_CLIENT_ID) missing.push('SLACK_CLIENT_ID');
+  if (!env.SLACK_CLIENT_SECRET) missing.push('SLACK_CLIENT_SECRET');
+  if (!env.TOKEN_ENCRYPTION_KEY) missing.push('TOKEN_ENCRYPTION_KEY');
+  if (missing.length) {
+    console.error(
+      'Invalid Slack configuration — set all of: ' +
+        missing.join(', ') +
+        ' (or leave all Slack vars empty to disable the integration).',
+    );
+    process.exit(1);
+  }
+  if (env.SLACK_REDIRECT_URI) {
+    const redirectCheck = validateSlackRedirectUri(env.SLACK_REDIRECT_URI);
+    if (!redirectCheck.ok) {
+      console.error('Invalid Slack configuration:\n  - SLACK_REDIRECT_URI: ' + redirectCheck.message);
+      process.exit(1);
+    }
   }
 }
 
@@ -198,6 +274,20 @@ export const zohoPeopleConfigured = () =>
   Boolean(env.ZOHO_CLIENT_ID && env.ZOHO_CLIENT_SECRET && env.ZOHO_REDIRECT_URI && env.TOKEN_ENCRYPTION_KEY);
 
 export const mergeConfigured = () => Boolean(env.MERGE_API_KEY);
+
+export const slackConfigured = () =>
+  Boolean(env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY);
+
+/** Prefer explicit SLACK_REDIRECT_URI; otherwise derive from BASE_URL / APP_URL. */
+export const slackRedirectUri = () => {
+  if (env.SLACK_REDIRECT_URI) {
+    const result = validateSlackRedirectUri(env.SLACK_REDIRECT_URI);
+    if (!result.ok) throw new Error(result.message);
+    return result.value;
+  }
+  const base = (env.BASE_URL || env.APP_URL || 'http://localhost:8080').replace(/\/$/, '');
+  return `${base}${SLACK_CALLBACK_PATH}`;
+};
 
 export const zohoAccountsUrl = () =>
   (env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.in').replace(/\/$/, '');

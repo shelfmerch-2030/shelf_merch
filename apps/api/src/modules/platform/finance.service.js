@@ -1,5 +1,6 @@
 import { Wallet } from '../wallets/wallet.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
+import { Entity } from '../entities/entity.model.js';
 import { Order } from '../orders/order.model.js';
 import { Payment } from '../payments/payment.model.js';
 import { Invoice } from '../invoices/invoice.model.js';
@@ -10,6 +11,8 @@ import { createInvoiceForPayment } from '../invoices/invoices.service.js';
 import { notify } from '../notifications/notifications.service.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
+import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
 
 // ---------------------------------------------------------------------------
 // Funding approvals (§3.8) — PO/bank-transfer wallets awaiting finance sign-off
@@ -131,7 +134,50 @@ export async function approveFunding({ walletId, amount, performedBy }) {
     });
   }
 
-  return { transaction, wallet: await getWalletAnyTenant(walletId) };
+  const walletAfter = await getWalletAnyTenant(walletId);
+  const tenant = await Tenant.findById(walletAfter.tenantId).select('name').lean();
+  scheduleSlackBusinessNotification({
+    tenantId: walletAfter.tenantId,
+    type: SLACK_EVENT_TYPES.WALLET_APPROVED,
+    eventKey: `WALLET_APPROVED:${transaction._id}`,
+    resourceType: 'WalletTransaction',
+    resourceId: transaction._id,
+    payload: {
+      amount: creditAmount,
+      newBalance: walletAfter.balance,
+      companyName: tenant?.name || walletAfter.name || 'company',
+      poNumber: walletAfter.fundingDocument?.docNumber || '',
+    },
+  });
+
+  // Planned allocations: budget-assigned Slack + low-budget reset/evaluate.
+  for (const row of planned) {
+    if (!row?.entityId || !(Number(row.amount) > 0)) continue;
+    const entity = await Entity.findOne({ _id: row.entityId, tenantId: walletAfter.tenantId })
+      .setOptions({ skipTenantGuard: true })
+      .lean();
+    if (entity) {
+      scheduleSlackBusinessNotification({
+        tenantId: walletAfter.tenantId,
+        type: SLACK_EVENT_TYPES.BUDGET_ASSIGNED,
+        eventKey: `BUDGET_ASSIGNED:funding:${transaction._id}:${entity._id}`,
+        resourceType: 'Entity',
+        resourceId: entity._id,
+        actorUserId: performedBy,
+        payload: {
+          amount: row.amount,
+          entityName: entity.name,
+          availableBudget: Math.max(0, (entity.allocatedAmount || 0) - (entity.spentAmount || 0)),
+        },
+      });
+    }
+    evaluateEntityLowBudgetAlert({
+      tenantId: walletAfter.tenantId,
+      entityId: row.entityId,
+    }).catch(() => {});
+  }
+
+  return { transaction, wallet: walletAfter };
 }
 
 export async function rejectFunding({ walletId, reason }) {

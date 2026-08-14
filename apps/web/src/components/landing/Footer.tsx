@@ -76,18 +76,42 @@ export function Footer() {
             Made and delivered across India.
           </p>
           <div className="footer-socials" aria-label="Social media">
-            <span className="footer-social" aria-hidden="true">
+            <a
+              className="footer-social"
+              href="https://www.facebook.com/people/Shelfmerch/100085365945333/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Shelf Merch on Facebook"
+            >
               <FacebookIcon />
-            </span>
-            <span className="footer-social" aria-hidden="true">
+            </a>
+            <a
+              className="footer-social"
+              href="https://www.instagram.com/shelfmerch/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Shelf Merch on Instagram"
+            >
               <InstagramIcon />
-            </span>
-            <span className="footer-social" aria-hidden="true">
+            </a>
+            <a
+              className="footer-social"
+              href="https://in.linkedin.com/company/shelfmerch"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Shelf Merch on LinkedIn"
+            >
               <LinkedInIcon />
-            </span>
-            <span className="footer-social" aria-hidden="true">
+            </a>
+            <a
+              className="footer-social"
+              href="https://www.youtube.com/@shelfmerch"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Shelf Merch on YouTube"
+            >
               <YouTubeIcon />
-            </span>
+            </a>
           </div>
         </div>
 
@@ -133,7 +157,7 @@ export function Footer() {
           </span>
           <p>
             <small>Need help?</small>
-            <a href="mailto:hello@shelfmerch.com">hello@shelfmerch.com</a>
+            <a href="mailto:support@shelfmerch.com">support@shelfmerch.com</a>
           </p>
         </div>
         <div className="footer-contact">
@@ -142,7 +166,7 @@ export function Footer() {
           </span>
           <p>
             <small>Call us</small>
-            <a href="tel:+911234567890">+91 12345 67890</a>
+            <a href="tel:+917801087402">78010 87402</a>
           </p>
         </div>
         <div className="footer-contact">

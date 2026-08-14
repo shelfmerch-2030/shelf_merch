@@ -63,6 +63,7 @@ import chatRoutes from './modules/chat/chat.routes.js';
 import { platformReportsRouter } from './modules/reports/reports.routes.js';
 import zohoIntegrationsRoutes from './modules/integrations/zoho/zoho.routes.js';
 import mergeIntegrationsRoutes from './modules/integrations/merge/merge.routes.js';
+import slackIntegrationsRoutes from './modules/integrations/slack/slack.routes.js';
 import {
   applyZohoPeopleEmbedHeaders,
   applyZohoPeopleCoopHeaders,
@@ -298,6 +299,14 @@ export function createApp() {
    * Mounted at /api/integrations/merge/* alongside Zoho (outside /api/v1).
    */
   app.use('/api/integrations/merge', globalHttpRateLimit, mergeIntegrationsRoutes);
+
+  /**
+   * Slack OAuth + workspace APIs (Phase 1).
+   * Mounted at /api/integrations/slack/* so redirect URI can be
+   * http://localhost:8080/api/integrations/slack/callback (Vite proxy) or
+   * https://shelfmerch.io/api/integrations/slack/callback.
+   */
+  app.use('/api/integrations/slack', globalHttpRateLimit, slackIntegrationsRoutes);
 
   /**
    * Zoho People Connected App (externally hosted inside Zoho People / Sigma).

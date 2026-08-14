@@ -6,6 +6,7 @@ import { transitionState, validNextStatuses } from '../../services/stateMachine.
 import { amountBreakdownForKitCampaign } from '../../services/pricing.service.js';
 import { ApiError, NotFoundError, ForbiddenError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { scheduleOrderDispatchedSlackNotification } from '../integrations/slack/slackNotify.service.js';
 
 /**
  * §3.5 — tenants only keep the mockup quality gate. Every other transition is
@@ -179,9 +180,14 @@ export async function updateOrderStatus({ tenantId, user, orderId, status, note,
     );
   }
 
+  const priorStatus = order.status;
   transitionState('order', order, status, { userId: user.userId }, note);
   if (trackingNumber) order.trackingNumber = trackingNumber;
   await order.save();
+  scheduleOrderDispatchedSlackNotification(
+    order,
+    priorStatus !== 'shipped' && order.status === 'shipped',
+  );
 
   return getOrder({ tenantId, user, orderId: order._id });
 }

@@ -82,6 +82,8 @@ const orderSchema = new mongoose.Schema(
     status: { type: String, enum: ORDER_STATUSES, default: 'created' },
     statusHistory: [{ status: String, at: Date, actorUserId: mongoose.Schema.Types.ObjectId, note: String }],
     trackingNumber: { type: String, default: '' },
+    /** Set when ORDER_DISPATCHED Slack notification was claimed/sent (dedupe). */
+    slackDispatchNotifiedAt: { type: Date, default: null },
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', default: null },
     mockupUrl: { type: String, default: '' },
     // §3.5 — replacement = zero-charge clone, linked back to the original.

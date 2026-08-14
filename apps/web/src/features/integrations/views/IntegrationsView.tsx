@@ -79,7 +79,7 @@ function isZohoConnected(status: IntegrationsVm["zoho"]["status"]) {
  * Logo-centered HRIS card.
  * Unconnected Merge/Zoho → start connect immediately.
  * Connected → open management detail.
- * Requires setup → open detail only (no broken Link launch).
+ * Optional requiresSetup tiles → open detail only (no Link launch).
  */
 function HrisLogoCard({
   item,
@@ -205,13 +205,14 @@ export function IntegrationsView(vm: IntegrationsVm) {
           onInstall={vm.onInstall}
           onSupport={vm.onSupport}
           connection={connection}
-          busy={vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting}
+          busy={vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting || vm.slack.connecting}
           syncing={Boolean(connection && vm.mergeSyncingId === connection.id)}
           disconnecting={Boolean(connection && vm.mergeDisconnectingId === connection.id)}
           onSync={vm.onMergeSync}
           onDisconnect={vm.onMergeDisconnect}
           canManage={vm.zoho.canManage}
           zoho={vm.selected.id === "zoho-people" ? vm.zoho : null}
+          slack={vm.selected.id === "slack" ? vm.slack : null}
         />
       </>
     );
@@ -263,18 +264,27 @@ export function IntegrationsView(vm: IntegrationsVm) {
 
       <Section
         title="Collaboration tools"
-        badge="Coming soon"
-        desc="Connect ShelfMerch to your existing chat or workflow tools so your team can see gifting updates where they work."
+        desc="Connect ShelfMerch to Slack to post updates in your workspace. Other chat tools are coming soon."
       >
         <div className="bonus-integ-grid bonus-integ-grid--compact">
-          {COLLABORATION_TOOLS.map((item) => (
-            <IntegrationTile
-              item={item}
-              key={item.id}
-              onSelect={vm.onSelect}
-              disabled
-            />
-          ))}
+          {COLLABORATION_TOOLS.map((item) => {
+            const isSlack = item.id === "slack";
+            const slackConn = vm.slack.connection;
+            const slackConnected = Boolean(
+              isSlack &&
+                slackConn &&
+                (slackConn.status === "connected" || slackConn.status === "needs_attention"),
+            );
+            return (
+              <IntegrationTile
+                item={item}
+                key={item.id}
+                onSelect={vm.onSelect}
+                disabled={!isSlack}
+                connected={slackConnected}
+              />
+            );
+          })}
         </div>
       </Section>
 
