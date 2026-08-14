@@ -228,6 +228,11 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/components/resources/ResourcesTeamPage"), "ResourcesTeamPage"),
       },
       {
+        path: "request-demo",
+        lazy: page(() => import("@/features/request-demo/RequestDemoPage"), "RequestDemoPage"),
+      },
+      { path: "contact-us", loader: () => redirect("/request-demo") },
+      {
         path: "apps/catalog",
         lazy: page(() => import("@/features/catalog/PublicCatalogPage"), "PublicCatalogLayout"),
         children: [

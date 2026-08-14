@@ -1,4 +1,5 @@
 import { ArrowIcon } from "./icons";
+import { Link } from "react-router";
 
 export function FinalCTA() {
   return (
@@ -13,9 +14,9 @@ export function FinalCTA() {
       </h2>
       <p>One partner for every shop, kit, gift and moment of recognition.</p>
       <div>
-        <a className="button button-light" href="mailto:hello@shelfmerch.io">
+        <Link className="button button-light" to="/request-demo">
           Start with Shelf Merch <ArrowIcon />
-        </a>
+        </Link>
         <a className="cta-secondary" href="mailto:hello@shelfmerch.io">
           hello@shelfmerch.io
         </a>

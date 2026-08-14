@@ -44,17 +44,17 @@ export function Header() {
           Catalog
         </Link>
         <a href={`${homePrefix}#production`} onClick={closeMenu}>
-          About  
+          About
         </a>
         <AuthLinks className="mobile-only" onNavigate={closeMenu} />
       </nav>
 
       <div className="header-end">
-        <AuthLinks className="desktop-only" />
-        <span className="header-divider desktop-only" aria-hidden="true" />
-        <a className="header-cta" href={`${homePrefix}#contact`}>
+        {/* <AuthLinks className="desktop-only" /> */}
+        {/* <span className="header-divider desktop-only" aria-hidden="true" /> */}
+        <Link className="header-cta" to="/request-demo" onClick={closeMenu}>
           Book a demo
-        </a>
+        </Link>
         <button
           type="button"
           className="menu-button"
