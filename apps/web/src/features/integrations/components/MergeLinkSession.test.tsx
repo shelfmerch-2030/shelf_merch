@@ -92,6 +92,12 @@ describe("parseMergeLinkHostMessage", () => {
       "http://localhost:8080/merge-link-host.html?linkToken=tok%2Fa%2Bb",
     );
   });
+
+  it("builds the same Merge Link host URL for Gusto tokens", () => {
+    expect(mergeLinkHostUrl("http://localhost:8080", "token-gusto-1")).toBe(
+      "http://localhost:8080/merge-link-host.html?linkToken=token-gusto-1",
+    );
+  });
 });
 
 describe("MergeLinkSession iframe modal", () => {

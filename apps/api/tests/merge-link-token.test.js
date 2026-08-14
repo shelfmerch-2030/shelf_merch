@@ -129,6 +129,18 @@ describe('POST /api/integrations/merge/link-token', () => {
     expect(body.end_user_origin_id).toBe(`${tenant._id}:hris:bamboohr`);
   });
 
+  it('scopes Gusto origin id as tenantId:hris:gusto', async () => {
+    const res = await request(app)
+      .post('/api/integrations/merge/link-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ integration: 'gusto' });
+
+    expect(res.status).toBe(200);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.integration).toBe('gusto');
+    expect(body.end_user_origin_id).toBe(`${tenant._id}:hris:gusto`);
+  });
+
   it('reuses stored endUserOriginId on reconnect for the same provider', async () => {
     const { MergeConnection } = await import(
       '../src/modules/integrations/merge/mergeConnection.model.js'
@@ -171,6 +183,25 @@ describe('POST /api/integrations/merge/link-token', () => {
     expect(deelOrigin).toBe(`${tenant._id}:hris:deel`);
     expect(workdayOrigin).toBe(`${tenant._id}:hris:workday`);
     expect(deelOrigin).not.toBe(workdayOrigin);
+  });
+
+  it('uses distinct origin ids so Gusto and Deel can coexist', async () => {
+    const gusto = await request(app)
+      .post('/api/integrations/merge/link-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ integration: 'gusto' });
+    const deel = await request(app)
+      .post('/api/integrations/merge/link-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ integration: 'deel' });
+
+    expect(gusto.status).toBe(200);
+    expect(deel.status).toBe(200);
+    const gustoOrigin = JSON.parse(fetchMock.mock.calls[0][1].body).end_user_origin_id;
+    const deelOrigin = JSON.parse(fetchMock.mock.calls[1][1].body).end_user_origin_id;
+    expect(gustoOrigin).toBe(`${tenant._id}:hris:gusto`);
+    expect(deelOrigin).toBe(`${tenant._id}:hris:deel`);
+    expect(gustoOrigin).not.toBe(deelOrigin);
   });
 
   it('maps Merge 4xx to a safe 502 without leaking secrets', async () => {

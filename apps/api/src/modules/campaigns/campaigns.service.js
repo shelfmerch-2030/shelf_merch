@@ -18,6 +18,8 @@ import { recordUsage } from '../../services/usage.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { assertCampaignSpendPayment } from '../payments/payments.service.js';
+import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
+import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
 
 function withCampaignMeta(campaign) {
   const obj = campaign.toObject ? campaign.toObject() : campaign;
@@ -811,6 +813,53 @@ export async function launchCampaign({
   } else if (openRedemptionNow && campaign.kitId) {
     await Kit.updateOne({ _id: campaign.kitId, tenantId }, { lastSentAt: new Date() });
   }
+
+  // Slack: one notification per successful launch (idempotent via campaignId eventKey).
+  const actorUserId = user?.userId || campaign.createdBy;
+  const entityFresh =
+    (await Entity.findOne({ _id: entity._id, tenantId }).setOptions({ skipTenantGuard: true })) ||
+    entity;
+  const remainingBudget = Math.max(
+    0,
+    (entityFresh.allocatedAmount || 0) - (entityFresh.spentAmount || 0),
+  );
+  if (campaign.type === 'points') {
+    scheduleSlackBusinessNotification({
+      tenantId,
+      type: SLACK_EVENT_TYPES.POINTS_DISTRIBUTED,
+      eventKey: `POINTS_DISTRIBUTED:${campaign._id}`,
+      resourceType: 'Campaign',
+      resourceId: campaign._id,
+      actorUserId,
+      payload: {
+        entityName: entityFresh.name || entity.name,
+        recipientCount: campaign.recipientCount,
+        totalPoints: campaign.totalBudget,
+        remainingBudget,
+      },
+    });
+  } else if (campaign.type === 'kit' || campaign.type === 'items') {
+    let kitName = 'Kit';
+    if (campaign.kitId) {
+      const kit = await Kit.findOne({ _id: campaign.kitId, tenantId }).select('name').lean();
+      if (kit?.name) kitName = kit.name;
+    }
+    scheduleSlackBusinessNotification({
+      tenantId,
+      type: SLACK_EVENT_TYPES.KITS_ASSIGNED,
+      eventKey: `KITS_ASSIGNED:${campaign._id}`,
+      resourceType: 'Campaign',
+      resourceId: campaign._id,
+      actorUserId,
+      payload: {
+        entityName: entityFresh.name || entity.name,
+        kitName,
+        recipientCount: campaign.recipientCount,
+      },
+    });
+  }
+
+  evaluateEntityLowBudgetAlert({ tenantId, entityId: entityFresh._id }).catch(() => {});
 
   return withCampaignMeta(campaign);
 }

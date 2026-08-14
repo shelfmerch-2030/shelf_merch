@@ -18,6 +18,7 @@ import {
 } from '../../services/stateMachine.service.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { scheduleOrderDispatchedSlackNotification } from '../integrations/slack/slackNotify.service.js';
 
 const OPEN_ORDER_STATUSES = [
   'created',
@@ -223,8 +224,13 @@ export async function getPlatformOrderDetail(orderId) {
 /** §3.5 — platform-only status override, always through the state machine. */
 export async function updatePlatformOrderStatus({ orderId, status, note, actor }) {
   const order = await getPlatformOrder(orderId);
+  const priorStatus = order.status;
   transitionState('order', order, status, actor, note ?? '');
   await order.save();
+  scheduleOrderDispatchedSlackNotification(
+    order,
+    priorStatus !== 'shipped' && order.status === 'shipped',
+  );
   return order;
 }
 

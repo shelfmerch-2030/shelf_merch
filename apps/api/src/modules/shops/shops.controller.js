@@ -30,7 +30,7 @@ export async function update(req, res) {
 }
 
 export async function publish(req, res) {
-  const shop = await shopsService.publishShop({ tenantId: req.tenantId, shopId: req.params.id });
+  const shop = await shopsService.publishShop({ tenantId: req.tenantId, shopId: req.params.id, actorUserId: req.user?.userId });
   writeAudit({ req, action: 'shop.publish', entityType: 'Shop', entityId: shop._id, after: { status: 'live' } });
   res.json(shop);
 }

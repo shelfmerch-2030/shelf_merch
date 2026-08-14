@@ -204,6 +204,60 @@ describe('POST /api/integrations/merge/exchange-token', () => {
     expect(decryptToken(stored.encryptedAccountToken)).toBe('new-token-456');
   });
 
+  it('exchanges Gusto public token without affecting an existing Deel connection', async () => {
+    await MergeConnection.create({
+      tenantId: tenant._id,
+      connectedByUserId: admin._id,
+      provider: 'deel',
+      encryptedAccountToken: encryptToken('deel-secret-keep'),
+      endUserOriginId: `${tenant._id}:hris:deel`,
+      status: 'connected',
+      connectedAt: new Date('2024-06-01'),
+    });
+
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.includes('/account-token/')) {
+        return mockJson({
+          account_token: 'gusto-acct-secret',
+          id: 'linked-gusto-1',
+          integration: { slug: 'gusto', name: 'Gusto' },
+        });
+      }
+      if (href.includes('/account-details')) {
+        return mockJson({
+          id: 'linked-gusto-1',
+          integration_slug: 'gusto',
+          integration: 'Gusto',
+          end_user_organization_name: 'Rubix',
+          status: 'COMPLETE',
+        });
+      }
+      return mockJson({}, 404);
+    });
+
+    const res = await request(app)
+      .post('/api/integrations/merge/exchange-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ publicToken: 'pub-gusto-1', integration: 'gusto' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.connection.provider).toBe('gusto');
+    expect(res.body.connection.status).toBe('connected');
+    expect(JSON.stringify(res.body)).not.toContain('gusto-acct-secret');
+
+    const gusto = await MergeConnection.findOne({ tenantId: tenant._id, provider: 'gusto' });
+    expect(gusto).toBeTruthy();
+    expect(gusto.endUserOriginId).toBe(`${tenant._id}:hris:gusto`);
+    expect(decryptToken(gusto.encryptedAccountToken)).toBe('gusto-acct-secret');
+
+    const deel = await MergeConnection.findOne({ tenantId: tenant._id, provider: 'deel' });
+    expect(deel).toBeTruthy();
+    expect(deel.status).toBe('connected');
+    expect(decryptToken(deel.encryptedAccountToken)).toBe('deel-secret-keep');
+    expect(deel.endUserOriginId).toBe(`${tenant._id}:hris:deel`);
+  });
+
   it('sanitizes Merge API errors without leaking secrets', async () => {
     fetchMock.mockResolvedValueOnce(
       mockJson({ detail: 'Invalid key secret-value-abc' }, 401),
@@ -212,7 +266,7 @@ describe('POST /api/integrations/merge/exchange-token', () => {
     const res = await request(app)
       .post('/api/integrations/merge/exchange-token')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ publicToken: 'bad', integration: 'gusto' });
+      .send({ publicToken: 'bad', integration: 'keka' });
 
     expect(res.status).toBe(502);
     expect(JSON.stringify(res.body)).not.toContain('secret-value-abc');
@@ -279,6 +333,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
           next: null,
           results: [
             { id: 'dept-1', remote_id: 'D1', name: 'Engineering', type: 'DEPARTMENT', parent_group: null },
+            { id: 'team-1', remote_id: 'T1', name: 'Analytics', type: 'TEAM', parent_group: null },
           ],
         });
       }
@@ -313,6 +368,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
               employment_status: 'ACTIVE',
               manager: null,
               groups: ['dept-1'],
+              team: { id: 'team-1', name: 'Analytics' },
               work_location: 'loc-1',
               start_date: '2024-01-01T00:00:00Z',
               modified_at: '2024-06-01T00:00:00Z',
@@ -377,7 +433,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(res.body.error?.code).toBe('MERGE_CONNECTION_INACTIVE');
   });
 
-  it('syncs departments, locations, employees, employments idempotently without Contacts/Users', async () => {
+  it('syncs departments, locations, employees, employments and mirrors Contacts (not Users)', async () => {
     const conn = await seedConnection();
     const manualContact = await Contact.create({
       tenantId: tenant._id,
@@ -396,10 +452,10 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(first.status).toBe(200);
     expect(first.body.success).toBe(true);
     expect(first.body.sync.employees.created).toBe(2);
-    expect(first.body.sync.departments.created).toBe(1);
+    expect(first.body.sync.departments.created).toBe(2);
     expect(first.body.sync.locations.created).toBe(1);
     expect(first.body.sync.employments.created).toBe(1);
-    expect(first.body.sync.contacts).toBeUndefined();
+    expect(first.body.sync.contacts.created).toBe(2);
     expect(JSON.stringify(first.body)).not.toContain('sync-account-token');
 
     const emp = await MergeHrisEmployee.findOne({
@@ -408,7 +464,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     });
     expect(emp.workEmail).toBe('ada@rubix.net');
     expect(emp.jobTitle).toBe('Engineer');
-    expect(emp.departmentMergeIds).toEqual(['dept-1']);
+    expect(emp.departmentMergeIds).toEqual(['team-1', 'dept-1']);
     expect(emp.employmentStatus).toBe('ACTIVE');
 
     const inactive = await MergeHrisEmployee.findOne({
@@ -417,11 +473,17 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     });
     expect(inactive.employmentStatus).toBe('INACTIVE');
 
-    expect(await MergeHrisDepartment.countDocuments({ tenantId: tenant._id })).toBe(1);
+    expect(await MergeHrisDepartment.countDocuments({ tenantId: tenant._id })).toBe(2);
     expect(await MergeHrisLocation.countDocuments({ tenantId: tenant._id })).toBe(1);
     expect(await MergeHrisEmployment.countDocuments({ tenantId: tenant._id })).toBe(1);
-    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
-    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(0);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(3);
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(1);
+
+    const adaContact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(adaContact.source).toBe('hris');
+    expect(adaContact.name).toBe('Ada Lovelace');
+    expect(adaContact.designation).toBe('Engineer');
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'grace@rubix.net' })).toBe(1);
 
     const untouched = await Contact.findOne({ _id: manualContact._id, tenantId: tenant._id });
     expect(untouched.name).toBe('Manual Contact');
@@ -435,24 +497,39 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(refreshed.lastSyncStatus).toBe('success');
     expect(refreshed.lastSyncAt).toBeTruthy();
 
-    // Second sync is idempotent and still does not touch Contacts
+    // Second sync is idempotent for Merge models and updates existing Contacts
     mockSyncPages();
     const second = await request(app)
       .post(`/api/integrations/merge/connections/${conn._id}/sync`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(second.status).toBe(200);
-    expect(second.body.sync.contacts).toBeUndefined();
+    expect(second.body.sync.contacts.created).toBe(0);
+    expect(second.body.sync.contacts.updated).toBe(2);
     expect(second.body.sync.employees.created).toBe(0);
     expect(second.body.sync.employees.unchanged).toBe(2);
-    expect(second.body.sync.departments.unchanged).toBe(1);
+    expect(second.body.sync.departments.unchanged).toBe(2);
     expect(second.body.sync.locations.unchanged).toBe(1);
     expect(second.body.sync.employments.unchanged).toBe(1);
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(2);
-    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(3);
   });
 
   it('lists HRIS employees from MergeHrisEmployee with tenant isolation', async () => {
     const conn = await seedConnection();
+    await MergeHrisLocation.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeLocationId: 'loc-list-1',
+      name: 'Hyderabad Hub',
+      street1: 'Madhapur',
+      street2: '',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      zipCode: '500081',
+      country: 'IN',
+      source: 'merge',
+    });
     await MergeHrisEmployee.create({
       tenantId: tenant._id,
       connectionId: conn._id,
@@ -461,6 +538,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
       displayName: 'Ada Lovelace',
       workEmail: 'ada@rubix.net',
       employmentStatus: 'ACTIVE',
+      locationMergeId: 'loc-list-1',
       source: 'merge',
     });
     const otherConn = await seedConnection(otherTenant, 'workday');
@@ -482,6 +560,10 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(res.status).toBe(200);
     expect(res.body.employees).toHaveLength(1);
     expect(res.body.employees[0].workEmail).toBe('ada@rubix.net');
+    expect(res.body.employees[0].address).toBe(
+      'Madhapur, Hyderabad, Telangana 500081, India',
+    );
+    expect(res.body.employees[0].locationName).toBe('Hyderabad Hub');
     expect(JSON.stringify(res.body)).not.toContain('sync-account-token');
     expect(JSON.stringify(res.body)).not.toContain('encrypted');
   });

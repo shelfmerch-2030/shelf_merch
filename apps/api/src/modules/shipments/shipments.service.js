@@ -5,6 +5,7 @@ import { transitionState, canTransition } from '../../services/stateMachine.serv
 import { sendNotificationEmail } from '../../services/email.service.js';
 import { ApiError, ConflictError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { scheduleOrderDispatchedSlackNotification, scheduleDeliveryFailedIfNeeded } from '../integrations/slack/slackNotify.service.js';
 
 function buildFilter(query) {
   const filter = {};
@@ -130,6 +131,7 @@ async function syncOrderWithShipment(shipment, status, actor) {
   });
   if (!order) return;
 
+  const priorStatus = order.status;
   if (status === 'shipped' && canTransition('order', order.status, 'shipped')) {
     transitionState('order', order, 'shipped', actor, 'Shipment dispatched');
   }
@@ -143,11 +145,19 @@ async function syncOrderWithShipment(shipment, status, actor) {
   }
   if (shipment.awb && !order.trackingNumber) order.trackingNumber = shipment.awb;
   await order.save();
+
+  // Slack Phase 2: notify once when the order newly reaches (or passes through) shipped.
+  const becameShipped =
+    priorStatus !== 'shipped' &&
+    (order.status === 'shipped' ||
+      (priorStatus === 'packed' && order.status === 'delivered'));
+  scheduleOrderDispatchedSlackNotification(order, becameShipped);
 }
 
 export async function addShipmentEvent({ shipmentId, status, location, note, at, actor }) {
   const shipment = await getShipment(shipmentId);
   const eventAt = at ?? new Date();
+  const priorStatus = shipment.status;
 
   shipment.events.push({ status, location: location ?? '', note: note ?? '', at: eventAt });
   if (shipment.status !== status) {
@@ -157,6 +167,7 @@ export async function addShipmentEvent({ shipmentId, status, location, note, at,
 
   await shipment.save();
   await syncOrderWithShipment(shipment, status, actor);
+  await scheduleDeliveryFailedIfNeeded({ shipment, priorStatus, note });
   return shipment;
 }
 

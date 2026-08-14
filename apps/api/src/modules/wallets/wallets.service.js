@@ -7,6 +7,8 @@ import { uploadFile } from '../../services/storage.service.js';
 import { transitionState, transitionThrough, validNextStatuses } from '../../services/stateMachine.service.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
+import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
 
 function withMeta(wallet) {
   const obj = wallet.toObject ? wallet.toObject() : wallet;
@@ -294,6 +296,30 @@ export async function allocate({ tenantId, walletId, userId, allocations }) {
   if (fresh.status === 'entities_added') {
     transitionState('wallet', fresh, 'budget_allocated', { userId });
     await fresh.save();
+  }
+
+  for (const txn of txns || []) {
+    if (txn.type !== 'allocation_to_entity' || !(Number(txn.amount) > 0) || !txn.relatedEntityId) {
+      continue;
+    }
+    const entity = await Entity.findOne({ _id: txn.relatedEntityId, tenantId }).setOptions({
+      skipTenantGuard: true,
+    });
+    if (!entity) continue;
+    scheduleSlackBusinessNotification({
+      tenantId,
+      type: SLACK_EVENT_TYPES.BUDGET_ASSIGNED,
+      eventKey: `BUDGET_ASSIGNED:${txn._id}`,
+      resourceType: 'WalletTransaction',
+      resourceId: txn._id,
+      actorUserId: userId,
+      payload: {
+        amount: txn.amount,
+        entityName: entity.name,
+        availableBudget: Math.max(0, (entity.allocatedAmount || 0) - (entity.spentAmount || 0)),
+      },
+    });
+    evaluateEntityLowBudgetAlert({ tenantId, entityId: entity._id }).catch(() => {});
   }
 
   return { transactions: txns, wallet: withMeta(fresh) };

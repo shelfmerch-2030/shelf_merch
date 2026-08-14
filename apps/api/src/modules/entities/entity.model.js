@@ -21,6 +21,9 @@ const entitySchema = new mongoose.Schema(
     managerTitle: { type: String, default: '' },
     managerName: { type: String, default: '' },
     managerEmail: { type: String, default: '' },
+    /** Slack low-budget threshold-crossing state */
+    lowBudgetAlertActive: { type: Boolean, default: false },
+    lowBudgetAlertCycle: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

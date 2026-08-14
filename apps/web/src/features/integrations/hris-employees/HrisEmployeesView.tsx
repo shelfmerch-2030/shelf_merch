@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, ChevronDown, HelpCircle, Search, Users } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import type { MergeHrisEmployeePublic } from "@/services/merge-api";
 import type { HrisEmployeesVm } from "./useHrisEmployeesController";
@@ -7,6 +7,30 @@ import type { HrisEmployeesVm } from "./useHrisEmployeesController";
 function emptyCell(value?: string | null) {
   const v = (value ?? "").trim();
   return v ? v : "—";
+}
+
+function titleCaseWords(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/^[A-Z]{2,3}$/.test(part)) return part;
+      if (/^\d/.test(part)) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+function formatLocationLabel(locationName?: string | null, country?: string | null) {
+  const name = (locationName || "").trim();
+  const c = (country || "").trim();
+  if (name) return titleCaseWords(name);
+  if (!c) return "";
+  if (c.toUpperCase() === "IN" || c.toUpperCase() === "IND") return "India";
+  if (c.toUpperCase() === "AU") return "Australia";
+  if (c.toUpperCase() === "US" || c.toUpperCase() === "USA") return "United States";
+  if (c.length <= 3) return c.toUpperCase();
+  return titleCaseWords(c);
 }
 
 function initials(employee: MergeHrisEmployeePublic) {
@@ -25,12 +49,12 @@ function initials(employee: MergeHrisEmployeePublic) {
 
 function avatarTone(seed: string) {
   const tones = [
-    { bg: "#dbeafe", border: "#93c5fd" },
-    { bg: "#fef3c7", border: "#fcd34d" },
-    { bg: "#dcfce7", border: "#86efac" },
-    { bg: "#fce7f3", border: "#f9a8d4" },
-    { bg: "#e0e7ff", border: "#a5b4fc" },
-    { bg: "#ffedd5", border: "#fdba74" },
+    { bg: "#e8eefc", fg: "#1e3a8a" },
+    { bg: "#f3e8ff", fg: "#6b21a8" },
+    { bg: "#e7f8ef", fg: "#166534" },
+    { bg: "#fff1e7", fg: "#9a3412" },
+    { bg: "#fce7f3", fg: "#9d174d" },
+    { bg: "#ecfeff", fg: "#0e7490" },
   ];
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash + seed.charCodeAt(i) * 17) % tones.length;
@@ -62,137 +86,186 @@ function providerLabel(slug: string) {
   return map[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** HRIS people directory — MergeHrisEmployee only; never Workspace Contacts. */
+function tidyName(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+/** HRIS people directory — MergeHrisEmployee list; also mirrored into Workspace Contacts on sync. */
 export function HrisEmployeesView(vm: HrisEmployeesVm) {
   const hasConnection = vm.connections.some(
     (c) => c.status === "connected" || c.status === "needs_attention",
   );
+  const filtered = vm.employees.length;
 
   return (
     <div className="hris-dir-page">
+      <Link to="/app/integrations" className="hris-dir-back">
+        <ArrowLeft size={14} aria-hidden="true" />
+        Back to integrations
+      </Link>
+
       <div className="hris-dir-top">
-        <Link to="/app/integrations" className="bonus-integ-back">
-          <ArrowLeft size={16} aria-hidden="true" />
-          <span>Back to integrations</span>
-        </Link>
-        <div className="hris-dir-title-row">
-          <h1>Directory</h1>
-          {!vm.loading ? (
-            <span className="hris-dir-count">
-              Total {vm.employees.length} {vm.employees.length === 1 ? "item" : "items"}
-            </span>
-          ) : null}
+        <div className="hris-dir-top-copy">
+          <h1>HRIS Directory</h1>
+          <p>Synced employees from connected HRIS providers. Also added to Workspace Contacts.</p>
         </div>
-        <p className="hris-dir-subtitle">
-          People imported from your connected HRIS via Merge. These are not Workspace Contacts and
-          do not create ShelfMerch logins.
-        </p>
+        <div className="hris-dir-stats" aria-label="Directory summary">
+          <span>
+            <b>People</b> {vm.totalCount}
+          </span>
+          <span>
+            <b>Active</b> {vm.activeCount}
+          </span>
+          <span>
+            <b>Providers</b> {vm.connectedProviderCount}
+          </span>
+          <button
+            type="button"
+            className="hris-dir-stats-help"
+            title="These records come from Merge HRIS sync and are also mirrored into Workspace Contacts. They do not create ShelfMerch logins."
+            aria-label="About HRIS Directory"
+          >
+            <HelpCircle size={15} />
+          </button>
+        </div>
       </div>
 
       {!hasConnection && !vm.loading ? (
-        <p className="hris-dir-subtitle">
-          No active HRIS connection.{" "}
-          <Link to="/app/integrations">Connect a provider</Link> and run Sync now.
-        </p>
-      ) : null}
-
-      <div className="hris-dir-toolbar">
-        <label className="hris-dir-search">
-          <Search size={16} aria-hidden="true" />
-          <input
-            type="search"
-            placeholder="Search name, email, title…"
-            value={vm.search}
-            onChange={(e) => vm.onSearch(e.target.value)}
-          />
-        </label>
-        {vm.providerOptions.length > 0 ? (
-          <select
-            className="hris-dir-select"
-            value={vm.providerFilter}
-            onChange={(e) => vm.onProviderFilter(e.target.value)}
-            aria-label="Filter by provider"
-          >
-            <option value="all">All providers</option>
-            {vm.providerOptions.map((p) => (
-              <option key={p} value={p}>
-                {providerLabel(p)}
-              </option>
-            ))}
-          </select>
-        ) : null}
-      </div>
-
-      {vm.loading ? <LoadingState message="Loading HRIS employees…" fullScreen={false} /> : null}
-      {vm.error ? (
-        <p className="hris-dir-error" role="alert">
-          {vm.error}
-        </p>
-      ) : null}
-
-      {!vm.loading && !vm.error ? (
-        <div className="hris-dir-table-wrap">
-          <table className="hris-dir-table">
-            <thead>
-              <tr>
-                <th>Person</th>
-                <th>Work email</th>
-                <th>Department</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Provider</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vm.employees.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="hris-dir-empty">
-                    {hasConnection
-                      ? "No HRIS employees yet. Open a connected provider and choose Sync now."
-                      : "Connect an HRIS provider to import employees."}
-                  </td>
-                </tr>
-              ) : (
-                vm.employees.map((e) => {
-                  const name = e.displayName || `${e.firstName} ${e.lastName}`.trim();
-                  const status = statusMeta(e.employmentStatus);
-                  const location = emptyCell(e.locationName || e.country);
-                  const tone = avatarTone(e.id || name);
-                  return (
-                    <tr key={e.id}>
-                      <td>
-                        <div className="hris-dir-person">
-                          <span
-                            className="hris-dir-avatar"
-                            style={{ background: tone.bg, borderColor: tone.border }}
-                            aria-hidden="true"
-                          >
-                            {initials(e)}
-                          </span>
-                          <span className="hris-dir-person-copy">
-                            <span className="hris-dir-person-name">{emptyCell(name)}</span>
-                            <span className="hris-dir-person-title">{emptyCell(e.jobTitle)}</span>
-                          </span>
-                        </div>
-                      </td>
-                      <td>{emptyCell(e.workEmail)}</td>
-                      <td>{emptyCell(e.departmentName)}</td>
-                      <td>{location}</td>
-                      <td>
-                        <span className={`hris-dir-status hris-dir-status--${status.tone}`}>
-                          <span className="hris-dir-status-dot" aria-hidden="true" />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="hris-dir-provider">{emptyCell(e.provider)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        <div className="hris-dir-banner" role="status">
+          <Users size={16} aria-hidden="true" />
+          <p>
+            No active HRIS connection.{" "}
+            <Link to="/app/integrations">Connect a provider</Link> and run Sync now.
+          </p>
         </div>
       ) : null}
+
+      <div className="hris-dir-shell">
+        <div className="hris-dir-toolbar">
+          <label className="search hris-dir-search">
+            <Search aria-hidden="true" />
+            <input
+              type="search"
+              placeholder="Search name, email, title, location…"
+              value={vm.search}
+              onChange={(e) => vm.onSearch(e.target.value)}
+            />
+          </label>
+          {vm.providerOptions.length > 0 ? (
+            <div className="hris-dir-filter-wrap">
+              <select
+                className="hris-dir-filter"
+                value={vm.providerFilter}
+                onChange={(e) => vm.onProviderFilter(e.target.value)}
+                aria-label="Filter by provider"
+              >
+                <option value="all">All providers</option>
+                {vm.providerOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {providerLabel(p)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} aria-hidden="true" />
+            </div>
+          ) : null}
+        </div>
+
+        {vm.loading ? (
+          <div className="hris-dir-loading">
+            <LoadingState message="Loading HRIS employees…" fullScreen={false} />
+          </div>
+        ) : null}
+
+        {vm.error ? (
+          <p className="hris-dir-error" role="alert">
+            {vm.error}
+          </p>
+        ) : null}
+
+        {!vm.loading && !vm.error ? (
+          <div className="hris-dir-table-wrap">
+            <table className="hris-dir-table">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Work email</th>
+                  <th>Address</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Provider</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vm.employees.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="hris-dir-empty">
+                        <h3>No people to show</h3>
+                        <p>
+                          {hasConnection
+                            ? "Try clearing search filters, or sync a connected provider."
+                            : "Connect an HRIS provider to import employees."}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  vm.employees.map((e, idx) => {
+                    const name = tidyName(e.displayName || `${e.firstName} ${e.lastName}`);
+                    const status = statusMeta(e.employmentStatus);
+                    const location = emptyCell(formatLocationLabel(e.locationName, e.country));
+                    const address = emptyCell(e.address);
+                    const tone = avatarTone(e.id || name);
+                    return (
+                      <tr key={e.id} className={idx % 2 === 1 ? "zebra" : undefined}>
+                        <td>
+                          <div className="hris-dir-person">
+                            <span
+                              className="hris-dir-avatar"
+                              style={{ background: tone.bg, color: tone.fg }}
+                              aria-hidden="true"
+                            >
+                              {initials(e)}
+                            </span>
+                            <span className="hris-dir-person-copy">
+                              <span className="hris-dir-person-name">{emptyCell(name)}</span>
+                              <span className="hris-dir-person-title">{emptyCell(e.jobTitle)}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="hris-dir-td-muted">{emptyCell(e.workEmail)}</td>
+                        <td className="hris-dir-td-muted">{address}</td>
+                        <td className="hris-dir-td-muted">{location}</td>
+                        <td>
+                          <span className={`hris-dir-status hris-dir-status--${status.tone}`}>
+                            {status.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="hris-dir-provider">{providerLabel(e.provider)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {!vm.loading && !vm.error && filtered > 0 ? (
+          <div className="hris-dir-footer">
+            <span>
+              Showing {filtered} {filtered === 1 ? "result" : "results"}
+              {vm.providerFilter !== "all" ? ` · ${providerLabel(vm.providerFilter)}` : ""}
+            </span>
+            <Link to="/app/integrations" className="hris-dir-footer-link">
+              Manage integrations
+            </Link>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

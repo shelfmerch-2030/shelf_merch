@@ -1,6 +1,7 @@
 import { logger } from '../../../config/logger.js';
 import { ApiError } from '../../../utils/errors.js';
 import { decryptToken } from '../../../utils/tokenEncryption.js';
+import { Contact } from '../../contacts/contact.model.js';
 import {
   MERGE_HRIS_EMPLOYEES_URL,
   MERGE_HRIS_EMPLOYMENTS_URL,
@@ -27,6 +28,104 @@ function asDate(value) {
 function asString(value) {
   if (value == null) return '';
   return String(value).trim();
+}
+
+function titleCasePlace(value) {
+  const raw = asString(value);
+  if (!raw) return '';
+  if (/^[A-Z]{2,3}$/.test(raw)) return raw;
+  return raw
+    .split(/\s+/)
+    .map((part) => {
+      if (/^\d/.test(part)) return part;
+      if (/^[A-Z]{2,3}$/.test(part)) return part;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+const COUNTRY_LABELS = Object.freeze({
+  IN: 'India',
+  IND: 'India',
+  AU: 'Australia',
+  US: 'United States',
+  USA: 'United States',
+  GB: 'United Kingdom',
+  UK: 'United Kingdom',
+  CA: 'Canada',
+  SG: 'Singapore',
+  AE: 'United Arab Emirates',
+  DE: 'Germany',
+  NL: 'Netherlands',
+});
+
+const REGION_LABELS = Object.freeze({
+  // India
+  TG: 'Telangana',
+  TS: 'Telangana',
+  AP: 'Andhra Pradesh',
+  KA: 'Karnataka',
+  MH: 'Maharashtra',
+  TN: 'Tamil Nadu',
+  DL: 'Delhi',
+  HR: 'Haryana',
+  UP: 'Uttar Pradesh',
+  GJ: 'Gujarat',
+  RJ: 'Rajasthan',
+  WB: 'West Bengal',
+  KL: 'Kerala',
+  // Australia
+  NSW: 'New South Wales',
+  VIC: 'Victoria',
+  QLD: 'Queensland',
+  SA: 'South Australia',
+  WA: 'Western Australia',
+  TAS: 'Tasmania',
+  ACT: 'Australian Capital Territory',
+  NT: 'Northern Territory',
+});
+
+function expandCountry(value) {
+  const raw = asString(value);
+  if (!raw) return '';
+  const key = raw.toUpperCase();
+  return COUNTRY_LABELS[key] || titleCasePlace(raw);
+}
+
+function expandRegion(value) {
+  const raw = asString(value);
+  if (!raw) return '';
+  const key = raw.toUpperCase();
+  return REGION_LABELS[key] || titleCasePlace(raw);
+}
+
+/**
+ * Compact display address from a synced MergeHrisLocation.
+ * Uses street/city when present; otherwise falls back to location name + region/country.
+ */
+export function formatHrisLocationAddress(loc) {
+  if (!loc || typeof loc !== 'object') return '';
+  const street1 = asString(loc.street1);
+  const street2 = asString(loc.street2);
+  const city = asString(loc.city);
+  const placeName = titleCasePlace(loc.name);
+  const state = expandRegion(loc.state);
+  const zipCode = asString(loc.zipCode);
+  const country = expandCountry(loc.country);
+
+  const locality = titleCasePlace(city) || placeName;
+  const street = [street1, street2].filter(Boolean).join(', ');
+  const region = [state, zipCode].filter(Boolean).join(' ');
+
+  const parts = [street, locality, region, country].filter(Boolean);
+  // Deduplicate consecutive identical parts (e.g. name === city).
+  const unique = [];
+  for (const part of parts) {
+    if (!unique.length || unique[unique.length - 1].toLowerCase() !== part.toLowerCase()) {
+      unique.push(part);
+    }
+  }
+  return unique.join(', ');
 }
 
 function arraysEqual(a = [], b = []) {
@@ -103,9 +202,11 @@ async function upsertByMergeId({
 
 async function syncDepartments({ tenantId, connection, accountToken, now }) {
   const counts = emptyCounts();
+  // Deel and several HRIS providers expose org units as TEAM (or both TEAM + DEPARTMENT).
+  // Sync both so the directory can show the available department/team name.
   const rows = await mergePaginateAll(MERGE_HRIS_GROUPS_URL, {
     accountToken,
-    query: { types: 'DEPARTMENT', page_size: 100 },
+    query: { page_size: 100 },
     logContext: {
       organizationId: String(tenantId),
       connectionId: String(connection._id),
@@ -116,8 +217,14 @@ async function syncDepartments({ tenantId, connection, accountToken, now }) {
   for (const row of rows) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
-    // Prefer DEPARTMENT; tolerate missing type when filtered by API.
-    if (row?.type && String(row.type).toUpperCase() !== 'DEPARTMENT') continue;
+    const type = String(row?.type || '').toUpperCase();
+    const accept =
+      !type ||
+      type === 'DEPARTMENT' ||
+      type === 'TEAM' ||
+      row?.is_commonly_used_as_team === true;
+    if (!accept) continue;
+    if (!asString(row.name)) continue;
 
     await upsertByMergeId({
       Model: MergeHrisDepartment,
@@ -186,7 +293,8 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
   const counts = emptyCounts();
   const rows = await mergePaginateAll(MERGE_HRIS_EMPLOYEES_URL, {
     accountToken,
-    query: { page_size: 100 },
+    // expand=team so providers like Deel that put org unit on `team` still yield a name.
+    query: { page_size: 100, expand: 'team' },
     logContext: {
       organizationId: String(tenantId),
       connectionId: String(connection._id),
@@ -199,9 +307,44 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
     if (!mergeId) continue;
 
     const groupIds = Array.isArray(row.groups)
-      ? row.groups.map(asString).filter(Boolean)
+      ? row.groups.map((g) => (typeof g === 'object' && g ? asString(g.id) : asString(g))).filter(Boolean)
       : [];
-    const departmentMergeIds = groupIds.filter((id) => departmentIdSet.has(id));
+
+    // Merge Employee.team is often the department-like org unit (especially Deel).
+    let teamMergeId = '';
+    let teamName = '';
+    if (row?.team && typeof row.team === 'object') {
+      teamMergeId = asString(row.team.id);
+      teamName = asString(row.team.name);
+    } else {
+      teamMergeId = asString(row.team);
+    }
+
+    if (teamMergeId && teamName && !departmentIdSet.has(teamMergeId)) {
+      await upsertByMergeId({
+        Model: MergeHrisDepartment,
+        tenantId,
+        connectionId: connection._id,
+        mergeIdField: 'mergeDepartmentId',
+        mergeId: teamMergeId,
+        counts: emptyCounts(),
+        fields: {
+          provider: connection.provider,
+          remoteId: '',
+          name: teamName,
+          parentDepartmentMergeId: '',
+          lastSyncedAt: now,
+          source: 'merge',
+        },
+      });
+      departmentIdSet.add(teamMergeId);
+    }
+
+    const fromGroups = groupIds.filter((id) => departmentIdSet.has(id));
+    const departmentMergeIds = [
+      ...(teamMergeId ? [teamMergeId] : []),
+      ...fromGroups.filter((id) => id !== teamMergeId),
+    ];
 
     await upsertByMergeId({
       Model: MergeHrisEmployee,
@@ -296,9 +439,121 @@ async function syncEmployments({ tenantId, connection, accountToken, now }) {
   return counts;
 }
 
+function isUsableContactEmail(email) {
+  const v = asString(email).toLowerCase();
+  if (!v || !v.includes('@') || v.startsWith('@') || v.endsWith('@')) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+/**
+ * Mirror synced Merge HRIS employees into Workspace Contacts (source=hris).
+ * Never creates ShelfMerch Users/logins. Skips rows without a usable email.
+ */
+async function syncContactsFromHrisEmployees({ tenantId, connection }) {
+  const counts = emptyCounts();
+  const employees = await MergeHrisEmployee.find({
+    tenantId,
+    connectionId: connection._id,
+  }).lean();
+
+  if (!employees.length) return counts;
+
+  const [departments, locations] = await Promise.all([
+    MergeHrisDepartment.find({ tenantId, connectionId: connection._id })
+      .select('mergeDepartmentId name')
+      .lean(),
+    MergeHrisLocation.find({ tenantId, connectionId: connection._id }).lean(),
+  ]);
+
+  const deptNameById = new Map(
+    departments.map((d) => [d.mergeDepartmentId, asString(d.name)]),
+  );
+  const locById = new Map(locations.map((l) => [l.mergeLocationId, l]));
+
+  for (const emp of employees) {
+    const email = asString(emp.workEmail || emp.personalEmail).toLowerCase();
+    if (!isUsableContactEmail(email)) continue;
+
+    const firstName = asString(emp.firstName);
+    const lastName = asString(emp.lastName);
+    const name =
+      asString(emp.displayName) ||
+      `${firstName} ${lastName}`.trim() ||
+      email;
+
+    let department = '';
+    if (Array.isArray(emp.departmentMergeIds)) {
+      for (const id of emp.departmentMergeIds) {
+        const label = deptNameById.get(id);
+        if (label) {
+          department = label;
+          break;
+        }
+      }
+    }
+
+    const loc = emp.locationMergeId ? locById.get(emp.locationMergeId) : null;
+    const workLocation = loc
+      ? asString(loc.name) || formatHrisLocationAddress(loc)
+      : '';
+    const address = loc
+      ? {
+          line1: asString(loc.street1),
+          line2: asString(loc.street2),
+          city: asString(loc.city) || asString(loc.name),
+          state: asString(loc.state),
+          pincode: asString(loc.zipCode),
+          country: asString(loc.country) || 'IN',
+        }
+      : undefined;
+
+    const patch = {
+      name,
+      firstName,
+      lastName,
+      email,
+      phone: asString(emp.mobilePhoneNumber),
+      employeeCode: asString(emp.remoteEmployeeId),
+      department,
+      designation: asString(emp.jobTitle),
+      workLocation,
+      dateOfJoining: emp.startDate || null,
+      employmentStatus: asString(emp.employmentStatus),
+      source: 'hris',
+      ...(address ? { address } : {}),
+    };
+
+    try {
+      const existing = await Contact.findOne({ tenantId, email });
+      if (existing) {
+        // Preserve workspace role; refresh HRIS profile fields.
+        Object.assign(existing, patch);
+        await existing.save();
+        counts.updated += 1;
+      } else {
+        await Contact.create({ tenantId, ...patch });
+        counts.created += 1;
+      }
+    } catch (err) {
+      logger.warn(
+        {
+          organizationId: String(tenantId),
+          connectionId: String(connection._id),
+          provider: connection.provider,
+          code: err?.code || err?.name,
+        },
+        'Merge HRIS contact upsert skipped',
+      );
+    }
+  }
+
+  return counts;
+}
+
 /**
  * Full paginated HRIS sync for a tenant-owned Merge connection.
- * Updates only Merge HRIS models — never Contacts or Users.
+ * Updates Merge HRIS models and mirrors employees into Workspace Contacts.
+ * Never creates ShelfMerch Users/logins.
  */
 export async function syncMergeConnection({ tenantId, connectionId }) {
   requireMergeConfigured();
@@ -328,6 +583,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
     departments: emptyCounts(),
     locations: emptyCounts(),
     employments: emptyCounts(),
+    contacts: emptyCounts(),
   };
 
   try {
@@ -368,6 +624,11 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       now,
     });
 
+    summary.contacts = await syncContactsFromHrisEmployees({
+      tenantId,
+      connection,
+    });
+
     connection.lastSyncAt = now;
     connection.lastSyncStatus = 'success';
     connection.lastError = '';
@@ -379,6 +640,8 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
         organizationId: String(tenantId),
         connectionId: String(connection._id),
         provider: connection.provider,
+        contactsCreated: summary.contacts.created,
+        contactsUpdated: summary.contacts.updated,
       },
       'Merge HRIS sync completed',
     );
@@ -430,7 +693,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
       .select('connectionId mergeDepartmentId name')
       .lean(),
     MergeHrisLocation.find({ tenantId, connectionId: { $in: connectionIds } })
-      .select('connectionId mergeLocationId name country')
+      .select('connectionId mergeLocationId name street1 street2 city state zipCode country')
       .lean(),
     MergeHrisEmployment.find({ tenantId, connectionId: { $in: connectionIds } })
       .select('connectionId mergeEmployeeId employmentType jobTitle effectiveDate')
@@ -459,13 +722,24 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
     employees: rows.map((r) => {
       const connKey = String(r.connectionId);
       const primaryDeptId = Array.isArray(r.departmentMergeIds) ? r.departmentMergeIds[0] : '';
-      const deptName = primaryDeptId
-        ? deptNameByKey.get(`${connKey}:${primaryDeptId}`) || ''
-        : '';
+      let deptName = '';
+      if (Array.isArray(r.departmentMergeIds)) {
+        for (const deptId of r.departmentMergeIds) {
+          const name = deptNameByKey.get(`${connKey}:${deptId}`) || '';
+          if (name) {
+            deptName = name;
+            break;
+          }
+        }
+      }
+      if (!deptName && primaryDeptId) {
+        deptName = deptNameByKey.get(`${connKey}:${primaryDeptId}`) || '';
+      }
       const loc = r.locationMergeId
         ? locByKey.get(`${connKey}:${r.locationMergeId}`)
         : null;
       const employment = employmentByEmployee.get(`${connKey}:${r.mergeEmployeeId}`);
+      const address = formatHrisLocationAddress(loc);
 
       return {
         id: String(r._id),
@@ -480,6 +754,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
         jobTitle: r.jobTitle || employment?.jobTitle || '',
         employmentType: employment?.employmentType || '',
         departmentName: deptName,
+        address,
         country: loc?.country || '',
         locationName: loc?.name || '',
         departmentMergeIds: r.departmentMergeIds || [],

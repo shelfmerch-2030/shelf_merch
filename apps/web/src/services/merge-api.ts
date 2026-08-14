@@ -60,6 +60,7 @@ export type MergeSyncSummary = {
   departments: MergeSyncCounts;
   locations: MergeSyncCounts;
   employments: MergeSyncCounts;
+  contacts?: MergeSyncCounts;
 };
 
 export type MergeHrisEmployeePublic = {
@@ -75,6 +76,8 @@ export type MergeHrisEmployeePublic = {
   jobTitle: string;
   employmentType?: string;
   departmentName?: string;
+  /** Compact work/location address from synced MergeHrisLocation fields. */
+  address?: string;
   country?: string;
   locationName?: string;
   departmentMergeIds: string[];
