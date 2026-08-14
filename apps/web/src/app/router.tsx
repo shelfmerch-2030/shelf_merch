@@ -121,7 +121,20 @@ const tenantChildren: RouteObject[] = [
   },
   {
     path: "integrations",
-    lazy: page(() => import("@/features/integrations/IntegrationsPage"), "IntegrationsPage"),
+    children: [
+      {
+        index: true,
+        lazy: page(() => import("@/features/integrations/IntegrationsPage"), "IntegrationsPage"),
+      },
+      {
+        path: "hris-employees",
+        loader: () => (requireTenantArea("integrations", "read"), null),
+        lazy: page(
+          () => import("@/features/integrations/hris-employees/HrisEmployeesPage"),
+          "HrisEmployeesPage",
+        ),
+      },
+    ],
   },
   {
     path: "settings",

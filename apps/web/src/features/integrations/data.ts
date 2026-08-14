@@ -3,8 +3,13 @@ import googleChatIcon from "../../../assets/integrations/google-chat.svg";
 import microsoftTeamsIcon from "../../../assets/integrations/microsoft-teams.svg";
 import zapierIcon from "../../../assets/integrations/zapier.png";
 import darwinboxIcon from "../../../assets/integrations/darwinbox.jpg";
-import kekaIcon from "../../../assets/integrations/keka.png";
-import bamboohrIcon from "../../../assets/integrations/bamboohr.svg";
+import kekaIcon from "../../../assets/integrations/keka-logo.png";
+import bamboohrIcon from "../../../assets/integrations/bamboohr-logo.png";
+import workdayIcon from "../../../assets/integrations/workday-logo.png";
+import gustoIcon from "../../../assets/integrations/gusto-logo.png";
+import deelIcon from "../../../assets/integrations/deel-logo.png";
+import ukgProIcon from "../../../assets/integrations/ukg-pro-logo.png";
+import hibobIcon from "../../../assets/integrations/hibob-logo.png";
 import razorpayIcon from "../../../assets/integrations/razorpay.svg";
 import shiprocketIcon from "../../../assets/integrations/shiprocket.png";
 import slackIcon from "../../../assets/integrations/slack.svg";
@@ -55,6 +60,14 @@ export const INTEGRATIONS: Integration[] = [
     desc: "Import employee records, departments & hire dates",
     connected: false,
     icon: bamboohrIcon,
+  },
+  {
+    id: "workday",
+    name: "Workday",
+    category: "HRIS",
+    desc: "Sync workforce data from Workday HCM for gifting and recognition",
+    connected: false,
+    icon: workdayIcon,
   },
   {
     id: "okta",
@@ -152,6 +165,8 @@ export type Tile = {
   mark?: string;
   tone?: string;
   recommended?: boolean;
+  /** Provider kept in catalog but not connectable until Merge/org setup is ready. */
+  requiresSetup?: boolean;
 };
 
 const app = (id: string) => INTEGRATIONS.find((item) => item.id === id);
@@ -165,6 +180,7 @@ export function asTile(item: Integration | Tile): Tile {
     mark: "mark" in item ? item.mark : undefined,
     tone: "tone" in item ? item.tone : undefined,
     recommended: "recommended" in item ? item.recommended : undefined,
+    requiresSetup: "requiresSetup" in item ? item.requiresSetup : undefined,
   };
 }
 
@@ -176,16 +192,58 @@ export const COLLABORATION_TOOLS: Tile[] = [
   { id: "jostle", name: "Jostle", mark: "J", tone: "#242424" },
 ].filter(Boolean) as Tile[];
 
-export const USER_MANAGEMENT_TOOLS: Tile[] = [
+/** Merge.dev HRIS providers — ids match Merge integration slugs. */
+export const MERGE_HRIS_TOOLS: Tile[] = [
   {
-    id: "hris-connect",
-    name: "Connect HRIS or HRMS software",
-    desc: "Seamlessly integrate your Human Resources Information or Management System.",
-    recommended: true,
+    id: "workday",
+    name: "Workday",
+    desc: "Sync workforce data from Workday HCM for gifting and recognition.",
+    icon: workdayIcon,
   },
+  {
+    id: "bamboohr",
+    name: "BambooHR",
+    desc: "Import employee records, departments & hire dates.",
+    icon: bamboohrIcon,
+  },
+  {
+    id: "gusto",
+    name: "Gusto",
+    desc: "Import employee profiles and employment details from Gusto.",
+    icon: gustoIcon,
+    requiresSetup: true,
+  },
+  {
+    id: "keka",
+    name: "Keka",
+    desc: "People data & org chart for automated gifting triggers.",
+    icon: kekaIcon,
+  },
+  {
+    id: "deel",
+    name: "Deel",
+    desc: "Sync global contractor and employee records from Deel.",
+    icon: deelIcon,
+  },
+  {
+    id: "ukg-pro",
+    name: "UKG Pro",
+    desc: "Connect UKG Pro to keep employee and org data up to date.",
+    icon: ukgProIcon,
+  },
+  {
+    id: "hibob",
+    name: "HiBob",
+    desc: "Sync people data and lifecycle events from HiBob.",
+    icon: hibobIcon,
+  },
+];
+
+/** Logo-card grid for User management (HRIS / HRMS providers). */
+export const USER_MANAGEMENT_TOOLS: Tile[] = [
+  ...MERGE_HRIS_TOOLS,
   app("zoho-people"),
   app("darwinbox"),
-  app("keka"),
 ].filter(Boolean) as Tile[];
 
 export const DISPLAY_TOOLS: Tile[] = [
