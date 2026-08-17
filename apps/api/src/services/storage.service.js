@@ -16,7 +16,7 @@ const ALLOWED_TYPES = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ],
   logo: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'],
-  product: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'],
+  product: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'],
   mockup: ['image/png', 'image/jpeg', 'image/webp'],
   production: ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'],
   // Support-ticket attachments: images + PDF only. Deliberately no SVG — the

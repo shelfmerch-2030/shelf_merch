@@ -9,7 +9,6 @@ import {
   emptyVariant,
   getPlatformProduct,
   MANUAL_CATEGORIES,
-  pngHasTransparency,
   PRODUCT_WIZARD_STEPS,
   SUBCATEGORIES_BY_CATEGORY,
   publishProduct,
@@ -332,10 +331,6 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     setBusy(true);
     setError("");
     try {
-      if (!(await pngHasTransparency(file))) {
-        setError("Design mask must contain transparent pixels. Please upload a transparent image.");
-        return;
-      }
       await uploadProductImage(id, file, VIEW_ROLES[imageView].mask);
       await refresh();
     } catch (e) {
