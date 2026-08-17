@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { isPlaceholderColorHex, resolveColorHex } from "@/lib/colorMap";
+import { formatErrorDetails } from "@/lib/errorMessage";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
   addVariant,
@@ -444,7 +445,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     } catch (e) {
       const body = (e as { details?: { error?: { details?: unknown } } }).details;
       const list = body?.error?.details;
-      if (Array.isArray(list)) setProblems(list as string[]);
+      setProblems(formatErrorDetails(list));
       setError(e instanceof Error ? e.message : "Publish failed");
     } finally {
       setBusy(false);

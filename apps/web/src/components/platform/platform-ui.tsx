@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
+import { formatErrorDetail } from "@/lib/errorMessage";
 
 export type PlatformSelectOption = { value: string; label: string };
 
@@ -220,8 +221,8 @@ export function PlatformLoading({ message = "Loading workspace…" }: { message?
   return <LoadingState message={message} fullScreen={false} />;
 }
 
-export function PlatformError({ message }: { message: string }) {
-  return <p style={{ color: "var(--danger)" }}>{message}</p>;
+export function PlatformError({ message }: { message: unknown }) {
+  return <p style={{ color: "var(--danger)" }}>{formatErrorDetail(message)}</p>;
 }
 
 export function StatusTag({ status }: { status: string }) {

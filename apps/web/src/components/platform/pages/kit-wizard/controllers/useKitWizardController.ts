@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { formatErrorDetails } from "@/lib/errorMessage";
 import {
   addKitItem,
   CAMPAIGN_TYPES,
@@ -246,7 +247,7 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
       navigate("/platform/kits");
     } catch (e) {
       const body = (e as { details?: { error?: { details?: unknown } } }).details;
-      if (Array.isArray(body?.error?.details)) setProblems(body!.error!.details as string[]);
+      setProblems(formatErrorDetails(body?.error?.details));
       setError(e instanceof Error ? e.message : "Publish failed");
     } finally {
       setBusy(false);

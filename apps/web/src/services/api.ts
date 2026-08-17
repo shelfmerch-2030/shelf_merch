@@ -1,3 +1,4 @@
+import { formatErrorDetails } from "@/lib/errorMessage";
 import { API_BASE } from "./config";
 import {
   clearSession,
@@ -57,7 +58,7 @@ function errorFromResponse(status: number, body: unknown): ApiError {
   if ((status === 502 || status === 503 || status === 504) && !apiError?.message) {
     return new ApiError(
       status,
-      "Server temporarily unavailable — wait a moment and try again",
+      "Server temporarily unavailable - wait a moment and try again",
       "GATEWAY_ERROR",
       body,
     );
@@ -65,11 +66,9 @@ function errorFromResponse(status: number, body: unknown): ApiError {
 
   if (apiError) {
     let message = apiError.message || "Request failed";
-    if (apiError.code === "VALIDATION_ERROR" && Array.isArray(apiError.details) && apiError.details.length) {
-      const first = apiError.details[0] as { path?: string; message?: string };
-      message = `${message}: ${first.path || "field"} — ${first.message || "invalid"}`;
-    } else if (Array.isArray(apiError.details) && apiError.details.every((d) => typeof d === "string")) {
-      message = `${message}: ${(apiError.details as string[]).join("; ")}`;
+    const detailMessages = formatErrorDetails(apiError.details);
+    if (detailMessages.length) {
+      message = `${message}: ${detailMessages.join("; ")}`;
     }
     return new ApiError(status, message, apiError.code || "API_ERROR", body);
   }
@@ -148,7 +147,7 @@ export async function apiFetch<T = unknown>(
   return body as T;
 }
 
-/** Public redemption routes — no auth header. */
+/** Public redemption routes - no auth header. */
 export async function publicFetch<T = unknown>(
   path: string,
   init: Omit<RequestOptions, "auth"> = {},

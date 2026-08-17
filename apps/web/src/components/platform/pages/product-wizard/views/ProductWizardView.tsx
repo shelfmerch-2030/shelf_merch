@@ -612,8 +612,8 @@ export function ProductWizardView({
             </p>
             {problems.length > 0 && (
               <ul style={{ color: "var(--danger)", margin: "10px 0", paddingLeft: 18 }}>
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
+                {problems.map((p, index) => (
+                  <li key={`${p}-${index}`}>{p}</li>
                 ))}
               </ul>
             )}
