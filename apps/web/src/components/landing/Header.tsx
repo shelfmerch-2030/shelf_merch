@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import { ResourceDropdown } from "../resources/ResourceDropdown";
 import "../resources/resource-nav.css";
 
@@ -19,9 +19,6 @@ function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?:
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { pathname } = useLocation();
-  const homePrefix = pathname === "/" ? "" : "/";
-
   const closeMenu = () => {
     setMenuOpen(false);
   };
@@ -36,14 +33,14 @@ export function Header() {
         className={`nav-links${menuOpen ? " open" : ""}`}
         aria-label="Main navigation"
       >
-        <Link to="/" onClick={closeMenu}>
+        <a href="/platform" onClick={closeMenu}>
           Platform
-        </Link>
+        </a>
         <ResourceDropdown onNavigate={closeMenu} />
         <Link to="/apps/catalog" onClick={closeMenu}>
           Catalog
         </Link>
-        <a href={`${homePrefix}#production`} onClick={closeMenu}>
+        <a href="/about" onClick={closeMenu}>
           About
         </a>
         <AuthLinks className="mobile-only" onNavigate={closeMenu} />

@@ -117,8 +117,8 @@ export function Footer() {
 
         <div className="footer-col">
           <h4>Platform</h4>
-          <a href="/#platform">Features</a>
-          <a href="/#platform">Integrations</a>
+          <a href="/platform">Features</a>
+          <a href="/platform#connects">Integrations</a>
         </div>
         <div className="footer-col">
           <h4>Resources</h4>
@@ -137,13 +137,13 @@ export function Footer() {
         </div>
         <div className="footer-col">
           <h4>About Us</h4>
-          <span>Book a Demo</span>
-          <span>Help Center</span>
+          <Link to="/request-demo">Book a Demo</Link>
+          <a href="/careers">Careers</a>
         </div>
         <div className="footer-col">
           <h4>Legal</h4>
-          <span>Terms &amp; Conditions</span>
-          <span>Privacy Policy</span>
+          <a href="/terms">Terms &amp; Conditions</a>
+          <a href="/privacy">Privacy Policy</a>
           <span>Refund Policy</span>
           <span>Shipping Policy</span>
           <span>Cookie Policy</span>

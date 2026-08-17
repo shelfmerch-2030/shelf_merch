@@ -156,7 +156,6 @@ const tenantChildren: RouteObject[] = [
 const platformPages = () => import("@/components/platform/PlatformPages");
 
 const platformChildren: RouteObject[] = [
-  { index: true, loader: () => redirect("/platform/dashboard") },
   { path: "dashboard", lazy: page(platformPages, "DashboardPage") },
   {
     path: "catalog",
@@ -219,6 +218,14 @@ export const appRouter = createBrowserRouter([
         loader: redirectIfAuthed,
         lazy: page(() => import("@/components/LandingPage")),
       },
+      { path: "about", lazy: page(() => import("@/features/marketing/MarketingHtmlPage"), "AboutPage") },
+      { path: "about/index.html", loader: () => redirect("/about") },
+      { path: "careers", lazy: page(() => import("@/features/marketing/MarketingHtmlPage"), "CareersPage") },
+      { path: "careers/index.html", loader: () => redirect("/careers") },
+      { path: "privacy", lazy: page(() => import("@/features/marketing/MarketingHtmlPage"), "PrivacyPage") },
+      { path: "privacy/index.html", loader: () => redirect("/privacy") },
+      { path: "terms", lazy: page(() => import("@/features/marketing/MarketingHtmlPage"), "TermsPage") },
+      { path: "terms/index.html", loader: () => redirect("/terms") },
       {
         path: "resources",
         lazy: page(() => import("@/components/resources/ResourcesHub")),
@@ -365,8 +372,16 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: "platform",
-        lazy: page(() => import("@/components/platform/PlatformLayout")),
-        children: platformChildren,
+        children: [
+          {
+            index: true,
+            lazy: page(() => import("@/features/marketing/MarketingHtmlPage"), "PlatformMarketingPage"),
+          },
+          {
+            lazy: page(() => import("@/components/platform/PlatformLayout")),
+            children: platformChildren,
+          },
+        ],
       },
       { path: "*", element: <NotFound /> },
     ],
