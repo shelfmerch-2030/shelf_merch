@@ -9,7 +9,7 @@ export const CATALOG_CATEGORIES = [
   "Drinkware",
   "Technology",
   "Office Supplies",
-  "Health & Wellness",
+  // "Health & Wellness",
 ] as const;
 
 export const ALL_PRODUCTS = "All Products";
@@ -24,7 +24,7 @@ const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
   "tech accessories": "Technology",
   "office supplies": "Office Supplies",
   "office-supplies": "Office Supplies",
-  "health & wellness": "Health & Wellness",
+  // "health & wellness": "Health & Wellness",
   "all products": "All Products",
 };
 

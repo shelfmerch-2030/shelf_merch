@@ -2764,7 +2764,7 @@ const CATEGORY_GROUP_DEFAULTS: Record<string, string[]> = {
   Drinkware: ["Tumblers", "Bottles", "Mugs"],
   Accessories: ["Bags", "Caps"],
   Stationery: ["Notebooks", "Pens"],
-  Wellness: ["Pillows", "Bottles"],
+  // Wellness: ["Pillows", "Bottles"],
   "Work Essentials": ["Notebooks", "Power Banks"],
   Merch: ["Bags", "Kits"],
 };

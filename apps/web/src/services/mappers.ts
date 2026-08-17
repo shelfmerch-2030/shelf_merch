@@ -291,7 +291,7 @@ const GROUP_BY_CATEGORY: Record<string, string> = {
   Bags: "bag",
   Technology: "power",
   Office: "note",
-  "Health & Wellness": "pillow",
+  // "Health & Wellness": "pillow",
 };
 
 function mapPrintArea(a: Record<string, unknown> | null | undefined): UiPrintArea | null {

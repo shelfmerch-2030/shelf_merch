@@ -78,7 +78,7 @@ const GROUP_BY_CATEGORY: Record<string, string> = {
   Bags: 'bag',
   Technology: 'power',
   Office : 'note',
-  'Health & Wellness': 'pillow',
+  // 'Health & Wellness': 'pillow',
   'Food & Beverages': 'bottle',
 };
 
