@@ -34,6 +34,12 @@ export const PLATFORM_LOGINS = [
     scope: 'Funding approvals, wallet adjustments, invoices, reports — write',
   },
   {
+    email: 'sales@shelfmerch.io',
+    role: 'platform_sales_manager',
+    name: 'Sales Manager',
+    scope: 'Sales enquiries and platform pipeline — read',
+  },
+  {
     email: 'support@shelfmerch.io',
     role: 'platform_support_agent',
     name: 'Support Agent',

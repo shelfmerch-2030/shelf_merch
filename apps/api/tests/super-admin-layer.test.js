@@ -102,6 +102,7 @@ beforeEach(async () => {
     'platform_catalog_admin',
     'platform_production_manager',
     'platform_finance_admin',
+    'platform_sales_manager',
     'platform_support_agent',
     'platform_logistics_manager',
     'platform_readonly_auditor',
@@ -131,8 +132,12 @@ describe('role × area matrix', () => {
     expect(write.status).toBe(403);
 
     // audit logs: super + auditor only
-    expect((await request(app).get('/api/v1/platform/audit-logs').set(auth(tokens.platform_readonly_auditor))).status).toBe(200);
-    expect((await request(app).get('/api/v1/platform/audit-logs').set(auth(tokens.platform_production_manager))).status).toBe(403);
+    expect(
+      (await request(app).get('/api/v1/platform/audit-logs').set(auth(tokens.platform_readonly_auditor))).status,
+    ).toBe(200);
+    expect(
+      (await request(app).get('/api/v1/platform/audit-logs').set(auth(tokens.platform_production_manager))).status,
+    ).toBe(403);
 
     // tenant users never reach the control plane
     expect((await request(app).get('/api/v1/platform/dashboard').set(auth(adminToken))).status).toBe(403);
@@ -226,9 +231,7 @@ describe('catalog (§3.1)', () => {
       .set(auth(tokens.platform_catalog_admin))
       .expect(200);
 
-    const tenantView = await request(app)
-      .get(`/api/v1/catalog/products/${product._id}`)
-      .set(auth(adminToken));
+    const tenantView = await request(app).get(`/api/v1/catalog/products/${product._id}`).set(auth(adminToken));
     expect(tenantView.status).toBe(200);
     expect(tenantView.body.costPriceInr).toBeUndefined();
     expect(tenantView.body.supplierName).toBeUndefined();
@@ -265,9 +268,7 @@ describe('inventory (§3.2)', () => {
     const release = await txn({ type: 'release', qty: 10, reason: 'Campaign trimmed' });
     expect(release.body.inventory).toMatchObject({ available: 80, reserved: 20 });
 
-    const list = await request(app)
-      .get('/api/v1/platform/inventory')
-      .set(auth(tokens.platform_ops_admin));
+    const list = await request(app).get('/api/v1/platform/inventory').set(auth(tokens.platform_ops_admin));
     const row = list.body.items.find((r) => String(r.productId) === String(productId));
     expect(row).toMatchObject({ available: 80, reserved: 20, stockStatus: 'in_stock' });
 
@@ -323,7 +324,12 @@ describe('tenants (§3.4)', () => {
       passwordHash,
       status: 'active',
     });
-    await RoleAssignment.create({ tenantId: tenant._id, userId: archUser._id, role: 'company_admin', scopeType: 'tenant' });
+    await RoleAssignment.create({
+      tenantId: tenant._id,
+      userId: archUser._id,
+      role: 'company_admin',
+      scopeType: 'tenant',
+    });
     const login = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: 'locked@rubix.net', password: 'demo1234' });
@@ -581,7 +587,9 @@ describe('finance (§3.8)', () => {
     expect(margin.body.totalMarginInr).toBe(600);
 
     // ops admin cannot read finance
-    expect((await request(app).get('/api/v1/platform/finance/outstanding').set(auth(tokens.platform_ops_admin))).status).toBe(403);
+    expect(
+      (await request(app).get('/api/v1/platform/finance/outstanding').set(auth(tokens.platform_ops_admin))).status,
+    ).toBe(403);
   });
 });
 
@@ -645,12 +653,12 @@ describe('platform team (§5)', () => {
     const invited = await request(app)
       .post('/api/v1/platform/team')
       .set(auth(tokens.platform_super_admin))
-      .send({ name: 'New Ops', email: 'newops@shelfmerch.io', role: 'platform_ops_admin' });
+      .send({ name: 'New Sales', email: 'newsales@shelfmerch.io', role: 'platform_sales_manager' });
     expect(invited.status).toBe(201);
     expect(invited.body.inviteToken).toBeTruthy();
 
     const list = await request(app).get('/api/v1/platform/team').set(auth(tokens.platform_readonly_auditor));
-    expect(list.body.some((m) => m.email === 'newops@shelfmerch.io')).toBe(true);
+    expect(list.body.some((m) => m.email === 'newsales@shelfmerch.io')).toBe(true);
 
     const userId = invited.body.user.id;
     const rerole = await request(app)
@@ -705,10 +713,12 @@ describe('settings & signup gating (§3.4, §6)', () => {
     expect(all.body['gst.defaultRate']).toBe(18);
     expect(all.body['auth.emailAllowlist']).toEqual([]);
     expect(
-      (await request(app)
-        .put('/api/v1/platform/settings/signup.mode')
-        .set(auth(tokens.platform_finance_admin))
-        .send({ value: 'open' })).status,
+      (
+        await request(app)
+          .put('/api/v1/platform/settings/signup.mode')
+          .set(auth(tokens.platform_finance_admin))
+          .send({ value: 'open' })
+      ).status,
     ).toBe(403);
   });
 
@@ -735,9 +745,7 @@ describe('settings & signup gating (§3.4, §6)', () => {
       .send({ value: [gmail.toUpperCase()] })
       .expect(200);
 
-    const settings = await request(app)
-      .get('/api/v1/platform/settings')
-      .set(auth(tokens.platform_super_admin));
+    const settings = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_super_admin));
     expect(settings.body['auth.emailAllowlist']).toEqual([gmail]);
 
     await request(app)

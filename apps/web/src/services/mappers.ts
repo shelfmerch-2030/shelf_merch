@@ -33,6 +33,7 @@ export type UiProduct = {
   brand: string;
   nm: string;
   category?: string;
+  subcategory?: string;
   description?: string;
   keyFeatures?: string;
   sizeGuide?: string;
@@ -356,6 +357,7 @@ export function mapCatalogProduct(p: ApiProduct): UiProduct {
     brand: p.brand || "",
     nm: p.name,
     category: p.category || "",
+    subcategory: p.subcategory || "",
     description: p.description || "",
     keyFeatures: p.keyFeatures || "",
     sizeGuide: p.sizeGuide || "",

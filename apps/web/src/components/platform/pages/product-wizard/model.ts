@@ -21,6 +21,7 @@ export {
 export const PRODUCT_WIZARD_STEPS = ["Details", "Variants", "Images", "Print areas", "Review"] as const;
 export const MANUAL_CATEGORIES = [
   "Apparel",
+  "Accessories",
   "Bags",
   "Drinkware",
   // "Health & Wellness",
@@ -28,9 +29,19 @@ export const MANUAL_CATEGORIES = [
   "Technology",
 ] as const;
 
+export const SUBCATEGORIES_BY_CATEGORY: Record<(typeof MANUAL_CATEGORIES)[number], readonly string[]> = {
+  Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps"],
+  Accessories: ["Lanyards", "Keychains", "Badges", "Travel Accessories", "Lifestyle Accessories"],
+  Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags"],
+  Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers"],
+  "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars"],
+  Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives"],
+};
+
 export const emptyProductDetails: ProductInput = {
   name: "",
   category: "",
+  subcategory: "",
   sellingPriceInr: 0,
   costPriceInr: 0,
   brand: "",

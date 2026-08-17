@@ -26,6 +26,7 @@ const createProductSchema = z.object({
   keyFeatures: z.string().optional().default(''),
   sizeGuide: z.string().optional().default(''),
   category: z.string().min(1),
+  subcategory: z.string().optional().default(''),
   brand: z.string().optional().default(''),
   group: z.string().optional().default(''),
   sku: z.string().optional(),

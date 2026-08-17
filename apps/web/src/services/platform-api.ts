@@ -372,6 +372,32 @@ export async function fetchPlatformSupport(
   return apiFetch<Paginated<Record<string, unknown>>>(`/platform/support-tickets?${q}`);
 }
 
+export type DemoLeadRow = {
+  _id: string;
+  fullName: string;
+  companyName: string;
+  workEmail: string;
+  mobileNumber: string;
+  requirement?: string | null;
+  status: string;
+  source?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export async function fetchPlatformDemoLeads(limit = 100) {
+  const res = await apiFetch<{
+    items: DemoLeadRow[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }>(`/platform/demo-leads?limit=${limit}`);
+  return {
+    items: res.items ?? [],
+    total: res.pagination?.total ?? 0,
+    page: res.pagination?.page ?? 1,
+    limit: res.pagination?.limit ?? limit,
+  };
+}
+
 export async function fetchProductionBoard() {
   return apiFetch<{
     taskBuckets: Record<string, { count: number; tasks: unknown[] }>;
@@ -527,6 +553,7 @@ export const PLATFORM_ROLES = [
   "platform_ops_admin",
   "platform_catalog_admin",
   "platform_finance_admin",
+  "platform_sales_manager",
   "platform_logistics_manager",
   "platform_production_manager",
   "platform_support_agent",
@@ -612,6 +639,7 @@ export type PlatformProduct = {
   sku: string;
   slug?: string;
   category: string;
+  subcategory?: string;
   brand?: string;
   description?: string;
   keyFeatures?: string;
@@ -640,12 +668,19 @@ export type PlatformProduct = {
   maskRightImageUrl?: string;
   printAreas: PrintArea[];
   inventory?: { available?: number; mode?: string };
-  source?: { provider?: string; domain?: string; externalId?: string; handle?: string };
+  source?: {
+    provider?: string;
+    domain?: string;
+    externalId?: string;
+    handle?: string;
+    categoryAssignedByAdmin?: boolean;
+  };
 };
 
 export type ProductInput = {
   name: string;
   category: string;
+  subcategory?: string;
   sellingPriceInr: number;
   costPriceInr?: number;
   brand?: string;

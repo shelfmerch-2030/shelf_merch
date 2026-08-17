@@ -11,6 +11,7 @@ import {
   MANUAL_CATEGORIES,
   pngHasTransparency,
   PRODUCT_WIZARD_STEPS,
+  SUBCATEGORIES_BY_CATEGORY,
   publishProduct,
   setPrintAreas,
   setProductRoleImageByUrl,
@@ -71,18 +72,25 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
       ),
     [details.category],
   );
+  const subcategoryOptions = useMemo(() => {
+    const mapped = SUBCATEGORIES_BY_CATEGORY[details.category as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? [];
+    return Array.from(new Set([...mapped, ...(details.subcategory ? [details.subcategory] : [])]));
+  }, [details.category, details.subcategory]);
 
   useEffect(() => {
     if (mode !== "edit" || !productId) return;
     getPlatformProduct(productId)
       .then((p) => {
+        const categoryRequiresAdminChoice =
+          p.source?.provider === "shopify" && p.status === "draft" && !p.source?.categoryAssignedByAdmin;
         setProduct(p);
         setAreas(p.printAreas ?? []);
         setPhysicalDimensions(resolvePhysical(p.physicalDimensions));
         setDpi(p.dpi && p.dpi > 0 ? p.dpi : DEFAULT_DPI);
         setDetails({
           name: p.name,
-          category: p.category,
+          category: categoryRequiresAdminChoice ? "" : p.category,
+          subcategory: categoryRequiresAdminChoice ? "" : (p.subcategory ?? ""),
           sellingPriceInr: p.sellingPriceInr,
           costPriceInr: p.costPriceInr,
           brand: p.brand ?? "",
@@ -100,7 +108,14 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   }, [mode, productId]);
 
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) =>
-    setDetails((d) => ({ ...d, [k]: v }));
+    setDetails((d) => {
+      const next = { ...d, [k]: v };
+      if (k === "category") {
+        const mapped = SUBCATEGORIES_BY_CATEGORY[String(v) as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? [];
+        if (!mapped.includes(String(d.subcategory || ""))) next.subcategory = "";
+      }
+      return next;
+    });
 
   const colorSwatches = useMemo(() => {
     const seen = new Map<string, { name: string; hex: string }>();
@@ -160,7 +175,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   ]);
   const marketingImageUrl = marketingImageUrls[0];
   // Selected Shopify marketing image used as fallback "mask" for the front view
-  // when the admin skips uploading a transparent PNG mask.
+  // when the admin skips uploading a transparent mask image.
   const activeMarketingImageUrl =
     marketingImageUrls[Math.min(marketingIndex, Math.max(marketingImageUrls.length - 1, 0))];
 
@@ -217,8 +232,8 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const productionMaskRightImageUrl = effectiveMaskByView.right;
   const activeStageUrl = stageByView[imageView];
   const activeMaskUrl = effectiveMaskByView[imageView];
-  const activeMaskIsShopifyFallback =
-    imageView === "front" && !maskByView.front && Boolean(activeMarketingImageUrl);
+  const frontMaskIsShopifyFallback = !maskByView.front && Boolean(activeMarketingImageUrl);
+  const activeMaskIsShopifyFallback = imageView === "front" && frontMaskIsShopifyFallback;
   const printAreaImages = useMemo(
     () =>
       [
@@ -314,16 +329,11 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
 
   async function uploadActiveMask(file: File | undefined) {
     if (!id || !file) return;
-    const isPng = file.type === "image/png" || file.name.toLowerCase().endsWith(".png");
-    if (!isPng) {
-      setError(`${IMAGE_VIEWS.find((v) => v.key === imageView)?.label || "Design"} mask must be a PNG file.`);
-      return;
-    }
     setBusy(true);
     setError("");
     try {
       if (!(await pngHasTransparency(file))) {
-        setError("Design mask must contain transparent pixels. Please upload a transparent PNG.");
+        setError("Design mask must contain transparent pixels. Please upload a transparent image.");
         return;
       }
       await uploadProductImage(id, file, VIEW_ROLES[imageView].mask);
@@ -428,7 +438,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
         await applyPrintAreasSave();
       }
       // Persist admin-selected Shopify image as the front mask fallback
-      // when no transparent PNG mask was uploaded.
+      // when no transparent mask image was uploaded.
       const needsFrontMaskFallback = !maskByView.front && Boolean(activeMarketingImageUrl);
       if (needsFrontMaskFallback) {
         await setProductRoleImageByUrl(id, VIEW_ROLES.front.mask, activeMarketingImageUrl);
@@ -463,6 +473,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     previewColor,
     imageView,
     categoryOptions,
+    subcategoryOptions,
     colorSwatches,
     activeSwatch,
     firstHex,
@@ -473,6 +484,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     activeStageUrl,
     activeMaskUrl,
     activeMaskIsShopifyFallback,
+    frontMaskIsShopifyFallback,
     baseStageImageUrl,
     productionMaskImageUrl,
     baseBackStageImageUrl,

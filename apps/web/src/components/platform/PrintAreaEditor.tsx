@@ -94,6 +94,7 @@ export function PrintAreaEditor({
   images,
   maskImageUrl,
   imageViews,
+  untintedImageUrls = [],
   colors = [],
   value,
   onChange,
@@ -106,6 +107,8 @@ export function PrintAreaEditor({
   maskImageUrl?: string;
   /** Optional Front/Back (etc.) labels keyed to mockup image URLs. */
   imageViews?: Array<{ url: string; key: string; label: string }>;
+  /** Images that should render exactly as uploaded, without preview tinting. */
+  untintedImageUrls?: string[];
   colors?: { name: string; hex: string }[];
   value: PrintArea[];
   onChange: (areas: PrintArea[]) => void;
@@ -121,6 +124,10 @@ export function PrintAreaEditor({
   const resolvedMask = maskImageUrl
     ? resolveMediaUrl(maskImageUrl)
     : resolvedImages[resolvedImages.length - 1] ?? "";
+  const untintedImages = useMemo(
+    () => new Set(untintedImageUrls.map((u) => resolveMediaUrl(u)).filter(Boolean)),
+    [untintedImageUrls.join("|")],
+  );
   const [mockup, setMockup] = useState(resolvedImages[resolvedImages.length - 1] ?? "");
   const [tintHex, setTintHex] = useState("");
   const [selected, setSelected] = useState(0);
@@ -150,6 +157,7 @@ export function PrintAreaEditor({
   }, [resolvedImages.join("|")]);
 
   const displaySrc = mockup || resolvedMask;
+  const displayUsesRawImage = Boolean(displaySrc && untintedImages.has(displaySrc));
 
   useEffect(() => {
     if (!displaySrc) {
@@ -541,7 +549,7 @@ export function PrintAreaEditor({
           </div>
         )}
 
-        {colors.length > 0 && (
+        {colors.length > 0 && !displayUsesRawImage && (
           <div className="field" style={{ marginTop: 8 }}>
             <label className="lbl">Preview colour</label>
             <p className="muted" style={{ fontSize: 11, margin: "0 0 6px" }}>
@@ -602,7 +610,7 @@ export function PrintAreaEditor({
                 pointerEvents: "none",
               }}
             >
-              <TintedGarment src={displaySrc} hex={tintHex} alt="mockup" />
+              <TintedGarment src={displaySrc} hex={displayUsesRawImage ? undefined : tintHex} alt="mockup" />
             </div>
           ) : (
             <div className="muted" style={{ padding: 24, textAlign: "center" }}>

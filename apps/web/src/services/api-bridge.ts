@@ -748,6 +748,7 @@ export type StorefrontData = {
     brand?: string;
     group?: string;
     category?: string;
+    subcategory?: string;
     description?: string;
     keyFeatures?: string;
     sizeGuide?: string;

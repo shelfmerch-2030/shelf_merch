@@ -3,7 +3,7 @@ import { CatalogProduct } from './catalogProduct.model.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
 import { ApiError } from '../../utils/errors.js';
 
-const SHOPIFY_API_VERSION = '2024-10';
+const SHOPIFY_API_VERSION = '2026-04';
 const SHOPIFY_GRAPHQL_API_VERSION = '2026-04';
 const MAX_PAGES = 20; // safety cap (~5000 products at limit=250)
 
@@ -12,15 +12,101 @@ export function normalizeDomain(input) {
   if (!input || typeof input !== 'string') {
     throw new ApiError(422, 'A Shopify store domain is required', 'INVALID_DOMAIN');
   }
-  const host = input
+  let host = input
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/.*$/, '')
     .toLowerCase();
+  // Shop handle only ("acme") is a common paste; Admin API needs the myshopify host.
+  if (/^[a-z0-9][a-z0-9-]*$/.test(host)) host = `${host}.myshopify.com`;
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) {
     throw new ApiError(422, `"${input}" is not a valid store domain`, 'INVALID_DOMAIN');
   }
   return host;
+}
+
+/** Trim quotes / Bearer prefix so a pasted Admin API token still authenticates. */
+export function normalizeAccessToken(input) {
+  if (!input || typeof input !== 'string') {
+    throw new ApiError(422, 'A Shopify Admin API access token is required', 'TOKEN_REQUIRED');
+  }
+  const token = input.trim().replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
+  if (!token) {
+    throw new ApiError(422, 'A Shopify Admin API access token is required', 'TOKEN_REQUIRED');
+  }
+  if (/^shpss_/i.test(token)) {
+    throw new ApiError(
+      422,
+      'That value is the Shopify client secret, not an access token. Paste the Admin API access token (shpat_…), or exchange client credentials for one first.',
+      'TOKEN_REQUIRED',
+    );
+  }
+  return token;
+}
+
+function shopifyErrorText(body) {
+  const errors = body?.errors;
+  if (typeof errors === 'string') return errors;
+  if (Array.isArray(errors)) {
+    return errors.map((entry) => (typeof entry === 'string' ? entry : entry?.message)).filter(Boolean).join('; ');
+  }
+  if (errors && typeof errors === 'object') return JSON.stringify(errors);
+  return String(body?.error_description || body?.message || '').trim();
+}
+
+function throwShopifyAuthError(status, body) {
+  const detail = shopifyErrorText(body);
+  if (/scope|not approved|permission/i.test(detail)) {
+    throw new ApiError(
+      401,
+      `Shopify token is missing a required Admin API scope (need read_products; read_inventory for HSN). Enable the scopes, reinstall the app, and paste the new Admin API access token. ${detail}`,
+      'SHOPIFY_UNAUTHORIZED',
+    );
+  }
+  throw new ApiError(
+    401,
+    detail
+      ? `Shopify rejected this store/token (HTTP ${status}): ${detail}`
+      : 'Invalid Shopify access token or domain. Use the *.myshopify.com host and the Admin API access token (shpat_…), not the client secret (shpss_…).',
+    'SHOPIFY_UNAUTHORIZED',
+  );
+}
+
+function gidNum(gid) {
+  const match = String(gid || '').match(/(\d+)$/);
+  return match ? match[1] : String(gid || '');
+}
+
+function graphProductToRest(node) {
+  const images = (node.images?.nodes ?? [])
+    .map((image) => ({ src: image?.url }))
+    .filter((image) => image.src);
+  const featured = node.featuredImage?.url || images[0]?.src;
+  return {
+    id: gidNum(node.id),
+    title: node.title,
+    handle: node.handle,
+    vendor: node.vendor,
+    product_type: node.productType,
+    tags: Array.isArray(node.tags) ? node.tags.join(', ') : (node.tags || ''),
+    status: String(node.status || '').toLowerCase(),
+    body_html: node.descriptionHtml || '',
+    options: (node.options ?? []).map((option) => ({ name: option.name })),
+    image: featured ? { src: featured } : null,
+    images,
+    variants: (node.variants?.nodes ?? []).map((variant) => {
+      const selected = variant.selectedOptions ?? [];
+      return {
+        sku: variant.sku || '',
+        price: variant.price,
+        inventory_quantity: variant.inventoryQuantity ?? 0,
+        inventory_item_id: gidNum(variant.inventoryItem?.id),
+        option1: selected[0]?.value,
+        option2: selected[1]?.value,
+        option3: selected[2]?.value,
+      };
+    }),
+  };
 }
 
 function stripHtml(html = '') {
@@ -217,13 +303,86 @@ function nextPageInfo(linkHeader) {
   return new URL(url).searchParams.get('page_info');
 }
 
+function shopifyHeaders(token, extra = {}) {
+  return { 'X-Shopify-Access-Token': token, Accept: 'application/json', ...extra };
+}
+
+async function shopifyGraphql({ domain, token, query, variables }) {
+  const res = await fetch(
+    `https://${domain}/admin/api/${SHOPIFY_GRAPHQL_API_VERSION}/graphql.json`,
+    {
+      method: 'POST',
+      headers: shopifyHeaders(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ query, variables }),
+    },
+  );
+  const body = await res.json().catch(() => ({}));
+  return { res, body };
+}
+
+/** GraphQL Admin API fallback when REST is forbidden or the REST version is gone. */
+async function fetchShopifyProductsGraphql({ domain, token }) {
+  const query = `
+    query ImportProducts($cursor: String) {
+      products(first: 100, after: $cursor, query: "status:active") {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id title handle vendor productType status tags descriptionHtml
+          options { name }
+          featuredImage { url }
+          images(first: 50) { nodes { url } }
+          variants(first: 100) {
+            nodes {
+              sku price inventoryQuantity
+              selectedOptions { name value }
+              inventoryItem { id }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const products = [];
+  let cursor = null;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const { res, body } = await shopifyGraphql({
+      domain,
+      token,
+      query,
+      variables: { cursor },
+    });
+    if (res.status === 401 || res.status === 403) throwShopifyAuthError(res.status, body);
+    if (!res.ok) {
+      throw new ApiError(502, `Shopify GraphQL returned ${res.status} for "${domain}"`, 'SHOPIFY_ERROR');
+    }
+    if (body.errors?.length) {
+      const text = shopifyErrorText(body);
+      if (/scope|not approved|permission|unauthorized|access/i.test(text)) {
+        throwShopifyAuthError(403, body);
+      }
+      throw new ApiError(502, `Shopify GraphQL error for "${domain}": ${text}`, 'SHOPIFY_ERROR');
+    }
+    const connection = body.data?.products;
+    products.push(
+      ...(connection?.nodes ?? [])
+        .map(graphProductToRest)
+        .filter((p) => !p.status || p.status === 'active'),
+    );
+    if (!connection?.pageInfo?.hasNextPage) break;
+    cursor = connection.pageInfo.endCursor;
+    if (!cursor) break;
+  }
+  return products;
+}
+
 /**
- * Fetch active products from the Shopify Admin REST API (cursor-paginated).
+ * Fetch active products from the Shopify Admin API (cursor-paginated).
  * Draft/archived Shopify products are excluded so only sellable catalog
  * items are imported (always as platform drafts for review).
+ * REST is tried first; GraphQL is used when REST is unavailable for the app.
  */
 export async function fetchShopifyProducts({ domain, token }) {
-  if (!token) throw new ApiError(422, 'A Shopify Admin API access token is required', 'TOKEN_REQUIRED');
+  const accessToken = normalizeAccessToken(token);
   const base = `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/products.json`;
   const products = [];
   let pageInfo = null;
@@ -237,13 +396,22 @@ export async function fetchShopifyProducts({ domain, token }) {
     let res;
     try {
       res = await fetch(`${base}?${params}`, {
-        headers: { 'X-Shopify-Access-Token': token, Accept: 'application/json' },
+        headers: shopifyHeaders(accessToken),
       });
     } catch {
       throw new ApiError(502, `Could not reach Shopify store "${domain}"`, 'SHOPIFY_UNREACHABLE');
     }
+    if (page === 0 && (res.status === 401 || res.status === 403 || res.status === 404)) {
+      const restBody = await res.json().catch(() => ({}));
+      try {
+        return await fetchShopifyProductsGraphql({ domain, token: accessToken });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+        throwShopifyAuthError(res.status, restBody);
+      }
+    }
     if (res.status === 401 || res.status === 403) {
-      throw new ApiError(401, 'Invalid Shopify access token or domain', 'SHOPIFY_UNAUTHORIZED');
+      throwShopifyAuthError(res.status, await res.json().catch(() => ({})));
     }
     if (!res.ok) {
       throw new ApiError(502, `Shopify returned ${res.status} for "${domain}"`, 'SHOPIFY_ERROR');
@@ -261,11 +429,12 @@ export async function fetchShopifyProducts({ domain, token }) {
 
 /** Map a Shopify product → CatalogProduct fields (status draft). */
 export async function fetchShopifyProductMetafields({ domain, token, productId }) {
+  const accessToken = normalizeAccessToken(token);
   let res;
   try {
     res = await fetch(
       `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/products/${productId}/metafields.json?limit=250`,
-      { headers: { 'X-Shopify-Access-Token': token, Accept: 'application/json' } },
+      { headers: shopifyHeaders(accessToken) },
     );
   } catch {
     throw new ApiError(
@@ -274,8 +443,29 @@ export async function fetchShopifyProductMetafields({ domain, token, productId }
       'SHOPIFY_UNREACHABLE',
     );
   }
+  if (res.status === 401 || res.status === 403 || res.status === 404) {
+    const restBody = await res.json().catch(() => ({}));
+    try {
+      const { res: gqlRes, body } = await shopifyGraphql({
+        domain,
+        token: accessToken,
+        query: `
+          query ProductMetafields($id: ID!) {
+            product(id: $id) {
+              metafields(first: 250) { nodes { namespace key type value } }
+            }
+          }
+        `,
+        variables: { id: `gid://shopify/Product/${productId}` },
+      });
+      if (gqlRes.ok && !body.errors?.length) return body.data?.product?.metafields?.nodes ?? [];
+    } catch {
+      // Fall through to the REST auth/error mapping.
+    }
+    if (res.status === 401 || res.status === 403) throwShopifyAuthError(res.status, restBody);
+  }
   if (res.status === 401 || res.status === 403) {
-    throw new ApiError(401, 'Shopify token cannot read product metafields', 'SHOPIFY_UNAUTHORIZED');
+    throwShopifyAuthError(res.status, await res.json().catch(() => ({})));
   }
   if (!res.ok) {
     throw new ApiError(
@@ -322,83 +512,21 @@ export async function fetchShopifyInventoryItems({ domain, token, ids }) {
     try {
       res = await fetch(
         `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/inventory_items.json?${params}`,
-        { headers: { 'X-Shopify-Access-Token': token, Accept: 'application/json' } },
+        { headers: shopifyHeaders(normalizeAccessToken(token)) },
       );
     } catch {
       // HSN enrichment is optional — product import should still succeed.
       return items;
     }
     if (res.status === 401 || res.status === 403) {
-      throw new ApiError(401, 'Shopify token cannot read inventory items', 'SHOPIFY_UNAUTHORIZED');
+      // Missing read_inventory should not abort an otherwise-valid product import.
+      return items;
     }
     if (!res.ok) return items;
     const body = await res.json().catch(() => ({}));
     items.push(...(body.inventory_items ?? []));
   }
   return items;
-}
-
-/** Fetch Shopify's standard taxonomy category and merchant classification. */
-export async function fetchShopifyProductCategory({ domain, token, productId }) {
-  const query = `
-    query ProductCategory($id: ID!) {
-      product(id: $id) {
-        productType
-        category {
-          name
-          fullName
-        }
-        collections(first: 20) {
-          nodes {
-            title
-            handle
-          }
-        }
-      }
-    }
-  `;
-
-  try {
-    const res = await fetch(
-      `https://${domain}/admin/api/${SHOPIFY_GRAPHQL_API_VERSION}/graphql.json`,
-      {
-        method: 'POST',
-        headers: {
-          'X-Shopify-Access-Token': token,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          variables: { id: `gid://shopify/Product/${productId}` },
-        }),
-      },
-    );
-    if (!res.ok) return null;
-    const body = await res.json().catch(() => ({}));
-    if (body.errors?.length) return null;
-    return body.data?.product ?? null;
-  } catch {
-    // Category enrichment is optional; REST product_type remains the fallback.
-    return null;
-  }
-}
-
-function meaningfulCollectionTitle(collections = []) {
-  const generic = /^(all|all products|catalog|featured|new arrivals?|best sellers?|frontpage)$/i;
-  return collections
-    .map((collection) => String(collection?.title ?? '').trim())
-    .find((title) => title && !generic.test(title)) || '';
-}
-
-export function resolveShopifyCategory(product, categoryData) {
-  return String(
-    categoryData?.category?.name
-      || categoryData?.productType
-      || product?.product_type
-      || meaningfulCollectionTitle(categoryData?.collections?.nodes)
-      || 'Imported',
-  ).trim();
 }
 
 /** Public-page fallback for theme tabs that are not returned by Admin metafields. */
@@ -423,7 +551,7 @@ export async function fetchShopifyStorefrontTabs({ domain, handle }) {
 }
 
 /** Map a Shopify product into CatalogProduct fields (status draft). */
-export function mapShopifyProduct(p, domain, metafields = [], categoryData = null, hsnCode = '') {
+export function mapShopifyProduct(p, domain, metafields = [], hsnCode = '') {
   const optionNames = (p.options ?? []).map((o) => String(o.name || '').toLowerCase());
   const optKey = (i) =>
     optionNames[i]?.includes('size') ? 'size'
@@ -453,7 +581,8 @@ export function mapShopifyProduct(p, domain, metafields = [], categoryData = nul
     name: p.title || 'Untitled product',
     ...content,
     brand: p.vendor || '',
-    category: resolveShopifyCategory(p, categoryData),
+    category: '',
+    subcategory: '',
     basePriceInr,
     hsnCode: hsnCode || '',
     variants,
@@ -469,6 +598,7 @@ export function mapShopifyProduct(p, domain, metafields = [], categoryData = nul
       domain,
       externalId: String(p.id),
       handle: p.handle || '',
+      categoryAssignedByAdmin: false,
     },
   };
 }
@@ -541,7 +671,8 @@ export function mapShopifyKit(p, domain, mapped) {
  */
 export async function importFromShopify({ domain, token, only = 'all' }) {
   const host = normalizeDomain(domain);
-  const products = await fetchShopifyProducts({ domain: host, token });
+  const accessToken = normalizeAccessToken(token);
+  const products = await fetchShopifyProducts({ domain: host, token: accessToken });
 
   // Counts are tracked per kind so kits and catalog products are sorted apart.
   const product = { imported: 0, updated: 0, skipped: 0 };
@@ -560,23 +691,18 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
 
       const metafields = await fetchShopifyProductMetafields({
         domain: host,
-        token,
-        productId: externalId,
-      });
-      const categoryData = await fetchShopifyProductCategory({
-        domain: host,
-        token,
+        token: accessToken,
         productId: externalId,
       });
       // HSN/HS lives on InventoryItem (via variant.inventory_item_id), not Product.
       const inventoryItemIds = (p.variants ?? []).map((v) => v.inventory_item_id);
       const inventoryItems = await fetchShopifyInventoryItems({
         domain: host,
-        token,
+        token: accessToken,
         ids: inventoryItemIds,
       });
       const hsnCode = resolveHsnFromInventoryItems(inventoryItems);
-      const mapped = mapShopifyProduct(p, host, metafields, categoryData, hsnCode);
+      const mapped = mapShopifyProduct(p, host, metafields, hsnCode);
       if (!mapped.keyFeatures || mapped.description === stripHtml(p.body_html)) {
         const storefrontTabs = await fetchShopifyStorefrontTabs({
           domain: host,
@@ -633,7 +759,7 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
         'source.externalId': externalId,
       });
       if (exists) {
-        const contentChanged = ['description', 'keyFeatures', 'sizeGuide', 'category']
+        const contentChanged = ['description', 'keyFeatures', 'sizeGuide']
           .some((key) => String(exists[key] ?? '') !== String(mapped[key] ?? ''));
         const imagesChanged =
           String(exists.primaryImageUrl ?? '') !== String(mapped.primaryImageUrl ?? '')
@@ -654,7 +780,6 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
           // Clear only that legacy value; preserve a manually uploaded mask.
           if (legacyShopifyMask) exists.maskImageUrl = '';
 
-          exists.category = mapped.category;
           if (hsnFilled) exists.hsnCode = mapped.hsnCode;
           await exists.save();
           product.updated += 1;

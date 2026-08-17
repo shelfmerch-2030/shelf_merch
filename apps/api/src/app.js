@@ -30,6 +30,7 @@ import catalogRoutes from './modules/catalog/catalog.routes.js';
 import collectionsRoutes from './modules/collections/collections.routes.js';
 import kitsRoutes from './modules/kits/kits.routes.js';
 import contactsRoutes from './modules/contacts/contacts.routes.js';
+import demoLeadsRoutes, { platformDemoLeadsRouter } from './modules/demoLeads/demoLeads.routes.js';
 import campaignsRoutes from './modules/campaigns/campaigns.routes.js';
 import redemptionsRoutes from './modules/redemptions/redemptions.routes.js';
 import storefrontRoutes from './modules/storefront/storefront.routes.js';
@@ -255,6 +256,7 @@ export function createApp() {
   api.use('/collections', collectionsRoutes);
   api.use('/kits', kitsRoutes);
   api.use('/contacts', contactsRoutes);
+  api.use('/demo-leads', demoLeadsRoutes);
   api.use('/campaigns', campaignsRoutes);
   api.use('/redemptions', redemptionsRoutes);
   api.use('/storefront', storefrontRoutes);
@@ -278,6 +280,7 @@ export function createApp() {
   api.use('/platform/orders', platformOrdersRouter);
   api.use('/platform/production', platformProductionRouter);
   api.use('/platform/finance', platformFinanceRoutes);
+  api.use('/platform/demo-leads', platformDemoLeadsRouter);
   api.use('/platform/audit-logs', platformAuditRouter);
   api.use('/platform/reports', platformReportsRouter);
   api.use('/platform/support-tickets', platformSupportRouter);

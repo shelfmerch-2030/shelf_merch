@@ -6,6 +6,7 @@ export { InventoryPage } from "./pages/inventory";
 export { KitsPage } from "./pages/kits";
 export { ShipmentsPage } from "./pages/shipments";
 export { SupportPage } from "./pages/support";
+export { SalesPage } from "./pages/sales";
 export { ProductionPage } from "./pages/production";
 export { FinancePage } from "./pages/finance";
 export { TeamPage } from "./pages/team";

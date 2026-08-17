@@ -24,6 +24,7 @@ export function ProductWizardView({
   previewColor,
   imageView,
   categoryOptions,
+  subcategoryOptions,
   colorSwatches,
   activeSwatch,
   firstHex,
@@ -33,6 +34,7 @@ export function ProductWizardView({
   activeStageUrl,
   activeMaskUrl,
   activeMaskIsShopifyFallback,
+  frontMaskIsShopifyFallback,
   baseStageImageUrl,
   productionMaskImageUrl,
   baseBackStageImageUrl,
@@ -113,6 +115,24 @@ export function ProductWizardView({
                   {categoryOptions.map((category) => (
                     <option key={category} value={category}>
                       {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label className="lbl">Subcategory</label>
+                <select
+                  className="inp"
+                  value={details.subcategory || ""}
+                  disabled={!details.category}
+                  onChange={(e) => onSet("subcategory", e.target.value)}
+                >
+                  <option value="" disabled>
+                    Select a subcategory
+                  </option>
+                  {subcategoryOptions.map((subcategory) => (
+                    <option key={subcategory} value={subcategory}>
+                      {subcategory}
                     </option>
                   ))}
                 </select>
@@ -205,7 +225,7 @@ export function ProductWizardView({
             <button
               type="button"
               className="btn btn-brand"
-              disabled={busy || !details.name || !details.category || !details.sellingPriceInr}
+              disabled={busy || !details.name || !details.category || !details.subcategory || !details.sellingPriceInr}
               onClick={onSaveDetails}
             >
               {id ? "Save & continue" : "Create draft & continue"}
@@ -403,12 +423,12 @@ export function ProductWizardView({
                 label={`Design & production mask (${imageView})`}
                 hint={
                   activeMaskIsShopifyFallback
-                    ? "Using selected Shopify image · upload a transparent PNG to override"
-                    : "Transparent PNG · used for artwork, print areas and production · optional if a Shopify image exists"
+                    ? "Using selected Shopify image · upload a transparent image to override"
+                    : "Transparent image · used for artwork, print areas and production · optional if a Shopify image exists"
                 }
-                accept="image/png"
+                accept="image/*"
                 imageUrl={activeMaskUrl ? resolveMediaUrl(activeMaskUrl) : undefined}
-                tintHex={firstHex}
+                tintHex={activeMaskIsShopifyFallback ? undefined : firstHex}
                 disabled={busy || !id}
                 onFile={onUploadActiveMask}
               />
@@ -420,7 +440,7 @@ export function ProductWizardView({
               </p>
             )}
 
-            {activeMaskUrl && (
+            {activeMaskUrl && !activeMaskIsShopifyFallback && (
               <div style={{ marginBottom: 22 }}>
                 <h3 style={{ marginBottom: 2 }}>Colour preview</h3>
                 <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
@@ -552,6 +572,7 @@ export function ProductWizardView({
                 productionMaskRightImageUrl
               }
               imageViews={printAreaImageViews}
+              untintedImageUrls={frontMaskIsShopifyFallback && productionMaskImageUrl ? [productionMaskImageUrl] : undefined}
               colors={colorSwatches}
               value={printAreas}
               onChange={onPrintAreas}

@@ -175,7 +175,7 @@ export function MarketingImageGallery({
       <label className="lbl">Shopify marketing images</label>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>
         All imported product photos · read-only · selected image is used as the mask fallback if a
-        transparent PNG mask is not uploaded for the front view
+        transparent mask image is not uploaded for the front view
       </p>
       {!imageUrls.length ? (
         <p className="muted" style={{ fontSize: 13 }}>

@@ -29,7 +29,8 @@ const catalogProductSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     keyFeatures: { type: String, default: '' },
     sizeGuide: { type: String, default: '' },
-    category: { type: String, required: true, index: true },
+    category: { type: String, default: '', index: true },
+    subcategory: { type: String, default: '', index: true },
     group: { type: String, default: '' }, // icon group, e.g. "tee", "mug", "hoodie"
     // basePriceInr is the tenant-facing selling price (kept as the historical
     // field name; the platform API exposes it as sellingPriceInr).
@@ -133,6 +134,7 @@ const catalogProductSchema = new mongoose.Schema(
       domain: { type: String, default: '' },
       externalId: { type: String, default: '' }, // Shopify product id (string)
       handle: { type: String, default: '' },
+      categoryAssignedByAdmin: { type: Boolean, default: false },
     },
   },
   { timestamps: true },

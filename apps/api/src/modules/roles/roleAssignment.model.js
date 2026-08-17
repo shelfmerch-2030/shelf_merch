@@ -6,6 +6,7 @@ export const ROLES = [
   'platform_catalog_admin',
   'platform_production_manager',
   'platform_finance_admin',
+  'platform_sales_manager',
   'platform_support_agent',
   'platform_logistics_manager',
   'platform_readonly_auditor',

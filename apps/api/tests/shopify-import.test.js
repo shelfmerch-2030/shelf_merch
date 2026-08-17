@@ -11,6 +11,7 @@ import {
   mapShopifyContent,
   parseShopifyStorefrontTabs,
   resolveHsnFromInventoryItems,
+  normalizeDomain,
 } from '../src/modules/catalog/shopifyImport.service.js';
 
 let app;
@@ -188,6 +189,11 @@ const importReq = (token) =>
     .send({ domain: 'xyz.myshopify.com', accessToken: 'shpat_test' });
 
 describe('Shopify catalog import', () => {
+  it('accepts a shop handle or full myshopify host', () => {
+    expect(normalizeDomain('xzhbhm-qa')).toBe('xzhbhm-qa.myshopify.com');
+    expect(normalizeDomain('https://xzhbhm-qa.myshopify.com/admin')).toBe('xzhbhm-qa.myshopify.com');
+  });
+
   it('separates metafield description/features from the body_html size guide', () => {
     const content = mapShopifyContent(
       '<table><tr><td>Feature</td><td>Details</td></tr><tr><td>Material</td><td>Cork</td></tr></table>',
@@ -278,7 +284,8 @@ describe('Shopify catalog import', () => {
     const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
     expect(tee.status).toBe('draft');
     expect(tee.brand).toBe('Acme');
-    expect(tee.category).toBe('Apparel');
+    expect(tee.category).toBe('');
+    expect(tee.subcategory).toBe('');
     expect(tee.basePriceInr).toBe(499); // min variant price
     expect(tee.hsnCode).toBe('610520');
     expect(tee.variants).toHaveLength(2);
@@ -287,6 +294,7 @@ describe('Shopify catalog import', () => {
     expect(tee.imageUrls).toEqual(['https://cdn.shopify.com/tee.jpg']);
     expect(tee.maskImageUrl).toBe('');
     expect(tee.source.provider).toBe('shopify');
+    expect(tee.source.categoryAssignedByAdmin).toBe(false);
     // Imported products are made-to-order so they don't read as "out of stock".
     expect(tee.inventory.mode).toBe('made_to_order');
 
@@ -326,12 +334,38 @@ describe('Shopify catalog import', () => {
   it('skips products already imported on re-import (idempotent)', async () => {
     vi.stubGlobal('fetch', stubShopifyFetch());
     await importReq(catalogToken);
+    const importedTee = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    const updateRes = await request(app)
+      .patch(`/api/v1/platform/products/${importedTee._id}`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({
+        name: importedTee.name,
+        category: 'Apparel',
+        subcategory: 'T-Shirts',
+        sellingPriceInr: importedTee.basePriceInr,
+        costPriceInr: 0,
+        brand: importedTee.brand,
+        description: importedTee.description,
+        keyFeatures: importedTee.keyFeatures,
+        sizeGuide: importedTee.sizeGuide,
+        gstRate: importedTee.gstRate,
+        hsnCode: importedTee.hsnCode,
+        moq: importedTee.moq,
+        material: importedTee.material,
+        productionDays: importedTee.productionDays,
+        reason: 'admin selected category',
+      });
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.source.categoryAssignedByAdmin).toBe(true);
     vi.stubGlobal('fetch', stubShopifyFetch());
     const res = await importReq(catalogToken);
     expect(res.status).toBe(200);
     expect(res.body.imported).toBe(0);
     expect(res.body.skipped).toBe(2);
     expect(await CatalogProduct.countDocuments({ 'source.provider': 'shopify' })).toBe(2);
+    const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    expect(tee.category).toBe('Apparel');
+    expect(tee.subcategory).toBe('T-Shirts');
   });
 
   it('returns a friendly error for an invalid token (401 from Shopify)', async () => {
@@ -339,6 +373,92 @@ describe('Shopify catalog import', () => {
     const res = await importReq(catalogToken);
     expect(res.status).toBe(401);
     expect(res.body.error.code).toBe('SHOPIFY_UNAUTHORIZED');
+  });
+
+  it('rejects a client secret pasted as the access token', async () => {
+    const res = await request(app)
+      .post('/api/v1/platform/products/import/shopify')
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({ domain: 'xyz.myshopify.com', accessToken: 'shpss_not_a_token' });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('TOKEN_REQUIRED');
+  });
+
+  it('imports via GraphQL when REST products.json is unavailable', async () => {
+    const fetchMock = vi.fn(async (url, init) => {
+      const u = String(url);
+      if (u.includes('/products.json')) {
+        return { ok: false, status: 404, json: async () => ({ errors: 'Not Found' }), headers: { get: () => null } };
+      }
+      if (u.includes('/inventory_items.json')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ inventory_items: Object.values(INVENTORY_ITEMS) }),
+          headers: { get: () => null },
+        };
+      }
+      if (u.includes('/metafields')) {
+        return { ok: true, status: 200, json: async () => ({ metafields: [] }), headers: { get: () => null } };
+      }
+      if (u.includes('/graphql.json')) {
+        const payload = JSON.parse(init?.body || '{}');
+        if (String(payload.query || '').includes('ImportProducts')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                products: {
+                  pageInfo: { hasNextPage: false, endCursor: null },
+                  nodes: [
+                    {
+                      id: 'gid://shopify/Product/111',
+                      title: 'Classic Tee',
+                      handle: 'classic-tee',
+                      vendor: 'Acme',
+                      productType: 'Apparel',
+                      status: 'ACTIVE',
+                      tags: [],
+                      descriptionHtml: '<p>Soft cotton tee</p>',
+                      options: [{ name: 'Color' }, { name: 'Size' }],
+                      featuredImage: { url: 'https://cdn.shopify.com/tee.jpg' },
+                      images: { nodes: [{ url: 'https://cdn.shopify.com/tee.jpg' }] },
+                      variants: {
+                        nodes: [
+                          {
+                            sku: 'TEE-BLK-M',
+                            price: '499.00',
+                            inventoryQuantity: 10,
+                            selectedOptions: [{ name: 'Color', value: 'Black' }, { name: 'Size', value: 'M' }],
+                            inventoryItem: { id: 'gid://shopify/InventoryItem/9001' },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            }),
+            headers: { get: () => null },
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: { product: null } }),
+          headers: { get: () => null },
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}), text: async () => '', headers: { get: () => null } };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await importReq(catalogToken);
+    expect(res.status).toBe(200);
+    expect(res.body.imported).toBe(1);
+    const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    expect(tee.name).toBe('Classic Tee');
+    expect(tee.variants[0]).toMatchObject({ color: 'Black', size: 'M', sku: 'TEE-BLK-M' });
   });
 
   it('forbids a tenant role from importing (403)', async () => {

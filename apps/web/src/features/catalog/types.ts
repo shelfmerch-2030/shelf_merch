@@ -5,6 +5,7 @@ import type { UiProduct } from "@/services/mappers";
 export const CATALOG_CATEGORIES = [
   "All Products",
   "Apparel",
+  "Accessories",
   "Bags",
   "Drinkware",
   "Technology",
@@ -16,6 +17,7 @@ export const ALL_PRODUCTS = "All Products";
 
 const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
   apparel: "Apparel",
+  accessories: "Accessories",
   bags: "Bags",
   "bags & travel": "Bags",
   "bags-travel": "Bags",

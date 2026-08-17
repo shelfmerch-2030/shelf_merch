@@ -44,6 +44,9 @@ export function ShopifyImportView({
             onChange={(e) => onDomain(e.target.value)}
             disabled={busy}
           />
+          <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            Must be the Admin host, like <code>your-store.myshopify.com</code> — not a custom storefront domain.
+          </p>
         </div>
         <div className="field">
           <label className="lbl">Admin API access token</label>
@@ -56,6 +59,8 @@ export function ShopifyImportView({
             disabled={busy}
           />
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            Paste the Admin API access token (<code>shpat_…</code>), never the client secret (<code>shpss_…</code>)
+            or client ID. The custom app needs <code>read_products</code> (and <code>read_inventory</code> for HSN).
             Used once for this import and never stored.{" "}
             {kits
               ? "Only kit bundles are imported, as curated active kits."

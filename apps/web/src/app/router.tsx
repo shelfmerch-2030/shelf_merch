@@ -203,6 +203,7 @@ const platformChildren: RouteObject[] = [
   { path: "inventory", lazy: page(platformPages, "InventoryPage") },
   { path: "production", lazy: page(platformPages, "ProductionPage") },
   { path: "shipments", lazy: page(platformPages, "ShipmentsPage") },
+  { path: "sales", lazy: page(platformPages, "SalesPage") },
   { path: "support", lazy: page(platformPages, "SupportPage") },
   { path: "team", lazy: page(platformPages, "TeamPage") },
   { path: "audit", lazy: page(platformPages, "AuditPage") },

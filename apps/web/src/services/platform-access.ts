@@ -5,6 +5,7 @@ const OPS = "platform_ops_admin";
 const CATALOG = "platform_catalog_admin";
 const PRODUCTION = "platform_production_manager";
 const FINANCE = "platform_finance_admin";
+const SALES = "platform_sales_manager";
 const SUPPORT = "platform_support_agent";
 const LOGISTICS = "platform_logistics_manager";
 const AUDITOR = "platform_readonly_auditor";
@@ -15,6 +16,7 @@ const PLATFORM_ROLES = [
   CATALOG,
   PRODUCTION,
   FINANCE,
+  SALES,
   SUPPORT,
   LOGISTICS,
   AUDITOR,
@@ -30,6 +32,7 @@ export type PlatformArea =
   | "production"
   | "shipments"
   | "finance"
+  | "sales"
   | "support"
   | "team"
   | "settings"
@@ -45,6 +48,7 @@ const MATRIX: Record<PlatformArea, { write: string[]; read: string[] }> = {
   production: { write: [OPS, PRODUCTION], read: PLATFORM_ROLES },
   shipments: { write: [OPS, LOGISTICS], read: PLATFORM_ROLES },
   finance: { write: [FINANCE], read: [FINANCE] },
+  sales: { write: [], read: [SALES] },
   support: { write: [OPS, SUPPORT], read: PLATFORM_ROLES },
   // Ops + support need a read-only roster to assign tickets; invite/role
   // changes stay super-admin-only (write: []).
@@ -85,6 +89,7 @@ export const PLATFORM_NAV: PlatformNavItem[] = [
   { area: "kits", label: "Kits", path: "/platform/kits", section: "Supply" },
   { area: "inventory", label: "Inventory", path: "/platform/inventory", section: "Supply" },
   { area: "support", label: "Support", path: "/platform/support", section: "Service" },
+  { area: "sales", label: "Sales", path: "/platform/sales", section: "Marketing" },
   { area: "finance", label: "Finance", path: "/platform/finance", section: "Money" },
   { area: "team", label: "Platform Users", path: "/platform/team", section: "Admin" },
   { area: "auditLogs", label: "Audit Logs", path: "/platform/audit", section: "Admin" },

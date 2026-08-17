@@ -91,6 +91,9 @@ export async function updateProduct(productId, patch, reason) {
   const { sellingPriceInr, ...rest } = patch;
   const before = platformProductDto(product);
   Object.assign(product, rest);
+  if (rest.category !== undefined && product.source?.provider === 'shopify') {
+    product.source.categoryAssignedByAdmin = Boolean(String(rest.category || '').trim());
+  }
   if (sellingPriceInr !== undefined) product.basePriceInr = sellingPriceInr;
   await product.save();
   return { before, product, touchesSensitive };

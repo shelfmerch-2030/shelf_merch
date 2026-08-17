@@ -59,6 +59,7 @@ Run `npm run seed` first — it wipes and repopulates **every role** with sample
 | `catalog@shelfmerch.io` | `platform_catalog_admin` | **Catalog / Inventory** — 12 products, low-stock cap |
 | `production@shelfmerch.io` | `platform_production_manager` | **Production** — hoodie order in `printing` |
 | `finance@shelfmerch.io` | `platform_finance_admin` | **Finance** — proforma + tax invoice, credit note |
+| `sales@shelfmerch.io` | `platform_sales_manager` | **Sales** — enquiries and platform pipeline |
 | `support@shelfmerch.io` | `platform_support_agent` | **Support** — 2 tickets (address change + redemption) |
 | `logistics@shelfmerch.io` | `platform_logistics_manager` | **Shipments** — Delhivery AWB in transit |
 | `auditor@shelfmerch.io` | `platform_readonly_auditor` | Read-only — audit logs, no writes |
