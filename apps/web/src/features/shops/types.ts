@@ -37,7 +37,7 @@ export const BUILDER_CATEGORIES: [string, string, string][] = [
   ["Work Essentials", "note", "/images/landing/categories/work-essentials.png"],
   ["Merch", "tee", "/images/landing/categories/apparel-wearables.png"],
   // ["Life & Hobbies", "cap", "/images/landing/categories/life-hobbies.png"],
-  ["Wellness", "bottle", "/images/landing/categories/wellness.png"],
+  // ["Wellness", "bottle", "/images/landing/categories/wellness.png"],
   // ["Experiences", "spark", "/images/landing/categories/experiences.png"],
   ["Luxury", "bag", "/images/landing/categories/luxury.png"],
 ];
@@ -81,7 +81,7 @@ const CATEGORY_BY_GROUP: Record<string, string> = {
   note: "Work Essentials",
   power: "Work Essentials",
   bag: "Merch",
-  pillow: "Wellness",
+  // pillow: "Wellness",
 };
 
 export function catalogCategoryLabel(p: UiProduct): string {

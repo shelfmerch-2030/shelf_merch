@@ -23,7 +23,7 @@ export const MANUAL_CATEGORIES = [
   "Apparel",
   "Bags",
   "Drinkware",
-  "Health & Wellness",
+  // "Health & Wellness",
   "Office Supplies",
   "Technology",
 ] as const;

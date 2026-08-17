@@ -14,9 +14,7 @@ export function Flexibility() {
         <article className="choice-one">
           <span>01</span>
           <div className="choice-art choice-art-one">
-            <i>₹</i>
-            <b>CHOICE</b>
-            <i>✦</i>
+            <img src="/images/landing/flexibility/recipient-choice.png" alt="" />
           </div>
           <h3>Recipient&apos;s choice</h3>
           <p>Give a wallet balance or points and let people pick what they actually want.</p>
@@ -24,8 +22,7 @@ export function Flexibility() {
         <article className="choice-two">
           <span>02</span>
           <div className="choice-art choice-art-two">
-            <i>✓</i>
-            <b>SELECTED</b>
+            <img src="/images/landing/flexibility/sender-choice.png" alt="" />
           </div>
           <h3>Sender&apos;s choice</h3>
           <p>Handpick specific items and send exactly what you intend.</p>
@@ -33,9 +30,7 @@ export function Flexibility() {
         <article className="choice-three">
           <span>03</span>
           <div className="choice-art choice-art-three">
-            <i>AK</i>
-            <b>+200</b>
-            <i>RS</i>
+            <img src="/images/landing/flexibility/team-to-team.png" alt="" />
           </div>
           <h3>Team-to-team</h3>
           <p>Let employees recognize each other with points redeemable for merch.</p>
