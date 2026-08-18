@@ -12,31 +12,31 @@ import catalogAllProductsImg from "../../../../assets/catalog_page.png";
 const STYLE_CATEGORIES: CategoryTile[] = [
   {
     label: "Apparel",
-    image: "/assets/catalog/apparel.png",
+    image: "/../../../../assets/catalog/apparel.png",
     imageAlt: "Branded hoodie",
     category: "Apparel",
   },
   {
     label: "Drinkware",
-    image: "/assets/catalog/drinkware.png",
+    image: "/../../../../assets/catalog/drinkware.png",
     imageAlt: "Insulated tumbler",
     category: "Drinkware",
   },
   {
     label: "Bags",
-    image: "/assets/catalog/bags.webp",
+    image: "/../../../../assets/catalog/bags.webp",
     imageAlt: "Tote bag",
     category: "Bags",
   },
   {
     label: "Office Supplies",
-    image: "/assets/catalog/office.png",
+    image: "/../../../../assets/catalog/office.png",
     imageAlt: "Notebook and pen",
     category: "Office Supplies",
   },
   {
     label: "Technology",
-    image: "/assets/catalog/technology.png",
+    image: "/../../../../assets/catalog/technology.png",
     imageAlt: "Tech accessories",
     category: "Technology",
   },
@@ -58,13 +58,13 @@ const STYLE_CATEGORIES: CategoryTile[] = [
   // },
   {
     label: "Key Chains",
-    image: "/assets/key-chains.webp",
+    image: "/../../../../assets/catalog/key-chains.webp",
     imageAlt: "Key chains",
     category: "Key Chains",
   },
   {
     label: "Card Holders",
-    image: "/assets/card-holders.webp",
+    image: "/../../../../assets/catalog/card-holders.webp",
     imageAlt: "Card holders",
     category: "Card Holders",
   }
