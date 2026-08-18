@@ -12,31 +12,31 @@ import catalogAllProductsImg from "../../../../assets/catalog_page.png";
 const STYLE_CATEGORIES: CategoryTile[] = [
   {
     label: "Apparel",
-    image: "/assets/apparel.png",
+    image: "/assets/catalog/apparel.png",
     imageAlt: "Branded hoodie",
     category: "Apparel",
   },
   {
     label: "Drinkware",
-    image: "/assets/drinkware.png",
+    image: "/assets/catalog/drinkware.png",
     imageAlt: "Insulated tumbler",
     category: "Drinkware",
   },
   {
     label: "Bags",
-    image: "/assets/bags.webp",
+    image: "/assets/catalog/bags.webp",
     imageAlt: "Tote bag",
     category: "Bags",
   },
   {
     label: "Office Supplies",
-    image: "/assets/office.png",
+    image: "/assets/catalog/office.png",
     imageAlt: "Notebook and pen",
     category: "Office Supplies",
   },
   {
     label: "Technology",
-    image: "/assets/technology.png",
+    image: "/assets/catalog/technology.png",
     imageAlt: "Tech accessories",
     category: "Technology",
   },
