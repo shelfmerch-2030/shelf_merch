@@ -8,35 +8,42 @@ import { CatalogMarketingFooter } from "./CatalogMarketingFooter";
 import "./catalog-view.css";
 import catalogHeroImg from "../../../../assets/catalog_banner.png";
 import catalogAllProductsImg from "../../../../assets/catalog_page.png";
+import apparelImg from "../../../../assets/catalog/apparel.png";
+import bagsImg from "../../../../assets/catalog/bags.webp";
+import cardHoldersImg from "../../../../assets/catalog/card-holders.webp";
+import drinkwareImg from "../../../../assets/catalog/drinkware.png";
+import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
+import officeImg from "../../../../assets/catalog/office.png";
+import technologyImg from "../../../../assets/catalog/technology.png";
 
 const STYLE_CATEGORIES: CategoryTile[] = [
   {
     label: "Apparel",
-    image: "/../../../../assets/catalog/apparel.png",
+    image: apparelImg,
     imageAlt: "Branded hoodie",
     category: "Apparel",
   },
   {
     label: "Drinkware",
-    image: "/../../../../assets/catalog/drinkware.png",
+    image: drinkwareImg,
     imageAlt: "Insulated tumbler",
     category: "Drinkware",
   },
   {
     label: "Bags",
-    image: "/../../../../assets/catalog/bags.webp",
+    image: bagsImg,
     imageAlt: "Tote bag",
     category: "Bags",
   },
   {
     label: "Office Supplies",
-    image: "/../../../../assets/catalog/office.png",
+    image: officeImg,
     imageAlt: "Notebook and pen",
     category: "Office Supplies",
   },
   {
     label: "Technology",
-    image: "/../../../../assets/catalog/technology.png",
+    image: technologyImg,
     imageAlt: "Tech accessories",
     category: "Technology",
   },
@@ -58,13 +65,13 @@ const STYLE_CATEGORIES: CategoryTile[] = [
   // },
   {
     label: "Key Chains",
-    image: "/../../../../assets/catalog/key-chains.webp",
+    image: keyChainsImg,
     imageAlt: "Key chains",
     category: "Key Chains",
   },
   {
     label: "Card Holders",
-    image: "/../../../../assets/catalog/card-holders.webp",
+    image: cardHoldersImg,
     imageAlt: "Card holders",
     category: "Card Holders",
   }
