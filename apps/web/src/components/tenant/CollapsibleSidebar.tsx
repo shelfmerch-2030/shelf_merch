@@ -119,10 +119,12 @@ export function CollapsibleSidebar() {
     const rail = railRef.current;
     if (!rail) return;
     const rect = rail.getBoundingClientRect();
-    const topbar = document.querySelector<HTMLElement>(".tenant-shell .topbar, #app .topbar");
-    const topbarBottom = topbar?.getBoundingClientRect().bottom;
+    if (rect.bottom <= 48) {
+      setTogglePos(null);
+      return;
+    }
     setTogglePos({
-      top: topbarBottom ?? rect.top,
+      top: rect.top,
       left: rect.right - 1,
     });
   }, []);

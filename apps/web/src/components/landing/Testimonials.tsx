@@ -18,7 +18,7 @@ const TESTIMONIALS = [
 
 export function Testimonials() {
   return (
-    <section className="testimonial-section">
+    <section className="testimonial-section" id="testimonials">
       <div className="testimonial-heading">
         <span className="kicker light">WHAT TEAMS SAY</span>
         <h2>

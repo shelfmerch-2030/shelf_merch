@@ -8,7 +8,15 @@ function thumb(p: UiProduct): string | undefined {
 }
 
 /** Catalog/browse product card — faithful to the legacy `pcard()` markup. */
-export function ProductCard({ product, to }: { product: UiProduct; to?: string }) {
+export function ProductCard({
+  product,
+  to,
+  state,
+}: {
+  product: UiProduct;
+  to?: string;
+  state?: { fromCatalog?: string };
+}) {
   const src = thumb(product);
   const swatches = productSwatches(product);
   const preview = swatches.slice(0, 4);
@@ -62,6 +70,7 @@ export function ProductCard({ product, to }: { product: UiProduct; to?: string }
     return (
       <Link
         to={href}
+        state={state}
         className="pcard"
         aria-label={`View ${product.nm}`}
         style={{ textDecoration: "none", color: "inherit" }}

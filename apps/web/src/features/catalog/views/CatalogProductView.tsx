@@ -6,8 +6,16 @@ import { ProductDetail } from "./ProductDetail";
 
 /** Catalog product detail page: loading/error/not-found states + product detail. */
 export function CatalogProductView(vm: CatalogProductVm) {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const catalogHome = pathname.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
+  const backTarget =
+    typeof location.state === "object" &&
+    location.state &&
+    "fromCatalog" in location.state &&
+    typeof location.state.fromCatalog === "string"
+      ? location.state.fromCatalog
+      : catalogHome;
 
   if (vm.isLoading) {
     return <LoadingState message="Loading product…" fullScreen={false} />;
@@ -36,7 +44,7 @@ export function CatalogProductView(vm: CatalogProductVm) {
   return (
     <>
       <Link
-        to={catalogHome}
+        to={backTarget}
         className="lnk"
         style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 14 }}
       >

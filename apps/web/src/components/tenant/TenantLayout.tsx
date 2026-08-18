@@ -15,6 +15,7 @@ import {
   type WorkspaceSnapshot,
 } from "@/services/workspace-api";
 import { normalizeMongoId } from "@/lib/mongoId";
+import { CatalogMarketingFooter } from "@/features/catalog/views/CatalogMarketingFooter";
 
 // The workspace navigation now lives in <CollapsibleSidebar/>; this layout only
 // renders the topbar + sidebar shell.
@@ -88,7 +89,7 @@ export default function TenantLayout() {
   const balanceCaption = isEntityManager ? "Available for you" : "Available balance";
 
   return (
-    <div className="tenant-shell">
+    <div className="tenant-shell tenant-shell--page-scroll">
       <header className="topbar">
         <div className="brandmark">
           <ShelfMerchLogo href="/app" height={32} />
@@ -124,6 +125,7 @@ export default function TenantLayout() {
           </div>
         </main>
       </div>
+      <CatalogMarketingFooter />
     </div>
   );
 }

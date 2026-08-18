@@ -2767,6 +2767,8 @@ const CATEGORY_GROUP_DEFAULTS: Record<string, string[]> = {
   // Wellness: ["Pillows", "Bottles"],
   "Work Essentials": ["Notebooks", "Power Banks"],
   Merch: ["Bags", "Kits"],
+  "Key Chains": ["Keychains"],
+  "Card Holders": ["Card Holders"],
 };
 
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "One Size"];

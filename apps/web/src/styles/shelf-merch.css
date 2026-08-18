@@ -5213,6 +5213,37 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   overflow:hidden;
 }
 
+/* Catalog index: page scrolls so the marketing footer can sit full-width below the sidebar. */
+.tenant-shell--page-scroll{
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+.tenant-shell--page-scroll .topbar{
+  position:sticky;
+  top:0;
+}
+.tenant-shell--page-scroll .body{
+  flex:1 0 auto;
+  overflow:visible;
+  min-height:calc(100vh - 64px);
+  align-items:stretch;
+}
+.tenant-shell--page-scroll .main{
+  overflow:visible;
+  min-height:calc(100vh - 64px);
+}
+/* Stretch the rail with the content column down to the marketing footer.
+   Sticky `top: 64px` on the rail sat it below the header and left a white gap. */
+.tenant-shell--page-scroll .sidebar-rail{
+  position:relative;
+  top:auto;
+  align-self:stretch;
+  height:auto;
+  min-height:100%;
+  max-height:none;
+  overflow:visible;
+}
+
 /* public store (shop + redemption) */
 .store{min-height:100vh;display:flex;flex-direction:column}
 

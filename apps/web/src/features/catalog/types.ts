@@ -11,6 +11,8 @@ export const CATALOG_CATEGORIES = [
   "Technology",
   "Office Supplies",
   // "Health & Wellness",
+  "Key Chains",
+  "Card Holders"
 ] as const;
 
 export const ALL_PRODUCTS = "All Products";
@@ -28,6 +30,8 @@ const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
   "office-supplies": "Office Supplies",
   // "health & wellness": "Health & Wellness",
   "all products": "All Products",
+  "key chains": "Key Chains",
+  "card holders": "Card Holders"
 };
 
 /** Map a landing/query category string onto a catalog tab. */
@@ -37,6 +41,16 @@ export function resolveCatalogCategory(raw: string | null | undefined): string {
   const exact = CATALOG_CATEGORIES.find((c) => c.toLowerCase() === key);
   if (exact) return exact;
   return CATEGORY_ALIASES[key] ?? ALL_PRODUCTS;
+}
+
+/** Stable URL slug for a catalog category page. */
+export function catalogCategorySlug(category: string): string {
+  return String(category || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 /** Parse a "Label: value" newline block into rows (key features / size guide). */

@@ -580,6 +580,9 @@
   min-height: 100vh;
   background: #f7f3ea;
 }
+.public-catalog--marketing {
+  background: #fff;
+}
 .public-catalog-chrome {
   background: transparent;
   overflow: visible;
@@ -589,6 +592,15 @@
 }
 .public-catalog-main {
   padding-top: 96px;
+}
+.public-catalog-main--flush {
+  padding: 69.7px 0 0;
+  max-width: none;
+}
+@media (max-width: 760px) {
+  .public-catalog-main--flush {
+    padding-top: 59.5px;
+  }
 }
 
 /* Marketing footer — matches the dark multi-column mockup */

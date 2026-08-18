@@ -18,12 +18,17 @@ export const CATALOG_QUERY_KEY = "catalog";
  * (`refreshCatalogProducts`), cached per category. The "All Products" tab is
  * seeded from the workspace snapshot to avoid a load flash on first paint.
  */
-export function useCatalog(category: string, seed?: CatalogProductsResult) {
+export function useCatalog(
+  category: string,
+  seed?: CatalogProductsResult,
+  enabled: boolean = true,
+) {
   return useQuery({
     queryKey: [CATALOG_QUERY_KEY, category],
     queryFn: () => refreshCatalogProducts(category === ALL_PRODUCTS ? undefined : category),
-    initialData: category === ALL_PRODUCTS ? seed : undefined,
+    initialData: enabled && category === ALL_PRODUCTS ? seed : undefined,
     staleTime: 30_000,
+    enabled,
   });
 }
 

@@ -246,6 +246,27 @@ export const appRouter = createBrowserRouter([
         children: [
           { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
           {
+            path: "category/:category",
+            lazy: page(() => import("@/features/catalog/CatalogCategoryPage"), "CatalogCategoryPage"),
+          },
+          {
+            path: ":id",
+            lazy: page(() => import("@/features/catalog/CatalogProductPage"), "CatalogProductPage"),
+          },
+        ],
+      },
+      {
+        // Public alias: allow unauthenticated access to the catalog under `/app/*`
+        // without the tenant auth redirect from `TenantLayout`.
+        path: "app/catalog",
+        lazy: page(() => import("@/features/catalog/PublicCatalogPage"), "PublicCatalogLayout"),
+        children: [
+          { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
+          {
+            path: "category/:category",
+            lazy: page(() => import("@/features/catalog/CatalogCategoryPage"), "CatalogCategoryPage"),
+          },
+          {
             path: ":id",
             lazy: page(() => import("@/features/catalog/CatalogProductPage"), "CatalogProductPage"),
           },

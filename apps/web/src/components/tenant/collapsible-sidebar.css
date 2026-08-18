@@ -59,18 +59,18 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 40px 0 24px;
+  padding: 12px 0 24px;
 }
 
 .sidebar-rail--expanded .sidebar-rail__nav {
-  padding: 18px 10px 24px;
+  padding: 12px 10px 24px;
   gap: 4px;
 }
 
 .sidebar-rail:not(.sidebar-rail--expanded) .sidebar-rail__nav {
   align-items: center;
   gap: 2px;
-  padding-top: 44px;
+  padding-top: 12px;
 }
 
 .sidebar-rail__item {

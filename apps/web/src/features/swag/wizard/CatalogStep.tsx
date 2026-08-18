@@ -3,14 +3,48 @@ import type { UiProduct } from "@/services/mappers";
 import { ProductThumb } from "@/features/shops/ProductThumb";
 import { productColorHex, productColorNames } from "../colors";
 
-const CATS = ["All Products", "Apparel", "Bags", "Drinkware", "Technology", "Office"];
+const CATS = ["All Products", "Apparel", "Bags", "Drinkware", "Technology", "Office Supplies", "Key Chains", "Card Holders"];
 const CAT_MAP: Record<string, string[]> = {
   Apparel: ["tee", "hoodie", "cap"],
   Bags: ["pack", "bag"],
   Drinkware: ["bottle", "mug"],
   Technology: ["power"],
-  Office: ["note"],
+  // In catalog mapping, "Office" tends to map to group `note`
+  // (see `GROUP_BY_CATEGORY` in `apps/web/src/services/mappers.ts`).
+  "Office Supplies": ["note", "notebook", "pen"],
+  "Key Chains": ["keychain"],
+  "Card Holders": ["cardholder"],
 };
+
+function matchesSwagCatalogTab(tab: string, p: UiProduct): boolean {
+  if (tab === "All Products") return true;
+
+  const g = String(p.g || "").toLowerCase().trim();
+  const category = String(p.category || "").toLowerCase().trim();
+  const name = String(p.nm || "").toLowerCase().trim();
+
+  // Keep these tab labels user-friendly but match against the real underlying group/category/name
+  // fields that come back from the catalog mapper.
+  if (tab === "Office Supplies") {
+    const hay = `${category} ${name}`;
+    return (
+      (CAT_MAP[tab] || []).includes(g) ||
+      /office|stationery|notebook|pen|diary|journal|note/.test(hay)
+    );
+  }
+
+  if (tab === "Key Chains") {
+    const hay = `${category} ${name}`;
+    return (CAT_MAP[tab] || []).includes(g) || /key\s*chain|keychain|key/.test(hay);
+  }
+
+  if (tab === "Card Holders") {
+    const hay = `${category} ${name}`;
+    return (CAT_MAP[tab] || []).includes(g) || /card\s*holder|cardholder|card/.test(hay);
+  }
+
+  return (CAT_MAP[tab] || []).includes(g);
+}
 
 export function CatalogStep({
   catalog,
@@ -28,7 +62,7 @@ export function CatalogStep({
   const [cat, setCat] = useState("All Products");
   const entries = catalog
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => cat === "All Products" || (CAT_MAP[cat] || []).includes(p.g));
+    .filter(({ p }) => matchesSwagCatalogTab(cat, p));
 
   return (
     <>

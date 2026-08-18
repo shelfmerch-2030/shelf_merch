@@ -1,12 +1,18 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useCatalog } from "../model";
-import { ALL_PRODUCTS, CATALOG_CATEGORIES, resolveCatalogCategory } from "../types";
+import {
+  ALL_PRODUCTS,
+  CATALOG_CATEGORIES,
+  catalogCategorySlug,
+  resolveCatalogCategory,
+} from "../types";
 import type { UiProduct } from "../model";
 
 export type CatalogVm = {
   category: string;
+  isCategorySelected: boolean;
   categories: readonly string[];
   items: UiProduct[];
   count: number;
@@ -18,20 +24,30 @@ export type CatalogVm = {
 /** Controller for the catalog grid: category tabs + per-category product query. */
 export function useCatalogController(): CatalogVm {
   const { data: workspace } = useWorkspace();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const category = resolveCatalogCategory(searchParams.get("category"));
+  const navigate = useNavigate();
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+  const rawCategory = params.category ?? searchParams.get("category");
+  const isCategorySelected = Boolean(rawCategory && rawCategory.trim() !== "");
+  const category = resolveCatalogCategory(rawCategory);
 
-  const seed = useMemo(
-    () =>
-      workspace ? { items: workspace.catalogProducts, total: workspace.catalogTotal } : undefined,
-    [workspace],
+  const seed = useMemo(() => {
+    if (!isCategorySelected) return undefined;
+    return workspace
+      ? { items: workspace.catalogProducts, total: workspace.catalogTotal }
+      : undefined;
+  }, [workspace, isCategorySelected]);
+
+  const { data, isLoading, isError, error, isFetching } = useCatalog(
+    category,
+    seed,
+    isCategorySelected,
   );
-
-  const { data, isLoading, isError, error, isFetching } = useCatalog(category, seed);
   const items = data?.items ?? [];
 
   return {
     category,
+    isCategorySelected,
     categories: CATALOG_CATEGORIES,
     items,
     count: data?.total ?? items.length,
@@ -42,10 +58,21 @@ export function useCatalogController(): CatalogVm {
         : "Could not load catalog products"
       : null,
     onCategory: (next) => {
-      const nextParams = new URLSearchParams(searchParams);
-      if (next === ALL_PRODUCTS) nextParams.delete("category");
-      else nextParams.set("category", next);
-      setSearchParams(nextParams, { replace: true });
+      const currentPath = window.location.pathname;
+      const isPublic = currentPath.startsWith("/apps/catalog");
+      const basePath = isPublic ? "/apps/catalog" : "/app/catalog";
+
+      if (next === ALL_PRODUCTS) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("category");
+        navigate(
+          `${basePath}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`,
+          { replace: false },
+        );
+        return;
+      }
+
+      navigate(`${basePath}/category/${catalogCategorySlug(next)}`);
     },
   };
 }

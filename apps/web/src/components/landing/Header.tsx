@@ -37,7 +37,7 @@ export function Header() {
           Platform
         </a>
         <ResourceDropdown onNavigate={closeMenu} />
-        <Link to="/apps/catalog" onClick={closeMenu}>
+        <Link to="/app/catalog" onClick={closeMenu}>
           Catalog
         </Link>
         <a href="/about" onClick={closeMenu}>
