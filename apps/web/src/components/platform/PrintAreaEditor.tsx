@@ -35,6 +35,31 @@ export const CUSTOMIZATION_METHODS = [
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
+function uniquePrintAreaKey(areas: PrintArea[], preferred: string, selfIndex = -1): string {
+  const base = slug(preferred) || `area_${areas.length + 1}`;
+  const used = new Set(
+    areas
+      .map((a, i) => (i === selfIndex ? "" : (a.key || "").trim()))
+      .filter(Boolean),
+  );
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(`${base}_${n}`)) n += 1;
+  return `${base}_${n}`;
+}
+
+function uniquePrintAreaLabel(areas: PrintArea[], preferred: string, selfIndex = -1): string {
+  const used = new Set(
+    areas
+      .map((a, i) => (i === selfIndex ? "" : (a.label || "").trim().toLowerCase()))
+      .filter(Boolean),
+  );
+  if (!used.has(preferred.toLowerCase())) return preferred;
+  let n = 2;
+  while (used.has(`${preferred} ${n}`.toLowerCase())) n += 1;
+  return `${preferred} ${n}`;
+}
+
 const SNAP = 6;
 const MIN_PX = 16;
 const BRAND = "#3D5FD9";
@@ -228,9 +253,9 @@ export function PrintAreaEditor({
   function addArea() {
     const n = value.length + 1;
     const view = imageViews?.find((v) => resolveMediaUrl(v.url) === mockup);
-    const key = view?.key || `area_${n}`;
-    const label = view?.label || `Area ${n}`;
-    const frame = physicalFrameForView(phys, key);
+    const key = uniquePrintAreaKey(value, view?.key || `area_${n}`);
+    const label = uniquePrintAreaLabel(value, view?.label || `Area ${n}`);
+    const frame = physicalFrameForView(phys, view?.key || key);
     const centered = defaultCenteredPlaceholder(frame);
     const draft: PrintArea = {
       key,
@@ -782,7 +807,13 @@ export function PrintAreaEditor({
               <input
                 className="inp"
                 value={area.label}
-                onChange={(e) => update(selected, { label: e.target.value, key: slug(e.target.value) })}
+                onChange={(e) => {
+                  const label = e.target.value;
+                  update(selected, {
+                    label,
+                    key: uniquePrintAreaKey(value, slug(label) || `area_${selected + 1}`, selected),
+                  });
+                }}
               />
             </div>
             <div className="row" style={{ gap: 10 }}>

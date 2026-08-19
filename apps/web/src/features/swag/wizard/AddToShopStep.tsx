@@ -9,7 +9,7 @@ import {
   listPrintAreasForView,
   listProductViews,
   placementKey,
-  printAreaStableKey,
+  printAreaKey,
   printAreaViewKey,
   type Placement,
   type ProductViewKey,
@@ -26,7 +26,7 @@ function areaArtCount(
   const list = areas.length ? areas : [null];
   const total = Math.max(1, list.length);
   const designed = list.filter((a, i) =>
-    Boolean(areaArts[areaPlacementKey(product, idx, printAreaStableKey(a, i))]),
+    Boolean(areaArts[areaPlacementKey(product, idx, printAreaKey(product, a, i))]),
   ).length;
   return { designed, total };
 }
@@ -283,7 +283,7 @@ export function AddToShopStep({
               <div className="sw-publish-areas-label">Print areas</div>
               <ul className="sw-publish-areas">
                 {listPrintAreas(selected).map((area, i) => {
-                  const areaKey = printAreaStableKey(area, i);
+                  const areaKey = printAreaKey(selected, area, i);
                   const draftKey = areaPlacementKey(selected, selectedIdx, areaKey);
                   const designed = Boolean(areaArts[draftKey]?.preview);
                   const view = printAreaViewKey(selected, area);

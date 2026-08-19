@@ -14,7 +14,7 @@ import {
   listProductViews,
   placementKey,
   primaryAreaKey,
-  printAreaStableKey,
+  printAreaKey,
   printAreaViewKey,
   type Placement,
   type ProductViewKey,
@@ -36,7 +36,7 @@ function productHasArtwork(
   const areas = listPrintAreas(product);
   const list = areas.length ? areas : [null];
   return list.some((a, i) =>
-    Boolean(areaArts[areaPlacementKey(product, idx, printAreaStableKey(a, i))]),
+    Boolean(areaArts[areaPlacementKey(product, idx, printAreaKey(product, a, i))]),
   );
 }
 
@@ -45,7 +45,7 @@ function defaultAreaKey(product: UiProduct, view: ProductViewKey = "front"): str
   if (areas.length) {
     const all = listPrintAreas(product);
     const a = areas[0];
-    return printAreaStableKey(a, Math.max(0, all.indexOf(a)));
+    return printAreaKey(product, a, Math.max(0, all.indexOf(a)));
   }
   if (view === "front") return primaryAreaKey(product);
   return "";
@@ -104,7 +104,7 @@ export function ArtworkStep({
     const view = views.includes(focus.view) ? focus.view : views[0] || "front";
     const keys = listPrintAreasForView(p, view).map((a) => {
       const all = listPrintAreas(p);
-      return printAreaStableKey(a, Math.max(0, all.indexOf(a)));
+      return printAreaKey(p, a, Math.max(0, all.indexOf(a)));
     });
     const nextKey = keys.includes(focus.areaKey)
       ? focus.areaKey
@@ -132,7 +132,7 @@ export function ArtworkStep({
     focus && focusedProduct
       ? focusedAreas.find(
           (a) =>
-            printAreaStableKey(a, Math.max(0, allFocusedAreas.indexOf(a))) === focus.areaKey,
+            printAreaKey(focusedProduct, a, Math.max(0, allFocusedAreas.indexOf(a))) === focus.areaKey,
         ) || focusedAreas[0]
       : null;
   const focusedAreaLabel = focusedArea?.label || focus?.areaKey || "print area";
@@ -155,7 +155,7 @@ export function ArtworkStep({
       focus?.view && views.includes(focus.view) ? focus.view : views[0] || "front";
     const keys = listPrintAreasForView(p, view).map((a) => {
       const all = listPrintAreas(p);
-      return printAreaStableKey(a, Math.max(0, all.indexOf(a)));
+      return printAreaKey(p, a, Math.max(0, all.indexOf(a)));
     });
     const keep =
       focus?.areaKey && keys.includes(focus.areaKey)
@@ -168,7 +168,7 @@ export function ArtworkStep({
     if (!focusedProduct || focus == null) return;
     const keys = listPrintAreasForView(focusedProduct, view).map((a) => {
       const all = listPrintAreas(focusedProduct);
-      return printAreaStableKey(a, Math.max(0, all.indexOf(a)));
+      return printAreaKey(focusedProduct, a, Math.max(0, all.indexOf(a)));
     });
     setFocus({
       productIdx: focus.productIdx,
@@ -232,7 +232,7 @@ export function ArtworkStep({
     const areas = listPrintAreas(focusedProduct);
     const list = areas.length ? areas : [null];
     const keys = list.map((a, i) =>
-      areaPlacementKey(focusedProduct, focus.productIdx, printAreaStableKey(a, i)),
+      areaPlacementKey(focusedProduct, focus.productIdx, printAreaKey(focusedProduct, a, i)),
     );
     onSetAreaArts(keys, file);
     remember(file);
@@ -244,7 +244,7 @@ export function ArtworkStep({
     products.forEach((p, idx) => {
       const areas = listPrintAreas(p);
       const list = areas.length ? areas : [null];
-      list.forEach((a, i) => keys.push(areaPlacementKey(p, idx, printAreaStableKey(a, i))));
+      list.forEach((a, i) => keys.push(areaPlacementKey(p, idx, printAreaKey(p, a, i))));
     });
     onSetAreaArts(keys, file);
     onSetArt(file);
@@ -400,7 +400,7 @@ export function ArtworkStep({
                       fillContainer
                       onSelectArea={(areaKey) => {
                         const area = listPrintAreas(focusedProduct).find(
-                          (a, i) => printAreaStableKey(a, i) === areaKey,
+                          (a, i) => printAreaKey(focusedProduct, a, i) === areaKey,
                         );
                         setFocus({
                           productIdx: focusIdx,
@@ -440,6 +440,9 @@ export function ArtworkStep({
                     {Number(focusedArea.widthIn).toFixed(2)}″ ×{" "}
                     {Number(focusedArea.heightIn).toFixed(2)}″
                     {focusedArea.dpi ? ` · ${focusedArea.dpi} DPI` : ""}
+                    {Number(focusedArea.rotationDeg)
+                      ? ` · ${Math.round(Number(focusedArea.rotationDeg))}°`
+                      : ""}
                   </div>
                 ) : null}
               </>

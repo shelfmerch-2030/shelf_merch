@@ -396,6 +396,37 @@ export function designPlacementOnMockup(args: {
   };
 }
 
+/**
+ * Map a point in print-area local space (origin = unrotated top-left) into
+ * parent space. Rotation matches Konva / CSS `transform-origin: top left`.
+ */
+export function printLocalToParent(
+  localX: number,
+  localY: number,
+  originX: number,
+  originY: number,
+  rotationDeg = 0,
+): { x: number; y: number } {
+  const rad = ((rotationDeg || 0) * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return {
+    x: originX + localX * c - localY * s,
+    y: originY + localX * s + localY * c,
+  };
+}
+
+/** Inverse of `printLocalToParent`. */
+export function parentToPrintLocal(
+  parentX: number,
+  parentY: number,
+  originX: number,
+  originY: number,
+  rotationDeg = 0,
+): { x: number; y: number } {
+  return printLocalToParent(parentX - originX, parentY - originY, 0, 0, -(rotationDeg || 0));
+}
+
 export function cmToIn(cm: number): number {
   return cm / 2.54;
 }

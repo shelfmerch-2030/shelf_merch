@@ -215,10 +215,12 @@ function TintedMockupImage({
   const [failed, setFailed] = useState(false);
   const reqRef = useRef(0);
   const layersKey = layers.map((l) => `${l.areaKey}:${l.artUrl}`).join("|");
+  const productId = product.id;
 
   useEffect(() => {
     const req = ++reqRef.current;
     setFailed(false);
+    setSrc("");
     bakeTintedMockupLayers(product, layers, tintHex, 1000, maskUrl)
       .then((url) => {
         if (req !== reqRef.current) return;
@@ -228,7 +230,8 @@ function TintedMockupImage({
       .catch(() => {
         if (req === reqRef.current) setFailed(true);
       });
-  }, [product, layersKey, tintHex, maskUrl]);
+    // product/layers are read from this render; identity changes every parent render.
+  }, [productId, layersKey, tintHex, maskUrl]);
 
   if (failed || !src) return fallback;
   return (

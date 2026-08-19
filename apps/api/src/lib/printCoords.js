@@ -232,6 +232,21 @@ export function designPlacementOnMockup({
   };
 }
 
+/** Map print-area local coords into parent space (Konva top-left rotation). */
+export function printLocalToParent(localX, localY, originX, originY, rotationDeg = 0) {
+  const rad = ((rotationDeg || 0) * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return {
+    x: originX + localX * c - localY * s,
+    y: originY + localX * s + localY * c,
+  };
+}
+
+export function parentToPrintLocal(parentX, parentY, originX, originY, rotationDeg = 0) {
+  return printLocalToParent(parentX - originX, parentY - originY, 0, 0, -(rotationDeg || 0));
+}
+
 /**
  * Artwork placement. Print-area % is preferred; canvas % is mirrored for legacy readers.
  */

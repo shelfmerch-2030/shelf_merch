@@ -5,7 +5,7 @@ import {
   listPrintAreas,
   placementKey,
   primaryAreaKey,
-  printAreaStableKey,
+  printAreaKey,
   type Placement,
 } from "./mockup-bake";
 import type { SwagDraft } from "./swagDraft";
@@ -46,7 +46,7 @@ export function draftFromCollection(collection: UiCollection, catalog: UiProduct
       // If catalog has multiple areas but only one saved placement, seed primary only.
       if (areas.length > 1) {
         areas.forEach((a, ai) => {
-          const key = printAreaStableKey(a, ai);
+          const key = printAreaKey(catalogProduct, a, ai);
           if (key === primary) return;
           // leave unset so user can place per area
         });

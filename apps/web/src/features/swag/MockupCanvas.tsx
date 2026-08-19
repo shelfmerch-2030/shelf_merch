@@ -3,10 +3,14 @@ import type Konva from "konva";
 import type { UiProduct } from "@/services/mappers";
 import {
   CANVAS_HEIGHT,
+  CANVAS_PADDING,
   CANVAS_WIDTH,
   MIN_EFFECTIVE_DPI,
   effectiveArtworkDpi,
+  hasPrintRelativePlacement,
+  parentToPrintLocal,
   placementToStagePixels,
+  printLocalToParent,
   stagePixelsToArtworkPlacement,
 } from "@/lib/printCoords";
 import {
@@ -19,7 +23,7 @@ import {
   loadImageEl,
   placementKey,
   primaryAreaKey,
-  printAreaStableKey,
+  printAreaKey as catalogPrintAreaKey,
   printAreaViewKey,
   productHasPrintArea,
   resolveMediaSrc,
@@ -88,6 +92,47 @@ function layersSignature(layers: MockupAreaLayer[]): string {
   return layers.map((l) => `${l.areaKey}:${l.artUrl || ""}`).join("|");
 }
 
+function localPrintStage(box: PrintBoxPx) {
+  return { x: 0, y: 0, w: box.bw, h: box.bh };
+}
+
+function localBox(box: PrintBoxPx): PrintBoxPx {
+  return { bx: 0, by: 0, bw: box.bw, bh: box.bh };
+}
+
+function placementToLocalPixels(
+  pl: Placement,
+  box: PrintBoxPx,
+  plateRot: number,
+  printStage: { x: number; y: number; w: number; h: number },
+) {
+  if (hasPrintRelativePlacement(pl)) {
+    return placementToStagePixels(pl, localPrintStage(box));
+  }
+  const stagePx = placementToStagePixels(pl, printStage);
+  const local = parentToPrintLocal(stagePx.cx, stagePx.cy, box.bx, box.by, plateRot);
+  return { ...stagePx, cx: local.x, cy: local.y };
+}
+
+function localPixelsToPlacement(
+  localCx: number,
+  localCy: number,
+  w: number,
+  artRot: number,
+  box: PrintBoxPx,
+  plateRot: number,
+): Placement {
+  const pl = stagePixelsToArtworkPlacement(localCx, localCy, w, artRot, localPrintStage(box));
+  const abs = printLocalToParent(localCx, localCy, box.bx, box.by, plateRot);
+  const canvas = stagePixelsToArtworkPlacement(abs.x, abs.y, w, artRot, {
+    x: box.bx,
+    y: box.by,
+    w: box.bw,
+    h: box.bh,
+  });
+  return { ...pl, xPct: canvas.xPct, yPct: canvas.yPct, wPct: canvas.wPct };
+}
+
 /**
  * Live mockup: garment mask + all print-area placeholders on one image.
  * Active area artwork is editable; other areas show placed art read-only.
@@ -122,6 +167,7 @@ export function MockupCanvas({
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const stageBoxRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   const onSelectRef = useRef(onSelectArea);
   const layersRef = useRef(layersProp);
@@ -147,7 +193,7 @@ export function MockupCanvas({
 
   const activeAreaKey = activeAreaKeyProp || printAreaKey || (layersProp?.length ? undefined : layers[0]?.areaKey);
   const activeArea = activeAreaKey
-    ? listPrintAreas(product).find((a, i) => printAreaStableKey(a, i) === activeAreaKey)
+    ? listPrintAreas(product).find((a, i) => catalogPrintAreaKey(product, a, i) === activeAreaKey)
     : null;
   const resolvedView: ProductViewKey =
     viewProp || (activeArea ? printAreaViewKey(product, activeArea) : "front");
@@ -173,7 +219,8 @@ export function MockupCanvas({
   useEffect(() => {
     const host = hostRef.current;
     const wrap = wrapRef.current;
-    if (!host || !wrap) return;
+    const stageBox = stageBoxRef.current;
+    if (!host || !wrap || !stageBox) return;
     let stage: Konva.Stage | null = null;
     let cancelled = false;
 
@@ -213,14 +260,7 @@ export function MockupCanvas({
       const offsetX = Math.max(0, (wrap.clientWidth - drawnW) / 2);
       const offsetY = Math.max(0, (wrap.clientHeight - drawnH) / 2);
       host.innerHTML = "";
-      host.style.position = "absolute";
-      host.style.left = "0";
-      host.style.top = "0";
-      host.style.width = `${CANVAS_WIDTH}px`;
-      host.style.height = `${CANVAS_HEIGHT}px`;
-      host.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${fit})`;
-      host.style.transformOrigin = "top left";
-      host.style.willChange = "transform";
+      stageBox.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${fit})`;
 
       stage = new Konva.Stage({ container: host, width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
       const layer = new Konva.Layer();
@@ -240,6 +280,7 @@ export function MockupCanvas({
         printStage: ReturnType<typeof resolvePrintAreaStage>["stage"];
         ph: ReturnType<typeof resolvePrintAreaStage>["ph"];
         box: PrintBoxPx;
+        plateRot: number;
         ppi: number;
         artImg: HTMLImageElement | HTMLCanvasElement | null;
         placement?: Placement;
@@ -258,21 +299,31 @@ export function MockupCanvas({
             bw: resolved.stage.w,
             bh: resolved.stage.h,
           },
+          plateRot: resolved.ph.rotationDeg || 0,
           ppi: resolved.stage.pxPerInch,
           artImg: entry.artImg,
           placement: entry.placement,
         };
       });
 
-      // Draw all placeholder boxes first (inactive under art).
+      const plates = new Map<string, Konva.Group>();
+
+      // Draw all placeholder boxes first (inactive under art). Rotation matches
+      // Edit Catalog (Konva top-left origin).
       for (const g of geoms) {
         const isActive = g.areaKey === activeAreaKey;
         const hasActive = Boolean(activeAreaKey);
         const dimmed = hasActive && !isActive;
-        layer.add(
+        const plate = new Konva.Group({
+          x: g.box.bx,
+          y: g.box.by,
+          rotation: g.plateRot,
+          name: `plate:${g.areaKey}`,
+        });
+        plate.add(
           new Konva.Rect({
-            x: g.box.bx,
-            y: g.box.by,
+            x: 0,
+            y: 0,
             width: g.box.bw,
             height: g.box.bh,
             stroke: isActive ? BRAND : dimmed ? "rgba(61,95,217,.22)" : "rgba(61,95,217,.55)",
@@ -289,10 +340,13 @@ export function MockupCanvas({
             name: `box:${g.areaKey}`,
           }),
         );
+        layer.add(plate);
+        plates.set(g.areaKey, plate);
         layer.add(
           new Konva.Text({
             x: g.box.bx,
             y: Math.max(0, g.box.by - 18),
+            rotation: g.plateRot,
             text: `${g.label} · ${g.ph.widthIn.toFixed(2)}×${g.ph.heightIn.toFixed(2)} in`,
             fontSize: isActive ? 12 : 11,
             fill: isActive ? BRAND : dimmed ? "rgba(61,95,217,.4)" : "rgba(61,95,217,.85)",
@@ -312,7 +366,10 @@ export function MockupCanvas({
       for (const g of geoms) {
         if (!g.artImg) continue;
         const isActive = g.areaKey === activeAreaKey;
-        const { bx, by, bw, bh } = g.box;
+        const { bw, bh } = g.box;
+        const plate = plates.get(g.areaKey);
+        if (!plate) continue;
+        const bounds = localBox(g.box);
         const artNaturalWidth = (g.artImg as HTMLImageElement).naturalWidth || g.artImg.width || 0;
         const aspect =
           ((g.artImg as HTMLImageElement).naturalHeight || g.artImg.height || 1) /
@@ -321,24 +378,24 @@ export function MockupCanvas({
         let pl = g.placement;
         if (!pl) {
           const fitW = Math.min(bw * 0.92, (bh * 0.92) / aspect);
-          pl = stagePixelsToArtworkPlacement(bx + bw / 2, by + bh / 2, fitW, 0, g.printStage);
+          pl = localPixelsToPlacement(bw / 2, bh / 2, fitW, 0, g.box, g.plateRot);
           if (isActive) onChangeRef.current?.(pl, g.areaKey);
         }
 
-        const stagePx = placementToStagePixels(pl, g.printStage);
+        const stagePx = placementToLocalPixels(pl, g.box, g.plateRot, g.printStage);
         const rot0 = stagePx.rot || 0;
         let w0 = stagePx.w;
         const maxW0 = maxFitWidth(aspect, rot0, bw, bh);
         if (w0 > maxW0) w0 = maxW0;
         let h0 = w0 * aspect;
-        const center0 = clampCenter(stagePx.cx, stagePx.cy, w0, h0, rot0, g.box);
+        const center0 = clampCenter(stagePx.cx, stagePx.cy, w0, h0, rot0, bounds);
         if (
           isActive &&
           (Math.abs(center0.x - stagePx.cx) > 0.5 ||
             Math.abs(center0.y - stagePx.cy) > 0.5 ||
             Math.abs(w0 - stagePx.w) > 0.5)
         ) {
-          pl = stagePixelsToArtworkPlacement(center0.x, center0.y, w0, rot0, g.printStage);
+          pl = localPixelsToPlacement(center0.x, center0.y, w0, rot0, g.box, g.plateRot);
           onChangeRef.current?.(pl, g.areaKey);
         }
 
@@ -350,7 +407,7 @@ export function MockupCanvas({
         const realArt = buildRealisticArtwork(g.artImg as HTMLImageElement, product?.g);
         const clipGroup = new Konva.Group({
           clipFunc: (ctx) => {
-            ctx.rect(bx, by, bw, bh);
+            ctx.rect(0, 0, bw, bh);
           },
           name: `clip:${g.areaKey}`,
         });
@@ -372,12 +429,12 @@ export function MockupCanvas({
             ? (pos) => {
                 const w = Math.abs(node.width() * node.scaleX());
                 const h = Math.abs(node.height() * node.scaleY());
-                return clampCenter(pos.x, pos.y, w, h, node.rotation(), g.box);
+                return clampCenter(pos.x, pos.y, w, h, node.rotation(), bounds);
               }
             : undefined,
         });
         clipGroup.add(node);
-        layer.add(clipGroup);
+        plate.add(clipGroup);
 
         if (isActive) {
           activeNode = node;
@@ -390,7 +447,8 @@ export function MockupCanvas({
       if (activeNode && activeGeom) {
         const node = activeNode;
         const g = activeGeom;
-        const { bx, by, bw, bh } = g.box;
+        const { bw, bh } = g.box;
+        const bounds = localBox(g.box);
         const aspect = activeAspect;
 
         function confineNode() {
@@ -405,7 +463,7 @@ export function MockupCanvas({
             w = maxW;
             h = maxW * aspect;
           }
-          const pos = clampCenter(node.x(), node.y(), w, h, rot, g.box);
+          const pos = clampCenter(node.x(), node.y(), w, h, rot, bounds);
           node.position(pos);
         }
 
@@ -421,16 +479,22 @@ export function MockupCanvas({
           boundBoxFunc: (o, n) => {
             if (n.width < MIN_ART_PX || n.height < MIN_ART_PX) return o;
             const nAspect = n.height / Math.max(n.width, 1e-6);
-            const maxW = maxFitWidth(nAspect, n.rotation, bw, bh);
+            const artRot = n.rotation - g.plateRot;
+            const maxW = maxFitWidth(nAspect, artRot, bw, bh);
             if (n.width > maxW + 0.5) return o;
-            const { halfW, halfH } = rotatedHalfExtents(n.width, n.height, n.rotation);
-            const cx = n.x + n.width / 2;
-            const cy = n.y + n.height / 2;
+            const { halfW, halfH } = rotatedHalfExtents(n.width, n.height, artRot);
+            const local = parentToPrintLocal(
+              n.x + n.width / 2,
+              n.y + n.height / 2,
+              g.box.bx,
+              g.box.by,
+              g.plateRot,
+            );
             if (
-              cx - halfW < bx - 0.5 ||
-              cy - halfH < by - 0.5 ||
-              cx + halfW > bx + bw + 0.5 ||
-              cy + halfH > by + bh + 0.5
+              local.x - halfW < -0.5 ||
+              local.y - halfH < -0.5 ||
+              local.x + halfW > bw + 0.5 ||
+              local.y + halfH > bh + 0.5
             ) {
               return o;
             }
@@ -449,12 +513,12 @@ export function MockupCanvas({
           node.height(nh);
           node.offsetX(nw / 2);
           node.offsetY(nh / 2);
-          const pos = clampCenter(node.x(), node.y(), nw, nh, node.rotation(), g.box);
+          const pos = clampCenter(node.x(), node.y(), nw, nh, node.rotation(), bounds);
           node.position(pos);
           const nextEff = effectiveArtworkDpi(activeNaturalW, nw, g.ppi);
           setDpiWarn(nextEff > 0 && nextEff < MIN_EFFECTIVE_DPI ? Math.round(nextEff) : null);
           onChangeRef.current?.(
-            stagePixelsToArtworkPlacement(pos.x, pos.y, nw, Math.round(node.rotation()), g.printStage),
+            localPixelsToPlacement(pos.x, pos.y, nw, Math.round(node.rotation()), g.box, g.plateRot),
             g.areaKey,
           );
           transformer?.forceUpdate();
@@ -524,37 +588,50 @@ export function MockupCanvas({
             }
       }
     >
-      {/* Stable product backdrop — layout never depends on Konva children. */}
-      {maskSrc ? (
-        <img
-          src={maskSrc}
-          alt=""
-          draggable={false}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            objectPosition: "center center",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-      ) : null}
+      {/* Logical 800×600 stage — same padded mockup frame as Edit Catalog. */}
       <div
-        ref={hostRef}
+        ref={stageBoxRef}
         style={{
           position: "absolute",
           top: 0,
           left: 0,
           width: CANVAS_WIDTH,
           height: CANVAS_HEIGHT,
-          zIndex: 1,
-          pointerEvents: "auto",
-          /* Do not use contain:paint — CSS scale must not clip Konva overlays. */
+          transformOrigin: "top left",
+          willChange: "transform",
+          zIndex: 0,
         }}
-      />
+      >
+        {maskSrc ? (
+          <img
+            src={maskSrc}
+            alt=""
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: CANVAS_PADDING,
+              top: CANVAS_PADDING,
+              width: CANVAS_WIDTH - 2 * CANVAS_PADDING,
+              height: CANVAS_HEIGHT - 2 * CANVAS_PADDING,
+              objectFit: "contain",
+              objectPosition: "center center",
+              pointerEvents: "none",
+            }}
+          />
+        ) : null}
+        <div
+          ref={hostRef}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT,
+            zIndex: 1,
+            pointerEvents: "auto",
+            /* Do not use contain:paint — CSS scale must not clip Konva overlays. */
+          }}
+        />
+      </div>
       {dpiWarn != null && (
         <div
           style={{
@@ -599,7 +676,7 @@ export function buildMockupLayers(
   const allAreas = listPrintAreas(product);
   return list.map((a) => {
     const i = a ? Math.max(0, allAreas.indexOf(a)) : 0;
-    const areaKey = printAreaStableKey(a, i);
+    const areaKey = catalogPrintAreaKey(product, a, i);
     const draftKey = areaPlacementKey(product, args.idx, areaKey);
     const artUrl =
       args.areaArts[draftKey]?.preview ||

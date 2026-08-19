@@ -17,6 +17,35 @@ import {
   type CanvasOpts,
 } from "@/lib/printCoords";
 
+function paintArtworkInPrintPlate(
+  ctx: CanvasRenderingContext2D,
+  args: {
+    art: CanvasImageSource;
+    originX: number;
+    originY: number;
+    printRect: { x: number; y: number; w: number; h: number; rotationDeg: number };
+    rel: { cx: number; cy: number; w: number; rot: number };
+    aspect: number;
+  },
+) {
+  const { art, originX, originY, printRect, rel, aspect } = args;
+  const w0 = printRect.w * rel.w;
+  const h0 = w0 * aspect;
+  ctx.save();
+  ctx.translate(originX + printRect.x, originY + printRect.y);
+  const plateRot = ((printRect.rotationDeg || 0) * Math.PI) / 180;
+  if (plateRot) ctx.rotate(plateRot);
+  ctx.beginPath();
+  ctx.rect(0, 0, printRect.w, printRect.h);
+  ctx.clip();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = 0.96;
+  ctx.translate(rel.cx * printRect.w, rel.cy * printRect.h);
+  ctx.rotate(((rel.rot || 0) * Math.PI) / 180);
+  ctx.drawImage(art, -w0 / 2, -h0 / 2, w0, h0);
+  ctx.restore();
+}
+
 /** Per-product artwork placement — print-area % preferred; canvas % mirrored. */
 export type Placement = ArtworkPlacement;
 
@@ -69,19 +98,51 @@ export function placementKey(prod: UiProduct, idx: number): string {
   return prod?.id || `idx${idx}`;
 }
 
-/** Stable key for a catalog print area (matches admin `key` when set). */
-export function printAreaStableKey(
+/** Catalog `key` or slug(label) — not unique when two Front areas share `key: "front"`. */
+export function printAreaBaseKey(
   area: { key?: string; label?: string } | null | undefined,
   index = 0,
 ): string {
   if (area?.key && String(area.key).trim()) return String(area.key).trim();
   if (area?.label && String(area.label).trim()) {
-    return String(area.label)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "") || `area_${index + 1}`;
+    return (
+      String(area.label)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "") || `area_${index + 1}`
+    );
   }
   return `area_${index + 1}`;
+}
+
+/**
+ * Stable identity for a print area. When several areas share the same catalog
+ * `key` (Edit Catalog used to assign `front` to every front placeholder), later
+ * ones are disambiguated as `front__1`, `front__2`, … so Design Swag can show
+ * all of them. The first occurrence keeps the original key for existing drafts.
+ */
+export function printAreaStableKey(
+  area: { key?: string; label?: string } | null | undefined,
+  index = 0,
+  siblings?: Array<{ key?: string; label?: string } | null | undefined> | null,
+): string {
+  const base = printAreaBaseKey(area, index);
+  if (!siblings?.length) return base;
+  const dupes = siblings
+    .map((a, i) => ({ i, base: printAreaBaseKey(a, i) }))
+    .filter((row) => row.base === base);
+  if (dupes.length <= 1) return base;
+  const first = dupes[0]?.i ?? 0;
+  return index === first ? base : `${base}__${index}`;
+}
+
+/** Stable key using the product's full print-area list for uniqueness. */
+export function printAreaKey(
+  p: UiProduct | undefined,
+  area: { key?: string; label?: string } | null | undefined,
+  index = 0,
+): string {
+  return printAreaStableKey(area, index, listPrintAreas(p));
 }
 
 /** Usable print areas from catalog (inches or legacy box %). */
@@ -218,7 +279,7 @@ export function primaryAreaKey(p: UiProduct): string {
     0,
     primary ? areas.findIndex((a) => a === primary) : 0,
   );
-  return printAreaStableKey(primary || areas[0], index >= 0 ? index : 0);
+  return printAreaStableKey(primary || areas[0], index >= 0 ? index : 0, areas);
 }
 
 export function resolveMediaSrc(url: string | undefined): string {
@@ -282,7 +343,7 @@ export function pickPrintArea(p: UiProduct, areaKey?: string | null) {
   const all = areas.length ? areas : p?.printAreas || [];
   if (!all.length) return null;
   if (areaKey) {
-    const hit = all.find((a, i) => printAreaStableKey(a, i) === areaKey);
+    const hit = all.find((a, i) => printAreaStableKey(a, i, all) === areaKey);
     if (hit) return hit;
   }
   const maskUrl = p.maskImageUrl;
@@ -507,7 +568,7 @@ export function collectAreaPlacements(
   const list = areas.length ? areas : [pickPrintArea(product)].filter(Boolean);
   list.forEach((area, i) => {
     if (!area) return;
-    const key = printAreaStableKey(area, i);
+    const key = printAreaStableKey(area, i, areas);
     const draftKey = areaPlacementKey(product, idx, key);
     const artPreview = areaArts?.[draftKey]?.preview || "";
     const hasArt = Boolean(artPreview);
@@ -675,20 +736,14 @@ export async function bakeMockupLayers(
         physicalDimensions: phys,
         viewKey: ph.key,
       });
-      const w0 = printRect.w * rel.w;
-      const h0 = w0 * aspect;
-      const cx = mdx + printRect.x + rel.cx * printRect.w;
-      const cy = mdy + printRect.y + rel.cy * printRect.h;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(mdx + printRect.x, mdy + printRect.y, printRect.w, printRect.h);
-      ctx.clip();
-      ctx.globalCompositeOperation = "multiply";
-      ctx.globalAlpha = 0.96;
-      ctx.translate(cx, cy);
-      ctx.rotate(((rel.rot || 0) * Math.PI) / 180);
-      ctx.drawImage(realArt, -w0 / 2, -h0 / 2, w0, h0);
-      ctx.restore();
+      paintArtworkInPrintPlate(ctx, {
+        art: realArt,
+        originX: mdx,
+        originY: mdy,
+        printRect,
+        rel,
+        aspect,
+      });
     }
     return canvas.toDataURL("image/png");
   } catch {
@@ -712,7 +767,7 @@ export function collectBakeLayers(
   const out: Array<{ artUrl: string; placement: Placement; areaKey: string }> = [];
   list.forEach((area, i) => {
     if (!area) return;
-    const areaKey = printAreaStableKey(area, i);
+    const areaKey = printAreaStableKey(area, i, areas);
     const draftKey = areaPlacementKey(product, idx, areaKey);
     const artUrl = areaArts[draftKey]?.preview || (areaKey === primary ? fallbackArtUrl : null) || "";
     if (!artUrl) return;
@@ -815,12 +870,56 @@ export async function exportDesignOnly(
  * transparent production mask to `tintHex` and bakes one or more print-area
  * artworks on top — same path as bakeMockupLayers, but tinted per swatch.
  */
+const tintedBakeCache = new Map<string, Promise<string>>();
+const TINTED_BAKE_CACHE_MAX = 16;
+
+function tintedBakeCacheKey(
+  ep: UiProduct,
+  layers: Array<{ artUrl: string; placement: Placement | null; areaKey: string }>,
+  tintHex: string,
+  size: number,
+  maskUrlOverride?: string,
+) {
+  const layerKey = layers
+    .map((l) => {
+      const p = l.placement;
+      const pl = p
+        ? `${p.xPct},${p.yPct},${p.wPct},${p.rot},${p.printCxPct ?? ""},${p.printCyPct ?? ""},${p.printWPct ?? ""}`
+        : "";
+      return `${l.areaKey}:${l.artUrl}:${pl}`;
+    })
+    .join("|");
+  return `${ep.id || ep.nm}|${size}|${tintHex}|${maskUrlOverride || ""}|${layerKey}`;
+}
+
 export async function bakeTintedMockupLayers(
   ep: UiProduct,
   layers: Array<{ artUrl: string; placement: Placement | null; areaKey: string }>,
   tintHex: string,
   size = 1000,
   /** Explicit view mask (back/side). When omitted, derived from the first layer area or front. */
+  maskUrlOverride?: string,
+): Promise<string> {
+  const key = tintedBakeCacheKey(ep, layers, tintHex, size, maskUrlOverride);
+  const cached = tintedBakeCache.get(key);
+  if (cached) return cached;
+  const pending = bakeTintedMockupLayersUncached(ep, layers, tintHex, size, maskUrlOverride).then((url) => {
+    if (!url) tintedBakeCache.delete(key);
+    return url;
+  });
+  tintedBakeCache.set(key, pending);
+  if (tintedBakeCache.size > TINTED_BAKE_CACHE_MAX) {
+    const oldest = tintedBakeCache.keys().next().value;
+    if (oldest && oldest !== key) tintedBakeCache.delete(oldest);
+  }
+  return pending;
+}
+
+async function bakeTintedMockupLayersUncached(
+  ep: UiProduct,
+  layers: Array<{ artUrl: string; placement: Placement | null; areaKey: string }>,
+  tintHex: string,
+  size = 1000,
   maskUrlOverride?: string,
 ): Promise<string> {
   const fromLayer = layers[0]?.areaKey ? designImgUrl(ep, layers[0].areaKey) : "";
@@ -881,20 +980,14 @@ export async function bakeTintedMockupLayers(
         physicalDimensions: phys,
         viewKey: ph.key,
       });
-      const w0 = printRect.w * rel.w;
-      const h0 = w0 * aspect;
-      const cx = dx + printRect.x + rel.cx * printRect.w;
-      const cy = dy + printRect.y + rel.cy * printRect.h;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(dx + printRect.x, dy + printRect.y, printRect.w, printRect.h);
-      ctx.clip();
-      ctx.globalCompositeOperation = "multiply";
-      ctx.globalAlpha = 0.96;
-      ctx.translate(cx, cy);
-      ctx.rotate(((rel.rot || 0) * Math.PI) / 180);
-      ctx.drawImage(realArt, -w0 / 2, -h0 / 2, w0, h0);
-      ctx.restore();
+      paintArtworkInPrintPlate(ctx, {
+        art: realArt,
+        originX: dx,
+        originY: dy,
+        printRect,
+        rel,
+        aspect,
+      });
     }
     return canvas.toDataURL("image/png");
   } catch {
