@@ -603,6 +603,43 @@ export function mapShopifyProduct(p, domain, metafields = [], hsnCode = '') {
   };
 }
 
+function catalogFieldFilled(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
+  return Boolean(String(value ?? '').trim());
+}
+
+/**
+ * Shopify re-import may refresh marketing/content fields. Category, GST, masks,
+ * and print areas are set in the catalog wizard — keep them when already filled.
+ */
+function applyShopifyCatalogUpdate(exists, mapped) {
+  exists.description = mapped.description;
+  exists.keyFeatures = mapped.keyFeatures;
+  exists.sizeGuide = mapped.sizeGuide;
+  exists.primaryImageUrl = mapped.primaryImageUrl;
+  exists.imageUrls = mapped.imageUrls;
+
+  if (!catalogFieldFilled(exists.category) && catalogFieldFilled(mapped.category)) {
+    exists.category = mapped.category;
+  }
+  if (!catalogFieldFilled(exists.subcategory) && catalogFieldFilled(mapped.subcategory)) {
+    exists.subcategory = mapped.subcategory;
+  }
+  if (!catalogFieldFilled(exists.gstRate) && catalogFieldFilled(mapped.gstRate)) {
+    exists.gstRate = mapped.gstRate;
+  }
+  if (!catalogFieldFilled(exists.maskImageUrl) && catalogFieldFilled(mapped.maskImageUrl)) {
+    exists.maskImageUrl = mapped.maskImageUrl;
+  }
+  if (!catalogFieldFilled(exists.maskBackImageUrl) && catalogFieldFilled(mapped.maskBackImageUrl)) {
+    exists.maskBackImageUrl = mapped.maskBackImageUrl;
+  }
+  if (!catalogFieldFilled(exists.printAreas) && catalogFieldFilled(mapped.printAreas)) {
+    exists.printAreas = mapped.printAreas;
+  }
+}
+
 async function uniqueSku(base) {
   let sku = base || `SM-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   while (await CatalogProduct.findOne({ sku })) {
@@ -764,21 +801,10 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
         const imagesChanged =
           String(exists.primaryImageUrl ?? '') !== String(mapped.primaryImageUrl ?? '')
           || JSON.stringify(exists.imageUrls ?? []) !== JSON.stringify(mapped.imageUrls ?? []);
-        const legacyShopifyMask = [mapped.primaryImageUrl, ...mapped.imageUrls]
-          .filter(Boolean)
-          .includes(exists.maskImageUrl);
         // Fill HSN from Shopify when the draft still has none; never overwrite a set value.
         const hsnFilled = !String(exists.hsnCode || '').trim() && Boolean(mapped.hsnCode);
-        if (contentChanged || imagesChanged || legacyShopifyMask || hsnFilled) {
-          exists.description = mapped.description;
-          exists.keyFeatures = mapped.keyFeatures;
-          exists.sizeGuide = mapped.sizeGuide;
-
-          exists.primaryImageUrl = mapped.primaryImageUrl;
-          exists.imageUrls = mapped.imageUrls;
-          // Older imports stored the Shopify photo as the production mask.
-          // Clear only that legacy value; preserve a manually uploaded mask.
-          if (legacyShopifyMask) exists.maskImageUrl = '';
+        if (contentChanged || imagesChanged || hsnFilled) {
+          applyShopifyCatalogUpdate(exists, mapped);
 
           if (hsnFilled) exists.hsnCode = mapped.hsnCode;
           await exists.save();

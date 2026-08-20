@@ -206,7 +206,7 @@ export function CatalogView(vm: CatalogVm) {
             </div>
           )}
 
-          {vm.isSkeleton ? (
+          {/* {vm.isSkeleton ? (
             <CatalogSkeleton />
           ) : vm.errorMessage ? (
             <div className="card sm-cat-error">{vm.errorMessage}</div>
@@ -227,7 +227,7 @@ export function CatalogView(vm: CatalogVm) {
                 />
               ))}
             </div>
-          )}
+          )} */}
         {/* </div> */}
       </section>
 

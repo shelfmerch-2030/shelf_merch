@@ -467,6 +467,35 @@ describe('Shopify catalog import', () => {
     expect(res.status).toBe(403);
   });
 
+  it('does not rewrite filled category, GST, masks, or print areas on re-import', async () => {
+    vi.stubGlobal('fetch', stubShopifyFetch());
+    await importReq(catalogToken);
+
+    const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    tee.category = 'Apparel';
+    tee.subcategory = 'T-Shirts';
+    tee.gstRate = 12;
+    tee.maskImageUrl = 'https://cdn.shopify.com/tee.jpg';
+    tee.maskBackImageUrl = '/uploads/platform/product/mask-back.png';
+    tee.printAreas = [{ key: 'front', label: 'Front', widthIn: 10, heightIn: 12 }];
+    tee.description = 'admin edited copy';
+    await tee.save();
+
+    vi.stubGlobal('fetch', stubShopifyFetch());
+    const res = await importReq(catalogToken);
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(1);
+
+    const reloaded = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    expect(reloaded.category).toBe('Apparel');
+    expect(reloaded.subcategory).toBe('T-Shirts');
+    expect(reloaded.gstRate).toBe(12);
+    expect(reloaded.maskImageUrl).toBe('https://cdn.shopify.com/tee.jpg');
+    expect(reloaded.maskBackImageUrl).toBe('/uploads/platform/product/mask-back.png');
+    expect(reloaded.printAreas).toHaveLength(1);
+    expect(reloaded.printAreas[0]).toMatchObject({ key: 'front', label: 'Front', widthIn: 10, heightIn: 12 });
+  });
+
   it('backfills empty hsnCode on re-import without overwriting a set value', async () => {
     vi.stubGlobal('fetch', stubShopifyFetch());
     await importReq(catalogToken);
