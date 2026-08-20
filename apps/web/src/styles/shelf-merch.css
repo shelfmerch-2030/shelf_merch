@@ -2379,6 +2379,33 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
 .pd-size-head>div,.pd-size-row>div{padding:8px 12px;border-left:1px solid #c9ced2}
 .pd-size-head>div:first-child,.pd-size-row>div:first-child{border-left:0}
 .pd-size-row{border-top:1px solid #c9ced2}
+
+.catalog-pdp-card{padding:30px 32px 36px;border-radius:14px}
+.catalog-pdp{min-width:0}
+.catalog-pdp-layout{display:grid;grid-template-columns:minmax(360px,1.08fr) minmax(340px,.92fr);gap:36px;align-items:start}
+.catalog-pdp .sf-pdp-gallery{gap:16px}
+.catalog-pdp .sf-pdp-thumbs{gap:12px}
+.catalog-pdp .sf-pdp-thumb-btn{width:80px;height:80px;border-radius:6px;background:#fff}
+.catalog-pdp .sf-pdp-thumb-btn--on{border-color:#1d2433}
+.catalog-pdp .img{min-height:620px}
+.catalog-pdp-info{padding:2px 0 0;min-width:0}
+.catalog-pdp-summary{padding-bottom:24px;margin-bottom:24px;border-bottom:1px solid var(--line)}
+.catalog-pdp-id{margin-bottom:12px;color:#2f5cff;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.catalog-pdp-brand{margin:0 0 4px;color:#17233b;font-size:30px;font-weight:800;line-height:1.12;letter-spacing:0;text-transform:uppercase}
+.catalog-pdp-name{margin:0;color:#737786;font-size:22px;line-height:1.32;font-weight:400}
+.catalog-pdp-price-block{margin-top:26px}
+.catalog-pdp-price{display:flex;align-items:baseline;gap:3px;color:#17233b;font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.catalog-pdp-price-prefix{margin-right:5px;font-size:18px;font-weight:700;color:#4f5668}
+.catalog-pdp-price-symbol{font-size:.68em;font-weight:800;line-height:1;transform:translateY(-.08em)}
+.catalog-pdp-price-amount{letter-spacing:0}
+.catalog-pdp-tax-note{margin:12px 0 0;color:#00a46c;font-size:14px;font-weight:800}
+.catalog-pdp-ready{margin:18px 0 0;color:#4b5565;font-size:14px;line-height:1.5}
+.catalog-pdp-colors{margin-bottom:22px}
+.catalog-pdp-section-label{margin-bottom:10px;color:#111827;font-size:13px;letter-spacing:.08em}
+.catalog-pdp .cat-swatch{width:26px;height:26px}
+.catalog-pdp .pd-detail-tabs{margin-top:8px}
+.catalog-pdp .pd-detail-tabs button{font-size:14px;padding:13px 20px 11px}
+.catalog-pdp .pd-tab-panel{font-size:15px;line-height:1.72}
 /* ?? SizeGuideTable (reusable, N-column) ???????????????????????????????????? */
 .sg-table-wrap{max-width:100%;overflow:hidden}
 .sg-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -2405,6 +2432,26 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
   .pd-header{align-items:stretch}
   .pd-actions{width:100%}
   .pd-actions .btn-purchase{margin-left:auto}
+  .catalog-pdp-card{padding:22px 18px 28px}
+  .catalog-pdp-layout{grid-template-columns:1fr;gap:24px}
+  .catalog-pdp .img{min-height:0}
+  .catalog-pdp-info{padding-top:0}
+  .catalog-pdp-brand{font-size:25px}
+  .catalog-pdp-name{font-size:18px}
+  .catalog-pdp-price{font-size:26px}
+}
+@media(max-width:640px){
+  .catalog-pdp-card{padding:16px 14px 22px;border-radius:10px}
+  .catalog-pdp .sf-pdp-gallery{display:grid;grid-template-columns:1fr;gap:12px}
+  .catalog-pdp .sf-pdp-thumbs{order:2;flex-direction:row;overflow-x:auto;padding-bottom:2px}
+  .catalog-pdp .sf-pdp-thumb-btn{width:62px;height:62px}
+  .catalog-pdp-summary{padding-bottom:18px;margin-bottom:18px}
+  .catalog-pdp-brand{font-size:22px}
+  .catalog-pdp-name{font-size:16px}
+  .catalog-pdp-price-block{margin-top:20px}
+  .catalog-pdp-price{font-size:24px}
+  .catalog-pdp .pd-detail-tabs{overflow-x:auto}
+  .catalog-pdp .pd-detail-tabs button{padding-left:13px;padding-right:13px}
 }
 
 /* checkbox / radio cards */
@@ -5213,35 +5260,34 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   overflow:hidden;
 }
 
-/* Catalog index: page scrolls so the marketing footer can sit full-width below the sidebar. */
+/* Authenticated app: topbar and sidebar stay fixed while the main panel scrolls. */
 .tenant-shell--page-scroll{
-  overflow-y:auto;
+  overflow:hidden;
   overflow-x:hidden;
 }
 .tenant-shell--page-scroll .topbar{
-  position:sticky;
+  position:relative;
   top:0;
 }
 .tenant-shell--page-scroll .body{
-  flex:1 0 auto;
-  overflow:visible;
-  min-height:calc(100vh - 64px);
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
   align-items:stretch;
 }
 .tenant-shell--page-scroll .main{
-  overflow:visible;
-  min-height:calc(100vh - 64px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  min-height:0;
 }
-/* Stretch the rail with the content column down to the marketing footer.
-   Sticky `top: 64px` on the rail sat it below the header and left a white gap. */
 .tenant-shell--page-scroll .sidebar-rail{
   position:relative;
   top:auto;
   align-self:stretch;
-  height:auto;
+  height:calc(100vh - 64px);
   min-height:100%;
-  max-height:none;
-  overflow:visible;
+  max-height:calc(100vh - 64px);
+  overflow-y:auto;
 }
 
 /* public store (shop + redemption) */

@@ -65,25 +65,18 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
     }
   }, [activeKey, gallery]);
 
-  const title = product.brand ? `${product.brand} ${product.nm}` : product.nm;
   const active = gallery.find((item) => item.key === activeKey) || gallery[0];
   const desc = String(product.description || "");
   const featureRows = detailRows(product.keyFeatures);
   const swatches = productSwatches(product);
   const showThumbs = gallery.length > 1;
+  const brandLabel = product.brand?.trim() || "Shelf Merch";
+  const priceLabel = (product.price || (product.basePriceInr ? `₨${product.basePriceInr}` : "")).replace(/₹/g, "₨");
+  const priceParts = priceLabel.match(/^(.*?)([₨₹])\s?(.+)$/u);
 
   return (
-    <div>
-      <div className="eyebrow">
-        #{productUniqueId(product, index)}
-        {product.price ? ` · ${product.price}` : ""}
-      </div>
-      <h1 style={{ fontSize: 20, margin: "4px 0 6px" }}>{title}</h1>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-        Ready to customize with your artwork.
-      </p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 18, marginTop: 14 }}>
+    <div className="catalog-pdp">
+      <div className="catalog-pdp-layout">
         <div className="sf-pdp-gallery">
           {showThumbs ? (
             <div className="sf-pdp-thumbs" role="tablist" aria-label="Product views">
@@ -132,10 +125,33 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
           </div>
         </div>
 
-        <div>
+        <div className="catalog-pdp-info">
+          <div className="catalog-pdp-summary">
+            <div className="catalog-pdp-id">#{productUniqueId(product, index)}</div>
+            <h1 className="catalog-pdp-brand">{brandLabel}</h1>
+            <p className="catalog-pdp-name">{product.nm}</p>
+            {priceLabel ? (
+              <div className="catalog-pdp-price-block">
+                <div className="catalog-pdp-price">
+                  {priceParts ? (
+                    <>
+                      {priceParts[1] ? <span className="catalog-pdp-price-prefix">{priceParts[1]}</span> : null}
+                      <span className="catalog-pdp-price-symbol">₨</span>
+                      <span className="catalog-pdp-price-amount">{priceParts[3]}</span>
+                    </>
+                  ) : (
+                    priceLabel
+                  )}
+                </div>
+                <p className="catalog-pdp-tax-note">inclusive of all taxes</p>
+              </div>
+            ) : null}
+            <p className="catalog-pdp-ready">Ready to customize with your artwork.</p>
+          </div>
+
           {swatches.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div className="lbl" style={{ marginBottom: 6 }}>
+            <div className="catalog-pdp-colors">
+              <div className="lbl catalog-pdp-section-label">
                 Colors
               </div>
               <div className="row cat-swatch-row" style={{ gap: 8, flexWrap: "wrap" }}>

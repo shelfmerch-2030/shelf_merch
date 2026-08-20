@@ -51,7 +51,7 @@ export function CatalogProductView(vm: CatalogProductVm) {
         <ArrowLeft size={15} /> Back to catalog
       </Link>
 
-      <div className="card" style={{ padding: 24 }}>
+      <div className="card catalog-pdp-card">
         <ProductDetail product={vm.product} index={vm.index} />
       </div>
     </>
