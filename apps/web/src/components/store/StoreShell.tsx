@@ -2762,13 +2762,12 @@ const GROUP_LABELS: Record<string, string> = {
 const CATEGORY_GROUP_DEFAULTS: Record<string, string[]> = {
   Apparel: ["T-Shirts", "Hoodies", "Caps", "Jackets"],
   Drinkware: ["Tumblers", "Bottles", "Mugs"],
-  Accessories: ["Bags", "Caps"],
+  Accessories: ["Bags", "Caps", "Key Chains"],
+  "Office Supplies": ["Notebooks", "Pens", "Card Holders"],
   Stationery: ["Notebooks", "Pens"],
   // Wellness: ["Pillows", "Bottles"],
   "Work Essentials": ["Notebooks", "Power Banks"],
   Merch: ["Bags", "Kits"],
-  "Key Chains": ["Keychains"],
-  "Card Holders": ["Card Holders"],
 };
 
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "One Size"];

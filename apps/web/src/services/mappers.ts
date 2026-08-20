@@ -291,7 +291,10 @@ const GROUP_BY_CATEGORY: Record<string, string> = {
   Drinkware: "bottle",
   Bags: "bag",
   Technology: "power",
-  Office: "note",
+  "Office Supplies": "note",
+  Accessories: "key",
+  "Key Chains": "key",
+  "Card Holders": "card",
   // "Health & Wellness": "pillow",
 };
 

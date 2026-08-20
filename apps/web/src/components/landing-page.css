@@ -1,4 +1,4 @@
-/* Shelf Merch homepage — faithful reproduction from ShelfMerch-Homepage_final.html */
+﻿/* Shelf Merch homepage — faithful reproduction from ShelfMerch-Homepage_final.html */
 .shelf-landing,
 .shelf-landing * {
   box-sizing: border-box;
@@ -578,7 +578,7 @@
 
 .public-catalog {
   min-height: 100vh;
-  background: #f7f3ea;
+  background: #E9E9E9;
 }
 .public-catalog--marketing {
   background: #fff;

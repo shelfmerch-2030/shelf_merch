@@ -6,6 +6,7 @@ import {
 import { Category } from './category.model.js';
 import { ApiError, ConflictError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { categoryFilter } from './catalogFilters.js';
 
 /** Fields whose changes are price/tax-sensitive and require a reason (§3.1). */
 const SENSITIVE_FIELDS = ['sellingPriceInr', 'basePriceInr', 'costPriceInr', 'gstRate', 'hsnCode'];
@@ -35,7 +36,7 @@ export async function listProducts({ query }) {
   const { page, limit, skip } = getPagination(query, { defaultLimit: 50 });
   const filter = {
     ...(query.status ? { status: query.status } : {}),
-    ...(query.category ? { category: query.category } : {}),
+    ...categoryFilter(query.category),
     ...(query.search ? { name: { $regex: query.search, $options: 'i' } } : {}),
   };
   const [items, total] = await Promise.all([

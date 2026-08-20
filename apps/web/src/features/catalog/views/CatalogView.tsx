@@ -10,7 +10,6 @@ import catalogHeroImg from "../../../../assets/catalog_banner.png";
 import catalogAllProductsImg from "../../../../assets/catalog_page.png";
 import apparelImg from "../../../../assets/catalog/apparel.png";
 import bagsImg from "../../../../assets/catalog/bags.webp";
-import cardHoldersImg from "../../../../assets/catalog/card-holders.webp";
 import drinkwareImg from "../../../../assets/catalog/drinkware.png";
 import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
 import officeImg from "../../../../assets/catalog/office.png";
@@ -54,8 +53,8 @@ const STYLE_CATEGORIES: CategoryTile[] = [
   // },
   {
     label: "Accessories",
-    image: "/images/shops/products/hat.jpg",
-    imageAlt: "Branded cap",
+    image: keyChainsImg,
+    imageAlt: "Branded accessories",
     category: "Accessories",
   },
   // {
@@ -63,18 +62,6 @@ const STYLE_CATEGORIES: CategoryTile[] = [
   //   image: "/images/landing/catalog/ready-to-order.png",
   //   imageAlt: "Ready-to-order gift set",
   // },
-  {
-    label: "Key Chains",
-    image: keyChainsImg,
-    imageAlt: "Key chains",
-    category: "Key Chains",
-  },
-  {
-    label: "Card Holders",
-    image: cardHoldersImg,
-    imageAlt: "Card holders",
-    category: "Card Holders",
-  }
 ];
 
 const INDUSTRY_CATEGORIES: CategoryTile[] = [

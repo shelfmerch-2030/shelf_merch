@@ -38,6 +38,22 @@ export function tenantCatalogFilter() {
   };
 }
 
+/**
+ * Nested subcategory aliases that used to be top-level categories.
+ * Parent browse queries should still return legacy rows under the old name.
+ */
+const CATEGORY_INCLUDES = {
+  Accessories: ['Accessories', 'Key Chains'],
+  'Office Supplies': ['Office Supplies', 'Card Holders'],
+};
+
+/** Mongo category filter; expands parents to include nested legacy category names. */
+export function categoryFilter(category) {
+  if (!category) return {};
+  const values = CATEGORY_INCLUDES[category] || [category];
+  return values.length === 1 ? { category: values[0] } : { category: { $in: values } };
+}
+
 export function productSourceLabel(source) {
   return source?.provider === 'shopify' ? 'shopify' : 'native';
 }

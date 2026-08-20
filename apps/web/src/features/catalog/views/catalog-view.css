@@ -386,38 +386,70 @@
   margin-left: auto; /* moves image to right */
 }
 
-.sm-cat-page__switcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 22px 0 28px;
+.sm-cat-page__body {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 32px);
+  margin-top: 28px;
+  align-items: start;
 }
 
-.sm-cat-page__pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  background: rgba(255, 255, 255, 0.82);
+.sm-cat-page__subs {
+  position: sticky;
+  top: 16px;
+  padding: 16px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(17, 17, 17, 0.06);
+}
+
+.sm-cat-page__subs-label {
+  margin: 0 0 10px;
+  padding: 0 6px;
+  color: var(--sm-cat-muted, #6f6f6f);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sm-cat-page__subs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sm-cat-page__sub {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   color: #1f1f1f;
-  text-decoration: none;
+  text-align: left;
   font-size: 13px;
   font-weight: 600;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.sm-cat-page__pill:hover {
-  background: #fff;
-  border-color: rgba(17, 17, 17, 0.16);
+.sm-cat-page__sub:hover {
+  background: rgba(17, 17, 17, 0.05);
 }
 
-.sm-cat-page__pill--active {
+.sm-cat-page__sub--active {
   background: #111;
-  border-color: #111;
   color: #fff;
+}
+
+.sm-cat-page__sub--active:hover {
+  background: #111;
+  color: #fff;
+}
+
+.sm-cat-page__main {
+  min-width: 0;
 }
 
 .sm-cat-page__results {
@@ -718,6 +750,37 @@
   .sm-cat-page__hero-visual {
     height: 140px;
     order: -1;
+  }
+
+  .sm-cat-page__body {
+    grid-template-columns: 1fr;
+  }
+
+  .sm-cat-page__subs {
+    position: static;
+    padding: 12px;
+  }
+
+  .sm-cat-page__subs-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sm-cat-page__sub {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+    border: 1px solid rgba(17, 17, 17, 0.08);
+    border-radius: 999px;
+    padding: 8px 14px;
+  }
+
+  .sm-cat-page__sub--active {
+    border-color: #111;
   }
 
   .sm-cat-proof-grid {

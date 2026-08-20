@@ -1,13 +1,17 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import type { CatalogVm } from "../controllers/useCatalogController";
-import { ALL_PRODUCTS, catalogCategorySlug } from "../types";
+import {
+  ALL_PRODUCTS,
+  CATALOG_SUBCATEGORIES,
+  productMatchesSubcategory,
+  resolveCatalogSubcategory,
+} from "../types";
 import { ProductCard } from "./ProductCard";
 import "./catalog-view.css";
 import apparelImg from "../../../../assets/catalog/apparel.png";
 import bagsImg from "../../../../assets/catalog/bags.webp";
-import cardHoldersImg from "../../../../assets/catalog/card-holders.webp";
 import drinkwareImg from "../../../../assets/catalog/drinkware.png";
 import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
 import officeImg from "../../../../assets/catalog/office.png";
@@ -15,13 +19,13 @@ import technologyImg from "../../../../assets/catalog/technology.png";
 
 const CATEGORY_COPY: Record<string, string> = {
   Apparel: "Premium apparel designed for team wear, campaigns, events, and everyday brand visibility.",
-  Accessories: "Smart branded add-ons that are easy to gift, carry, and use across every audience.",
+  Accessories:
+    "Smart branded add-ons — including key chains — that are easy to gift, carry, and use across every audience.",
   Bags: "Travel-ready and work-ready bags that keep your brand visible on the move.",
   Drinkware: "Daily-use bottles, tumblers, and mugs built for repeat impressions.",
   Technology: "Useful tech accessories that make branded gifting feel modern and practical.",
-  "Office Supplies": "Desk essentials and stationery picks made for onboarding, meetings, and workdays.",
-  "Key Chains": "Compact, high-utility keepsakes that are easy to distribute in bulk.",
-  "Card Holders": "Refined everyday carry pieces that make premium branded gifting feel elevated.",
+  "Office Supplies":
+    "Desk essentials, stationery, and card holders made for onboarding, meetings, and workdays.",
 };
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -31,8 +35,6 @@ const CATEGORY_IMAGES: Record<string, string> = {
   Drinkware: drinkwareImg,
   Technology: technologyImg,
   "Office Supplies": officeImg,
-  "Key Chains": keyChainsImg,
-  "Card Holders": cardHoldersImg,
 };
 
 function CategoryPageSkeleton() {
@@ -51,9 +53,9 @@ function CategoryPageSkeleton() {
 
 export function CatalogCategoryView(vm: CatalogVm) {
   const { pathname } = useLocation();
+  const { category: categoryParam } = useParams();
   const isPublic = pathname.startsWith("/apps/catalog");
   const catalogHome = isPublic ? "/apps/catalog" : "/app/catalog";
-  const categoryBase = `${catalogHome}/category`;
 
   const slides = useMemo(
     () => vm.categories.filter((category) => category !== ALL_PRODUCTS),
@@ -67,6 +69,20 @@ export function CatalogCategoryView(vm: CatalogVm) {
     CATEGORY_COPY[vm.category] ??
     "Browse curated products in this category and open any item to see full details.";
 
+  const subcategories = CATALOG_SUBCATEGORIES[vm.category] ?? [];
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
+    resolveCatalogSubcategory(categoryParam, vm.category),
+  );
+
+  useEffect(() => {
+    setSelectedSubcategory(resolveCatalogSubcategory(categoryParam, vm.category));
+  }, [categoryParam, vm.category]);
+
+  const filteredItems = useMemo(() => {
+    if (!selectedSubcategory) return vm.items;
+    return vm.items.filter((item) => productMatchesSubcategory(item, selectedSubcategory));
+  }, [vm.items, selectedSubcategory]);
+
   return (
     <div className={isPublic ? "sm-cat-page sm-cat-page--public" : "sm-cat-page"}>
       <div className="sm-cat-page__container">
@@ -74,6 +90,12 @@ export function CatalogCategoryView(vm: CatalogVm) {
           <Link to={catalogHome}>Catalog</Link>
           <ChevronRight size={14} aria-hidden="true" />
           <span>{vm.category}</span>
+          {selectedSubcategory ? (
+            <>
+              <ChevronRight size={14} aria-hidden="true" />
+              <span>{selectedSubcategory}</span>
+            </>
+          ) : null}
         </nav>
 
         <header className="sm-cat-page__hero">
@@ -104,50 +126,75 @@ export function CatalogCategoryView(vm: CatalogVm) {
           </div>
         </header>
 
-        <section className="sm-cat-page__switcher" aria-label="Category switcher">
-          {slides.map((category) => (
-            <Link
-              key={category}
-              to={`${categoryBase}/${catalogCategorySlug(category)}`}
-              className={`sm-cat-page__pill${category === vm.category ? " sm-cat-page__pill--active" : ""}`}
-            >
-              {category}
-            </Link>
-          ))}
-        </section>
+        <div className="sm-cat-page__body">
+          {subcategories.length > 0 ? (
+            <aside className="sm-cat-page__subs" aria-label="Subcategories">
+              <p className="sm-cat-page__subs-label">Subcategories</p>
+              <nav className="sm-cat-page__subs-list">
+                <button
+                  type="button"
+                  className={`sm-cat-page__sub${!selectedSubcategory ? " sm-cat-page__sub--active" : ""}`}
+                  onClick={() => setSelectedSubcategory(null)}
+                >
+                  All {vm.category}
+                </button>
+                {subcategories.map((subcategory) => (
+                  <button
+                    key={subcategory}
+                    type="button"
+                    className={`sm-cat-page__sub${
+                      selectedSubcategory === subcategory ? " sm-cat-page__sub--active" : ""
+                    }`}
+                    onClick={() => setSelectedSubcategory(subcategory)}
+                  >
+                    {subcategory}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+          ) : null}
 
-        {vm.isSkeleton ? (
-          <CategoryPageSkeleton />
-        ) : vm.errorMessage ? (
-          <div className="card sm-cat-error">{vm.errorMessage}</div>
-        ) : vm.items.length === 0 ? (
-          <div className="card empty sm-cat-empty">
-            <h3>No products in this category</h3>
-            <p className="muted">Try switching to another category.</p>
+          <div className="sm-cat-page__main">
+            {vm.isSkeleton ? (
+              <CategoryPageSkeleton />
+            ) : vm.errorMessage ? (
+              <div className="card sm-cat-error">{vm.errorMessage}</div>
+            ) : filteredItems.length === 0 ? (
+              <div className="card empty sm-cat-empty">
+                <h3>No products in this {selectedSubcategory ? "subcategory" : "category"}</h3>
+                <p className="muted">
+                  {selectedSubcategory
+                    ? "Try another subcategory or view all products in this category."
+                    : "Try switching to another category."}
+                </p>
+              </div>
+            ) : (
+              <section className="sm-cat-page__results">
+                <div className="sm-cat-page__results-head">
+                  <p className="sm-cat-page__results-count">
+                    Showing {filteredItems.length}{" "}
+                    {filteredItems.length === 1 ? "product" : "products"}
+                    {selectedSubcategory ? ` in ${selectedSubcategory}` : ""}
+                  </p>
+                  <Link to={catalogHome} className="sm-cat-page__back">
+                    Back to all categories
+                  </Link>
+                </div>
+
+                <div className="sm-cat-grid">
+                  {filteredItems.map((p, index) => (
+                    <ProductCard
+                      key={p.id ?? `${p.nm}-${index}`}
+                      product={p}
+                      to={p.id ? `${catalogHome}/${p.id}` : undefined}
+                      state={{ fromCatalog: pathname }}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
-        ) : (
-          <section className="sm-cat-page__results">
-            <div className="sm-cat-page__results-head">
-              <p className="sm-cat-page__results-count">
-                Showing {vm.items.length} {vm.items.length === 1 ? "product" : "products"}
-              </p>
-              <Link to={catalogHome} className="sm-cat-page__back">
-                Back to all categories
-              </Link>
-            </div>
-
-            <div className="sm-cat-grid">
-              {vm.items.map((p, index) => (
-                <ProductCard
-                  key={p.id ?? `${p.nm}-${index}`}
-                  product={p}
-                  to={p.id ? `${catalogHome}/${p.id}` : undefined}
-                  state={{ fromCatalog: pathname }}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+        </div>
       </div>
     </div>
   );

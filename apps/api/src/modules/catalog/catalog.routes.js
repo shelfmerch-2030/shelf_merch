@@ -5,7 +5,7 @@ import { authenticate } from '../../middleware/auth.middleware.js';
 import { resolveTenant, requireTenantContext } from '../../middleware/tenant.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { objectId } from '../users/users.validation.js';
-import { tenantCatalogFilter, withEnabledVariants } from './catalogFilters.js';
+import { categoryFilter, tenantCatalogFilter, withEnabledVariants } from './catalogFilters.js';
 import { CatalogProduct } from './catalogProduct.model.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
 import { NotFoundError } from '../../utils/errors.js';
@@ -28,7 +28,7 @@ router.get(
     const filter = {
       status: 'active',
       ...tenantCatalogFilter(),
-      ...(req.query.category ? { category: req.query.category } : {}),
+      ...categoryFilter(req.query.category),
       ...(req.query.search ? { name: { $regex: req.query.search, $options: 'i' } } : {}),
     };
     const [items, total] = await Promise.all([

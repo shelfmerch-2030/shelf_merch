@@ -27,19 +27,15 @@ export const MANUAL_CATEGORIES = [
   // "Health & Wellness",
   "Office Supplies",
   "Technology",
-  "Key Chains",
-  "Card Holders"
 ] as const;
 
 export const SUBCATEGORIES_BY_CATEGORY: Record<(typeof MANUAL_CATEGORIES)[number], readonly string[]> = {
   Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps"],
-  Accessories: ["Lanyards", "Keychains", "Badges", "Travel Accessories", "Lifestyle Accessories"],
+  Accessories: ["Lanyards", "Key Chains", "Badges", "Travel Accessories", "Lifestyle Accessories"],
   Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags"],
   Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers"],
-  "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars"],
+  "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders"],
   Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives"],
-  "Key Chains": ["Keychains", "Keychains with Logo", "Keychains with Name", "Keychains with Photo"],
-  "Card Holders": ["Card Holders", "Card Holders with Logo", "Card Holders with Name", "Card Holders with Photo"],
 };
 
 export const emptyProductDetails: ProductInput = {
