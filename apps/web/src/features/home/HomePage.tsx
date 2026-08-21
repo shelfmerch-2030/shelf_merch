@@ -155,12 +155,9 @@ export function HomePage() {
           <Link to="/app/settings" className="btn btn-ghost btn-sm">
             Set up my profile
           </Link>
-          <a
-            href="mailto:hello@shelfmerch.io?subject=Book%20a%20demo"
-            className="btn btn-dark btn-sm"
-          >
+          <Link to="/request-demo" className="btn btn-dark btn-sm">
             Book a demo
-          </a>
+          </Link>
         </div>
       </section>
 

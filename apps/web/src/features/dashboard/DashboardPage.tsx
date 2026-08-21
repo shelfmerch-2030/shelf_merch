@@ -83,8 +83,8 @@ const ONBOARDING_HELP_LINKS = [
 const HELP_LINKS = [
   { label: "Setup Guide", icon: Box, href: "/app" },
   { label: "Watch Demo", icon: Play, href: "/app" },
-  { label: "Contact Support", icon: Headphones, href: "mailto:hello@shelfmerch.io?subject=Support" },
-  { label: "Book Demo", icon: CalendarDays, href: "mailto:hello@shelfmerch.io?subject=Book%20a%20demo" },
+  { label: "Contact Support", icon: Headphones, href: "/request-demo" },
+  { label: "Book Demo", icon: CalendarDays, href: "/request-demo" },
 ] as const;
 
 const WHY_CARDS = [
@@ -829,7 +829,7 @@ export function DashboardPage() {
         </div>
         <div className="dash-welcome__actions">
           <Link to="/app/settings" className="btn btn-ghost btn-sm">Set up my profile</Link>
-          <a href="mailto:hello@shelfmerch.io?subject=Book%20a%20demo" className="btn btn-dark btn-sm">Book a demo</a>
+          <Link to="/request-demo" className="btn btn-dark btn-sm">Book a demo</Link>
         </div>
       </section>
 

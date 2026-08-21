@@ -21,9 +21,9 @@ export function ResourcesTeamPage() {
           </h1>
           <p>{t.sub}</p>
           <div className="team-actions">
-            <a className="button dark" href="mailto:hello@shelfmerch.io">
+            <Link className="button dark" to="/request-demo">
               {t.cta} →
-            </a>
+            </Link>
             <a href="#moments">See the use cases ↓</a>
           </div>
           <div className="proof">{t.proof}</div>
@@ -189,9 +189,9 @@ export function ResourcesTeamPage() {
           <em className="serif">program on the shelf.</em>
         </h2>
         <p>See how Shelf Merch can simplify your next program from idea to doorstep.</p>
-        <a className="button" href="mailto:hello@shelfmerch.io">
+        <Link className="button" to="/request-demo">
           Book a team demo →
-        </a>
+        </Link>
       </section>
     </ResourcesShell>
   );

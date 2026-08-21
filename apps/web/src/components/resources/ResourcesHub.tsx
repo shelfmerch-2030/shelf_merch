@@ -156,9 +156,9 @@ export default function ResourcesHub() {
           <em className="serif">Every team.</em>
         </h2>
         <p>Bring your next employee, revenue or event program to one shelf.</p>
-        <a className="button" href="mailto:hello@shelfmerch.io">
+        <Link className="button" to="/request-demo">
           Book a demo →
-        </a>
+        </Link>
       </section>
     </ResourcesShell>
   );
