@@ -17,9 +17,9 @@ export function FinalCTA() {
         <Link className="button button-light" to="/request-demo">
           Start with Shelf Merch <ArrowIcon />
         </Link>
-        <a className="cta-secondary" href="mailto:hello@shelfmerch.io">
-          hello@shelfmerch.io
-        </a>
+        <Link className="cta-secondary" to="/request-demo">
+          Book a demo
+        </Link>
       </div>
     </section>
   );
