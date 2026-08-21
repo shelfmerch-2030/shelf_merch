@@ -3,6 +3,10 @@ import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { productSwatches } from "../types";
 
+function displayPrice(value: string): string {
+  return value.replace(/₹|₨/g, "Rs").replace(/^Rs\.?\s*/i, "Rs");
+}
+
 function thumb(p: UiProduct): string | undefined {
   return resolveMediaUrl(p.mockupUrl) || resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imgUrl);
 }
@@ -39,13 +43,8 @@ export function ProductCard({
             style={{ width: "100%", height: "100%" }}
           />
         )}
-      </div>
-      <div className="meta">
-        {product.brand && <div className="brand">{product.brand}</div>}
-        <div className="nm">{product.nm}</div>
-        {product.price && <div className="pr">{product.price}</div>}
         {swatches.length > 0 && (
-          <div className="swatches">
+          <div className="swatches pcard-swatch-pill" aria-label={`${swatches.length} available colors`}>
             {preview.map((c) => (
               <span
                 key={c.name}
@@ -54,13 +53,16 @@ export function ProductCard({
                 title={c.name}
               />
             ))}
-            {more > 0 && (
-              <span className="mut3" style={{ fontSize: 11, alignSelf: "center", marginLeft: 2 }}>
-                +{more}
-              </span>
-            )}
+            {more > 0 && <span className="pcard-more">+{more}</span>}
           </div>
         )}
+      </div>
+      <div className="meta">
+        <div className="nm">{product.nm}</div>
+        <div className="pcard-bottom">
+          {product.price && <div className="pr">{displayPrice(product.price)}</div>}
+          <div className="pcard-min">Min 1</div>
+        </div>
       </div>
     </>
   );

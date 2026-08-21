@@ -267,8 +267,8 @@ type ApiEntity = any;
 type ApiUser = any;
 
 function formatInr(n: number): string {
-  if (n >= 1000) return `as low as ₨${Math.round(n).toLocaleString("en-IN")}`;
-  return `₨${Math.round(n).toLocaleString("en-IN")}`;
+  if (n >= 1000) return `as low as Rs${Math.round(n).toLocaleString("en-IN")}`;
+  return `Rs${Math.round(n).toLocaleString("en-IN")}`;
 }
 
 function formatDate(d: string | Date | undefined): string {

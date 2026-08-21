@@ -43,15 +43,11 @@ export function CatalogProductView(vm: CatalogProductVm) {
 
   return (
     <>
-      <Link
-        to={backTarget}
-        className="lnk"
-        style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 14 }}
-      >
+      <Link to={backTarget} className="catalog-pdp-back-link">
         <ArrowLeft size={15} /> Back to catalog
       </Link>
 
-      <div className="card catalog-pdp-card">
+      <div className="catalog-pdp-card">
         <ProductDetail product={vm.product} index={vm.index} />
       </div>
     </>

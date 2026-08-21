@@ -1,18 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
-import { detailRows, productSwatches, productUniqueId } from "../types";
 import { SizeGuideTable } from "@/components/SizeGuideTable";
 
-type Tab = "description" | "features" | "size";
-
-const TABS: [Tab, string][] = [
-  ["description", "Description"],
-  ["features", "Key features"],
-  ["size", "Size Guide"],
-];
-
 type GalleryItem = { key: string; label: string; url: string };
+
+const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
 
 /** Stage + marketing photos only — never production mask PNGs. */
 function catalogGalleryItems(product: UiProduct): GalleryItem[] {
@@ -46,14 +39,10 @@ function catalogGalleryItems(product: UiProduct): GalleryItem[] {
 }
 
 /** Read-only catalog product detail (description / key features / size guide). */
-export function ProductDetail({ product, index }: { product: UiProduct; index: number }) {
-  const [tab, setTab] = useState<Tab>("description");
+export function ProductDetail({ product }: { product: UiProduct; index: number }) {
   const gallery = useMemo(() => catalogGalleryItems(product), [product]);
   const [activeKey, setActiveKey] = useState(gallery[0]?.key || "");
-
-  useEffect(() => {
-    setTab("description");
-  }, [product.id]);
+  const [openPanel, setOpenPanel] = useState<"info" | "size" | null>(null);
 
   useEffect(() => {
     setActiveKey(gallery[0]?.key || "");
@@ -66,13 +55,29 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
   }, [activeKey, gallery]);
 
   const active = gallery.find((item) => item.key === activeKey) || gallery[0];
-  const desc = String(product.description || "");
-  const featureRows = detailRows(product.keyFeatures);
-  const swatches = productSwatches(product);
+  const desc = product.description?.trim() || "No product information available.";
   const showThumbs = gallery.length > 1;
-  const brandLabel = product.brand?.trim() || "Shelf Merch";
-  const priceLabel = (product.price || (product.basePriceInr ? `₨${product.basePriceInr}` : "")).replace(/₹/g, "₨");
+  const colorThumbs = gallery.slice(0, Math.min(gallery.length, 4));
+  const sizes = Array.from(
+    new Set(
+      (product.variants || [])
+        .map((variant) => variant.size?.trim())
+        .filter((size): size is string => Boolean(size)),
+    ),
+  );
+  const displaySizes = sizes.length ? sizes : DEFAULT_SIZES;
+  const productTitle = product.nm?.trim() || product.brand?.trim() || "Shelf Merch Product";
+  const displayPriceLabel = (product.price || (product.basePriceInr ? `Rs${product.basePriceInr}` : ""))
+    .replace(/₹|₨|â‚¹|â‚¨/g, "Rs")
+    .replace(/^Rs\.?\s*/i, "Rs");
+  const displayPriceParts = displayPriceLabel.match(/^(.*?)(Rs)\s?(.+)$/i);
+  const priceLabel = (product.price || (product.basePriceInr ? `₨${product.basePriceInr}` : ""))
+    .replace(/₹/g, "₨")
+    .replace(/^Rs\.?\s*/i, "₨");
   const priceParts = priceLabel.match(/^(.*?)([₨₹])\s?(.+)$/u);
+
+  void priceLabel;
+  void priceParts;
 
   return (
     <div className="catalog-pdp">
@@ -103,7 +108,7 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
           ) : null}
 
           <div
-            className="img"
+            className="img catalog-pdp-main-media"
             style={{
               background: "#f4f6f4",
               borderRadius: "var(--r-sm)",
@@ -127,94 +132,101 @@ export function ProductDetail({ product, index }: { product: UiProduct; index: n
 
         <div className="catalog-pdp-info">
           <div className="catalog-pdp-summary">
-            <div className="catalog-pdp-id">#{productUniqueId(product, index)}</div>
-            <h1 className="catalog-pdp-brand">{brandLabel}</h1>
-            <p className="catalog-pdp-name">{product.nm}</p>
-            {priceLabel ? (
+            <h1 className="catalog-pdp-brand">{productTitle}</h1>
+            {displayPriceLabel ? (
               <div className="catalog-pdp-price-block">
                 <div className="catalog-pdp-price">
-                  {priceParts ? (
+                  {displayPriceParts ? (
                     <>
-                      {priceParts[1] ? <span className="catalog-pdp-price-prefix">{priceParts[1]}</span> : null}
-                      <span className="catalog-pdp-price-symbol">₨</span>
-                      <span className="catalog-pdp-price-amount">{priceParts[3]}</span>
+                      {displayPriceParts[1] ? <span className="catalog-pdp-price-prefix">{displayPriceParts[1]}</span> : null}
+                      <span className="catalog-pdp-price-symbol">Rs</span>
+                      <span className="catalog-pdp-price-amount">{displayPriceParts[3]}</span>
                     </>
                   ) : (
-                    priceLabel
+                    displayPriceLabel
                   )}
                 </div>
-                <p className="catalog-pdp-tax-note">inclusive of all taxes</p>
               </div>
             ) : null}
-            <p className="catalog-pdp-ready">Ready to customize with your artwork.</p>
           </div>
 
-          {swatches.length > 0 && (
+          {colorThumbs.length > 0 && (
             <div className="catalog-pdp-colors">
-              <div className="lbl catalog-pdp-section-label">
-                Colors
-              </div>
-              <div className="row cat-swatch-row" style={{ gap: 8, flexWrap: "wrap" }}>
-                {swatches.map((s) => (
-                  <span
-                    key={s.name}
-                    className="cat-swatch"
-                    data-label={s.name}
-                    aria-label={s.name}
-                    style={{ background: s.hex }}
-                  />
+              <div className="catalog-pdp-color-thumbs">
+                {colorThumbs.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-label={`Select ${item.label}`}
+                    className={`catalog-pdp-color-thumb${active?.key === item.key ? " catalog-pdp-color-thumb--on" : ""}`}
+                    onClick={() => setActiveKey(item.key)}
+                  >
+                    <img src={item.url} alt="" />
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="pd-detail-tabs" role="tablist" aria-label="Product information">
-            {TABS.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={tab === key}
-                className={tab === key ? "on" : ""}
-                onClick={() => setTab(key)}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="catalog-pdp-sizes">
+            <div className="catalog-pdp-size-head">
+              <span>Sizes</span>
+            </div>
+            <div className="catalog-pdp-size-grid">
+              {displaySizes.map((size) => (
+                <label className="catalog-pdp-size-cell" key={size}>
+                  <span>{size}</span>
+                  <input inputMode="numeric" pattern="[0-9]*" aria-label={`${size} quantity`} defaultValue="0" />
+                </label>
+              ))}
+            </div>
           </div>
 
-          {tab === "description" && (
-            <div className="pd-tab-panel pd-description-panel on" role="tabpanel">
-              <p style={{ whiteSpace: "pre-line" }}>{desc || "No description available."}</p>
-            </div>
-          )}
+          <button type="button" className="catalog-pdp-add" disabled>
+            Add to bag
+          </button>
 
-          {tab === "features" && (
-            <div className="pd-tab-panel on" role="tabpanel">
-              {featureRows.length > 0 ? (
-                <div className="pd-feature-card">
-                  {featureRows.map(([label, value], i) => (
-                    <div key={`${label}-${i}`} className="pd-feature-row">
-                      <div>{label}</div>
-                      <div style={{ whiteSpace: "pre-line" }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted">No key features listed.</p>
-              )}
-            </div>
-          )}
+          <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
 
-          {tab === "size" && (
-            <div className="pd-tab-panel on" role="tabpanel">
-              {product.sizeGuide?.trim() ? (
-                <SizeGuideTable sizeGuide={product.sizeGuide} />
-              ) : (
-                <p className="muted">No size guide available.</p>
-              )}
-            </div>
-          )}
+          <div className="catalog-pdp-accordions">
+            <button
+              type="button"
+              className="catalog-pdp-accordion"
+              aria-expanded={openPanel === "info"}
+              onClick={() => setOpenPanel(openPanel === "info" ? null : "info")}
+            >
+              <span>Product Information</span>
+              <span aria-hidden="true">{openPanel === "info" ? "−" : "+"}</span>
+            </button>
+            {openPanel === "info" ? (
+              <div className="catalog-pdp-accordion-panel">
+                <p>{desc}</p>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className="catalog-pdp-accordion"
+              aria-expanded={openPanel === "size"}
+              onClick={() => setOpenPanel(openPanel === "size" ? null : "size")}
+            >
+              <span>Size Guide</span>
+              <span aria-hidden="true">{openPanel === "size" ? "−" : "+"}</span>
+            </button>
+            {openPanel === "size" ? (
+              <div className="catalog-pdp-accordion-panel catalog-pdp-accordion-panel--size">
+                {product.sizeGuide?.trim() ? (
+                  <SizeGuideTable sizeGuide={product.sizeGuide} />
+                ) : (
+                  <p>No size guide available.</p>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <p className="catalog-pdp-print-note">
+            <span aria-hidden="true">▣</span> One print location and basic decoration included. Learn more ↗
+          </p>
         </div>
       </div>
     </div>
