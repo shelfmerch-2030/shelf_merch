@@ -9,7 +9,7 @@ export function PublicCatalogLayout() {
   const isCatalogIndex = /^\/apps\/catalog\/?$/.test(location.pathname);
 
   useEffect(() => {
-    document.title = "Catalog — Shelf Merch";
+    document.title = "Catalog Shelf Merch";
     window.scrollTo(0, 0);
   }, [location.pathname, location.search]);
 

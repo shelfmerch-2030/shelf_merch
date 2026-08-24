@@ -5,8 +5,6 @@ import { SizeGuideTable } from "@/components/SizeGuideTable";
 
 type GalleryItem = { key: string; label: string; url: string };
 
-const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
-
 /** Stage + marketing photos only — never production mask PNGs. */
 function catalogGalleryItems(product: UiProduct): GalleryItem[] {
   const items: GalleryItem[] = [];
@@ -58,14 +56,6 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
   const desc = product.description?.trim() || "No product information available.";
   const showThumbs = gallery.length > 1;
   const colorThumbs = gallery.slice(0, Math.min(gallery.length, 4));
-  const sizes = Array.from(
-    new Set(
-      (product.variants || [])
-        .map((variant) => variant.size?.trim())
-        .filter((size): size is string => Boolean(size)),
-    ),
-  );
-  const displaySizes = sizes.length ? sizes : DEFAULT_SIZES;
   const productTitle = product.nm?.trim() || product.brand?.trim() || "Shelf Merch Product";
   const displayPriceLabel = (product.price || (product.basePriceInr ? `Rs${product.basePriceInr}` : ""))
     .replace(/₹|₨|â‚¹|â‚¨/g, "Rs")
@@ -167,24 +157,6 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
               </div>
             </div>
           )}
-
-          <div className="catalog-pdp-sizes">
-            <div className="catalog-pdp-size-head">
-              <span>Sizes</span>
-            </div>
-            <div className="catalog-pdp-size-grid">
-              {displaySizes.map((size) => (
-                <label className="catalog-pdp-size-cell" key={size}>
-                  <span>{size}</span>
-                  <input inputMode="numeric" pattern="[0-9]*" aria-label={`${size} quantity`} defaultValue="0" />
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <button type="button" className="catalog-pdp-add" disabled>
-            Add to bag
-          </button>
 
           <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
 
