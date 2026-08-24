@@ -197,23 +197,58 @@ export function fetchPlatformOrder(id: string) {
   return apiFetch<Record<string, unknown>>(`/platform/orders/${id}`);
 }
 
-export async function fetchPlatformProducts(params?: { status?: string; limit?: number }) {
-  const search = new URLSearchParams();
-  if (params?.status) search.set("status", params.status);
-  if (params?.limit) search.set("limit", String(params.limit ?? 100));
-  return apiFetch<
-    Paginated<{
-      _id: string;
-      name: string;
-      sku: string;
-      status: string;
-      sellingPriceInr: number;
-      costPriceInr: number;
-      marginInr: number;
-      marginPct: number;
-      inventory?: { available?: number };
-    }>
-  >(`/platform/products${search.toString() ? `?${search}` : ""}`);
+export type PlatformProductListItem = {
+  _id: string;
+  name: string;
+  sku: string;
+  status: string;
+  sellingPriceInr: number;
+  costPriceInr: number;
+  marginInr: number;
+  marginPct: number;
+  inventory?: { available?: number };
+  createdAt?: string;
+};
+
+/**
+ * Load platform catalog products. Walks every page so the list is not truncated
+ * at the API max page size (products beyond the first page were previously
+ * invisible in /platform/catalog and kit pickers).
+ */
+export async function fetchPlatformProducts(params?: {
+  status?: string;
+  limit?: number;
+  search?: string;
+}): Promise<Paginated<PlatformProductListItem>> {
+  const pageSize = Math.min(Math.max(params?.limit ?? 250, 1), 250);
+  const items: PlatformProductListItem[] = [];
+  let page = 1;
+  let total = Infinity;
+  let totalPages = Infinity;
+
+  while (page <= totalPages && items.length < total) {
+    const search = new URLSearchParams();
+    if (params?.status) search.set("status", params.status);
+    if (params?.search) search.set("search", params.search);
+    search.set("limit", String(pageSize));
+    search.set("page", String(page));
+
+    const res = await apiFetch<{
+      items: PlatformProductListItem[];
+      pagination?: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/platform/products?${search.toString()}`);
+
+    const batch = res.items ?? [];
+    items.push(...batch);
+    total = res.pagination?.total ?? items.length;
+    totalPages = res.pagination?.totalPages ?? page;
+    if (!batch.length) break;
+    page += 1;
+    // Safety cap (~12.5k products) against a runaway pagination loop.
+    if (page > 50) break;
+  }
+
+  return { items, total, page: 1, limit: items.length };
 }
 
 export async function fetchPlatformInventory(limit = 100) {

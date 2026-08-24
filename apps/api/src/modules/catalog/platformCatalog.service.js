@@ -33,7 +33,9 @@ export function platformProductDto(product) {
 }
 
 export async function listProducts({ query }) {
-  const { page, limit, skip } = getPagination(query, { defaultLimit: 50 });
+  // Catalog imports commonly exceed the global default maxLimit of 100; allow
+  // larger pages so the platform list / kit picker can walk the full catalog.
+  const { page, limit, skip } = getPagination(query, { defaultLimit: 50, maxLimit: 250 });
   const filter = {
     ...(query.status ? { status: query.status } : {}),
     ...categoryFilter(query.category),
