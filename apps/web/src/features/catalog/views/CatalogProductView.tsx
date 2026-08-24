@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import type { CatalogProductVm } from "../controllers/useCatalogProductController";
 import { ProductDetail } from "./ProductDetail";
+import { ProductCard } from "./ProductCard";
 
 /** Catalog product detail page: loading/error/not-found states + product detail. */
 export function CatalogProductView(vm: CatalogProductVm) {
@@ -50,6 +51,47 @@ export function CatalogProductView(vm: CatalogProductVm) {
       <div className="catalog-pdp-card">
         <ProductDetail product={vm.product} index={vm.index} />
       </div>
+
+      <ProductRecommendations
+        items={vm.suggestions}
+        catalogHome={catalogHome}
+        backTarget={backTarget}
+      />
     </>
+  );
+}
+
+function ProductRecommendations({
+  items,
+  catalogHome,
+  backTarget,
+}: {
+  items: CatalogProductVm["suggestions"];
+  catalogHome: string;
+  backTarget: string;
+}) {
+  if (!items.length) return null;
+
+  return (
+    <section className="catalog-pdp-recs" aria-labelledby="catalog-pdp-recs-title">
+      <div className="catalog-pdp-recs__inner">
+        <div className="catalog-pdp-recs__heading">
+          <span aria-hidden="true" />
+          <h2 id="catalog-pdp-recs-title">You might also like</h2>
+          <span aria-hidden="true" />
+        </div>
+
+        <div className="catalog-pdp-recs__grid">
+          {items.map((item) => (
+            <ProductCard
+              key={item.id}
+              product={item}
+              to={`${catalogHome}/${item.id}`}
+              state={{ fromCatalog: backTarget }}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

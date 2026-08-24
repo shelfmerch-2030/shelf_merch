@@ -10,22 +10,26 @@ import {
 } from "../types";
 import { ProductCard } from "./ProductCard";
 import "./catalog-view.css";
-import apparelImg from "../../../../assets/catalog/apparel.png";
-import bagsImg from "../../../../assets/catalog/bags.webp";
-import drinkwareImg from "../../../../assets/catalog/drinkware.png";
+import apparelImg from "../../../../assets/catalog/category-heroes/apparel-bystadium.png";
+import bagsImg from "../../../../assets/catalog/category-heroes/bags-bystadium.png";
+import drinkwareImg from "../../../../assets/catalog/category-heroes/drinkware-bystadium.png";
 import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
-import officeImg from "../../../../assets/catalog/office.png";
-import technologyImg from "../../../../assets/catalog/technology.png";
+import officeImg from "../../../../assets/catalog/category-heroes/office-supplies-bystadium.png";
+import technologyImg from "../../../../assets/catalog/category-heroes/technology-bystadium.png";
 
 const CATEGORY_COPY: Record<string, string> = {
-  Apparel: "Premium apparel designed for team wear, campaigns, events, and everyday brand visibility.",
+  Apparel:
+    "Custom branded apparel built for teams at scale. From everyday essentials to premium statement pieces, our apparel collection helps you turn clothing into culture.",
   Accessories:
     "Smart branded add-ons — including key chains — that are easy to gift, carry, and use across every audience.",
-  Bags: "Travel-ready and work-ready bags that keep your brand visible on the move.",
-  Drinkware: "Daily-use bottles, tumblers, and mugs built for repeat impressions.",
-  Technology: "Useful tech accessories that make branded gifting feel modern and practical.",
+  Bags:
+    "Branded bags designed for impact and logistics simplicity. From trade show totes to executive backpacks, every carry is built for real-world use.",
+  Drinkware:
+    "Reusable bottles, tumblers, and mugs built for everyday rituals, repeat impressions, and branded moments that travel with your team.",
+  Technology:
+    "Useful tech accessories that make branded gifting feel modern, practical, and ready for hybrid workdays, launches, and events.",
   "Office Supplies":
-    "Desk essentials, stationery, and card holders made for onboarding, meetings, and workdays.",
+    "Desk essentials, stationery, and workday tools made for onboarding, meetings, campaigns, and every polished brand touchpoint.",
 };
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -100,8 +104,12 @@ export function CatalogCategoryView(vm: CatalogVm) {
 
         <header className="sm-cat-page__hero">
           <div className="sm-cat-page__hero-copy">
+            <p className="sm-cat-page__eyebrow">The best in</p>
             <h1 className="sm-cat-page__title">{vm.category}</h1>
             <p className="sm-cat-page__copy">{heroCopy}</p>
+            <button type="button" className="sm-cat-page__view-all" onClick={() => setSelectedSubcategory(null)}>
+              View all {vm.category}
+            </button>
             <div className="sm-cat-page__hero-nav">
               <button
                 type="button"

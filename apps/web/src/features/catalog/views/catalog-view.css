@@ -185,6 +185,87 @@
   line-height: 1.3;
 }
 
+.sm-cat-print {
+  background: #fff;
+  padding: 72px 0 92px;
+}
+
+.sm-cat-print-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.sm-cat-print-card {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid #e8e8e6;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.sm-cat-print-card:hover {
+  border-color: #d7d7d3;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.sm-cat-print-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #f3f3f1;
+  overflow: hidden;
+}
+
+.sm-cat-print-card__media img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.28s ease;
+}
+
+.sm-cat-print-card:hover .sm-cat-print-card__media img {
+  transform: scale(1.035);
+}
+
+.sm-cat-print-card__body {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px 24px;
+  background: #f7f7f6;
+}
+
+.sm-cat-print-card__title {
+  margin: 0;
+  color: var(--sm-cat-ink);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+.sm-cat-print-card__copy {
+  margin: 0;
+  max-width: 32ch;
+  color: #5c5c5c;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
 .sm-cat-next {
   position: absolute;
   right: 8px;
@@ -1355,11 +1436,11 @@
 }
 
 .sm-cat-page__hero-visual img {
-  width: 70%;
+  width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
-  margin-left: auto; /* moves image to right */
 }
 
 .sm-cat-page__body {
@@ -1716,6 +1797,11 @@
     --sm-cat-cols: 4;
   }
 
+  .sm-cat-print-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
   .sm-cat-overview {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
@@ -1860,6 +1946,19 @@
   .sm-cat-section--industry,
   .sm-cat-proof {
     padding: 40px 0 24px;
+  }
+
+  .sm-cat-print {
+    padding: 40px 0 48px;
+  }
+
+  .sm-cat-print-card {
+    min-height: 0;
+  }
+
+  .sm-cat-print-card__body {
+    min-height: 128px;
+    padding: 20px 20px 22px;
   }
 
   .sm-cat-products--overview {

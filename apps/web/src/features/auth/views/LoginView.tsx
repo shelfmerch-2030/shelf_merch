@@ -5,7 +5,8 @@ import { AuthLabel, AuthLayout, authInputClassName } from "./AuthLayout";
 export function LoginView(vm: LoginVm) {
   return (
     <AuthLayout
-      title="Log in with your Shelf Merch account"
+      title="Log in to your account"
+      subtitle="Enter your credentials to continue"
       footerLink={{ hint: "Don't have an account?", label: "Sign up", to: "/signup" }}
     >
       <form className="auth-simple-form" onSubmit={vm.onSubmit} aria-busy={vm.busy}>
@@ -33,7 +34,7 @@ export function LoginView(vm: LoginVm) {
                   className="auth-simple-label-action"
                   onClick={vm.onForgotPassword}
                 >
-                  Reset password
+                  Forgot password?
                 </button>
               }
             >
@@ -44,6 +45,7 @@ export function LoginView(vm: LoginVm) {
               value={vm.password}
               onValueChange={vm.onPassword}
               autoComplete="current-password"
+              placeholder="Enter your password"
             />
           </div>
 

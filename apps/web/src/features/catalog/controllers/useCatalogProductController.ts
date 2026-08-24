@@ -8,6 +8,7 @@ export type CatalogProductVm = {
   errorMessage: string | null;
   product: UiProduct | undefined;
   index: number;
+  suggestions: UiProduct[];
 };
 
 /** Controller for the catalog product detail page: route param + product query. */
@@ -16,7 +17,18 @@ export function useCatalogProductController(): CatalogProductVm {
   const { data: workspace } = useWorkspace();
   const { data: product, isLoading, isError, error } = useCatalogProduct(id, workspace);
 
-  const index = workspace?.catalogProducts.findIndex((p) => p.id === id) ?? 0;
+  const catalogProducts = workspace?.catalogProducts ?? [];
+  const index = catalogProducts.findIndex((p) => p.id === id);
+  const safeIndex = index >= 0 ? index : 0;
+  const currentProduct = product ?? catalogProducts[safeIndex];
+  const sameCategory = catalogProducts.filter(
+    (item) => item.id !== id && currentProduct?.category && item.category === currentProduct.category,
+  );
+  const fallback = catalogProducts.filter((item) => item.id !== id);
+  const suggestions = [
+    ...sameCategory,
+    ...fallback.filter((item) => !sameCategory.some((match) => match.id === item.id)),
+  ].slice(0, 3);
 
   return {
     isLoading: isLoading && !product,
@@ -26,6 +38,7 @@ export function useCatalogProductController(): CatalogProductVm {
         : "Could not load product"
       : null,
     product,
-    index: index >= 0 ? index : 0,
+    index: safeIndex,
+    suggestions,
   };
 }

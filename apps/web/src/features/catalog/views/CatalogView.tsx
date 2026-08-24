@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { ALL_PRODUCTS } from "../types";
 import type { CatalogVm } from "../controllers/useCatalogController";
 import { ProductCard } from "./ProductCard";
@@ -8,21 +8,16 @@ import { CategoryCarousel, type CategoryTile } from "./CategoryCarousel";
 import { CatalogMarketingFooter } from "./CatalogMarketingFooter";
 import "./catalog-view.css";
 import catalogHeroImg from "../../../../assets/catalog_banner.png";
-import apparelImg from "../../../../assets/catalog/apparel.png";
-import bagsImg from "../../../../assets/catalog/bags.webp";
-import drinkwareImg from "../../../../assets/catalog/drinkware.png";
+import apparelImg from "../../../../assets/catalog/apparel-shelfmerch.png";
+import bagsImg from "../../../../assets/catalog/bags-shelfmerch.png";
+import drinkwareImg from "../../../../assets/catalog/drinkware-shelfmerch.png";
 import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
-import officeImg from "../../../../assets/catalog/office.png";
-import technologyImg from "../../../../assets/catalog/technology.png";
+import officeImg from "../../../../assets/catalog/office-supplies-shelfmerch.png";
+import technologyImg from "../../../../assets/catalog/technology-shelfmerch.png";
 import overviewCorporateGiftsImg from "../../../../assets/catalog-overview/corporate-gifts.png";
 import overviewSustainableImg from "../../../../assets/catalog-overview/sustainability-new.png";
 import overviewBuiltForImpactImg from "../../../../assets/catalog-overview/bag-generated.png";
 import overviewGlobalReachImg from "../../../../assets/catalog-overview/global-reach.png";
-import finishEmbroideryImg from "../../../../assets/catalog-finishes/embroidery.png";
-import finishHeatTransferImg from "../../../../assets/catalog-finishes/heat-transfer.png";
-import finishStitchedImg from "../../../../assets/catalog-finishes/stitched-branding.png";
-import finishFoilImg from "../../../../assets/catalog-finishes/foil-stamping.png";
-import finishSublimationImg from "../../../../assets/catalog-finishes/dye-sublimation.png";
 import amazonLogoImg from "../../../../assets/catalog-brands/amazon.png";
 import datadogLogoImg from "../../../../assets/catalog-brands/datadog.svg";
 import informaticaLogoImg from "../../../../assets/catalog-brands/informatica.svg";
@@ -33,6 +28,10 @@ import styleNotebookImg from "../../../../assets/catalog-style-spotlight/noteboo
 import styleKitsImg from "../../../../assets/catalog-style-spotlight/kits.png";
 import styleGiveawaysImg from "../../../../assets/catalog-style-spotlight/giveaways.png";
 import styleSocksImg from "../../../../assets/catalog-style-spotlight/socks.png";
+import dtfImg from "../../../../assets/catalog-print-methods/dtf.png";
+import sublimationImg from "../../../../assets/catalog-print-methods/sublimation.png";
+import laserEngravingImg from "../../../../assets/catalog-print-methods/laser-engraving.png";
+import uvDtfStickerImg from "../../../../assets/catalog-print-methods/uv-dtf-sticker.png";
 
 const STYLE_SPOTLIGHT_TSHIRT = "/images/catalog/style-spotlight/tshirt.png";
 const STYLE_SPOTLIGHT_NOTEBOOK = "/images/catalog/style-spotlight/notebook.png";
@@ -51,44 +50,6 @@ const TEAM_LOGOS = [
   { name: "Amazon", mark: "amazon", className: "sm-cat-team-logo--amazon" },
   { name: "Informatica", mark: "Informatica", className: "sm-cat-team-logo--informatica" },
   { name: "Apollo", mark: "APOLLO", className: "sm-cat-team-logo--apollo" },
-];
-
-const FINISHES = [
-  {
-    title: "Embroidery",
-    copy:
-      "Crafted. Durable. Timeless. Precision stitching that holds up to wear and time, ideal for uniforms, caps, and apparel that represent your brand every day.",
-    image: finishEmbroideryImg,
-    imageAlt: "Raised embroidery on a navy branded cap",
-  },
-  {
-    title: "Heat Transfer Printing",
-    copy:
-      "Clean application. Heat activated graphics bond seamlessly onto fabric panels, offering sharp detail and flexible customization for short or mid volume runs.",
-    image: finishHeatTransferImg,
-    imageAlt: "Heat transfer print applied to a gray fabric pouch",
-  },
-  {
-    title: "Stitched Branding",
-    copy:
-      "Elevated in every thread. High density stitching integrates smoothly into fabric, delivering a refined, long lasting finish for hospitality, gifting, and premium textiles.",
-    image: finishStitchedImg,
-    imageAlt: "Stitched branding on folded white towels",
-  },
-  {
-    title: "Foil Stamping",
-    copy:
-      "Luxury, amplified. Metallic foil adds contrast and shine, turning logos and marks into statement details for high end packaging and premium merchandise.",
-    image: finishFoilImg,
-    imageAlt: "Gold foil stamped mark on a blue tumbler",
-  },
-  {
-    title: "Dye Sublimation Print",
-    copy:
-      "Vibrant graphics are infused directly into the material, producing smooth gradients, edge to edge coverage, and lasting color that will not crack, peel, or fade.",
-    image: finishSublimationImg,
-    imageAlt: "Full-color dye sublimation print on a floral sleep mask",
-  },
 ];
 
 const STYLE_CATEGORIES: CategoryTile[] = [
@@ -139,6 +100,33 @@ const STYLE_CATEGORIES: CategoryTile[] = [
   //   imageAlt: "Ready-to-order gift set",
   // },
 ];
+
+const PRINT_TYPES = [
+  {
+    label: "DTF",
+    description: "Full-color transfers on cotton and blends, with a soft hand-feel.",
+    image: dtfImg,
+    imageAlt: "DTF print transfer on apparel",
+  },
+  {
+    label: "Sublimation",
+    description: "Vibrant, all-over prints that dye into polyester and coated surfaces.",
+    image: sublimationImg,
+    imageAlt: "Sublimation printed bottle and mug",
+  },
+  {
+    label: "Laser Engraving",
+    description: "Permanent marks on metal, wood, and hard goods. No ink, no fade.",
+    image: laserEngravingImg,
+    imageAlt: "Laser engraving on wood and metal products",
+  },
+  {
+    label: "UV DTF sticker",
+    description: "Durable, high-detail stickers for bottles, tech, and hard surfaces.",
+    image: uvDtfStickerImg,
+    imageAlt: "UV DTF sticker application on bottle",
+  },
+] as const;
 
 const INDUSTRY_CATEGORIES: CategoryTile[] = [
   {
@@ -420,6 +408,33 @@ function CatalogOverviewMosaic({ onSelect }: { onSelect: (category?: string) => 
   );
 }
 
+function PrintingTypesSection() {
+  return (
+    <section className="sm-cat-print" aria-labelledby="sm-cat-print-title">
+      <div className="sm-cat-container">
+        <div className="sm-cat-head">
+          <h2 className="sm-cat-title" id="sm-cat-print-title">
+            Choose your print. Make it yours.
+          </h2>
+        </div>
+        <div className="sm-cat-print-grid">
+          {PRINT_TYPES.map((item) => (
+            <article className="sm-cat-print-card" key={item.label}>
+              <div className="sm-cat-print-card__media">
+                <img src={item.image} alt={item.imageAlt} loading="lazy" />
+              </div>
+              <div className="sm-cat-print-card__body">
+                <h3 className="sm-cat-print-card__title">{item.label}</h3>
+                <p className="sm-cat-print-card__copy">{item.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LovedTeamsSection() {
   return (
     <section className="sm-cat-teams" aria-labelledby="sm-cat-teams-title">
@@ -450,51 +465,6 @@ function LovedTeamsSection() {
                 {Array.isArray(logo.mark) ? <span className="sr-only">{logo.name}</span> : null}
               </span>
             ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FinishesSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const active = FINISHES[activeIndex];
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % FINISHES.length);
-    }, 3500);
-
-    return () => window.clearInterval(timer);
-  }, [activeIndex]);
-
-  function moveFinish(direction: -1 | 1) {
-    setActiveIndex((current) => (current + direction + FINISHES.length) % FINISHES.length);
-  }
-
-  return (
-    <section className="sm-cat-finishes" aria-labelledby="sm-cat-finishes-title">
-      <div className="sm-cat-container">
-        <h2 className="sm-cat-finishes__title" id="sm-cat-finishes-title">
-          Finishes that speak for themselves
-        </h2>
-
-        <div className="sm-cat-finishes__card">
-          <div className="sm-cat-finishes__copy">
-            <h3>{active.title}</h3>
-            <p>{active.copy}</p>
-            <div className="sm-cat-finishes__nav" aria-label="Finish navigation">
-              <button type="button" onClick={() => moveFinish(-1)} aria-label="Previous finish">
-                <ArrowLeft aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => moveFinish(1)} aria-label="Next finish">
-                <ArrowRight aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <div className="sm-cat-finishes__image">
-            <img src={active.image} alt={active.imageAlt} />
           </div>
         </div>
       </div>
@@ -602,8 +572,6 @@ export function CatalogView(vm: CatalogVm) {
           )} */}
         {/* </div> */}
       </section>
-
-      <FinishesSection />
 
       {isPublic ? <CatalogMarketingFooter onViewCatalog={scrollToProducts} /> : null}
     </div>

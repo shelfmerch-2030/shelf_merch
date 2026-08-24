@@ -7,6 +7,7 @@ export function SignupView(vm: SignupVm) {
   return (
     <AuthLayout
       title="Create your account"
+      subtitle="Start managing merch, gifting and orders"
       footerLink={{ hint: "Already have an account?", label: "Log in", to: "/login" }}
     >
       {vm.accountExists ? (
