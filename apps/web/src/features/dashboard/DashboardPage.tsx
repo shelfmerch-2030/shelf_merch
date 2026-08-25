@@ -30,7 +30,7 @@ import {
   Landmark,
   type LucideIcon,
 } from "lucide-react";
-import { LoadingState } from "@/components/LoadingState";
+import { DashboardLoadingSkeleton } from "@/components/LoadingState";
 import { ShopBanner } from "@/features/shops/banner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
@@ -783,7 +783,7 @@ export function DashboardPage() {
   const sessionUser = getStoredUser();
 
   if (isLoading && !workspace) {
-    return <LoadingState message="Loading dashboard..." fullScreen={false} />;
+    return <DashboardLoadingSkeleton />;
   }
   if (isError || !workspace) {
     return (
@@ -823,7 +823,7 @@ export function DashboardPage() {
         <div className="dash-welcome__left">
           <div className="dash-welcome__avatar" aria-hidden="true">{initials}</div>
           <div>
-            <div className="dash-welcome__name">Welcome, {userName}</div>
+            <div className="dash-welcome__name">Welcome, {userName} 👋</div>
             <div className="dash-welcome__meta">{account} | {roleLabel}</div>
           </div>
         </div>

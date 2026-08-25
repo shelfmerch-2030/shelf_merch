@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../../plugins/tenantScope.plugin.js';
-import { MERGE_HRIS_INTEGRATIONS, MERGE_CONNECTION_STATUSES, MERGE_SYNC_STATUSES } from './merge.constants.js';
+import { MERGE_HRIS_INTEGRATIONS, MERGE_CONNECTION_CATEGORIES, MERGE_CONNECTION_STATUSES, MERGE_SYNC_STATUSES } from './merge.constants.js';
 
 /**
  * One Merge HRIS Linked Account per (tenant, provider).
@@ -21,12 +21,12 @@ const mergeConnectionSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['hris'],
+      enum: MERGE_CONNECTION_CATEGORIES,
       default: 'hris',
     },
     mergeLinkedAccountId: { type: String, default: '' },
     integrationName: { type: String, default: '' },
-    /** Merge end_user_origin_id — unique per HRIS provider so multiple can coexist. */
+    /** Merge end_user_origin_id — unique per provider so multiple can coexist. */
     endUserOriginId: { type: String, default: '' },
     endUserOrganizationName: { type: String, default: '' },
     encryptedAccountToken: { type: String, default: '' },

@@ -1,5 +1,17 @@
-import { useRef } from "react";
-import { LifeBuoy, Paperclip, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  CircleHelp,
+  CreditCard,
+  Gift,
+  LifeBuoy,
+  MapPin,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Search,
+  Truck,
+  X,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,17 +20,65 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LoadingState } from "@/components/LoadingState";
-import { PageHeader } from "@/components/tenant/PageHeader";
-import { StatusTag, PlatformSelect } from "@/components/platform/platform-ui";
+import { PlatformSelect } from "@/components/platform/platform-ui";
 import {
   SUPPORT_TICKET_TYPES,
   TYPE_LABELS,
   type SupportAttachment,
   type SupportMessage,
+  type SupportTicket,
 } from "../model";
 import type { SupportTicketsVm } from "../controllers/useSupportTicketsController";
+import "../support-page.css";
 
 const SUBTITLE = "Raise an issue with the ShelfMerch team and track replies here.";
+
+const STATUS_FILTERS = ["all", "open", "in_progress", "closed"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  all: "All",
+  open: "Open",
+  in_progress: "In progress",
+  closed: "Closed",
+};
+
+function ticketTypeVisual(type: string) {
+  switch (type) {
+    case "delivery_issue":
+      return { Icon: Truck, tone: "delivery" as const };
+    case "address_change":
+      return { Icon: MapPin, tone: "address" as const };
+    case "replacement":
+      return { Icon: RefreshCw, tone: "replace" as const };
+    case "redemption_issue":
+      return { Icon: Gift, tone: "redeem" as const };
+    case "billing":
+      return { Icon: CreditCard, tone: "billing" as const };
+    default:
+      return { Icon: CircleHelp, tone: "other" as const };
+  }
+}
+
+function statusKey(status: string) {
+  const s = status.replace(/-/g, "_");
+  if (s === "resolved") return "closed";
+  return s;
+}
+
+function statusLabel(status: string) {
+  return statusKey(status)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function matchesStatus(ticket: SupportTicket, filter: StatusFilter) {
+  if (filter === "all") return true;
+  const s = statusKey(ticket.status);
+  if (filter === "closed") return s === "closed" || s === "resolved";
+  if (filter === "open") return s === "open";
+  return s === "in_progress";
+}
 
 function fmtBytes(size = 0) {
   if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
@@ -45,23 +105,18 @@ function formatMsgTime(at: string) {
 function AttachmentLinks({ attachments }: { attachments?: SupportAttachment[] }) {
   if (!attachments?.length) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+    <div className="sm-support-detail__attachments">
       {attachments.map((a, i) => (
         <a
           key={a._id ?? i}
           href={a.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="lnk"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}
+          className="sm-support-detail__attach"
         >
           <Paperclip size={14} strokeWidth={2.25} aria-hidden="true" />
-          {a.name || "Attachment"}
-          {a.size ? (
-            <span className="muted" style={{ fontSize: 12 }}>
-              ({fmtBytes(a.size)})
-            </span>
-          ) : null}
+          <span>{a.name || "Attachment"}</span>
+          {a.size ? <em>({fmtBytes(a.size)})</em> : null}
         </a>
       ))}
     </div>
@@ -98,8 +153,35 @@ function MessageBubble({ message }: { message: SupportMessage }) {
 /** Tenant help center: my tickets + raise-ticket dialog + conversation thread. */
 export function SupportTicketsView(vm: SupportTicketsVm) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
+
+  const stats = useMemo(() => {
+    const tickets = vm.tickets;
+    const open = tickets.filter((t) => statusKey(t.status) === "open").length;
+    const progress = tickets.filter((t) => statusKey(t.status) === "in_progress").length;
+    const closed = tickets.filter((t) => {
+      const s = statusKey(t.status);
+      return s === "closed" || s === "resolved";
+    }).length;
+    const replies = tickets.reduce((n, t) => n + (t.messages?.length ?? 0), 0);
+    return { total: tickets.length, open, progress, closed, replies };
+  }, [vm.tickets]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return vm.tickets.filter((t) => {
+      if (!matchesStatus(t, filter)) return false;
+      if (!q) return true;
+      return (
+        t.subject.toLowerCase().includes(q) ||
+        (TYPE_LABELS[t.type] ?? t.type).toLowerCase().includes(q)
+      );
+    });
+  }, [vm.tickets, filter, search]);
+
   if (vm.isLoading) {
-    return <LoadingState message="Loading support tickets…" fullScreen={false} />;
+    return <LoadingState message="Loading support tickets…" fullScreen={false} variant="list" />;
   }
   if (vm.errorMessage) {
     return (
@@ -110,73 +192,133 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
   }
 
   return (
-    <>
-      <PageHeader
-        title="Support"
-        subtitle={SUBTITLE}
-        actions={
-          <button type="button" className="btn btn-brand" onClick={vm.onOpenCreate}>
-            Raise a ticket
-          </button>
-        }
-      />
+    <div className="support-page">
+      <header className="sup-hero">
+        <div className="sup-hero__copy">
+          <h1>Support</h1>
+          <p className="sup-hero__sub">{SUBTITLE}</p>
+        </div>
+        <button type="button" className="sup-hero__cta" onClick={vm.onOpenCreate}>
+          <Plus size={16} aria-hidden="true" />
+          Raise a ticket
+        </button>
+      </header>
+
+      <div className="sup-kpi" aria-label="Ticket metrics">
+        <div className="sup-kpi__item sup-kpi__item--slate">
+          <div>
+            <span className="sup-kpi__label">Total tickets</span>
+            <span className="sup-kpi__value">{stats.total}</span>
+            <span className="sup-kpi__hint">All conversations</span>
+          </div>
+        </div>
+        <div className="sup-kpi__item sup-kpi__item--blue">
+          <div>
+            <span className="sup-kpi__label">Open</span>
+            <span className="sup-kpi__value">{stats.open + stats.progress}</span>
+            <span className="sup-kpi__hint">{stats.progress} in progress</span>
+          </div>
+        </div>
+        <div className="sup-kpi__item sup-kpi__item--amber">
+          <div>
+            <span className="sup-kpi__label">Closed</span>
+            <span className="sup-kpi__value">{stats.closed}</span>
+            <span className="sup-kpi__hint">Resolved or closed</span>
+          </div>
+        </div>
+        <div className="sup-kpi__item sup-kpi__item--green">
+          <div>
+            <span className="sup-kpi__label">Replies</span>
+            <span className="sup-kpi__value">{stats.replies}</span>
+            <span className="sup-kpi__hint">Across all tickets</span>
+          </div>
+        </div>
+      </div>
 
       {vm.tickets.length === 0 ? (
-        <div className="card empty">
-          <div className="ic" aria-hidden="true">
-            <LifeBuoy size={34} color="var(--ink-3)" />
+        <div className="sup-panel">
+          <div className="sup-empty">
+            <LifeBuoy size={34} color="var(--ink-3)" aria-hidden="true" />
+            <h3>No tickets yet</h3>
+            <p>Stuck on an order, delivery or redemption? Raise a ticket and we&apos;ll help.</p>
+            <button type="button" className="sup-empty__cta" onClick={vm.onOpenCreate}>
+              Raise a ticket
+            </button>
           </div>
-          <h3>No tickets yet</h3>
-          <p>Stuck on an order, delivery or redemption? Raise a ticket and we&apos;ll help.</p>
-          <button type="button" className="btn btn-brand" onClick={vm.onOpenCreate}>
-            Raise a ticket
-          </button>
         </div>
       ) : (
-        <div className="card data-list-card">
-          <div className="data-list-title">Your tickets</div>
-          <table className="tbl data-list-table">
-            <thead>
-              <tr>
-                <th>Opened</th>
-                <th>Subject</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Replies</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vm.tickets.map((t) => (
-                <tr
-                  key={t._id}
-                  className="data-list-row"
-                  onClick={() => vm.onSelect(t)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Open ticket ${t.subject}`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      vm.onSelect(t);
-                    }
-                  }}
+        <section className="sup-panel">
+          <div className="sup-panel__toolbar">
+            <div className="sup-seg" role="group" aria-label="Status filter">
+              {STATUS_FILTERS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`sup-seg__btn${filter === key ? " is-active" : ""}`}
+                  onClick={() => setFilter(key)}
                 >
-                  <td className="muted data-list-cell">
-                    {new Date(t.createdAt).toLocaleDateString("en-IN")}
-                  </td>
-                  <td className="data-list-cell">
-                    <div className="data-list-primary">{t.subject}</div>
-                  </td>
-                  <td className="data-list-cell">{TYPE_LABELS[t.type] ?? t.type}</td>
-                  <td className="data-list-cell">
-                    <StatusTag status={t.status} />
-                  </td>
-                  <td className="data-list-cell">{t.messages?.length ?? 0}</td>
-                </tr>
+                  {STATUS_LABELS[key]}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+            <label className="sup-search">
+              <Search size={15} aria-hidden="true" />
+              <input
+                placeholder="Search tickets"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search tickets"
+              />
+            </label>
+          </div>
+
+          <div className="sup-list-head" aria-hidden="true">
+            <span className="sup-list-head__opened">Opened</span>
+            <span>Subject</span>
+            <span className="sup-list-head__type">Type</span>
+            <span>Status</span>
+            <span className="sup-list-head__num">Replies</span>
+          </div>
+
+          {filtered.length ? (
+            filtered.map((t) => {
+              const { Icon, tone } = ticketTypeVisual(t.type);
+              const s = statusKey(t.status);
+              return (
+                <button
+                  key={t._id}
+                  type="button"
+                  className="sup-row"
+                  onClick={() => vm.onSelect(t)}
+                  aria-label={`Open ticket ${t.subject}`}
+                >
+                  <span className="sup-row__opened muted">{new Date(t.createdAt).toLocaleDateString("en-IN")}</span>
+                  <span className="sup-row__main">
+                    <span className={`sup-row__icon sup-row__icon--${tone}`} aria-hidden="true">
+                      <Icon size={17} />
+                    </span>
+                    <span>
+                      <span className="sup-row__title">{t.subject}</span>
+                      <span className="sup-row__sub">{TYPE_LABELS[t.type] ?? t.type}</span>
+                    </span>
+                  </span>
+                  <span className="sup-row__type">
+                    <span className="sup-chip">{TYPE_LABELS[t.type] ?? t.type}</span>
+                  </span>
+                  <span>
+                    <span className={`sup-chip sup-chip--${s}`}>
+                      <span className="sup-chip__dot" />
+                      {statusLabel(t.status)}
+                    </span>
+                  </span>
+                  <span className="sup-row__num">{t.messages?.length ?? 0}</span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="sup-list-empty">No tickets match your filters.</div>
+          )}
+        </section>
       )}
 
       {/* Raise-ticket dialog */}
@@ -301,34 +443,40 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
         <DialogContent className="sm-modal sm-support-detail-modal">
           {vm.selected && (
             <div className="modal-pad sm-support-detail">
-              <DialogHeader>
-                <div className="eyebrow">
-                  {TYPE_LABELS[vm.selected.type] ?? vm.selected.type} ·{" "}
-                  {new Date(vm.selected.createdAt).toLocaleDateString("en-IN")}
-                </div>
-                <DialogTitle style={{ fontSize: 20 }}>{vm.selected.subject}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Conversation for ticket {vm.selected.subject}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div style={{ marginTop: 10, marginBottom: 12 }}>
-                <StatusTag status={vm.selected.status} />
-              </div>
+              <header className="sm-support-detail__head">
+                <DialogHeader className="sm-support-detail__titles">
+                  <div className="sm-support-detail__eyebrow">
+                    <span>{TYPE_LABELS[vm.selected.type] ?? vm.selected.type}</span>
+                    <span aria-hidden="true">·</span>
+                    <time dateTime={vm.selected.createdAt}>
+                      {new Date(vm.selected.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </time>
+                  </div>
+                  <DialogTitle className="sm-support-detail__title">
+                    {vm.selected.subject}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Conversation for ticket {vm.selected.subject}
+                  </DialogDescription>
+                </DialogHeader>
+                <span className={`sup-chip sup-chip--${statusKey(vm.selected.status)}`}>
+                  <span className="sup-chip__dot" />
+                  {statusLabel(vm.selected.status)}
+                </span>
+              </header>
 
               {vm.selected.description ? (
-                <div
-                  className="muted"
-                  style={{ fontSize: 14, whiteSpace: "pre-wrap", marginBottom: 14 }}
-                >
-                  {vm.selected.description}
-                </div>
+                <p className="sm-support-detail__desc">{vm.selected.description}</p>
               ) : null}
 
               <AttachmentLinks attachments={vm.selected.attachments} />
 
               <div className="support-ticket-thread sm-support-detail-thread">
-                <label className="lbl">Conversation</label>
+                <div className="sm-support-detail-thread__label">Conversation</div>
                 <div className="support-ticket-thread-scroll">
                   {(vm.selected.messages ?? []).length === 0 ? (
                     <p className="support-ticket-thread-empty">
@@ -343,17 +491,14 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
               </div>
 
               {vm.selected.status === "resolved" ? (
-                <div
-                  className="card"
-                  style={{ padding: 14, marginTop: 14, background: "var(--surface-2)" }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                    Did we solve your issue?
+                <div className="sm-support-detail__resolve">
+                  <div className="sm-support-detail__resolve-copy">
+                    <strong>Did we solve your issue?</strong>
+                    <p>
+                      Confirming closes this ticket. If you still need help, reply below and it
+                      reopens.
+                    </p>
                   </div>
-                  <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
-                    Confirming closes this ticket. If you still need help, just reply below and
-                    it reopens.
-                  </p>
                   <button
                     type="button"
                     className="btn btn-brand btn-sm"
@@ -368,25 +513,23 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
               {vm.canReply ? (
                 <div className="sm-support-detail-composer">
                   <textarea
-                    className="inp"
-                    rows={3}
+                    className="sm-support-detail-composer__input"
+                    rows={2}
                     placeholder="Write a reply…"
                     value={vm.reply}
                     onChange={(e) => vm.onReply(e.target.value)}
                   />
-                  <div className="row" style={{ justifyContent: "flex-end", marginTop: 10 }}>
-                    <button
-                      type="button"
-                      className="btn btn-brand btn-sm"
-                      disabled={vm.replying || !vm.reply.trim()}
-                      onClick={vm.onSendReply}
-                    >
-                      {vm.replying ? "Sending…" : "Send reply"}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="sm-support-detail-composer__send"
+                    disabled={vm.replying || !vm.reply.trim()}
+                    onClick={vm.onSendReply}
+                  >
+                    {vm.replying ? "Sending…" : "Send reply"}
+                  </button>
                 </div>
               ) : (
-                <p className="muted" style={{ fontSize: 13, marginTop: 14 }}>
+                <p className="sm-support-detail__closed">
                   This ticket is closed. Raise a new ticket if you need more help.
                 </p>
               )}
@@ -394,6 +537,6 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

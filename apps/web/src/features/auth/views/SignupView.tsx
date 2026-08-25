@@ -6,6 +6,7 @@ import { AuthLabel, AuthLayout, authInputClassName } from "./AuthLayout";
 export function SignupView(vm: SignupVm) {
   return (
     <AuthLayout
+      variant="welcome"
       title="Create your account"
       subtitle="Start managing merch, gifting and orders"
       footerLink={{ hint: "Already have an account?", label: "Log in", to: "/login" }}

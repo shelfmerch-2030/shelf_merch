@@ -120,7 +120,7 @@ export const INTEGRATIONS: Integration[] = [
     id: "google-workspace",
     name: "Google Workspace",
     category: "Directory",
-    desc: "Provision recipients and sync org directory from Google",
+    desc: "Provision recipients and sync org directory from Google.",
     connected: false,
     icon: googleWorkspaceIcon,
   },
@@ -227,16 +227,21 @@ export const MERGE_HRIS_TOOLS: Tile[] = [
     desc: "Sync people data and lifecycle events from HiBob.",
     icon: hibobIcon,
   },
+  {
+    id: "google-workspace",
+    name: "Google Workspace",
+    desc: "Provision recipients and sync org directory from Google.",
+    icon: googleWorkspaceIcon,
+  },
 ];
 
-/** Logo-card grid for User management (HRIS / HRMS providers). */
+/** Logo-card grid for User management (HRIS / directory providers). */
 export const USER_MANAGEMENT_TOOLS: Tile[] = [
   ...MERGE_HRIS_TOOLS,
   app("zoho-people"),
 ].filter(Boolean) as Tile[];
 
 export const DISPLAY_TOOLS: Tile[] = [
-  app("google-workspace"),
   app("razorpay"),
   app("shiprocket"),
 ].filter(Boolean) as Tile[];

@@ -13,6 +13,7 @@ describe("Gusto HRIS catalog restore", () => {
       "deel",
       "ukg-pro",
       "hibob",
+      "google-workspace",
     ]);
   });
 

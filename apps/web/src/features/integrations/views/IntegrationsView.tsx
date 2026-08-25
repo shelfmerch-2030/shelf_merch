@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { LockKeyhole } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageHeader } from "@/components/tenant/PageHeader";
 import {
   COLLABORATION_TOOLS,
   DISPLAY_TOOLS,
@@ -11,8 +12,9 @@ import {
 } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
 import { MergeLinkSession } from "../components/MergeLinkSession";
-import { IntegrationDetailView, IntegrationMark } from "./IntegrationDetailView";
+import { IntegrationDetailView } from "./IntegrationDetailView";
 import { isMergeHrisIntegration } from "@/services/merge-api";
+import "../integrations-page.css";
 
 function IntegrationTile({
   item,
@@ -51,16 +53,13 @@ function IntegrationTile({
       <span className="bonus-integ-copy">
         <span className="bonus-integ-name">
           {tile.name}
-          {connected ? (
-            <span className="bonus-integ-recommended" style={{ marginLeft: 8 }}>
-              Connected
-            </span>
-          ) : null}
+          {connected ? <span className="bonus-integ-recommended">Connected</span> : null}
+          {disabled ? <span className="bonus-integ-soon">Coming soon</span> : null}
         </span>
-        {tile.recommended && !connected && (
+        {tile.recommended && !connected && !disabled ? (
           <span className="bonus-integ-recommended">Recommended</span>
-        )}
-        {detail && tile.desc && <span className="bonus-integ-desc">{tile.desc}</span>}
+        ) : null}
+        {detail && tile.desc ? <span className="bonus-integ-desc">{tile.desc}</span> : null}
       </span>
     </button>
   );
@@ -203,6 +202,7 @@ export function IntegrationsView(vm: IntegrationsVm) {
           tile={vm.selected}
           onBack={vm.onBack}
           onInstall={vm.onInstall}
+          onSelect={vm.onSelect}
           onSupport={vm.onSupport}
           connection={connection}
           busy={vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting || vm.slack.connecting}
@@ -224,11 +224,14 @@ export function IntegrationsView(vm: IntegrationsVm) {
   return (
     <div className="bonus-integ-page">
       {mergeLink}
-      <h1>Integrations</h1>
+      <PageHeader
+        title="Integrations"
+        subtitle="Connect HRIS, chat, and SSO so Shelf Merch stays in sync with your stack."
+      />
 
       <Section
         title="User management"
-        desc="Connect your HRIS or HRMS software to automatically sync user information, including employee names, emails, and more."
+        desc="Connect your HRIS, HRMS, or company directory to sync employee names, emails, and directory data automatically."
       >
         <div className="bonus-integ-logo-grid">
           {USER_MANAGEMENT_TOOLS.map((item) => {
@@ -248,23 +251,21 @@ export function IntegrationsView(vm: IntegrationsVm) {
                 onConnect={vm.onInstall}
                 connected={connected && !needsAttention}
                 needsAttention={needsAttention}
-                flowBusy={
-                  vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting
-                }
+                flowBusy={vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting}
               />
             );
           })}
         </div>
         {hasMergeConnection ? (
-          <p className="bonus-integ-desc" style={{ marginTop: 14 }}>
-            <Link to="/app/integrations/hris-employees">View Merge HRIS employees</Link>
+          <p className="bonus-integ-section__link">
+            <Link to="/app/integrations/hris-employees">View employee directory</Link>
           </p>
         ) : null}
       </Section>
 
       <Section
         title="Collaboration tools"
-        desc="Connect ShelfMerch to Slack to post updates in your workspace. Other chat tools are coming soon."
+        desc="Connect Shelf Merch to Slack to post updates in your workspace. Other chat tools are coming soon."
       >
         <div className="bonus-integ-grid bonus-integ-grid--compact">
           {COLLABORATION_TOOLS.map((item) => {
@@ -290,18 +291,22 @@ export function IntegrationsView(vm: IntegrationsVm) {
 
       <Section
         title="Single sign-on"
-        desc="Enable single sign-on (SSO) to protect your company's account information."
+        desc="Enable SSO to protect your company's account information with your identity provider."
       >
         <div className="bonus-integ-plan">
           <div className="bonus-integ-plan-h">
-            <LockKeyhole size={17} aria-hidden="true" />
+            <span className="bonus-integ-plan-h__icon" aria-hidden="true">
+              <LockKeyhole size={18} />
+            </span>
             <h3>Single Sign-On (SSO)</h3>
           </div>
-          <p>
-            Configure SAML-based Single Sign-On to let your team sign in to ShelfMerch using your
-            identity provider.
-          </p>
-          <strong>Available on the Enterprise plan</strong>
+          <div className="bonus-integ-plan__body">
+            <p>
+              Configure SAML-based SSO so your team can sign in to Shelf Merch with Okta, Azure AD,
+              or another IdP.
+            </p>
+            <strong>Available on the Enterprise plan</strong>
+          </div>
           <button type="button" onClick={vm.onViewPlans}>
             View plans
           </button>
@@ -309,7 +314,7 @@ export function IntegrationsView(vm: IntegrationsVm) {
       </Section>
 
       <Section
-        title="ShelfMerch display"
+        title="Shelf Merch display"
         desc="Maximize the impact of gifting across the tools your employees already use."
       >
         <div className="bonus-integ-grid bonus-integ-grid--detail">

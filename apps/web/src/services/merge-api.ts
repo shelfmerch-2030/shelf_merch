@@ -14,7 +14,14 @@ export const MERGE_HRIS_INTEGRATIONS = [
   "deel",
   "ukg-pro",
   "hibob",
+  "google-workspace",
 ] as const;
+
+export const MERGE_DIRECTORY_PROVIDERS = ["google-workspace"] as const;
+
+export function isMergeDirectoryProvider(id: string): boolean {
+  return (MERGE_DIRECTORY_PROVIDERS as readonly string[]).includes(id);
+}
 
 export type MergeHrisIntegration = (typeof MERGE_HRIS_INTEGRATIONS)[number];
 
@@ -42,7 +49,16 @@ export function mergeSyncErrorMessage(err: unknown): string {
   if (err && typeof err === "object" && "code" in err) {
     const code = String((err as { code?: string }).code || "");
     if (code === "MERGE_SCOPES_DISABLED") {
-      return "This HRIS connection is valid, but required Merge data scopes are disabled.";
+      return "Required permissions are not enabled for this connection.";
+    }
+    if (code === "MERGE_AUTH_FAILED") {
+      return "This connection needs to be reconnected.";
+    }
+    if (code === "MERGE_RATE_LIMITED") {
+      return "Sync is temporarily rate limited. Try again in a few minutes.";
+    }
+    if (code === "MERGE_PROVIDER_ERROR") {
+      return "The provider could not complete sync. Try again.";
     }
   }
   if (err instanceof Error && err.message) return err.message;

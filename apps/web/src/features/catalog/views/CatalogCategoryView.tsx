@@ -10,10 +10,10 @@ import {
 } from "../types";
 import { ProductCard } from "./ProductCard";
 import "./catalog-view.css";
+import accessoriesImg from "../../../../assets/catalog/category-heroes/accessories-bystadium.png";
 import apparelImg from "../../../../assets/catalog/category-heroes/apparel-bystadium.png";
 import bagsImg from "../../../../assets/catalog/category-heroes/bags-bystadium.png";
 import drinkwareImg from "../../../../assets/catalog/category-heroes/drinkware-bystadium.png";
-import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
 import officeImg from "../../../../assets/catalog/category-heroes/office-supplies-bystadium.png";
 import technologyImg from "../../../../assets/catalog/category-heroes/technology-bystadium.png";
 
@@ -34,7 +34,7 @@ const CATEGORY_COPY: Record<string, string> = {
 
 const CATEGORY_IMAGES: Record<string, string> = {
   Apparel: apparelImg,
-  Accessories: keyChainsImg,
+  Accessories: accessoriesImg,
   Bags: bagsImg,
   Drinkware: drinkwareImg,
   Technology: technologyImg,

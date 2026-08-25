@@ -1,26 +1,35 @@
 import { useRef } from "react";
-import { LogOut, Upload } from "lucide-react";
+import { ExternalLink, LogOut, Upload } from "lucide-react";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { SettingsVm } from "../controllers/useSettingsController";
 import { TransferOwnershipDialog } from "../TransferOwnershipDialog";
+import "../settings-page.css";
+
+function ownerInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 /** Settings screen: side tabs + workspace form or SSO instructions. */
 export function SettingsView(vm: SettingsVm) {
   return (
-    <>
+    <div className="settings-page">
       <PageHeader
         title="Settings"
         subtitle="Manage your workspace, ownership, currency and single sign-on."
         actions={
-          <button type="button" className="btn btn-ghost" onClick={vm.onLogout}>
+          <button type="button" className="settings-logout" onClick={vm.onLogout}>
             <LogOut size={16} /> Log out
           </button>
         }
       />
-      <div style={{ display: "flex", gap: 22 }}>
-        <div className="subrail" role="tablist" aria-label="Settings sections">
+
+      <div className="settings-layout">
+        <div className="subrail settings-rail" role="tablist" aria-label="Settings sections">
           {(
             [
               ["workspace", "Workspace settings"],
@@ -39,11 +48,12 @@ export function SettingsView(vm: SettingsVm) {
             </button>
           ))}
         </div>
-        <div style={{ flex: 1, maxWidth: 780 }}>
+
+        <div className="settings-main">
           {vm.tab === "workspace" ? <WorkspaceSettingsView {...vm} /> : <SsoSettingsView {...vm} />}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -51,151 +61,138 @@ function WorkspaceSettingsView(vm: SettingsVm) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="card" style={{ padding: 30 }}>
-      <h2 style={{ fontSize: 23, fontFamily: "var(--disp)", marginBottom: 22 }}>
-        Workspace Settings
-      </h2>
+    <div className="settings-panel">
+      <div className="settings-panel__head">
+        <h2 className="settings-panel__title">Workspace Settings</h2>
+        <p className="settings-panel__sub">
+          Update how your company appears across Shelf Merch for every member.
+        </p>
+      </div>
 
-      <div className="field" style={{ maxWidth: 440 }}>
-        <label className="lbl" htmlFor="ws-name">
+      <section className="settings-section">
+        <label className="settings-section__label" htmlFor="ws-name">
           Workspace name
         </label>
-        <input
-          id="ws-name"
-          className="inp"
-          value={vm.name}
-          onChange={(e) => vm.onName(e.target.value)}
-          readOnly={!vm.canEditWorkspace}
-        />
-      </div>
-
-      <div className="divider" />
-
-      <div className="lbl">Workspace icon</div>
-      <p className="muted" style={{ fontSize: 13, margin: "4px 0 12px" }}>
-        This will be used as the company icon for the workspace on all members' profiles.
-      </p>
-      <div className="row" style={{ gap: 14, alignItems: "center" }}>
-        <div
-          className="logo-chip"
-          style={{
-            width: 50,
-            height: 50,
-            display: "grid",
-            placeItems: "center",
-            overflow: "hidden",
-            padding: vm.logoUrl ? 5 : 0,
-          }}
-        >
-          {vm.logoUrl ? (
-            <img
-              src={resolveMediaUrl(vm.logoUrl)}
-              alt="Workspace icon"
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-            />
-          ) : (
-            <ShelfMerchLogo variant="icon" height={26} alt="" />
-          )}
+        <div className="settings-field">
+          <input
+            id="ws-name"
+            className="inp"
+            value={vm.name}
+            onChange={(e) => vm.onName(e.target.value)}
+            readOnly={!vm.canEditWorkspace}
+          />
         </div>
-        {vm.canEditWorkspace ? (
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            disabled={vm.isUploading}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload size={15} /> {vm.isUploading ? "Uploading..." : "Upload"}
-          </button>
-        ) : null}
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".svg,.png,.webp,.jpeg,.jpg,image/svg+xml,image/png,image/webp,image/jpeg"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) vm.onPickLogo(file);
-            e.target.value = "";
-          }}
-        />
-      </div>
+      </section>
 
-      <div className="divider" />
-
-      <div className="lbl">Owner</div>
-      <div
-        className="row"
-        style={{ gap: 18, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}
-      >
-        {vm.displayOwner ? (
-          <div style={{ fontSize: 14 }}>
-            <b>{vm.displayOwner.name}</b>
-            {vm.displayOwner.email ? (
-              <>
-                {" "}
-                &nbsp;<span className="muted">{vm.displayOwner.email}</span>
-              </>
-            ) : null}
+      <section className="settings-section">
+        <div className="settings-section__label">Workspace icon</div>
+        <p className="settings-section__hint">
+          Used as the company icon on member profiles across the workspace.
+        </p>
+        <div className="settings-section__body">
+          <div className="settings-logo" style={{ padding: vm.logoUrl ? 6 : 0 }}>
+            {vm.logoUrl ? (
+              <img src={resolveMediaUrl(vm.logoUrl)} alt="Workspace icon" />
+            ) : (
+              <ShelfMerchLogo variant="icon" height={26} alt="" />
+            )}
           </div>
-        ) : (
-          <span className="muted" style={{ fontSize: 14 }}>
-            No owner assigned
-          </span>
-        )}
-        {vm.isCurrentOwner && vm.displayOwner && vm.canEditWorkspace ? (
-          <button type="button" className="lnk" onClick={() => vm.onTransferOpenChange(true)}>
-            Transfer ownership ↗
-          </button>
+          {vm.canEditWorkspace ? (
+            <button
+              type="button"
+              className="settings-upload"
+              disabled={vm.isUploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload size={15} /> {vm.isUploading ? "Uploading…" : "Upload"}
+            </button>
+          ) : null}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".svg,.png,.webp,.jpeg,.jpg,image/svg+xml,image/png,image/webp,image/jpeg"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) vm.onPickLogo(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section__label">Owner</div>
+        <div className="settings-section__body">
+          {vm.displayOwner ? (
+            <div className="settings-owner">
+              <span className="settings-owner__avatar" aria-hidden="true">
+                {ownerInitials(vm.displayOwner.name)}
+              </span>
+              <div className="settings-owner__meta">
+                <span className="settings-owner__name">{vm.displayOwner.name}</span>
+                {vm.displayOwner.email ? (
+                  <span className="settings-owner__email">{vm.displayOwner.email}</span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <span className="muted" style={{ fontSize: 14 }}>
+              No owner assigned
+            </span>
+          )}
+          {vm.isCurrentOwner && vm.displayOwner && vm.canEditWorkspace ? (
+            <button type="button" className="settings-link" onClick={() => vm.onTransferOpenChange(true)}>
+              Transfer ownership <ExternalLink size={14} />
+            </button>
+          ) : null}
+        </div>
+
+        {vm.displayOwner && vm.isCurrentOwner ? (
+          <TransferOwnershipDialog
+            open={vm.transferOpen}
+            onOpenChange={vm.onTransferOpenChange}
+            currentOwner={vm.displayOwner}
+          />
         ) : null}
-      </div>
+      </section>
 
-      {vm.displayOwner && vm.isCurrentOwner ? (
-        <TransferOwnershipDialog
-          open={vm.transferOpen}
-          onOpenChange={vm.onTransferOpenChange}
-          currentOwner={vm.displayOwner}
-        />
-      ) : null}
+      <section className="settings-section">
+        <div className="settings-section__label">Workspace currency</div>
+        <p className="settings-section__hint">
+          Default currency for the main workspace wallet and any refunds.
+        </p>
+        <div className="settings-section__body">
+          <span className="settings-currency">INR</span>
+          <button type="button" className="settings-link" onClick={vm.onChangeCurrency}>
+            Change <ExternalLink size={14} />
+          </button>
+        </div>
+      </section>
 
-      <div className="divider" />
-
-      <div className="lbl">Workspace currency</div>
-      <p className="muted" style={{ fontSize: 13, margin: "4px 0 10px" }}>
-        This will be used as the default currency for the main workspace wallet or any refunds.
-      </p>
-      <div className="row" style={{ gap: 14, alignItems: "center" }}>
-        <b style={{ fontSize: 15 }}>INR</b>
-        <button type="button" className="lnk" onClick={vm.onChangeCurrency}>
-          Change ↗
-        </button>
-      </div>
-
-      <div className="divider" />
-
-      <div className="lbl">Workspace URL</div>
-      <div className="row" style={{ gap: 8, alignItems: "center", marginTop: 8 }}>
-        <span className="muted" style={{ fontSize: 14 }}>
-          app.shelfmerch.io/
-        </span>
-        <input
-          aria-label="Workspace URL slug"
-          className="inp"
-          value={vm.slug}
-          onChange={(e) => vm.onSlug(e.target.value)}
-          readOnly={!vm.canEditWorkspace}
-          style={{ maxWidth: 320 }}
-        />
-      </div>
+      <section className="settings-section">
+        <div className="settings-section__label">Workspace URL</div>
+        <div className="settings-url">
+          <span className="settings-url__prefix">app.shelfmerch.io/</span>
+          <input
+            aria-label="Workspace URL slug"
+            className="inp"
+            value={vm.slug}
+            onChange={(e) => vm.onSlug(e.target.value)}
+            readOnly={!vm.canEditWorkspace}
+          />
+        </div>
+      </section>
 
       {vm.canEditWorkspace ? (
-        <div style={{ marginTop: 24 }}>
+        <div className="settings-actions">
           <button
             type="button"
             className="btn btn-brand"
             disabled={vm.isSaving || vm.isUploading}
             onClick={vm.onSave}
           >
-            {vm.isSaving ? "Saving..." : "Save changes"}
+            {vm.isSaving ? "Saving…" : "Save changes"}
           </button>
         </div>
       ) : null}
@@ -205,56 +202,63 @@ function WorkspaceSettingsView(vm: SettingsVm) {
 
 function SsoSettingsView(vm: SettingsVm) {
   return (
-    <div className="card" style={{ padding: 30 }}>
-      <h2 style={{ fontSize: 23, fontFamily: "var(--disp)", marginBottom: 14 }}>SSO</h2>
-      <p className="muted" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-        Enable SSO on Shelf Merch for a faster, more secure login. Available for enterprise packages
-        or as an add-on.{" "}
-        <button type="button" className="lnk" onClick={vm.onSsoLearnMore}>
-          Learn more
-        </button>
-      </p>
-      <ol
-        style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.7, color: "var(--ink)" }}
-      >
-        <li style={{ marginBottom: 12 }}>
-          Find our metadata at{" "}
-          <a
-            className="lnk"
-            href="https://account.shelfmerch.io/saml/metadata"
-            target="_blank"
-            rel="noreferrer"
-          >
-            https://account.shelfmerch.io/saml/metadata
-          </a>
-        </li>
-        <li style={{ marginBottom: 12 }}>
-          Create a custom SSO app on your IdP (Okta, Azure, etc.) using the ACS URL, Entity ID,
-          Certificate and Attributes listed in the metadata above.
-        </li>
-        <li style={{ marginBottom: 12 }}>
-          Once the app setup is done, email <b>sso@shelfmerch.io</b> with the following details:
-          <ul style={{ margin: "8px 0 0", paddingLeft: 20, color: "var(--ink-2)" }}>
-            <li>Single Sign-On URL</li>
-            <li>Single Logout URL (optional)</li>
-            <li>Entity ID</li>
-            <li>Certificate</li>
-          </ul>
-        </li>
-        <li>
-          Leave everything else to us. After we receive the above details, we'll create a
-          corresponding configuration in our backend to enable SSO. This process typically takes{" "}
-          <b>4–6 business days</b> to configure and test. Once SSO is enabled for your email domain,
-          all users on the same email domain will be redirected to your IdP immediately.
-        </li>
-      </ol>
-      <p className="muted" style={{ fontSize: 13.5, marginTop: 20 }}>
-        For any further queries, please{" "}
-        <button type="button" className="lnk" onClick={vm.onSsoContact}>
-          contact us
-        </button>
-        .
-      </p>
+    <div className="settings-panel">
+      <div className="settings-panel__head">
+        <h2 className="settings-panel__title">SSO</h2>
+        <p className="settings-panel__sub">
+          Enable single sign-on for a faster, more secure login. Available on enterprise packages or
+          as an add-on.
+        </p>
+      </div>
+
+      <div className="settings-section">
+        <p className="settings-sso__intro">
+          Follow these steps to connect your identity provider.{" "}
+          <button type="button" className="settings-link" onClick={vm.onSsoLearnMore}>
+            Learn more <ExternalLink size={14} />
+          </button>
+        </p>
+
+        <ol className="settings-sso__steps">
+          <li className="settings-sso__step">
+            Find our metadata at{" "}
+            <a
+              className="settings-link"
+              href="https://account.shelfmerch.io/saml/metadata"
+              target="_blank"
+              rel="noreferrer"
+            >
+              https://account.shelfmerch.io/saml/metadata
+            </a>
+          </li>
+          <li className="settings-sso__step">
+            Create a custom SSO app on your IdP (Okta, Azure, etc.) using the ACS URL, Entity ID,
+            Certificate and Attributes listed in the metadata above.
+          </li>
+          <li className="settings-sso__step">
+            Once the app setup is done, email <b>sso@shelfmerch.io</b> with:
+            <ul className="settings-sso__list">
+              <li>Single Sign-On URL</li>
+              <li>Single Logout URL (optional)</li>
+              <li>Entity ID</li>
+              <li>Certificate</li>
+            </ul>
+          </li>
+          <li className="settings-sso__step">
+            Leave everything else to us. After we receive the details, we&apos;ll configure SSO in
+            our backend — typically <b>4–6 business days</b>. Once enabled for your email domain,
+            users on that domain are redirected to your IdP immediately.
+          </li>
+        </ol>
+
+        <p className="settings-sso__note">
+          For further queries, please{" "}
+          <button type="button" className="settings-link" onClick={vm.onSsoContact}>
+            contact us
+          </button>
+          .
+        </p>
+      </div>
     </div>
   );
 }

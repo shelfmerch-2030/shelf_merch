@@ -89,7 +89,7 @@ export function SendPointsView({
 
 
   if (isLoading) {
-    return <LoadingState message="Loading…" fullScreen={false} />;
+    return <LoadingState message="Loading…" fullScreen={false} variant="compact" />;
   }
   if (isSending || sendPhase !== "idle") {
     return (

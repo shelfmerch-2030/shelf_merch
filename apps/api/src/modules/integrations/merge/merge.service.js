@@ -10,6 +10,8 @@ import {
   MERGE_ACCOUNT_DETAILS_URL,
   MERGE_DELETE_ACCOUNT_URL,
   MERGE_HRIS_INTEGRATIONS,
+  mergeProviderOriginSegment,
+  mergeProviderSourceCategory,
 } from './merge.constants.js';
 import { MergeConnection } from './mergeConnection.model.js';
 import { mergeRequest, requireMergeConfigured } from './mergeHttp.js';
@@ -51,13 +53,18 @@ async function resolveEndUserContext({ tenantId, userId }) {
 
 /**
  * Merge allows one Linked Account per (end_user_origin_id, category).
- * Use a distinct origin id per HRIS provider so tenants can connect Deel + Workday, etc.
+ * Use a distinct origin id per provider so tenants can connect Deel + Workday + Google Workspace.
+ * Directory providers (google-workspace) use tenantId:directory:{slug}; HRIS use :hris:.
+ * Merge Link still passes categories:['hris'] because Google Workspace is an HRIS product in Merge.
  */
-function buildMergeEndUserOriginId({ tenantId, integration, existingOriginId, hasLegacyConnection }) {
+export function buildMergeEndUserOriginId({ tenantId, integration, existingOriginId, hasLegacyConnection }) {
   if (existingOriginId) return existingOriginId;
   // Legacy connections were created with bare tenantId before multi-HRIS support.
   if (hasLegacyConnection) return String(tenantId);
-  if (integration) return `${tenantId}:hris:${integration}`;
+  if (integration) {
+    const segment = mergeProviderOriginSegment(integration);
+    return `${tenantId}:${segment}:${integration}`;
+  }
   return `${tenantId}:hris:${randomUUID()}`;
 }
 
@@ -226,7 +233,7 @@ export async function exchangeMergePublicToken({
   if (!provider || !MERGE_HRIS_INTEGRATIONS.includes(provider)) {
     throw new ApiError(
       400,
-      'Could not determine a supported Merge HRIS provider',
+      'Could not determine a supported Merge directory provider',
       'MERGE_PROVIDER_UNKNOWN',
     );
   }
@@ -253,7 +260,7 @@ export async function exchangeMergePublicToken({
       $set: {
         connectedByUserId: userId,
         provider,
-        category: 'hris',
+        category: mergeProviderSourceCategory(provider),
         mergeLinkedAccountId: String(accountDetails?.id || tokenPayload?.id || ''),
         integrationName: String(
           accountDetails?.integration || tokenPayload?.integration?.name || provider,

@@ -141,6 +141,44 @@ describe('POST /api/integrations/merge/link-token', () => {
     expect(body.end_user_origin_id).toBe(`${tenant._id}:hris:gusto`);
   });
 
+  it('scopes Google Workspace origin id as tenantId:directory:google-workspace', async () => {
+    const res = await request(app)
+      .post('/api/integrations/merge/link-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ integration: 'google-workspace' });
+
+    expect(res.status).toBe(200);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.integration).toBe('google-workspace');
+    expect(body.categories).toEqual(['hris']);
+    expect(body.end_user_origin_id).toBe(`${tenant._id}:directory:google-workspace`);
+  });
+
+  it('reuses stored Google Workspace directory origin id on reconnect', async () => {
+    const { MergeConnection } = await import(
+      '../src/modules/integrations/merge/mergeConnection.model.js'
+    );
+    const originId = `${tenant._id}:directory:google-workspace`;
+    await MergeConnection.create({
+      tenantId: tenant._id,
+      connectedByUserId: admin._id,
+      provider: 'google-workspace',
+      category: 'directory',
+      status: 'disconnected',
+      endUserOriginId: originId,
+    });
+
+    const res = await request(app)
+      .post('/api/integrations/merge/link-token')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ integration: 'google-workspace' });
+
+    expect(res.status).toBe(200);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.end_user_origin_id).toBe(originId);
+  });
+
+
   it('reuses stored endUserOriginId on reconnect for the same provider', async () => {
     const { MergeConnection } = await import(
       '../src/modules/integrations/merge/mergeConnection.model.js'
