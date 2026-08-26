@@ -6,7 +6,6 @@ import { useContacts, useDeleteContact, useUpdateContact } from "../model";
 import type { UiContact } from "../model";
 import { contactToForm, ROLES } from "../types";
 
-export type ContactsTab = "permissions" | "directory";
 export type SortKey = "email" | "name";
 export type SortDir = "asc" | "desc";
 
@@ -15,7 +14,6 @@ export type RoleCounts = { admins: number; senders: number; members: number };
 export type ContactsVm = {
   isLoading: boolean;
   errorMessage: string | null;
-  tab: ContactsTab;
   query: string;
   roleFilter: string;
   filterOpen: boolean;
@@ -32,7 +30,6 @@ export type ContactsVm = {
   adding: boolean;
   addInitialTab: "manual" | "csv";
   editing: UiContact | null;
-  onTab: (tab: ContactsTab) => void;
   onQuery: (query: string) => void;
   onRoleFilter: (role: string) => void;
   onFilterOpenChange: (open: boolean) => void;
@@ -78,7 +75,6 @@ export function useContactsController(): ContactsVm {
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
 
-  const [tab, setTab] = useState<ContactsTab>("permissions");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("email");
@@ -182,7 +178,6 @@ export function useContactsController(): ContactsVm {
         ? error.message
         : "Could not load contacts"
       : null,
-    tab,
     query,
     roleFilter,
     filterOpen,
@@ -199,7 +194,6 @@ export function useContactsController(): ContactsVm {
     adding,
     addInitialTab,
     editing,
-    onTab: setTab,
     onQuery: setQuery,
     onRoleFilter: (role) => {
       setRoleFilter(role);

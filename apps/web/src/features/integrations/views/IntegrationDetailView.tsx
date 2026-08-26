@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { SlackMarketplaceDetailView } from "./SlackMarketplaceDetailView";
 
 export function IntegrationMark({
   tile,
@@ -67,6 +68,9 @@ function detailCopy(tile: Tile) {
   }
   if (tile.id === "slack") {
     return SLACK_DETAIL_LEAD;
+  }
+  if (tile.id === "google-workspace") {
+    return "Provision recipients and sync org directory from Google.";
   }
   if (tile.id === "microsoft-teams") {
     return "Install our Microsoft Teams app to announce gifting activity and keep employee moments visible in team channels.";
@@ -94,13 +98,32 @@ function formatDate(value: string | null | undefined) {
 }
 
 function mergeSyncFailureCopy(connection: MergeConnectionPublic) {
+  const isDirectory = connection.category === "directory";
+  const isGoogleWorkspace = connection.provider === "google-workspace";
   if (connection.lastError === "MERGE_SCOPES_DISABLED") {
-    return "This HRIS connection is valid, but required Merge data scopes are disabled.";
+    if (isGoogleWorkspace) {
+      return "Required Google Workspace permissions are not enabled.";
+    }
+    return isDirectory
+      ? "This directory connection is valid, but required Merge data scopes are disabled."
+      : "This HRIS connection is valid, but required Merge data scopes are disabled.";
   }
   if (connection.lastSyncStatus === "failed") {
-    return "Last sync failed. You can retry without reconnecting.";
+    if (isGoogleWorkspace) {
+      return "Google Workspace sync could not be completed. Try again.";
+    }
+    return isDirectory
+      ? "Directory sync could not be completed. Try again."
+      : "Last sync failed. You can retry without reconnecting.";
   }
   return null;
+}
+
+function mergeDisconnectCopy(tileName: string, isDirectory: boolean) {
+  if (isDirectory) {
+    return `ShelfMerch will unlink this ${tileName} Linked Account. Imported directory users and Workspace Contacts are kept. Other providers stay connected. You can reconnect later.`;
+  }
+  return `ShelfMerch will unlink this ${tileName} Linked Account. Imported HRIS employees and Workspace Contacts are kept. Other HRIS providers stay connected. You can reconnect later.`;
 }
 
 function StatusPill({
@@ -439,6 +462,7 @@ export function IntegrationDetailView({
   tile,
   onBack,
   onInstall,
+  onSelect,
   onSupport,
   connection,
   busy = false,
@@ -453,6 +477,7 @@ export function IntegrationDetailView({
   tile: Tile;
   onBack: () => void;
   onInstall: (tile: Tile) => void;
+  onSelect?: (tile: Tile) => void;
   onSupport: () => void;
   connection?: MergeConnectionPublic | null;
   busy?: boolean;
@@ -483,18 +508,31 @@ export function IntegrationDetailView({
     connection &&
     (mergeHealthy || mergeNeedsReconnect);
 
+  if (tile.id === "slack" && slack) {
+    return (
+      <SlackMarketplaceDetailView
+        tile={tile}
+        slack={slack}
+        busy={busy || slack.connecting}
+        onBack={onBack}
+        onSelectRelated={(related) => {
+          if (related.id === tile.id) return;
+          (onSelect ?? onInstall)(related);
+        }}
+      />
+    );
+  }
+
   const detailKicker =
-    isMergeProvider || tile.id === "zoho-people"
-      ? "HRIS integration"
-      : tile.id === "slack"
-        ? "Collaboration"
+    tile.id === "google-workspace"
+      ? "Directory integration"
+      : isMergeProvider || tile.id === "zoho-people"
+        ? "HRIS integration"
         : "Integration";
 
   let body: ReactNode = null;
 
-  if (tile.id === "slack" && slack) {
-    body = <SlackDetailBody slack={slack} busy={busy || slack.connecting} />;
-  } else if (isMergeProvider && tile.requiresSetup && !connection) {
+  if (isMergeProvider && tile.requiresSetup && !connection) {
     body = (
       <>
         <MetaPanel>
@@ -547,7 +585,7 @@ export function IntegrationDetailView({
           {showMergeDisconnect ? (
             <DisconnectConfirm
               title={`Disconnect ${tile.name}?`}
-              description={`ShelfMerch will unlink this ${tile.name} Linked Account. Imported HRIS employees and Workspace Contacts are kept. Other HRIS providers stay connected. You can reconnect later.`}
+              description={mergeDisconnectCopy(tile.name, connection.category === "directory")}
               disabled={disconnecting || syncing || busy}
               label={disconnecting ? "Disconnecting…" : "Disconnect"}
               onConfirm={() => onDisconnect?.(connection.id)}
@@ -558,8 +596,8 @@ export function IntegrationDetailView({
         <div className="bonus-integ-quick-links">
           <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
             <span>
-              <strong>HRIS Directory</strong>
-              <span>Browse synced employees from this provider</span>
+              <strong>Employee directory</strong>
+              <span>Browse synced people from this provider</span>
             </span>
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
@@ -584,7 +622,9 @@ export function IntegrationDetailView({
           ]}
         />
         <Callout tone="warning">
-          This Linked Account needs to be re-authorized with Merge before syncing can continue.
+          {tile.id === "google-workspace"
+            ? "Google Workspace needs to be reconnected."
+            : "This Linked Account needs to be re-authorized with Merge before syncing can continue."}
         </Callout>
         <div className="bonus-integ-detail-actions">
           <button
@@ -599,7 +639,7 @@ export function IntegrationDetailView({
           {showMergeDisconnect ? (
             <DisconnectConfirm
               title={`Disconnect ${tile.name}?`}
-              description={`ShelfMerch will unlink this ${tile.name} Linked Account. Imported HRIS employees and Workspace Contacts are kept. Other HRIS providers stay connected. You can reconnect later.`}
+              description={mergeDisconnectCopy(tile.name, connection.category === "directory")}
               disabled={disconnecting || busy}
               label={disconnecting ? "Disconnecting…" : "Disconnect"}
               onConfirm={() => onDisconnect?.(connection.id)}

@@ -64,6 +64,7 @@ function avatarTone(seed: string) {
 function statusMeta(status?: string | null) {
   const raw = (status || "").trim().toUpperCase();
   if (raw === "ACTIVE") return { label: "Active", tone: "active" };
+  if (raw === "SUSPENDED") return { label: "Suspended", tone: "inactive" };
   if (raw === "INACTIVE") return { label: "Inactive", tone: "inactive" };
   if (raw === "PENDING") return { label: "Pending", tone: "pending" };
   if (!raw) return { label: "Unknown", tone: "unknown" };
@@ -82,6 +83,7 @@ function providerLabel(slug: string) {
     keka: "Keka",
     "ukg-pro": "UKG Pro",
     hibob: "HiBob",
+    "google-workspace": "Google Workspace",
   };
   return map[slug] || slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -106,8 +108,8 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
 
       <div className="hris-dir-top">
         <div className="hris-dir-top-copy">
-          <h1>HRIS Directory</h1>
-          <p>Synced employees from connected HRIS providers. Also added to Workspace Contacts.</p>
+          <h1>Employee directory</h1>
+          <p>Synced people from connected directory providers. Also added to Workspace Contacts.</p>
         </div>
         <div className="hris-dir-stats" aria-label="Directory summary">
           <span>
@@ -122,8 +124,8 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
           <button
             type="button"
             className="hris-dir-stats-help"
-            title="These records come from Merge HRIS sync and are also mirrored into Workspace Contacts. They do not create ShelfMerch logins."
-            aria-label="About HRIS Directory"
+            title="These records come from Merge directory sync and are also mirrored into Workspace Contacts. They do not create ShelfMerch logins."
+            aria-label="About Employee directory"
           >
             <HelpCircle size={15} />
           </button>
@@ -134,7 +136,7 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
         <div className="hris-dir-banner" role="status">
           <Users size={16} aria-hidden="true" />
           <p>
-            No active HRIS connection.{" "}
+            No active directory connection.{" "}
             <Link to="/app/integrations">Connect a provider</Link> and run Sync now.
           </p>
         </div>
@@ -173,7 +175,7 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
 
         {vm.loading ? (
           <div className="hris-dir-loading">
-            <LoadingState message="Loading HRIS employees…" fullScreen={false} />
+            <LoadingState message="Loading directory people…" fullScreen={false} />
           </div>
         ) : null}
 

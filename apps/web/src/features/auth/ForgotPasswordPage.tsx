@@ -49,11 +49,17 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthLayout
+      variant="welcome"
       title={sent ? "Check your email" : "Forgot your password?"}
       subtitle={
         sent
           ? undefined
           : "Enter your work email and we’ll send a link to reset your password."
+      }
+      footerLink={
+        sent
+          ? undefined
+          : { hint: "Remembered it?", label: "Back to Login", to: "/login" }
       }
     >
       {sent ? (
@@ -110,15 +116,6 @@ export function ForgotPasswordPage() {
               ) : (
                 "Send Reset Link"
               )}
-            </button>
-
-            <button
-              type="button"
-              className="auth-simple-secondary"
-              style={{ marginTop: 12 }}
-              onClick={() => navigate("/login")}
-            >
-              Back to Login
             </button>
           </fieldset>
         </form>

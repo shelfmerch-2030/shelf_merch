@@ -1,22 +1,19 @@
-import { type ComponentType, type CSSProperties, type ReactNode, useEffect, useState, useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { type CSSProperties, type ReactNode, useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
   ArrowUpDown,
   CheckCircle2,
   ChevronDown,
-  Gift,
   MoreVertical,
   Pencil,
   Plus,
   Search,
   Send,
   SlidersHorizontal,
-  Sparkles,
   Star,
   Users,
   Box,
-  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
@@ -35,13 +32,6 @@ import { KitsEmptyState } from "./KitsEmptyState";
 import kitPreviewImg from "../../../../assets/kit-preview.png";
 import noKitsYetImg from "../../../../assets/no-kits-yet.png";
 import "../kits-page.css";
-
-type KitsSection = "recent" | "customized" | "curated";
-
-function parseKitsTab(value: string | null): KitsSection | null {
-  if (value === "recent" || value === "customized" || value === "curated") return value;
-  return null;
-}
 
 function KitsSectionEmptyState({
   title,
@@ -124,8 +114,9 @@ const sendBtnStyle: CSSProperties = {
 type StatCardProps = {
   label: string;
   value: string;
-  delta: string;
-  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  hint: string;
+  tone: "slate" | "blue" | "amber" | "green";
+  live?: boolean;
 };
 
 type KitRow = {
@@ -144,29 +135,6 @@ type KitRow = {
   platformKit?: PlatformKitTemplate;
 };
 
-// Helper for formatting date strings
-function formatDateString(dateStr?: string) {
-  if (!dateStr || dateStr === "Never sent" || dateStr === "Recent") return dateStr || "Never sent";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatRelativeSent(iso?: string): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "-";
-  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 30) return `${days} days ago`;
-  return formatDateString(iso);
-}
-
 function getCuratedKitMeta(kit: any) {
   try {
     if (!kit.designNotes) return null;
@@ -180,61 +148,18 @@ function getCuratedKitMeta(kit: any) {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function StatCard({ label, value, delta, icon: Icon }: StatCardProps) {
+function StatCard({ label, value, hint, tone, live = false }: StatCardProps) {
   return (
-    <article
-      style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--line)",
-        borderRadius: 16,
-        padding: "20px 24px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-        flex: 1,
-        minWidth: 200,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--gray-500)" }}>{label}</span>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            background: "var(--brand-50)",
-            color: "var(--brand)",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <Icon size={20} />
-        </div>
-      </div>
-      <div>
-        <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--disp)", color: "var(--ink)", lineHeight: 1 }}>
-          {value}
-        </div>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            marginTop: 10,
-            background: "var(--brand-50)",
-            color: "var(--brand)",
-            fontSize: 11,
-            fontWeight: 600,
-            padding: "2px 8px",
-            borderRadius: 12,
-            border: "1px solid var(--brand-100)",
-          }}
-        >
-          <span style={{ fontSize: 9 }}>▲</span> {delta}
-        </div>
-      </div>
-    </article>
+    <div className={`kits-kpi__item kits-kpi__item--${tone}`}>
+      <span className="kits-kpi__content">
+        <span className="kits-kpi__label">{label}</span>
+        <span className="kits-kpi__line">
+          {live ? <span className="kits-kpi__dot" aria-hidden="true" /> : null}
+          <span className="kits-kpi__value">{value}</span>
+        </span>
+        <span className="kits-kpi__hint">{hint}</span>
+      </span>
+    </div>
   );
 }
 
@@ -345,7 +270,6 @@ function StatCard({ label, value, delta, icon: Icon }: StatCardProps) {
 
 export function KitsView(vm: KitsVm) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { data: workspace } = useWorkspace();
   const updateKit = useUpdateKit();
   const createKit = useCreateKit();
@@ -353,41 +277,12 @@ export function KitsView(vm: KitsVm) {
   const { data: platformKits } = usePlatformKits();
   const catalog = workspace?.catalogProducts ?? [];
 
-  const [activeSection, setActiveSection] = useState<KitsSection>(
-    () => parseKitsTab(searchParams.get("tab")) ?? "recent",
-  );
   const [kitPreview, setKitPreview] = useState<KitPreviewData | null>(null);
 
-  useEffect(() => {
-    const tab = parseKitsTab(searchParams.get("tab"));
-    if (tab) setActiveSection(tab);
-  }, [searchParams]);
-
-  const selectSection = (section: KitsSection) => {
-    setActiveSection(section);
-    const next = new URLSearchParams(searchParams);
-    if (section === "recent") next.delete("tab");
-    else next.set("tab", section);
-    setSearchParams(next, { replace: true });
-  };
-
-  // Recent Activity section states
   const [recentTab, setRecentTab] = useState<"all" | "live" | "draft" | "archived">("all");
   const [recentSearch, setRecentSearch] = useState("");
   const [recentSort, setRecentSort] = useState<"name" | "items" | "newest">("newest");
   const [recentPage, setRecentPage] = useState(1);
-
-  // Customized Kits section states
-  const [customTab, setCustomTab] = useState<"all" | "live" | "draft" | "archived">("all");
-  const [customSearch, setCustomSearch] = useState("");
-  const [customSort, setCustomSort] = useState<"name" | "items" | "newest">("newest");
-  const [customPage, setCustomPage] = useState(1);
-
-  // Curated Kits section states
-  const [curatedTab, setCuratedTab] = useState<"all" | "live" | "draft" | "archived">("all");
-  const [curatedSearch, setCuratedSearch] = useState("");
-  const [curatedSort, setCuratedSort] = useState<"name" | "items" | "newest">("newest");
-  const [curatedPage, setCuratedPage] = useState(1);
 
   const { canCreateKits, canSendKits } = vm;
 
@@ -399,7 +294,7 @@ export function KitsView(vm: KitsVm) {
         id: kit.id,
         name: kit.name,
         description: kit.description?.trim() || "Custom kit created in your workspace.",
-        audience: "Workspace",
+        audience: "Customised",
         image: kit.artworkUrl ? resolveMediaUrl(kit.artworkUrl) : kitPreviewImg,
         items: kit.items,
         status: kit.status === "live" ? "live" : kit.status === "archived" ? "archived" : "draft",
@@ -442,7 +337,7 @@ export function KitsView(vm: KitsVm) {
         id: matchedWk ? matchedWk.id : kit._id,
         name: matchedWk ? matchedWk.name : kit.name,
         description: kit.description || "",
-        audience: "Platform",
+        audience: "Curated",
         image: coverImg,
         items: itemCount,
         status: matchedWk
@@ -469,38 +364,9 @@ export function KitsView(vm: KitsVm) {
     return { total: live + drafts + archived, live, drafts, archived };
   }, [allKits]);
 
-  // Recent Activity: only kits that have actually been sent (customised + curated clones).
-  // Workspace kits are tenant-scoped, so this includes sends by the company admin and invited users.
-  const recentActivityRows = useMemo<KitRow[]>(() => {
-    return vm.kits
-      .filter((kit) => kit.sent && Boolean(kit.lastSentAt) && kit.status !== "archived")
-      .map((kit): KitRow => {
-        const curated = getCuratedKitMeta(kit);
-        return {
-          id: kit.id,
-          name: kit.name,
-          description:
-            kit.description?.trim() ||
-            (curated ? "Curated kit sent from your workspace." : "Custom kit sent from your workspace."),
-          audience: curated ? "Curated" : "Customised",
-          image: kit.artworkUrl ? resolveMediaUrl(kit.artworkUrl) : kitPreviewImg,
-          items: kit.items,
-          status: kit.status === "live" ? "live" : kit.status === "archived" ? "archived" : "draft",
-          lastSent: formatRelativeSent(kit.lastSentAt),
-          sentDate: formatDateString(kit.lastSentAt),
-          kit,
-        };
-      })
-      .sort((a, b) => {
-        const ta = a.kit?.lastSentAt ? new Date(a.kit.lastSentAt).getTime() : 0;
-        const tb = b.kit?.lastSentAt ? new Date(b.kit.lastSentAt).getTime() : 0;
-        return tb - ta;
-      });
-  }, [vm.kits]);
-
-  // Filtered & Sorted Recent Activity
+  // Filtered & Sorted kit list (custom + curated)
   const processedRecentRows = useMemo(() => {
-    let list = [...recentActivityRows];
+    let list = [...allKits];
     if (recentTab === "all") {
       list = list.filter((r) => r.status !== "archived");
     } else {
@@ -523,69 +389,15 @@ export function KitsView(vm: KitsVm) {
       });
     }
     return list;
-  }, [recentActivityRows, recentTab, recentSearch, recentSort]);
-
-  // Filtered & Sorted Customized Kits
-  const processedCustomRows = useMemo(() => {
-    let list = [...workspaceRows];
-    if (customTab === "all") {
-      list = list.filter((r) => r.status !== "archived");
-    } else {
-      list = list.filter((r) => r.status === customTab);
-    }
-    if (customSearch.trim()) {
-      const q = customSearch.toLowerCase();
-      list = list.filter((r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
-    }
-    if (customSort === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (customSort === "items") {
-      list.sort((a, b) => b.items - a.items);
-    }
-    return list;
-  }, [workspaceRows, customTab, customSearch, customSort]);
-
-  // Filtered & Sorted Curated Kits
-  const processedCuratedRows = useMemo(() => {
-    let list = [...curatedKitsRows];
-    if (curatedTab === "all") {
-      list = list.filter((r) => r.status !== "archived");
-    } else {
-      list = list.filter((r) => r.status === curatedTab);
-    }
-    if (curatedSearch.trim()) {
-      const q = curatedSearch.toLowerCase();
-      list = list.filter((r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
-    }
-    if (curatedSort === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (curatedSort === "items") {
-      list.sort((a, b) => b.items - a.items);
-    }
-    return list;
-  }, [curatedKitsRows, curatedTab, curatedSearch, curatedSort]);
+  }, [allKits, recentTab, recentSearch, recentSort]);
 
   const RECENT_ITEMS_PER_PAGE = 8;
-  const GRID_ITEMS_PER_PAGE = 8;
 
-  // Pagination bounds
   const recentTotalPages = Math.max(1, Math.ceil(processedRecentRows.length / RECENT_ITEMS_PER_PAGE));
   const paginatedRecentRows = useMemo(() => {
     const start = (recentPage - 1) * RECENT_ITEMS_PER_PAGE;
     return processedRecentRows.slice(start, start + RECENT_ITEMS_PER_PAGE);
   }, [processedRecentRows, recentPage]);
-
-  const customTotalPages = Math.max(1, Math.ceil(processedCustomRows.length / GRID_ITEMS_PER_PAGE));
-  const paginatedCustomRows = useMemo(() => {
-    const start = (customPage - 1) * GRID_ITEMS_PER_PAGE;
-    return processedCustomRows.slice(start, start + GRID_ITEMS_PER_PAGE);
-  }, [processedCustomRows, customPage]);
-
-  const curatedTotalPages = Math.max(1, Math.ceil(processedCuratedRows.length / GRID_ITEMS_PER_PAGE));
-  const paginatedCuratedRows = useMemo(() => {
-    const start = (curatedPage - 1) * GRID_ITEMS_PER_PAGE;
-    return processedCuratedRows.slice(start, start + GRID_ITEMS_PER_PAGE);
-  }, [processedCuratedRows, curatedPage]);
 
   const firstLiveKitId = useMemo(
     () => vm.kits.find((k) => k.status === "live")?.id,
@@ -715,7 +527,7 @@ export function KitsView(vm: KitsVm) {
   };
 
   // ── Early returns ──
-  if (vm.isLoading) return <LoadingState message="Loading kits..." fullScreen={false} />;
+  if (vm.isLoading) return <LoadingState message="Loading kits..." fullScreen={false} variant="page" />;
   if (vm.errorMessage) {
     return (
       <div className="card" style={{ padding: 16, color: "var(--danger)" }}>
@@ -893,114 +705,57 @@ export function KitsView(vm: KitsVm) {
 
   return (
     <section className="kits-dashboard" aria-label="Kits and Items dashboard">
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-        {/* Hero Row */}
-        <div className="kits-hero-row" style={{ margin: "0 0 10px" }}>
-          <div>
-            <h1 style={{ fontSize: 32, fontWeight: 800, color: "var(--ink)" }}>Kits &amp; Items</h1>
-            <p style={{ margin: "8px 0 0", color: "var(--gray-500)" }}>
-              {canCreateKits
-                ? "Create reusable gift kits with your products and send them at scale."
-                : "Browse custom and curated kits, then send them to your team."}
-            </p>
-          </div>
-          {canCreateKits && (
-            <Link to="/app/kits/new" className="kits-create-btn" style={{ height: 40 }}>
-              <Plus size={16} strokeWidth={2.4} />
+      <header className="kits-hero">
+        <div className="kits-hero__copy">
+          <h1>Kits &amp; Items</h1>
+          <p className="kits-hero__sub">
+            {canCreateKits
+              ? "Create reusable gift kits with your products and send them at scale."
+              : "Browse custom and curated kits, then send them to your team."}
+          </p>
+        </div>
+        {canCreateKits ? (
+          <div className="kits-hero__actions">
+            <Link to="/app/kits/new" className="kits-hero__cta">
+              <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               Create a kit
             </Link>
-          )}
-        </div>
+          </div>
+        ) : null}
+      </header>
 
-        {/* Progress Banner */}
-        {/* <ProgressBanner /> */}
+      <div className="kits-kpi" aria-label="Kit metrics">
+        <StatCard
+          label="Total kits"
+          value={String(stats.total)}
+          hint="Across custom and curated"
+          tone="slate"
+        />
+        <StatCard
+          label="Live kits"
+          value={String(stats.live)}
+          hint="Ready to send"
+          tone="blue"
+          live
+        />
+        <StatCard
+          label="Drafts"
+          value={String(stats.drafts)}
+          hint="Still in progress"
+          tone="amber"
+        />
+        <StatCard
+          label="Recipients"
+          value={vm.contactCount.toLocaleString("en-IN")}
+          hint="People you can reach"
+          tone="green"
+        />
+      </div>
 
-        {/* Stats Grid */}
-        <div className="kits-stats-grid" style={{ margin: "0 0 12px" }}>
-          <StatCard label="Total kits" value={String(stats.total)} delta="18% vs last month" icon={Gift} />
-          <StatCard label="Live kits" value={String(stats.live)} delta="22% vs last month" icon={Sparkles} />
-          <StatCard label="Sent this month" value="312" delta="29% vs last month" icon={Send} />
-          <StatCard label="Recipients reached" value="1,842" delta="35% vs last month" icon={Users} />
-        </div>
-
-        {/* Top-Level Section Navigation Switcher */}
-        <div
-          style={{
-            display: "flex",
-            gap: 32,
-            borderBottom: "1px solid var(--line)",
-            margin: "12px 0 0",
-            paddingBottom: 0,
-          }}
-        >
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              padding: "12px 0",
-              fontSize: 16,
-              fontWeight: 700,
-              color: activeSection === "recent" ? "var(--brand)" : "var(--gray-500)",
-              borderBottom: activeSection === "recent" ? "3px solid var(--brand)" : "3px solid transparent",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-            onClick={() => selectSection("recent")}
-          >
-            Recent Activity
-          </button>
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              padding: "12px 0",
-              fontSize: 16,
-              fontWeight: 700,
-              color: activeSection === "customized" ? "var(--brand)" : "var(--gray-500)",
-              borderBottom: activeSection === "customized" ? "3px solid var(--brand)" : "3px solid transparent",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-            onClick={() => selectSection("customized")}
-          >
-            Customised Kits
-          </button>
-          <button
-            type="button"
-            style={{
-              background: "none",
-              border: "none",
-              padding: "12px 0",
-              fontSize: 16,
-              fontWeight: 700,
-              color: activeSection === "curated" ? "var(--brand)" : "var(--gray-500)",
-              borderBottom: activeSection === "curated" ? "3px solid var(--brand)" : "3px solid transparent",
-              cursor: "pointer",
-              transition: "all 0.15s",
-            }}
-            onClick={() => selectSection("curated")}
-          >
-            Curated Kits
-          </button>
-        </div>
-
-        {/* Section Heading */}
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", margin: "12px 0 0" }}>
-          {activeSection === "recent"
-            ? "Recent activity"
-            : activeSection === "customized"
-              ? "Customised Kits"
-              : "Curated Kits"}
-        </h2>
-
-        {/* ── SECTION 1: RECENT ACTIVITY ── */}
-        {activeSection === "recent" && (
-          recentActivityRows.length === 0 ? (
+        {allKits.length === 0 ? (
             <KitsSectionEmptyState
-              title="No recent activity"
-              description="Kits that you or your team send will appear here once they have been sent."
+              title="No kits yet"
+              description="Create a custom kit or send a curated kit to get started."
               action={
                 canSendKits || canCreateKits ? (
                   <Link
@@ -1030,8 +785,8 @@ export function KitsView(vm: KitsVm) {
                     {tab === "all" ? "All kits" : tab === "draft" ? "Drafts" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                     <span>
                       {tab === "all"
-                        ? recentActivityRows.filter((r) => r.status !== "archived").length
-                        : recentActivityRows.filter((r) => r.status === tab).length}
+                        ? allKits.filter((r) => r.status !== "archived").length
+                        : allKits.filter((r) => r.status === tab).length}
                     </span>
                   </button>
                 ))}
@@ -1071,9 +826,9 @@ export function KitsView(vm: KitsVm) {
                       cursor: "pointer",
                     }}
                   >
-                    <option value="newest">Sort: Newest</option>
-                    <option value="name">Sort: Name</option>
-                    <option value="items">Sort: Items</option>
+                    <option value="newest">Newest</option>
+                    <option value="name">Name</option>
+                    <option value="items">Items</option>
                   </select>
                   <ChevronDown
                     size={14}
@@ -1089,7 +844,7 @@ export function KitsView(vm: KitsVm) {
             </div>
 
             {/* Table */}
-            <div className="kits-table" role="table" aria-label="Recent activity list">
+            <div className="kits-table" role="table" aria-label="Kits list">
               {paginatedRecentRows.length > 0 ? (
                 paginatedRecentRows.map((row) => (
                   <div className="kits-table__row" role="row" key={row.id}>
@@ -1152,8 +907,15 @@ export function KitsView(vm: KitsVm) {
                         <button
                           type="button"
                           className="kits-send-btn"
-                          onClick={() => handleSendWorkspaceKit(row.kit)}
+                          onClick={() => {
+                            if (row.platformKit) {
+                              handleSendCuratedKit(row.platformKit, row.kit);
+                            } else {
+                              handleSendWorkspaceKit(row.kit);
+                            }
+                          }}
                           style={{ height: 36, padding: "0 16px", fontSize: 13 }}
+                          disabled={ensureCuratedKit.isPending}
                         >
                           Send
                         </button>
@@ -1163,7 +925,7 @@ export function KitsView(vm: KitsVm) {
                 ))
               ) : (
                 <div style={{ padding: 40, textAlign: "center", color: "var(--gray-500)" }}>
-                  No recent activity matches the current filters.
+                  No kits match the current filters.
                 </div>
               )}
             </div>
@@ -1223,555 +985,7 @@ export function KitsView(vm: KitsVm) {
               )}
             </div>
           </div>
-          )
         )}
-
-        {/* ── SECTION 2: CUSTOMIZED KITS ── */}
-        {activeSection === "customized" && (
-          workspaceRows.length === 0 ? (
-            <KitsSectionEmptyState
-              title="No custom kits have been created yet"
-              description={
-                canCreateKits
-                  ? "Create a custom kit to bundle products for your organization."
-                  : "Your Company Admin hasn't created any custom kits for your organization yet."
-              }
-              secondary={
-                canCreateKits
-                  ? undefined
-                  : "You can still send professionally curated gift kits from the Curated Kits tab."
-              }
-            />
-          ) : (
-          <div>
-            {/* Toolbar */}
-            <div
-              className="kits-list-toolbar"
-              style={{ border: "1px solid var(--line)", borderRadius: "12px 12px 0 0", background: "var(--bg-card)" }}
-            >
-              <div className="kits-tabs" aria-label="Kit filters">
-                {(["all", "live", "draft", "archived"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={`kits-tab${customTab === tab ? " kits-tab--active" : ""}`}
-                    onClick={() => {
-                      setCustomTab(tab);
-                      setCustomPage(1);
-                    }}
-                  >
-                    {tab === "all" ? "All kits" : tab === "draft" ? "Drafts" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    <span>
-                      {tab === "all"
-                        ? workspaceRows.filter((r) => r.status !== "archived").length
-                        : workspaceRows.filter((r) => r.status === tab).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="kits-tools">
-                <div className="kits-search">
-                  <Search size={16} aria-hidden="true" />
-                  <input
-                    placeholder="Search kits"
-                    value={customSearch}
-                    onChange={(e) => {
-                      setCustomSearch(e.target.value);
-                      setCustomPage(1);
-                    }}
-                  />
-                </div>
-                <button type="button" className="kits-tool-btn">
-                  <SlidersHorizontal size={16} /> Filters
-                </button>
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <select
-                    value={customSort}
-                    onChange={(e) => {
-                      setCustomSort(e.target.value as any);
-                      setCustomPage(1);
-                    }}
-                    style={{
-                      padding: "0 28px 0 12px",
-                      borderRadius: 8,
-                      border: "1px solid var(--line)",
-                      background: "var(--bg-card)",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      height: 40,
-                      appearance: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="newest">Sort: Newest</option>
-                    <option value="name">Sort: Name</option>
-                    <option value="items">Sort: Items</option>
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      pointerEvents: "none",
-                      color: "var(--ink)",
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Grid */}
-            <div
-              style={{
-                background: "var(--bg-card)",
-                borderLeft: "1px solid var(--line)",
-                borderRight: "1px solid var(--line)",
-                borderBottom: "1px solid var(--line)",
-                padding: 24,
-                borderRadius: "0 0 12px 12px",
-              }}
-            >
-              {paginatedCustomRows.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-                  {paginatedCustomRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="card"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        padding: 0,
-                        overflow: "hidden",
-                        borderRadius: 12,
-                        border: "1px solid var(--line)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "relative",
-                          height: 180,
-                          background: "var(--gray-50)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 16,
-                        }}
-                      >
-                        {row.kit ? (
-                          <Link
-                            to={`/app/kits/${row.id}`}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <img
-                              src={row.image}
-                              alt=""
-                              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                            />
-                          </Link>
-                        ) : (
-                          <img
-                            src={row.image}
-                            alt=""
-                            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                          />
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          padding: 16,
-                          flex: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <div>
-                          <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", margin: "0 0 6px 0" }}>
-                            {row.name}
-                          </h4>
-                          <div
-                            className="muted"
-                            style={{
-                              fontSize: 11,
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 12,
-                              marginBottom: 16,
-                              color: "var(--gray-500)",
-                            }}
-                          >
-                            <span>
-                              <b>ITEMS:</b> {row.items}
-                            </span>
-                            <span>
-                              <b>STATUS:</b>{" "}
-                              <span
-                                className={`kits-status kits-status--${row.status}`}
-                                style={{ display: "inline-flex", alignItems: "center", height: 18, fontSize: 10, padding: "0 6px" }}
-                              >
-                                <i style={{ marginRight: 4 }} />
-                                {row.status === "live" ? "Live" : row.status === "archived" ? "Archived" : "Draft"}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => openRowPreview(row)}
-                            style={previewBtnStyle}
-                          >
-                            Preview
-                          </button>
-                          {canSendKits && (
-                            <button
-                              type="button"
-                              className="btn btn-brand btn-sm"
-                              onClick={() => handleSendWorkspaceKit(row.kit)}
-                              style={sendBtnStyle}
-                            >
-                              Send
-                            </button>
-                          )}
-                          {canCreateKits ? <ThreeDotMenu kitRow={row} /> : null}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "var(--gray-500)" }}>
-                  No customized kits match your filters.
-                </div>
-              )}
-
-              {/* Pagination controls */}
-              {customTotalPages > 1 && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 24,
-                    paddingTop: 16,
-                    borderTop: "1px solid var(--line)",
-                  }}
-                >
-                  <span style={{ fontSize: 13, color: "var(--gray-500)" }}>
-                    Showing {processedCustomRows.length > 0 ? (customPage - 1) * GRID_ITEMS_PER_PAGE + 1 : 0} to{" "}
-                    {Math.min(processedCustomRows.length, customPage * GRID_ITEMS_PER_PAGE)} of{" "}
-                    {processedCustomRows.length} kits
-                  </span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      type="button"
-                      disabled={customPage === 1}
-                      onClick={() => setCustomPage(customPage - 1)}
-                      style={{
-                        padding: "6px 12px",
-                        border: "1px solid var(--line)",
-                        background: "transparent",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: customPage === 1 ? "not-allowed" : "pointer",
-                        opacity: customPage === 1 ? 0.5 : 1,
-                      }}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      type="button"
-                      disabled={customPage === customTotalPages}
-                      onClick={() => setCustomPage(customPage + 1)}
-                      style={{
-                        padding: "6px 12px",
-                        border: "1px solid var(--line)",
-                        background: "transparent",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: customPage === customTotalPages ? "not-allowed" : "pointer",
-                        opacity: customPage === customTotalPages ? 0.5 : 1,
-                      }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          )
-        )}
-
-        {/* ── SECTION 3: CURATED KITS ── */}
-        {activeSection === "curated" && (
-          <div>
-            {/* Toolbar */}
-            <div
-              className="kits-list-toolbar"
-              style={{ border: "1px solid var(--line)", borderRadius: "12px 12px 0 0", background: "var(--bg-card)" }}
-            >
-              <div className="kits-tabs" aria-label="Kit filters">
-                {(["all", "live", "draft", "archived"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    className={`kits-tab${curatedTab === tab ? " kits-tab--active" : ""}`}
-                    onClick={() => {
-                      setCuratedTab(tab);
-                      setCuratedPage(1);
-                    }}
-                  >
-                    {tab === "all" ? "All kits" : tab === "draft" ? "Drafts" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    <span>
-                      {tab === "all"
-                        ? curatedKitsRows.filter((r) => r.status !== "archived").length
-                        : curatedKitsRows.filter((r) => r.status === tab).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="kits-tools">
-                <div className="kits-search">
-                  <Search size={16} aria-hidden="true" />
-                  <input
-                    placeholder="Search kits"
-                    value={curatedSearch}
-                    onChange={(e) => {
-                      setCuratedSearch(e.target.value);
-                      setCuratedPage(1);
-                    }}
-                  />
-                </div>
-                <button type="button" className="kits-tool-btn">
-                  <SlidersHorizontal size={16} /> Filters
-                </button>
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <select
-                    value={curatedSort}
-                    onChange={(e) => {
-                      setCuratedSort(e.target.value as any);
-                      setCuratedPage(1);
-                    }}
-                    style={{
-                      padding: "0 28px 0 12px",
-                      borderRadius: 8,
-                      border: "1px solid var(--line)",
-                      background: "var(--bg-card)",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      height: 40,
-                      appearance: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="newest">Sort: Newest</option>
-                    <option value="name">Sort: Name</option>
-                    <option value="items">Sort: Items</option>
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    style={{
-                      position: "absolute",
-                      right: 10,
-                      pointerEvents: "none",
-                      color: "var(--ink)",
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Grid */}
-            <div
-              style={{
-                background: "var(--bg-card)",
-                borderLeft: "1px solid var(--line)",
-                borderRight: "1px solid var(--line)",
-                borderBottom: "1px solid var(--line)",
-                padding: 24,
-                borderRadius: "0 0 12px 12px",
-              }}
-            >
-              {paginatedCuratedRows.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-                  {paginatedCuratedRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="card"
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        padding: 0,
-                        overflow: "hidden",
-                        borderRadius: 12,
-                        border: "1px solid var(--line)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "relative",
-                          height: 180,
-                          background: "var(--gray-50)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 16,
-                        }}
-                      >
-                        <img
-                          src={row.image}
-                          alt=""
-                          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                        />
-                      </div>
-                      <div
-                        style={{
-                          padding: 16,
-                          flex: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <div>
-                          <h4 style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", margin: "0 0 6px 0" }}>
-                            {row.name}
-                          </h4>
-                          <div
-                            className="muted"
-                            style={{
-                              fontSize: 11,
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 12,
-                              marginBottom: 16,
-                              color: "var(--gray-500)",
-                            }}
-                          >
-                            <span>
-                              <b>ITEMS:</b> {row.items}
-                            </span>
-                            <span>
-                              <b>STATUS:</b>{" "}
-                              <span
-                                className={`kits-status kits-status--${row.status}`}
-                                style={{ display: "inline-flex", alignItems: "center", height: 18, fontSize: 10, padding: "0 6px" }}
-                              >
-                                <i style={{ marginRight: 4 }} />
-                                {row.status === "live" ? "Live" : row.status === "archived" ? "Archived" : "Draft"}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => openRowPreview(row)}
-                            style={previewBtnStyle}
-                          >
-                            Preview
-                          </button>
-                          {canSendKits && (
-                            <button
-                              type="button"
-                              className="btn btn-brand btn-sm"
-                              onClick={() => {
-                                if (row.platformKit) {
-                                  handleSendCuratedKit(row.platformKit, row.kit);
-                                }
-                              }}
-                              style={sendBtnStyle}
-                              disabled={ensureCuratedKit.isPending}
-                            >
-                              Send
-                            </button>
-                          )}
-                          {canCreateKits ? <ThreeDotMenu kitRow={row} /> : null}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "var(--gray-500)" }}>
-                  No curated kits match your filters.
-                </div>
-              )}
-
-              {/* Pagination controls */}
-              {curatedTotalPages > 1 && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 24,
-                    paddingTop: 16,
-                    borderTop: "1px solid var(--line)",
-                  }}
-                >
-                  <span style={{ fontSize: 13, color: "var(--gray-500)" }}>
-                    Showing {processedCuratedRows.length > 0 ? (curatedPage - 1) * GRID_ITEMS_PER_PAGE + 1 : 0} to{" "}
-                    {Math.min(processedCuratedRows.length, curatedPage * GRID_ITEMS_PER_PAGE)} of{" "}
-                    {processedCuratedRows.length} kits
-                  </span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      type="button"
-                      disabled={curatedPage === 1}
-                      onClick={() => setCuratedPage(curatedPage - 1)}
-                      style={{
-                        padding: "6px 12px",
-                        border: "1px solid var(--line)",
-                        background: "transparent",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: curatedPage === 1 ? "not-allowed" : "pointer",
-                        opacity: curatedPage === 1 ? 0.5 : 1,
-                      }}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      type="button"
-                      disabled={curatedPage === curatedTotalPages}
-                      onClick={() => setCuratedPage(curatedPage + 1)}
-                      style={{
-                        padding: "6px 12px",
-                        border: "1px solid var(--line)",
-                        background: "transparent",
-                        borderRadius: 6,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: curatedPage === curatedTotalPages ? "not-allowed" : "pointer",
-                        opacity: curatedPage === curatedTotalPages ? 0.5 : 1,
-                      }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
       <KitPreviewDialog
         data={kitPreview}

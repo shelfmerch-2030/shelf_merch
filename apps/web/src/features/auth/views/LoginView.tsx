@@ -1,18 +1,20 @@
 import { PasswordField } from "../components/PasswordField";
 import type { LoginVm } from "../controllers/useLoginController";
-import { AuthLabel, AuthLayout, authInputClassName } from "./AuthLayout";
+import { AuthLayout, authInputClassName } from "./AuthLayout";
 
 export function LoginView(vm: LoginVm) {
   return (
     <AuthLayout
-      title="Log in to your account"
-      subtitle="Enter your credentials to continue"
-      footerLink={{ hint: "Don't have an account?", label: "Sign up", to: "/signup" }}
+      variant="welcome"
+      title="Welcome back 👋"
+      footerLink={{ hint: "Need an account?", label: "Create account", to: "/signup" }}
     >
       <form className="auth-simple-form" onSubmit={vm.onSubmit} aria-busy={vm.busy}>
         <fieldset className="auth-simple-fieldset" disabled={vm.loginDisabled}>
-          <div className="auth-simple-field">
-            <AuthLabel htmlFor="login-email">Work email</AuthLabel>
+          <div className="auth-float-field">
+            <label htmlFor="login-email" className="auth-float-label">
+              Work email
+            </label>
             <input
               id="login-email"
               type="email"
@@ -20,34 +22,31 @@ export function LoginView(vm: LoginVm) {
               placeholder="you@company.com"
               value={vm.email}
               onChange={(e) => vm.onEmail(e.target.value)}
-              className={authInputClassName}
+              className={`${authInputClassName} auth-float-input`}
               autoFocus
             />
           </div>
 
-          <div className="auth-simple-field">
-            <AuthLabel
-              htmlFor="login-password"
-              action={
-                <button
-                  type="button"
-                  className="auth-simple-label-action"
-                  onClick={vm.onForgotPassword}
-                >
-                  Forgot password?
-                </button>
-              }
-            >
+          <div className="auth-float-field">
+            <label htmlFor="login-password" className="auth-float-label">
               Password
-            </AuthLabel>
+            </label>
             <PasswordField
               id="login-password"
               value={vm.password}
               onValueChange={vm.onPassword}
               autoComplete="current-password"
-              placeholder="Enter your password"
+              className="auth-float-input"
             />
           </div>
+
+          <button
+            type="button"
+            className="auth-simple-label-action auth-forgot-below"
+            onClick={vm.onForgotPassword}
+          >
+            Forgot password?
+          </button>
 
           {vm.error ? (
             <p className="auth-simple-error auth-simple-error--shake" role="alert">

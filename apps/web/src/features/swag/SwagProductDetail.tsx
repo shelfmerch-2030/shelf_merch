@@ -52,23 +52,21 @@ export function SwagProductDetail({
   const activeView: ProductViewKey = productViews.includes(mockupView) ? mockupView : "front";
 
   return (
-    <div>
-      <div className="eyebrow">{collection.name}</div>
-      <h1 style={{ fontSize: 22, margin: "4px 0 6px" }}>{title}</h1>
-      {product.price ? (
-        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-          {product.price}
-        </p>
-      ) : null}
+    <div className="swag-detail-page">
+      <div className="swag-detail-modal__top">
+        <div className="swag-detail-modal__titles">
+          <div className="eyebrow">{collection.name}</div>
+          <h1 style={{ fontSize: 22, margin: "4px 0 6px" }}>{title}</h1>
+          {product.price ? (
+            <p className="swag-detail-price">{product.price}</p>
+          ) : null}
+        </div>
+        <button type="button" className="btn btn-dark swag-detail-modal__cta" onClick={onAddToShop}>
+          <Store size={16} /> Add to shop
+        </button>
+      </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.1fr)",
-          gap: 24,
-          marginTop: 20,
-        }}
-      >
+      <div className="swag-detail-modal__grid swag-detail-page__grid">
         <MockupViewGallery
           views={productViews}
           activeView={activeView}
@@ -100,9 +98,9 @@ export function SwagProductDetail({
           />
         </MockupViewGallery>
 
-        <div>
+        <div className="swag-detail-modal__side">
           {names.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
+            <div className="swag-detail-modal__colors">
               <div className="lbl" style={{ marginBottom: 6 }}>
                 Colour variants
               </div>
@@ -122,7 +120,7 @@ export function SwagProductDetail({
                     style={{
                       width: 24,
                       height: 24,
-                      borderRadius: 6,
+                      borderRadius: "50%",
                       background: productColorHex(product, c),
                       outline: sel === i ? "2px solid var(--brand)" : "1px solid var(--line)",
                       outlineOffset: 1,
@@ -134,18 +132,7 @@ export function SwagProductDetail({
             </div>
           )}
 
-          <div style={{ marginBottom: 20 }}>
-            <ProductInfoTabs product={product} />
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-dark"
-            style={{ minWidth: 200 }}
-            onClick={onAddToShop}
-          >
-            <Store size={16} /> Add to shop
-          </button>
+          <ProductInfoTabs product={product} />
         </div>
       </div>
     </div>

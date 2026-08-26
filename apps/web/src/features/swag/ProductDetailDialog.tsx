@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/dialog";
 import { ProductInfoTabs } from "@/features/catalog/views/ProductInfoTabs";
 import type { UiCollection, UiProduct } from "@/services/mappers";
-import { collectionProductColorNames, defaultWhiteColorIndex, getMockupTintHex, productColorHex } from "./colors";
+import {
+  collectionProductColorNames,
+  defaultWhiteColorIndex,
+  getMockupTintHex,
+  productColorHex,
+} from "./colors";
 import { DesignedProductThumb } from "./DesignedProductThumb";
 
 export type DesignTarget = { collection: UiCollection; product: UiProduct; pIdx: number };
@@ -81,22 +86,27 @@ function Body({
   );
 
   return (
-    <div className="modal-pad">
-      <DialogHeader>
-        <div className="eyebrow">{collection.name}</div>
-        <DialogTitle style={{ fontSize: 20 }}>{title}</DialogTitle>
-        <DialogDescription className="sr-only">Design detail for {title}</DialogDescription>
-      </DialogHeader>
+    <div className="modal-pad swag-detail-modal">
+      <div className="swag-detail-modal__top">
+        <DialogHeader className="swag-detail-modal__titles">
+          <div className="eyebrow">{collection.name}</div>
+          <DialogTitle style={{ fontSize: 20 }}>{title}</DialogTitle>
+          {product.price ? <p className="swag-detail-price">{product.price}</p> : null}
+          <DialogDescription className="sr-only">Design detail for {title}</DialogDescription>
+        </DialogHeader>
+        {canAddToShop ? (
+          <button
+            type="button"
+            className="btn btn-dark swag-detail-modal__cta"
+            onClick={() => onAddToShop(target)}
+          >
+            <Store size={16} /> Add to shop
+          </button>
+        ) : null}
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 14 }}>
-        <div
-          style={{
-            background: "var(--gray-100)",
-            borderRadius: "var(--r-sm)",
-            aspectRatio: "1 / 1",
-            overflow: "hidden",
-          }}
-        >
+      <div className="swag-detail-modal__grid">
+        <div className="swag-detail-modal__media">
           <DesignedProductThumb
             product={product}
             artworkUrl={collection.artworkUrl}
@@ -104,9 +114,9 @@ function Body({
           />
         </div>
 
-        <div>
+        <div className="swag-detail-modal__side">
           {names.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
+            <div className="swag-detail-modal__colors">
               <div className="lbl" style={{ marginBottom: 6 }}>
                 Colour variants
               </div>
@@ -126,7 +136,7 @@ function Body({
                     style={{
                       width: 24,
                       height: 24,
-                      borderRadius: 6,
+                      borderRadius: "50%",
                       background: productColorHex(product, c),
                       outline: sel === i ? "2px solid var(--brand)" : "1px solid var(--line)",
                       outlineOffset: 1,
@@ -138,19 +148,7 @@ function Body({
             </div>
           )}
 
-          <div style={{ marginBottom: 18 }}>
-            <ProductInfoTabs product={product} />
-          </div>
-
-          {canAddToShop ? (
-            <button
-              type="button"
-              className="btn btn-dark btn-block"
-              onClick={() => onAddToShop(target)}
-            >
-              <Store size={16} /> Add to shop
-            </button>
-          ) : null}
+          <ProductInfoTabs product={product} />
         </div>
       </div>
     </div>

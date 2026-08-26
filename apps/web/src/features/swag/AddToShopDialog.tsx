@@ -73,7 +73,7 @@ export function AddToShopDialog({
                 onClick={() => add(shop.id)}
               >
                 <div className="add-to-shop-row-thumb">
-                  <ShopBanner source={shop} height={36} layout="center" logoSize={22} radius={6} />
+                  <ShopBanner source={shop} height={72} layout="center" logoSize={30} radius={8} />
                 </div>
                 <div className="add-to-shop-row-body">
                   <div className="add-to-shop-row-name">{shop.name}</div>

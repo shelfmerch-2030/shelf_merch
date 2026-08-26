@@ -1,5 +1,7 @@
 /**
- * Merge HRIS integration slugs.
+ * Merge directory/HRIS integration slugs (Merge Link `integration` values).
+ * Google Workspace is a Merge HRIS-category product; ShelfMerch treats it as
+ * sourceCategory `directory` for origin IDs and connection metadata.
  * Verified: https://docs.merge.dev/guides/merge-link/single-integration/
  */
 export const MERGE_HRIS_INTEGRATIONS = Object.freeze([
@@ -10,7 +12,24 @@ export const MERGE_HRIS_INTEGRATIONS = Object.freeze([
   'deel',
   'ukg-pro',
   'hibob',
+  'google-workspace',
 ]);
+
+/** Providers stored with connection.category = directory (not classic HRIS). */
+export const MERGE_DIRECTORY_PROVIDERS = Object.freeze(['google-workspace']);
+
+export function mergeProviderSourceCategory(provider) {
+  return MERGE_DIRECTORY_PROVIDERS.includes(String(provider || '').toLowerCase())
+    ? 'directory'
+    : 'hris';
+}
+
+/** Origin ID segment: tenantId:{segment}:{provider} */
+export function mergeProviderOriginSegment(provider) {
+  return mergeProviderSourceCategory(provider);
+}
+
+export const MERGE_CONNECTION_CATEGORIES = Object.freeze(['hris', 'directory']);
 
 export const MERGE_API_BASE = 'https://api.merge.dev/api';
 

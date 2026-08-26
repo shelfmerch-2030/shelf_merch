@@ -3,11 +3,12 @@ import type { CampaignsVm } from "../controllers/useCampaignsController";
 import { CampaignsEmptyStateView } from "./CampaignsEmptyStateView";
 import { CampaignsTableView } from "./CampaignsTableView";
 import { SendGiftDialogView } from "./SendGiftDialogView";
+import "../campaigns-page.css";
 
 /** Campaigns list screen: loading/error states, empty state or table, Send Gift dialog. */
 export function CampaignsView(vm: CampaignsVm) {
   if (vm.isLoading) {
-    return <LoadingState message="Loading campaigns…" fullScreen={false} />;
+    return <LoadingState message="Loading campaigns..." fullScreen={false} variant="page" />;
   }
   if (vm.errorMessage) {
     return (

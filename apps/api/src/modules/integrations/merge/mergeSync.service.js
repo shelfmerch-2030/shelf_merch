@@ -30,6 +30,20 @@ function asString(value) {
   return String(value).trim();
 }
 
+/** Normalize Merge employment_status for directory/HRIS (incl. Google suspended). */
+export function normalizeMergeEmploymentStatus(value) {
+  const raw = asString(value).toUpperCase().replace(/\s+/g, '_');
+  if (!raw) return '';
+  if (raw === 'ACTIVE' || raw === 'ENABLED') return 'ACTIVE';
+  if (raw === 'SUSPENDED' || raw === 'DISABLED' || raw === 'SUSPEND') return 'SUSPENDED';
+  if (raw === 'INACTIVE' || raw === 'ARCHIVED' || raw === 'DELETED' || raw === 'TERMINATED') {
+    return 'INACTIVE';
+  }
+  if (raw === 'PENDING') return 'PENDING';
+  return raw;
+}
+
+
 function titleCasePlace(value) {
   const raw = asString(value);
   if (!raw) return '';
@@ -362,7 +376,7 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
         workEmail: asString(row.work_email).toLowerCase(),
         personalEmail: asString(row.personal_email).toLowerCase(),
         mobilePhoneNumber: asString(row.mobile_phone_number),
-        employmentStatus: asString(row.employment_status),
+        employmentStatus: normalizeMergeEmploymentStatus(row.employment_status),
         // jobTitle is backfilled from Employments after upsert.
         managerMergeEmployeeId: asString(row.manager),
         departmentMergeIds,
