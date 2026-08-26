@@ -18,7 +18,6 @@ import {
   LockKeyhole,
   Megaphone,
   NotebookPen,
-  PackageCheck,
   Play,
   Settings,
   ShieldCheck,
@@ -94,11 +93,38 @@ const WHY_CARDS = [
 ] as const;
 
 const SHORTCUTS = [
-  { label: "Budget", body: "Manage organization budget & funding", href: "/app/wallets", icon: Landmark, tone: "blue" },
-  { label: "Shops", body: "Create & manage your shops", href: "/app/shops", icon: Store, tone: "green" },
-  { label: "Catalog", body: "Browse 5,000+ products", href: "/app/catalog", icon: Gift, tone: "orange" },
-  { label: "Orders", body: "Track orders & deliveries", href: "/app/orders", icon: Box, tone: "purple" },
-  { label: "Kits", body: "Pre-built kits for every occasion", href: "/app/kits", icon: PackageCheck, tone: "rose" },
+  {
+    label: "Kits",
+    body: "Bundle apparel, drinkware and stationery into ready-to-ship kits.",
+    feature: "Curated combos. Zero hassle.",
+    href: "/app/kits",
+    icon: "/images/landing/operations/icons/kits.png",
+    tone: "coral",
+  },
+  {
+    label: "Wallet",
+    body: "Let teams spend an approved budget, fully tracked and controlled.",
+    feature: "Real-time balance. Total visibility.",
+    href: "/app/wallets",
+    icon: "/images/landing/operations/icons/wallet.png",
+    tone: "blue",
+  },
+  {
+    label: "Spot gifting",
+    body: "Send a gift the moment it matters. No operational back-and-forth.",
+    feature: "Quick, thoughtful & on-brand.",
+    href: "/app/campaigns",
+    icon: "/images/landing/operations/icons/spot-gifting.png",
+    tone: "yellow",
+  },
+  {
+    label: "Automated gifting",
+    body: "Set the rule once. Birthdays and milestones run automatically.",
+    feature: "Always on. Always personal.",
+    href: "/app/integrations",
+    icon: "/images/landing/operations/icons/automated-gifting.png",
+    tone: "lilac",
+  },
 ] as const;
 
 const FALLBACK_SEND_ITEMS = [
@@ -253,14 +279,29 @@ function ShortcutGrid() {
     <section className="dash-shortcuts card">
       <SectionHead title="Everything you can do" />
       <div className="dash-shortcut-grid">
-        {SHORTCUTS.map((item) => {
-          const Icon = item.icon;
+        {SHORTCUTS.map((item, index) => {
+          const num = String(index + 1).padStart(2, "0");
           return (
-            <Link key={item.label} to={item.href} className={`dash-shortcut dash-shortcut--${item.tone}`}>
-              <span className="dash-shortcut__icon"><Icon size={28} strokeWidth={2.2} aria-hidden="true" /></span>
-              <strong>{item.label}</strong>
-              <span>{item.body}</span>
-              <i><ArrowRight size={18} aria-hidden="true" /></i>
+            <Link
+              key={item.label}
+              to={item.href}
+              className={`dash-shortcut dash-shortcut--${item.tone}`}
+            >
+              <div className="dash-shortcut__top">
+                <img
+                  className="dash-shortcut__icon"
+                  src={item.icon}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span className="dash-shortcut__num">{num}</span>
+              </div>
+              <strong className="dash-shortcut__title">{item.label}</strong>
+              <span className="dash-shortcut__body">{item.body}</span>
+              <span className="dash-shortcut__feature">
+                <span className="dash-shortcut__check" aria-hidden="true">✓</span>
+                {item.feature}
+              </span>
             </Link>
           );
         })}
@@ -697,12 +738,16 @@ function PinnedShopCard({ pinnedShop, canCreateShop }: { pinnedShop: DashboardSh
         <>
           <Link to={`/app/shops/${pinnedShop.id}`} className="dash-shop-banner-link">
             <ShopBanner source={pinnedShop} height={126} layout="center" logoSize={58} radius={10} />
-            <span className="dash-shop-status">{pinnedShop.live ? "Active" : "Draft"}</span>
-            <span className="dash-shop-copy">
-              <strong>{pinnedShop.name}</strong>
-              <small>{pinnedShop.slug ? `shelfmerch.com/${pinnedShop.slug}` : "Shelf Merch shop"}</small>
-            </span>
           </Link>
+          <div className="dash-shop-meta">
+            <span className={`dash-shop-status${pinnedShop.live ? " is-live" : ""}`}>
+              {pinnedShop.live ? "Active" : "Draft"}
+            </span>
+            <strong className="dash-shop-name">{pinnedShop.name}</strong>
+            <small className="dash-shop-url">
+              {pinnedShop.slug ? `shelfmerch.com/${pinnedShop.slug}` : "Shelf Merch shop"}
+            </small>
+          </div>
           <Link to={`/app/shops/${pinnedShop.id}`} className="dash-open-shop">Open Shop <ArrowRight size={15} /></Link>
         </>
       ) : (

@@ -78,12 +78,13 @@
   align-items: center;
   border: 1.5px solid transparent; /* outline base */
   background: none;
-  font: inherit;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
   text-align: left;
   border-radius: 10px;
   color: var(--sidebar-rail-icon);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
@@ -189,10 +190,15 @@
 .sidebar-rail--expanded .sidebar-rail__item--active .sidebar-rail__item-label,
 .sidebar-rail--expanded .sidebar-rail__item:hover .sidebar-rail__item-label {
   color: var(--sidebar-rail-icon);
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .sidebar-rail__item-label {
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;

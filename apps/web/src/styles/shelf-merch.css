@@ -36,6 +36,11 @@
   --sh-3: 0 24px 60px -18px rgba(16,16,20,.32);
   --sans: 'Hanken Grotesk', system-ui, sans-serif;
   --disp: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+  /* Shared tenant page title (PageHeader + command-center heroes) */
+  --page-title-size: 30px;
+  --page-title-weight: 700;
+  --page-title-tracking: -0.02em;
+  --page-title-leading: 1.1;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%}
@@ -383,10 +388,10 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
 .page-h{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:24px}
 .page-h h1{
   font-family:var(--disp);
-  font-size:30px;
-  font-weight:700;
-  letter-spacing:-.02em;
-  line-height:1.1;
+  font-size:var(--page-title-size);
+  font-weight:var(--page-title-weight);
+  letter-spacing:var(--page-title-tracking);
+  line-height:var(--page-title-leading);
   color:var(--ink);
 }
 .page-h .sub{color:var(--ink-2);margin-top:5px;font-size:14px;max-width:60ch}

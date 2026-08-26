@@ -165,6 +165,12 @@
   --radius-card:    12px;   /* cards, tables, modals */
   --transition: 160ms cubic-bezier(.2,.8,.2,1);
 
+  /* Shared page headers — match Orders / Budget / Shops / Swag (.page-h) */
+  --page-title-size: 30px;
+  --page-title-weight: 700;
+  --page-title-tracking: -0.02em;
+  --page-title-leading: 1.1;
+
   /* Shadcn UI mapping */
   --radius: var(--radius-card);
   --background: var(--bg-page);
