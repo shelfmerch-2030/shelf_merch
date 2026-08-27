@@ -25,6 +25,7 @@ const demoLeadSchema = new mongoose.Schema(
       index: true,
     },
     source: { type: String, default: 'request-demo-page' },
+    confirmationEmailSentAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

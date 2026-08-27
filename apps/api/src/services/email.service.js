@@ -11,6 +11,7 @@ import {
   buildManagerAssignmentEmail,
   buildManagerInviteEmail,
 } from './email-templates/managerEmails.template.js';
+import { buildDemoRequestConfirmationEmail } from './email-templates/demoRequestConfirmation.template.js';
 
 let transporter;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +24,16 @@ function presetBannerAttachment(preset = '') {
     filename: `shop-banner-${preset}.png`,
     path: filePath,
     cid: `shop-banner-${preset}@shelfmerch`,
+  };
+}
+
+function demoRequestSuccessAttachment() {
+  const filePath = path.resolve(__dirname, 'email-assets/demo-request-success-icon.png');
+  if (!fs.existsSync(filePath)) return null;
+  return {
+    filename: 'demo-request-success-icon.png',
+    path: filePath,
+    cid: 'demo-request-success@shelfmerch',
   };
 }
 
@@ -246,6 +257,42 @@ export async function sendNotificationEmail({ to, title, body = '', link = '' })
     return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.warn({ err, to, title }, 'Notification email send failed');
+    return { success: false, provider: 'smtp' };
+  }
+}
+
+/**
+ * Confirmation email after a public demo-request lead is saved.
+ * Does not throw — callers should treat lead persistence as the source of truth.
+ */
+export async function sendDemoRequestConfirmationEmail({
+  to,
+  fullName = '',
+  companyName = '',
+  workEmail = '',
+  mobileNumber = '',
+  requirement = '',
+}) {
+  const successAttachment = demoRequestSuccessAttachment();
+  const { subject, text, html } = buildDemoRequestConfirmationEmail({
+    fullName,
+    companyName,
+    workEmail: workEmail || to,
+    mobileNumber,
+    requirement,
+    successCid: successAttachment?.cid ?? '',
+  });
+
+  try {
+    return await sendEmail({
+      to,
+      subject,
+      text,
+      html,
+      attachments: successAttachment ? [successAttachment] : undefined,
+    });
+  } catch (err) {
+    logger.warn({ err, to, subject }, 'Demo request confirmation email send failed');
     return { success: false, provider: 'smtp' };
   }
 }

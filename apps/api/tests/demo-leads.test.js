@@ -42,6 +42,7 @@ describe('demo leads', () => {
       status: 'new',
       source: 'request-demo-page',
     });
+    expect(lead.confirmationEmailSentAt).toBeTruthy();
   });
 
   it('rejects invalid public lead submissions', async () => {

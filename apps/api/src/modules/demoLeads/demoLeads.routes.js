@@ -6,6 +6,8 @@ import { resolveTenant } from '../../middleware/tenant.middleware.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 import { validate } from '../../middleware/validate.middleware.js';
+import { logger } from '../../config/logger.js';
+import { sendDemoRequestConfirmationEmail } from '../../services/email.service.js';
 import { DEMO_LEAD_REQUIREMENTS, DEMO_LEAD_STATUSES, DemoLead } from './demoLead.model.js';
 
 const router = Router();
@@ -36,6 +38,40 @@ const listDemoLeadsQuery = z.object({
   search: z.string().trim().max(120).optional(),
 });
 
+async function sendConfirmationOnce(lead) {
+  if (!lead || lead.confirmationEmailSentAt) {
+    return { success: true, skipped: true };
+  }
+
+  // Atomically claim the send so concurrent retries cannot double-email.
+  const claimed = await DemoLead.findOneAndUpdate(
+    { _id: lead._id, confirmationEmailSentAt: null },
+    { $set: { confirmationEmailSentAt: new Date() } },
+    { returnDocument: 'after' },
+  );
+
+  if (!claimed) {
+    return { success: true, skipped: true };
+  }
+
+  const result = await sendDemoRequestConfirmationEmail({
+    to: lead.workEmail,
+    fullName: lead.fullName,
+    companyName: lead.companyName,
+    workEmail: lead.workEmail,
+    mobileNumber: lead.mobileNumber,
+    requirement: lead.requirement || '',
+  });
+
+  if (!result?.success) {
+    // Allow a later retry if SMTP failed after the claim.
+    await DemoLead.updateOne({ _id: lead._id }, { $set: { confirmationEmailSentAt: null } });
+    logger.warn({ leadId: String(lead._id) }, 'Demo confirmation email was not sent');
+  }
+
+  return result;
+}
+
 router.post(
   '/',
   validate({ body: createDemoLeadSchema }),
@@ -44,6 +80,12 @@ router.post(
       ...req.body,
       requirement: req.body.requirement || null,
     });
+
+    try {
+      await sendConfirmationOnce(lead);
+    } catch (err) {
+      logger.warn({ err, leadId: String(lead._id) }, 'Demo confirmation email dispatch failed');
+    }
 
     res.status(201).json({
       id: String(lead._id),

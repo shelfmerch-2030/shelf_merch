@@ -5,16 +5,12 @@ import {
   Check,
   ChevronDown,
   Home,
-  MessageCircle,
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { ApiError, publicFetch } from "@/services/api";
 import "./request-demo.css";
-
-const whatsAppHref =
-  "https://wa.me/917801087402?text=Hi%20Shelf%20Merch%2C%20I%20just%20requested%20a%20demo%20and%20would%20like%20to%20chat%20with%20your%20team.";
 
 const capabilities = [
   "Branded company stores",
@@ -35,6 +31,13 @@ const requirements = [
   "Multiple Requirements",
 ];
 
+const nextSteps = [
+  "Our team reviews your request",
+  "A Shelf Merch specialist contacts you",
+  "We understand your swag requirements",
+  "We schedule a personalised platform demo",
+];
+
 function getFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] || "there";
 }
@@ -48,6 +51,8 @@ export function RequestDemoPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitState === "submitting" || submitState === "success") return;
+
     const currentForm = event.currentTarget;
     const form = new FormData(event.currentTarget);
     const fullName = String(form.get("fullName") ?? "").trim();
@@ -72,15 +77,17 @@ export function RequestDemoPage() {
       });
 
       currentForm.reset();
-      setSubmitState("success");
       setSubmittedFirstName(getFirstName(fullName));
+      setSubmitState("success");
       setMessage("");
     } catch (error) {
       setSubmitState("error");
+      const isValidation =
+        error instanceof ApiError && (error.status === 400 || error.code === "VALIDATION_ERROR");
       setMessage(
-        error instanceof ApiError
+        isValidation && error instanceof ApiError
           ? error.message
-          : "We could not save your request right now. Please try again.",
+          : "Something went wrong while submitting your request. Please try again.",
       );
     }
   }
@@ -155,36 +162,39 @@ export function RequestDemoPage() {
                 <Check size={26} strokeWidth={3} />
               </span>
               <div className="request-demo__success-copy">
-                <h2 id="demo-form-title">Thank you, {submittedFirstName}!</h2>
-                <p>Your request has been received.</p>
+                <h2 id="demo-form-title">Request received!</h2>
+                <p className="request-demo__success-subtitle">We&apos;ll be in touch soon.</p>
                 <p>
-                  A Shelf Merch swag specialist will contact you within one business day to
-                  understand your requirements and schedule a personalised demo.
+                  Thanks, <strong>{submittedFirstName}</strong>. A Shelf Merch specialist will
+                  contact you shortly to understand your requirements and schedule your
+                  personalised demo.
                 </p>
-                <p>
-                  <strong>Need a quicker response?</strong>
-                  <br />
-                  Chat with our team directly on WhatsApp.
+
+                <div className="request-demo__next-steps">
+                  <h3>What happens next?</h3>
+                  <ul>
+                    {nextSteps.map((step) => (
+                      <li key={step}>
+                        <span aria-hidden="true">
+                          <Check size={14} strokeWidth={3} />
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <p className="request-demo__success-confirm">
+                  <span aria-hidden="true">✓</span> Your request has been submitted successfully.
                 </p>
               </div>
 
               <div className="request-demo__success-actions">
-                <a
-                  className="request-demo__success-action request-demo__success-action--primary"
-                  href={whatsAppHref}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Chat on WhatsApp
-                  <span aria-hidden="true">
-                    <MessageCircle size={18} />
-                  </span>
-                </a>
                 <Link
-                  className="request-demo__success-action request-demo__success-action--secondary"
+                  className="request-demo__success-action request-demo__success-action--primary"
                   to="/"
                 >
-                  Return to Homepage
+                  Back to Home
                   <span aria-hidden="true">
                     <Home size={18} />
                   </span>
@@ -213,6 +223,7 @@ export function RequestDemoPage() {
                     autoComplete="name"
                     placeholder="Enter your full name"
                     required
+                    disabled={submitState === "submitting"}
                   />
                 </div>
 
@@ -227,6 +238,7 @@ export function RequestDemoPage() {
                     autoComplete="organization"
                     placeholder="Enter your company name"
                     required
+                    disabled={submitState === "submitting"}
                   />
                 </div>
 
@@ -242,6 +254,7 @@ export function RequestDemoPage() {
                     inputMode="email"
                     placeholder="name@company.com"
                     required
+                    disabled={submitState === "submitting"}
                   />
                 </div>
 
@@ -259,6 +272,7 @@ export function RequestDemoPage() {
                     pattern="[0-9+() -]{7,20}"
                     title="Enter a valid mobile number"
                     required
+                    disabled={submitState === "submitting"}
                   />
                 </div>
 
@@ -267,7 +281,12 @@ export function RequestDemoPage() {
                     What are you looking for? <small>(Optional)</small>
                   </label>
                   <div className="request-demo__select-wrap">
-                    <select id="demo-requirement" name="requirement" defaultValue="">
+                    <select
+                      id="demo-requirement"
+                      name="requirement"
+                      defaultValue=""
+                      disabled={submitState === "submitting"}
+                    >
                       <option value="">Select a requirement</option>
                       {requirements.map((requirement) => (
                         <option key={requirement} value={requirement}>
@@ -283,8 +302,9 @@ export function RequestDemoPage() {
                   type="submit"
                   className="request-demo__submit"
                   disabled={submitState === "submitting"}
+                  aria-busy={submitState === "submitting"}
                 >
-                  {submitState === "submitting" ? "Saving request..." : "Request a Demo"}
+                  {submitState === "submitting" ? "Submitting..." : "Request a Demo"}
                   <span aria-hidden="true">
                     <ArrowUpRight size={18} />
                   </span>
