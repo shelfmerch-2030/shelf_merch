@@ -5,30 +5,52 @@ import { SizeGuideTable } from "@/components/SizeGuideTable";
 
 type GalleryItem = { key: string; label: string; url: string };
 
+/** Dedupe by path so Shopify primary + gallery rows with ?v= params collapse once. */
+function galleryUrlKey(url: string): string {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    try {
+      const { origin, pathname } = new URL(url);
+      return `${origin}${pathname}`;
+    } catch {
+      return url;
+    }
+  }
+  return url;
+}
+
 /** Stage + marketing photos only — never production mask PNGs. */
 function catalogGalleryItems(product: UiProduct): GalleryItem[] {
   const items: GalleryItem[] = [];
   const seen = new Set<string>();
   const add = (key: string, label: string, raw?: string) => {
     const url = resolveMediaUrl(raw);
-    if (!url || seen.has(url)) return;
-    seen.add(url);
+    if (!url) return;
+    const norm = galleryUrlKey(url);
+    if (seen.has(norm)) return;
+    seen.add(norm);
     items.push({ key, label, url });
   };
 
-  add("front", "Front", product.baseImageUrl || product.mockupUrl || product.photoUrl);
+  add("front", "Front", product.baseImageUrl || product.mockupUrl);
   add("back", "Back", product.baseBackImageUrl || product.mockupBackUrl);
   add("left", "Left", product.baseLeftImageUrl);
   add("right", "Right", product.baseRightImageUrl);
 
-  const marketing = product.imageUrls?.length
-    ? product.imageUrls
-    : product.photoUrl
-      ? [product.photoUrl]
-      : [];
-  marketing.forEach((url, i) => {
-    add(`photo-${i}`, marketing.length > 1 ? `Photo ${i + 1}` : "Photo", url);
-  });
+  const marketing = [product.photoUrl, ...(product.imageUrls ?? [])].filter(Boolean);
+  let photoIndex = 0;
+  for (const raw of marketing) {
+    const url = resolveMediaUrl(raw);
+    if (!url) continue;
+    const norm = galleryUrlKey(url);
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    items.push({
+      key: `photo-${photoIndex}`,
+      label: marketing.length > 1 ? `Photo ${photoIndex + 1}` : "Photo",
+      url,
+    });
+    photoIndex += 1;
+  }
 
   if (!items.length) {
     add("fallback", "Photo", product.mockupUrl || product.photoUrl);
@@ -55,7 +77,6 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
   const active = gallery.find((item) => item.key === activeKey) || gallery[0];
   const desc = product.description?.trim() || "No product information available.";
   const showThumbs = gallery.length > 1;
-  const colorThumbs = gallery.slice(0, Math.min(gallery.length, 4));
   const productTitle = product.nm?.trim() || product.brand?.trim() || "Shelf Merch Product";
   const displayPriceLabel = (product.price || (product.basePriceInr ? `Rs${product.basePriceInr}` : ""))
     .replace(/₹|₨|â‚¹|â‚¨/g, "Rs")
@@ -89,6 +110,9 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
                     <img
                       src={item.url}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
                       style={{ width: "100%", height: "100%", objectFit: "contain" }}
                     />
                   </div>
@@ -112,6 +136,9 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
               <img
                 src={active.url}
                 alt={`${product.nm} — ${active.label}`}
+                loading="eager"
+                decoding="async"
+                referrerPolicy="no-referrer"
                 style={{ width: "100%", height: "100%", objectFit: "contain" }}
               />
             ) : (
@@ -140,10 +167,10 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
             ) : null}
           </div>
 
-          {colorThumbs.length > 0 && (
+          {showThumbs ? (
             <div className="catalog-pdp-colors">
               <div className="catalog-pdp-color-thumbs">
-                {colorThumbs.map((item) => (
+                {gallery.map((item) => (
                   <button
                     key={item.key}
                     type="button"
@@ -151,12 +178,18 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
                     className={`catalog-pdp-color-thumb${active?.key === item.key ? " catalog-pdp-color-thumb--on" : ""}`}
                     onClick={() => setActiveKey(item.key)}
                   >
-                    <img src={item.url} alt="" />
+                    <img
+                      src={item.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
                   </button>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
 
