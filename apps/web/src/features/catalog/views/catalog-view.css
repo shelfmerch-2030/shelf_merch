@@ -1336,6 +1336,9 @@
 
 .sm-cat-page--public {
   margin: 0;
+  --sm-cat-page-bg: #fff;
+  background: #fff;
+  color: var(--sm-cat-ink);
 }
 
 .sm-cat-page__container {

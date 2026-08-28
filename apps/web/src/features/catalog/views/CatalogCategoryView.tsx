@@ -58,8 +58,8 @@ function CategoryPageSkeleton() {
 export function CatalogCategoryView(vm: CatalogVm) {
   const { pathname } = useLocation();
   const { category: categoryParam } = useParams();
-  const isPublic = pathname.startsWith("/apps/catalog");
-  const catalogHome = isPublic ? "/apps/catalog" : "/app/catalog";
+  const isPublicApps = pathname.startsWith("/apps/catalog");
+  const catalogHome = isPublicApps ? "/apps/catalog" : "/app/catalog";
 
   const slides = useMemo(
     () => vm.categories.filter((category) => category !== ALL_PRODUCTS),
@@ -88,7 +88,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
   }, [vm.items, selectedSubcategory]);
 
   return (
-    <div className={isPublic ? "sm-cat-page sm-cat-page--public" : "sm-cat-page"}>
+    <div className="sm-cat-page sm-cat-page--public">
       <div className="sm-cat-page__container">
         <nav className="sm-cat-page__crumbs" aria-label="Breadcrumb">
           <Link to={catalogHome}>Catalog</Link>

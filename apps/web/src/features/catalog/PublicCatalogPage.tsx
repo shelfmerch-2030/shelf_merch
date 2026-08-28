@@ -4,9 +4,13 @@ import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 import "@/components/landing-page.css";
 
+function isCatalogIndexPath(pathname: string) {
+  return /^\/(?:apps|app)\/catalog\/?$/.test(pathname);
+}
+
 export function PublicCatalogLayout() {
   const location = useLocation();
-  const isCatalogIndex = /^\/apps\/catalog\/?$/.test(location.pathname);
+  const isCatalogIndex = isCatalogIndexPath(location.pathname);
 
   useEffect(() => {
     document.title = "Catalog Shelf Merch";
@@ -14,15 +18,11 @@ export function PublicCatalogLayout() {
   }, [location.pathname, location.search]);
 
   return (
-    <div className={isCatalogIndex ? "public-catalog public-catalog--marketing" : "public-catalog"}>
+    <div className={`public-catalog${isCatalogIndex ? " public-catalog--marketing" : ""}`}>
       <div className="shelf-landing public-catalog-chrome">
         <Header />
       </div>
-      <main
-        className={
-          isCatalogIndex ? "public-catalog-main public-catalog-main--flush" : "public-catalog-main wrap"
-        }
-      >
+      <main className="public-catalog-main public-catalog-main--flush">
         <Outlet />
       </main>
       {isCatalogIndex ? null : (

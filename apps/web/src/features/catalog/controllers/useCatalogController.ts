@@ -59,8 +59,8 @@ export function useCatalogController(): CatalogVm {
       : null,
     onCategory: (next) => {
       const currentPath = window.location.pathname;
-      const isPublic = currentPath.startsWith("/apps/catalog");
-      const basePath = isPublic ? "/apps/catalog" : "/app/catalog";
+      const isPublic = currentPath.startsWith("/apps/catalog") || currentPath.startsWith("/app/catalog");
+      const basePath = currentPath.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
 
       if (next === ALL_PRODUCTS) {
         const nextParams = new URLSearchParams(searchParams);

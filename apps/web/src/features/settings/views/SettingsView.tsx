@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ExternalLink, LogOut, Upload } from "lucide-react";
+import { ExternalLink, Upload } from "lucide-react";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
@@ -21,11 +21,6 @@ export function SettingsView(vm: SettingsVm) {
       <PageHeader
         title="Settings"
         subtitle="Manage your workspace, ownership, currency and single sign-on."
-        actions={
-          <button type="button" className="settings-logout" onClick={vm.onLogout}>
-            <LogOut size={16} /> Log out
-          </button>
-        }
       />
 
       <div className="settings-layout">

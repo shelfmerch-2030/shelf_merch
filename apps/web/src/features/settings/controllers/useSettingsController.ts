@@ -4,7 +4,6 @@ import { useInvalidateWorkspace, useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
 import {
   getStoredUser,
-  logout,
   updateWorkspaceSettingsApi,
   uploadWorkspaceLogoApi,
 } from "../model";
@@ -18,7 +17,6 @@ const LOGO_MAX = 5 * 1024 * 1024;
 export type SettingsVm = {
   tab: SettingsTab;
   onTab: (tab: SettingsTab) => void;
-  onLogout: () => void;
   // workspace form
   name: string;
   slug: string;
@@ -40,7 +38,7 @@ export type SettingsVm = {
   onSsoContact: () => void;
 };
 
-/** Controller for the settings screen: tabs, logout, workspace form, ownership. */
+/** Controller for the settings screen: tabs, workspace form, ownership. */
 export function useSettingsController(): SettingsVm {
   const { data: workspace } = useWorkspace();
   const invalidateWorkspace = useInvalidateWorkspace();
@@ -119,14 +117,9 @@ export function useSettingsController(): SettingsVm {
     }
   }
 
-  async function onLogout() {
-    await logout().catch(() => {});
-  }
-
   return {
     tab,
     onTab: setTab,
-    onLogout,
     name,
     slug,
     logoUrl,
