@@ -73,7 +73,16 @@ export function CatalogCategoryView(vm: CatalogVm) {
     CATEGORY_COPY[vm.category] ??
     "Browse curated products in this category and open any item to see full details.";
 
-  const subcategories = CATALOG_SUBCATEGORIES[vm.category] ?? [];
+  const subcategories = useMemo(() => {
+    const defined = [...(CATALOG_SUBCATEGORIES[vm.category] ?? [])];
+    const fromProducts = vm.items
+      .map((item) => String(item.subcategory || "").trim())
+      .filter(Boolean);
+    const merged = Array.from(new Set([...defined, ...fromProducts]));
+    const withoutOthers = merged.filter((sub) => sub !== "Others");
+    if (merged.includes("Others")) withoutOthers.push("Others");
+    return withoutOthers;
+  }, [vm.category, vm.items]);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
     resolveCatalogSubcategory(categoryParam, vm.category),
   );
