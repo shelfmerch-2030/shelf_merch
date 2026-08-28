@@ -156,7 +156,7 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
                   {displayPriceParts ? (
                     <>
                       {displayPriceParts[1] ? <span className="catalog-pdp-price-prefix">{displayPriceParts[1]}</span> : null}
-                      <span className="catalog-pdp-price-symbol">Rs</span>
+                      <span className="catalog-pdp-price-symbol">₹ </span>
                       <span className="catalog-pdp-price-amount">{displayPriceParts[3]}</span>
                     </>
                   ) : (
@@ -169,7 +169,7 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
 
           {showThumbs ? (
             <div className="catalog-pdp-colors">
-              <div className="catalog-pdp-color-thumbs">
+              <div className="catalog-pdp-color-thumbs flex flex-row gap-2">
                 {gallery.map((item) => (
                   <button
                     key={item.key}
