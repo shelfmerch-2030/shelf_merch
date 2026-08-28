@@ -30,12 +30,12 @@ export const MANUAL_CATEGORIES = [
 ] as const;
 
 export const SUBCATEGORIES_BY_CATEGORY: Record<(typeof MANUAL_CATEGORIES)[number], readonly string[]> = {
-  Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps"],
-  Accessories: ["Lanyards", "Key Chains", "Badges", "Travel Accessories", "Lifestyle Accessories"],
-  Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags"],
-  Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers"],
-  "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders"],
-  Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives"],
+  Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps", "Others"],
+  Accessories: ["Lanyards", "Key Chains", "Badges", "Travel Accessories", "Lifestyle Accessories", "Others"],
+  Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags", "Others"],
+  Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers", "Others"],
+  "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders", "Others"],
+  Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives", "Others"],
 };
 
 export const emptyProductDetails: ProductInput = {
