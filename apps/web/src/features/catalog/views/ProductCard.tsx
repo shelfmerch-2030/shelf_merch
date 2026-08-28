@@ -3,8 +3,41 @@ import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { productSwatches } from "../types";
 
-function displayPrice(value: string): string {
-  return value.replace(/₹|₨/g, "Rs").replace(/^Rs\.?\s*/i, "Rs");
+function normalizePriceLabel(value: string): string {
+  return value.replace(/₹|₨|â‚¹|â‚¨/g, "Rs").replace(/^Rs\.?\s*/i, "Rs");
+}
+
+function formatCardAmount(raw: string): string {
+  const cleaned = String(raw).replace(/,/g, "").trim();
+  const num = Number(cleaned);
+  if (!Number.isFinite(num)) return raw.trim();
+  return num.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function CardPrice({ price, basePriceInr }: { price?: string; basePriceInr?: number }) {
+  const label =
+    basePriceInr && basePriceInr > 0
+      ? `Rs${Math.round(basePriceInr)}`
+      : price?.trim() || "";
+  if (!label) return null;
+
+  const normalized = normalizePriceLabel(label);
+  const parts = normalized.match(/^(.*?)(Rs)\s?(.+)$/i);
+
+  if (!parts) {
+    return <div className="pr">{normalized}</div>;
+  }
+
+  const prefix = parts[1]?.trim();
+  const amount = formatCardAmount(parts[3]);
+
+  return (
+    <div className="pr">
+      {prefix ? <span className="pr-prefix">{prefix}</span> : null}
+      <span className="pr-symbol">Rs.</span>
+      <span className="pr-amount">{amount}</span>
+    </div>
+  );
 }
 
 function thumb(p: UiProduct): string | undefined {
@@ -60,7 +93,7 @@ export function ProductCard({
       <div className="meta">
         <div className="nm">{product.nm}</div>
         <div className="pcard-bottom">
-          {product.price && <div className="pr">{displayPrice(product.price)}</div>}
+          <CardPrice price={product.price} basePriceInr={product.basePriceInr} />
           <div className="pcard-min">Min 1</div>
         </div>
       </div>

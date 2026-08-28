@@ -578,7 +578,7 @@
 
 .public-catalog {
   min-height: 100vh;
-  background: #E9E9E9;
+  background: #fff;
 }
 .public-catalog--marketing {
   background: #fff;
@@ -596,6 +596,7 @@
 .public-catalog-main--flush {
   padding: 69.7px 0 0;
   max-width: none;
+  background: #fff;
 }
 @media (max-width: 760px) {
   .public-catalog-main--flush {

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef } from "react";
 import { LoadingState } from "@/components/LoadingState";
 import type { CatalogProductVm } from "../controllers/useCatalogProductController";
 import { ProductDetail } from "./ProductDetail";
@@ -43,7 +44,7 @@ export function CatalogProductView(vm: CatalogProductVm) {
   }
 
   return (
-    <>
+    <div className="catalog-pdp-page">
       <Link to={backTarget} className="catalog-pdp-back-link">
         <ArrowLeft size={15} /> Back to catalog
       </Link>
@@ -57,7 +58,7 @@ export function CatalogProductView(vm: CatalogProductVm) {
         catalogHome={catalogHome}
         backTarget={backTarget}
       />
-    </>
+    </div>
   );
 }
 
@@ -70,18 +71,33 @@ function ProductRecommendations({
   catalogHome: string;
   backTarget: string;
 }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
   if (!items.length) return null;
+
+  const scroll = (dir: "left" | "right") => {
+    const el = trackRef.current;
+    if (!el) return;
+    const amount = Math.max(280, el.clientWidth * 0.75);
+    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
+  };
 
   return (
     <section className="catalog-pdp-recs" aria-labelledby="catalog-pdp-recs-title">
       <div className="catalog-pdp-recs__inner">
-        <div className="catalog-pdp-recs__heading">
-          <span aria-hidden="true" />
-          <h2 id="catalog-pdp-recs-title">You might also like</h2>
-          <span aria-hidden="true" />
+        <div className="catalog-pdp-recs__head">
+          <h2 id="catalog-pdp-recs-title">SIMILAR ITEMS</h2>
+          <div className="catalog-pdp-recs__nav">
+            <button type="button" aria-label="Scroll left" onClick={() => scroll("left")}>
+              <ChevronLeft size={18} />
+            </button>
+            <button type="button" aria-label="Scroll right" onClick={() => scroll("right")}>
+              <ChevronRight size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="catalog-pdp-recs__grid">
+        <div className="catalog-pdp-recs__track" ref={trackRef}>
           {items.map((item) => (
             <ProductCard
               key={item.id}
