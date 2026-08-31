@@ -13,6 +13,7 @@ import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { PlatformKit } from './platformKit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { importFromShopify } from '../catalog/shopifyImport.service.js';
+import { normalizeVariantImages, withNormalizedVariantImages } from './kitVariantImages.js';
 
 const upload = uploader({ allow: IMAGE_TYPES, maxSizeMb: 25, files: 6 });
 
@@ -44,10 +45,16 @@ const itemImageUpdateSchema = z.object({
   label: z.string().optional(),
 });
 
+const variantImageUpdateSchema = z.object({
+  imageUrl: z.string().min(1),
+  label: z.string().optional(),
+});
+
 const imageRolesSchema = z.object({
   heroImage: z.string().optional(),
+  galleryImages: z.array(z.string()).optional(),
   itemImages: z.array(itemImageUpdateSchema).optional(),
-  variantImages: z.array(z.string()).optional(),
+  variantImages: z.array(variantImageUpdateSchema).optional(),
 }).strict();
 
 const createKitSchema = z.object({
@@ -58,8 +65,9 @@ const createKitSchema = z.object({
   approxValueInr: z.number().nonnegative().optional().default(0),
   imageUrls: z.array(z.string()).optional().default([]),
   heroImage: z.string().optional().default(''),
+  galleryImages: z.array(z.string()).optional().default([]),
   itemImages: z.array(itemImageSchema).optional().default([]),
-  variantImages: z.array(z.string()).optional().default([]),
+  variantImages: z.array(variantImageUpdateSchema).optional().default([]),
   rules: rulesSchema.optional(),
 });
 
@@ -73,8 +81,9 @@ const updateKitSchema = z.object({
   approxValueInr: z.number().nonnegative().optional(),
   imageUrls: z.array(z.string()).optional(),
   heroImage: z.string().optional(),
+  galleryImages: z.array(z.string()).optional(),
   itemImages: z.array(itemImageUpdateSchema).optional(),
-  variantImages: z.array(z.string()).optional(),
+  variantImages: z.array(variantImageUpdateSchema).optional(),
   rules: rulesSchema.optional(),
   status: z.enum(['draft', 'archived']).optional(),
 });
@@ -105,21 +114,40 @@ function buildImageRolesSet(existing, body) {
 
   if (body.variantImages !== undefined) {
     const incoming = Array.isArray(body.variantImages) ? body.variantImages : [];
-    const current = Array.isArray(existing.variantImages) ? existing.variantImages : [];
+    const current = normalizeVariantImages(existing.variantImages);
     if (!incoming.length && current.length) {
       // Ignore accidental empty payloads — do not wipe configured variants.
     } else {
-      $set.variantImages = incoming;
+      const byUrl = new Map(current.map((it) => [String(it.imageUrl), it]));
+      $set.variantImages = incoming.map((it) => ({
+        imageUrl: it.imageUrl,
+        label: String(it.label ?? '').trim() || String(byUrl.get(it.imageUrl)?.label ?? '').trim(),
+      }));
+    }
+  }
+
+  if (body.galleryImages !== undefined) {
+    const incoming = Array.isArray(body.galleryImages) ? body.galleryImages : [];
+    const current = Array.isArray(existing.galleryImages) ? existing.galleryImages : [];
+    if (!incoming.length && current.length) {
+      // Ignore accidental empty payloads — do not wipe configured gallery picks.
+    } else {
+      $set.galleryImages = incoming;
     }
   }
 
   return $set;
 }
 
-async function getKit(id) {
+async function getKitDoc(id) {
   const kit = await PlatformKit.findById(id);
   if (!kit) throw new NotFoundError('Kit not found');
   return kit;
+}
+
+function serializeKit(kit) {
+  const obj = kit?.toObject ? kit.toObject() : kit;
+  return withNormalizedVariantImages(obj);
 }
 
 export const platformKitsRouter = Router();
@@ -151,7 +179,8 @@ platformKitsRouter.get(
   kitsRead,
   asyncHandler(async (req, res) => {
     const filter = req.query.status ? { status: req.query.status } : {};
-    res.json(await PlatformKit.find(filter).sort({ createdAt: -1 }));
+    const kits = await PlatformKit.find(filter).sort({ createdAt: -1 }).lean();
+    res.json(kits.map(withNormalizedVariantImages));
   }),
 );
 
@@ -159,7 +188,7 @@ platformKitsRouter.get(
   '/:id',
   kitsRead,
   validate({ params: idParam }),
-  asyncHandler(async (req, res) => res.json(await getKit(req.params.id))),
+  asyncHandler(async (req, res) => res.json(serializeKit(await getKitDoc(req.params.id)))),
 );
 
 platformKitsRouter.post(
@@ -178,7 +207,7 @@ platformKitsRouter.patch(
   kitsWrite,
   validate({ params: idParam, body: updateKitSchema }),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     const before = kit.toObject();
     // Assign only keys present on the validated body (no implicit empties).
     for (const [key, value] of Object.entries(req.body || {})) {
@@ -189,36 +218,38 @@ platformKitsRouter.patch(
       if (key === 'imageUrls' && Array.isArray(value) && !value.length && (kit.imageUrls?.length ?? 0) > 0) continue;
       if (key === 'itemImages' && Array.isArray(value) && !value.length && (kit.itemImages?.length ?? 0) > 0) continue;
       if (key === 'variantImages' && Array.isArray(value) && !value.length && (kit.variantImages?.length ?? 0) > 0) continue;
+      if (key === 'galleryImages' && Array.isArray(value) && !value.length && (kit.galleryImages?.length ?? 0) > 0) continue;
       kit[key] = value;
     }
     await kit.save();
     writeAudit({ req, action: 'kit.update', entityType: 'PlatformKit', entityId: kit._id, before: { name: before.name, status: before.status, approxValueInr: before.approxValueInr, imageUrlsCount: before.imageUrls?.length }, after: req.body });
-    res.json(kit);
+    res.json(serializeKit(kit));
   }),
 );
 
-// Image-role updates touch ONLY heroImage / itemImages / variantImages — nothing else.
+// Image-role updates touch ONLY heroImage / galleryImages / itemImages / variantImages — nothing else.
 platformKitsRouter.patch(
   '/:id/image-roles',
   kitsWrite,
   validate({ params: idParam, body: imageRolesSchema }),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     const before = {
       heroImage: kit.heroImage,
       itemImagesCount: kit.itemImages?.length ?? 0,
+      galleryImagesCount: kit.galleryImages?.length ?? 0,
       variantImagesCount: kit.variantImages?.length ?? 0,
     };
     const $set = buildImageRolesSet(kit.toObject(), req.body);
     if (!Object.keys($set).length) {
-      return res.json(kit);
+      return res.json(serializeKit(kit));
     }
     $set.updatedAt = new Date();
     const updated = await PlatformKit.findByIdAndUpdate(
       kit._id,
       { $set },
       { new: true, runValidators: true },
-    );
+    ).lean();
     writeAudit({
       req,
       action: 'kit.image_roles_update',
@@ -227,7 +258,7 @@ platformKitsRouter.patch(
       before,
       after: $set,
     });
-    res.json(updated);
+    res.json(withNormalizedVariantImages(updated));
   }),
 );
 
@@ -236,7 +267,7 @@ platformKitsRouter.post(
   kitsWrite,
   validate({ params: idParam, body: kitItemSchema }),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     const product = await CatalogProduct.findById(req.body.catalogProductId);
     if (!product) throw new NotFoundError('Catalog product not found');
     kit.items.push(req.body);
@@ -252,7 +283,7 @@ platformKitsRouter.post(
   validate({ params: idParam }),
   upload.array('images', 6),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     const urls = [];
     for (const file of req.files ?? []) {
       const { url } = await uploadFile({ tenantId: 'platform', kind: 'product', file });
@@ -271,7 +302,7 @@ platformKitsRouter.delete(
   kitsWrite,
   validate({ params: z.object({ id: objectId, itemId: objectId }) }),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     const item = kit.items.id(req.params.itemId);
     if (!item) throw new NotFoundError('Kit item not found');
     item.deleteOne();
@@ -286,7 +317,7 @@ platformKitsRouter.post(
   kitsWrite,
   validate({ params: idParam }),
   asyncHandler(async (req, res) => {
-    const kit = await getKit(req.params.id);
+    const kit = await getKitDoc(req.params.id);
     // Imported (e.g. Shopify) kits are curated, self-contained bundles with no
     // component items to compose — only manually-built kits need items.
     const imported = kit.source?.provider && kit.source.provider !== 'manual';
@@ -299,6 +330,6 @@ platformKitsRouter.post(
     kit.status = 'active';
     await kit.save();
     writeAudit({ req, action: 'kit.publish', entityType: 'PlatformKit', entityId: kit._id });
-    res.json(kit);
+    res.json(serializeKit(kit));
   }),
 );

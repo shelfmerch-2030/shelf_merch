@@ -14,6 +14,7 @@ import { uploadFile } from '../../services/storage.service.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { sumKitProductPrices } from './kitPricing.js';
+import { normalizeVariantImages } from './kitVariantImages.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 
 // Allow multiple mockup PNGs (one per kit product) — same cap as collections.
@@ -178,7 +179,8 @@ router.post(
           label: it.label || '',
         }))
       : [];
-    const variantImages = Array.isArray(platformKit.variantImages) ? [...platformKit.variantImages] : [];
+    const variantImages = normalizeVariantImages(platformKit.variantImages);
+    const galleryImages = Array.isArray(platformKit.galleryImages) ? [...platformKit.galleryImages] : [];
 
     const designNotes = JSON.stringify({
       curated: true,
@@ -187,6 +189,7 @@ router.post(
       approxValueInr: Math.round(Number(platformKit.approxValueInr) || 0),
       imageUrls: platformKit.imageUrls || [],
       heroImage,
+      galleryImages,
       itemImages,
       variantImages,
     });

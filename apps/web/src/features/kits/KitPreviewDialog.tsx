@@ -3,6 +3,11 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveColorHex } from "@/lib/colorMap";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import {
+  normalizeVariantImages,
+  variantImageUrls,
+  variantLabel,
+} from "@/lib/kitVariantImages";
 import type { PlatformKitTemplate } from "@/services/api-bridge";
 import type { UiKit, UiProduct } from "@/services/mappers";
 import { inr } from "@/components/platform/platform-ui";
@@ -25,8 +30,12 @@ export type KitPreviewData = {
   /** GST-inclusive curated kit price (platformkits.approxValueInr). */
   pricePerKitInr?: number;
   products: KitPreviewProduct[];
+  /** Curated kits — extra marketing shots shown above included products. */
+  galleryImages?: string[];
   /** Curated kits only — visual appearance options (selection is local/UI-only). */
   variantImages?: string[];
+  /** Curated kits — named variant rows for display. */
+  kitVariants?: Array<{ imageUrl: string; label: string }>;
 };
 
 type ColorOption = { name: string; hex: string };
@@ -87,14 +96,29 @@ type CuratedImageSource = {
   originalId?: string;
   heroImage?: string;
   imageUrls?: string[];
+  galleryImages?: string[];
   itemImages?: Array<{ imageUrl: string; label?: string }>;
-  variantImages?: string[];
+  variantImages?: unknown;
   approxValueInr?: number;
 };
 
+function resolveKitVariantsFromSource(
+  source: CuratedImageSource,
+): Array<{ imageUrl: string; label: string }> {
+  return normalizeVariantImages(source.variantImages).map((v, i) => ({
+    imageUrl: resolveMediaUrl(v.imageUrl) || v.imageUrl,
+    label: variantLabel(v, i),
+  }));
+}
+
+function resolveGalleryImages(source: CuratedImageSource): string[] {
+  if (!Array.isArray(source.galleryImages) || source.galleryImages.length === 0) return [];
+  return source.galleryImages.map((url) => resolveMediaUrl(url) || url).filter(Boolean);
+}
+
 function galleryUrlsExcludingHero(source: CuratedImageSource): string[] {
   const hero = String(source.heroImage || source.imageUrls?.[0] || "").trim();
-  const variantSet = new Set((source.variantImages || []).map(String));
+  const variantSet = new Set(variantImageUrls(source.variantImages));
   return uniquePreserveOrder(
     (source.imageUrls || []).filter((url) => {
       const u = String(url).trim();
@@ -145,16 +169,24 @@ function buildCuratedItemProducts(
   return [];
 }
 
-function mergeCuratedImageSource(
-  meta?: CuratedImageSource | null,
-  platform?: CuratedImageSource | null,
+/** Prefer live platform kit image roles (matches KitsView preview). Falls back to workspace clone meta. */
+function resolveCuratedImageSource(
+  meta: CuratedImageSource,
+  platformKits?: PlatformKitTemplate[],
 ): CuratedImageSource {
-  return {
-    heroImage: meta?.heroImage || platform?.heroImage,
-    imageUrls: meta?.imageUrls?.length ? meta.imageUrls : platform?.imageUrls,
-    itemImages: meta?.itemImages?.length ? meta.itemImages : platform?.itemImages,
-    variantImages: meta?.variantImages?.length ? meta.variantImages : platform?.variantImages,
-  };
+  const platformKit = findPlatformKitForMeta(meta, platformKits);
+  if (platformKit) {
+    return {
+      originalId: meta.originalId,
+      heroImage: platformKit.heroImage,
+      imageUrls: platformKit.imageUrls,
+      galleryImages: platformKit.galleryImages,
+      itemImages: platformKit.itemImages,
+      variantImages: platformKit.variantImages,
+      approxValueInr: platformKit.approxValueInr,
+    };
+  }
+  return meta;
 }
 
 function findPlatformKitForMeta(
@@ -171,12 +203,19 @@ export function curatedIncludedItems(
   platformKits?: PlatformKitTemplate[],
   fallbackCover?: string,
 ): Array<{ imageUrl: string; label: string }> {
-  const platformKit = findPlatformKitForMeta(meta, platformKits);
-  const source = mergeCuratedImageSource(meta, platformKit ?? null);
+  const source = resolveCuratedImageSource(meta, platformKits);
   return buildCuratedItemProducts(source, fallbackCover).map((item) => ({
     imageUrl: item.imageUrl || fallbackCover || "",
     label: item.name,
   }));
+}
+
+/** Named variant rows for curated kits — same source resolution as preview. */
+export function curatedKitVariantRows(
+  meta: CuratedImageSource,
+  platformKits?: PlatformKitTemplate[],
+): Array<{ imageUrl: string; label: string }> {
+  return resolveKitVariantsFromSource(resolveCuratedImageSource(meta, platformKits));
 }
 
 /** Build a read-only preview model from a workspace kit + catalog. */
@@ -190,7 +229,9 @@ export function buildKitPreviewFromWorkspace(
   let description = kit.description?.trim() || "";
   let coverFromMeta: string | undefined;
   let itemProducts: KitPreviewProduct[] | undefined;
+  let galleryImages: string[] | undefined;
   let variantImages: string[] | undefined;
+  let kitVariants: Array<{ imageUrl: string; label: string }> | undefined;
   let isCurated = false;
   let curatedMeta: CuratedImageSource | null = null;
 
@@ -203,7 +244,8 @@ export function buildKitPreviewFromWorkspace(
         imageUrls?: string[];
         heroImage?: string;
         itemImages?: Array<{ imageUrl: string; label?: string }>;
-        variantImages?: string[];
+        galleryImages?: string[];
+        variantImages?: unknown;
         approxValueInr?: number;
       };
       if (meta.curated) {
@@ -216,10 +258,9 @@ export function buildKitPreviewFromWorkspace(
       } else if (meta.imageUrls?.[0]) {
         coverFromMeta = resolveMediaUrl(meta.imageUrls[0]);
       }
-      if (meta.curated && Array.isArray(meta.variantImages) && meta.variantImages.length > 0) {
-        variantImages = meta.variantImages
-          .map((url) => resolveMediaUrl(url) || url)
-          .filter(Boolean);
+      if (meta.curated && meta.variantImages) {
+        kitVariants = resolveKitVariantsFromSource(meta);
+        variantImages = kitVariants.map((v) => v.imageUrl);
       }
     }
   } catch {
@@ -227,18 +268,17 @@ export function buildKitPreviewFromWorkspace(
   }
 
   if (isCurated) {
-    const platformKit = findPlatformKitForMeta(curatedMeta, platformKits);
-    const imageSource = mergeCuratedImageSource(curatedMeta, platformKit ?? null);
+    const imageSource = resolveCuratedImageSource(curatedMeta!, platformKits);
     if (!coverFromMeta) {
       coverFromMeta =
         (imageSource.heroImage ? resolveMediaUrl(imageSource.heroImage) : undefined) ||
         (imageSource.imageUrls?.[0] ? resolveMediaUrl(imageSource.imageUrls[0]) : undefined);
     }
-    if (!variantImages?.length && imageSource.variantImages?.length) {
-      variantImages = imageSource.variantImages
-        .map((url) => resolveMediaUrl(url) || url)
-        .filter(Boolean);
+    if (!variantImages?.length && imageSource.variantImages) {
+      kitVariants = resolveKitVariantsFromSource(imageSource);
+      variantImages = kitVariants.map((v) => v.imageUrl);
     }
+    galleryImages = resolveGalleryImages(imageSource);
     itemProducts = buildCuratedItemProducts(imageSource, fallbackCover);
   }
 
@@ -282,7 +322,9 @@ export function buildKitPreviewFromWorkspace(
     packaging: kit.packaging === "box" ? "Premium box" : kit.packaging === "none" ? "No packaging" : kit.packaging,
     pricePerKitInr: pricePerKitInr && pricePerKitInr > 0 ? pricePerKitInr : undefined,
     products,
+    galleryImages,
     variantImages,
+    kitVariants,
   };
 }
 
@@ -315,6 +357,8 @@ export function buildKitPreviewFromPlatform(
     });
   }
 
+  const kitVariants = resolveKitVariantsFromSource(kit);
+
   return {
     name: kit.name,
     description: kit.description?.trim() || "No description available.",
@@ -324,9 +368,9 @@ export function buildKitPreviewFromPlatform(
       return n > 0 ? n : undefined;
     })(),
     products,
-    variantImages: (kit.variantImages || [])
-      .map((url) => resolveMediaUrl(url) || url)
-      .filter(Boolean),
+    galleryImages: resolveGalleryImages(kit),
+    variantImages: kitVariants.map((v) => v.imageUrl),
+    kitVariants,
   };
 }
 
@@ -503,6 +547,60 @@ export function KitPreviewDialog({
 
             <div style={{ borderBottom: "1px solid var(--line)", marginBottom: 16 }} />
 
+            {(data.galleryImages?.length ?? 0) > 0 ? (
+              <div style={{ marginBottom: 20 }}>
+                <h4
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    color: "var(--gray-500)",
+                    marginBottom: 12,
+                  }}
+                >
+                  Gallery ({data.galleryImages!.length})
+                </h4>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                    gap: 16,
+                  }}
+                >
+                  {data.galleryImages!.map((url, idx) => (
+                    <div
+                      key={`${url}-${idx}`}
+                      style={{
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        padding: 12,
+                        background: "var(--gray-50)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <div
+                        style={{
+                          aspectRatio: "1",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <img
+                          src={url}
+                          alt={`Gallery ${idx + 1}`}
+                          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div style={{ marginBottom: 20 }}>
               <h4
                 style={{
@@ -604,13 +702,16 @@ export function KitPreviewDialog({
                     gap: 12,
                   }}
                 >
-                  {data.variantImages!.map((url, idx) => {
-                    const selected = selectedVariant === url;
+                  {(data.kitVariants?.length ? data.kitVariants : (data.variantImages || []).map((url, idx) => ({
+                    imageUrl: url,
+                    label: `Variant ${idx + 1}`,
+                  }))).map((variant) => {
+                    const selected = selectedVariant === variant.imageUrl;
                     return (
                       <button
-                        key={`${url}-${idx}`}
+                        key={`${variant.imageUrl}-${variant.label}`}
                         type="button"
-                        onClick={() => setSelectedVariant(url)}
+                        onClick={() => setSelectedVariant(variant.imageUrl)}
                         style={{
                           border: selected ? "2px solid var(--brand)" : "1px solid var(--line)",
                           borderRadius: 8,
@@ -631,13 +732,13 @@ export function KitPreviewDialog({
                           }}
                         >
                           <img
-                            src={url}
-                            alt={`Variant ${idx + 1}`}
+                            src={variant.imageUrl}
+                            alt={variant.label}
                             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                           />
                         </div>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
-                          Variant {idx + 1}
+                          {variant.label}
                         </div>
                       </button>
                     );

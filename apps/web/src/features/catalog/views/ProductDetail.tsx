@@ -215,7 +215,7 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
               aria-expanded={openPanel === "size"}
               onClick={() => setOpenPanel(openPanel === "size" ? null : "size")}
             >
-              <span>Size Guide</span>
+              <span>Size Guide/Features</span>
               <span aria-hidden="true">{openPanel === "size" ? "−" : "+"}</span>
             </button>
             {openPanel === "size" ? (

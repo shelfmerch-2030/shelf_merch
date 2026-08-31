@@ -27,6 +27,7 @@ import { kitPickedIndices } from "../wizard/kitDraft";
 import { useLaunchKitCampaign, useUpdateKit, useUploadKitArtwork, usePlatformKits } from "../model";
 import type { UiKit } from "../model";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { variantImageUrls, type KitVariantImage } from "@/lib/kitVariantImages";
 import {
   initialSendKitDraft,
   sendKitReducer,
@@ -154,23 +155,26 @@ export function resolveKitItemOptions(product: UiProduct, ref: any = {}) {
   };
 }
 
-export function getCuratedKitMeta(kit: UiKit | undefined) {
+/** Curated kit metadata stored on workspace kits cloned from platform templates. */
+export type CuratedKitMeta = {
+  curated: boolean;
+  originalId: string;
+  description: string;
+  approxValueInr?: number;
+  imageUrls: string[];
+  heroImage?: string;
+  itemImages?: Array<{ imageUrl: string; label?: string }>;
+  variantImages?: Array<string | KitVariantImage>;
+  brandLogoUploaded?: boolean;
+  brandLogoUrl?: string;
+};
+
+export function getCuratedKitMeta(kit: UiKit | undefined): CuratedKitMeta | null {
   if (!kit?.designNotes) return null;
   try {
     const parsed = JSON.parse(kit.designNotes);
     if (parsed && parsed.curated) {
-      return parsed as {
-        curated: boolean;
-        originalId: string;
-        description: string;
-        approxValueInr?: number;
-        imageUrls: string[];
-        heroImage?: string;
-        itemImages?: Array<{ imageUrl: string; label?: string }>;
-        variantImages?: string[];
-        brandLogoUploaded?: boolean;
-        brandLogoUrl?: string;
-      };
+      return parsed as CuratedKitMeta;
     }
   } catch {
     // ignore
@@ -488,12 +492,12 @@ export function useSendKitController(): SendKitVm {
         const missingList: string[] = [];
         if (isCurated) {
           const meta = getCuratedKitMeta(kit);
-          const variantImages =
-            meta?.variantImages?.length
-              ? meta.variantImages
-              : platformKits?.find((k) => String(k._id) === String(meta?.originalId))?.variantImages ||
-                [];
-          if (variantImages.length) {
+          const platformVariantUrls = variantImageUrls(
+            platformKits?.find((k) => String(k._id) === String(meta?.originalId))?.variantImages,
+          );
+          const metaVariantUrls = variantImageUrls(meta?.variantImages);
+          const variantUrls = platformVariantUrls.length ? platformVariantUrls : metaVariantUrls;
+          if (variantUrls.length) {
             for (const rid of draft.selRecips) {
               const contact = pickerContacts.find((c) => c.id === rid);
               const name = contact?.name || "Recipient";

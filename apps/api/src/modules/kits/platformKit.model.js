@@ -11,13 +11,20 @@ const platformKitSchema = new mongoose.Schema(
     imageUrls: { type: [String], default: [] },
     /** Explicit curated gallery roles — URLs must already exist in imageUrls. */
     heroImage: { type: String, default: '' },
+    /** Marketing gallery shots shown in kit preview (subset of imageUrls). */
+    galleryImages: { type: [String], default: [] },
     itemImages: [
       {
         imageUrl: { type: String, required: true },
         label: { type: String, default: '' },
       },
     ],
-    variantImages: { type: [String], default: [] },
+    variantImages: [
+      {
+        imageUrl: { type: String, required: true },
+        label: { type: String, default: '' },
+      },
+    ],
     items: [
       {
         catalogProductId: {

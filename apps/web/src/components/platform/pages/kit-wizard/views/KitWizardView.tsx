@@ -1,5 +1,50 @@
+import { useRef } from "react";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { inr, PlatformError, PlatformPageHeader } from "../../../platform-ui";
 import type { KitWizardVm } from "../controllers/useKitWizardController";
+
+function KitRoleUploadButton({
+  label,
+  multiple = false,
+  disabled,
+  onFiles,
+}: {
+  label: string;
+  multiple?: boolean;
+  disabled?: boolean;
+  onFiles: (files: FileList | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple={multiple}
+        disabled={disabled}
+        style={{ display: "none" }}
+        onChange={(e) => {
+          onFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        className="btn btn-soft btn-sm"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+      >
+        {label}
+      </button>
+    </>
+  );
+}
+
+function kitImageSrc(url: string) {
+  return resolveMediaUrl(url) || url;
+}
 
 /** Platform kit create/edit wizard. */
 export function KitWizardView({
@@ -21,6 +66,7 @@ export function KitWizardView({
   rules,
   imported,
   heroImage,
+  galleryImages,
   itemImages,
   variantImages,
   productName,
@@ -35,10 +81,13 @@ export function KitWizardView({
   onAddItem,
   onDropItem,
   onUploadImages,
+  onUploadImagesForRole,
   onSelectHero,
+  onToggleGalleryImage,
   onToggleItemImage,
   onSetItemLabel,
   onToggleVariantImage,
+  onSetVariantLabel,
   onSaveImageRoles,
   onPublish,
   onSaveDraft,
@@ -300,36 +349,161 @@ export function KitWizardView({
 
         {step === 2 && (
           <>
-            <h3 style={{ marginBottom: 12 }}>Cover images (optional)</h3>
-            <div className="row" style={{ flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-              {(kit?.imageUrls ?? []).map((url) => (
+            <h3 style={{ marginBottom: 12 }}>Kit images</h3>
+            <p className="muted" style={{ marginBottom: 20, fontSize: 13 }}>
+              Upload images for the kit cover, included products, and colour variants. You can also pick
+              from images already in the gallery below each section.
+            </p>
+
+            <div className="card" style={{ padding: 16, marginBottom: 20, background: "var(--surface-2)" }}>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>
+                Image gallery
+              </div>
+              <div className="row" style={{ flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+                {(kit?.imageUrls ?? []).map((url) => (
+                  <img
+                    key={url}
+                    src={kitImageSrc(url)}
+                    alt=""
+                    style={{
+                      width: 90,
+                      height: 90,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      border: "1px solid var(--line)",
+                    }}
+                  />
+                ))}
+                {!kit?.imageUrls?.length && <p className="muted">No images uploaded yet.</p>}
+              </div>
+              <KitRoleUploadButton
+                label="Upload to gallery"
+                multiple
+                disabled={busy}
+                onFiles={(files) => onUploadImages(files)}
+              />
+            </div>
+
+            <h3 style={{ margin: "0 0 8px" }}>Hero Image</h3>
+            <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              Upload or select exactly one image used as the kit cover.
+            </p>
+            <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <KitRoleUploadButton
+                label="Upload hero image"
+                disabled={busy}
+                onFiles={(files) => onUploadImagesForRole(files, "hero")}
+              />
+              {heroImage ? (
                 <img
-                  key={url}
-                  src={url}
-                  alt=""
+                  src={kitImageSrc(heroImage)}
+                  alt="Current hero"
                   style={{
-                    width: 90,
-                    height: 90,
+                    width: 56,
+                    height: 56,
                     objectFit: "cover",
-                    borderRadius: 8,
+                    borderRadius: 6,
                     border: "1px solid var(--line)",
                   }}
                 />
-              ))}
-              {!kit?.imageUrls?.length && <p className="muted">No images yet.</p>}
+              ) : null}
             </div>
-            <input type="file" accept="image/*" multiple disabled={busy} onChange={(e) => onUploadImages(e.target.files)} />
+            {(kit?.imageUrls ?? []).length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+                {(kit?.imageUrls ?? []).map((url, idx) => (
+                  <label
+                    key={`hero-${url}`}
+                    className="row"
+                    style={{
+                      gap: 12,
+                      alignItems: "center",
+                      padding: 10,
+                      border: "1px solid var(--line)",
+                      borderRadius: 8,
+                      background: heroImage === url ? "var(--surface-2)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="heroImage"
+                      checked={heroImage === url}
+                      onChange={() => onSelectHero(url)}
+                    />
+                    <img
+                      src={kitImageSrc(url)}
+                      alt=""
+                      style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+                Upload a hero image above to get started.
+              </p>
+            )}
 
-            {(kit?.imageUrls?.length ?? 0) > 0 && (
-              <>
-                <h3 style={{ margin: "24px 0 8px" }}>Hero Image</h3>
-                <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-                  Select exactly one image used as the kit cover.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
-                  {(kit?.imageUrls ?? []).map((url, idx) => (
-                    <label
-                      key={`hero-${url}`}
+            <h3 style={{ margin: "24px 0 8px" }}>Gallery</h3>
+            <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              Select one or more images from the image gallery to show in the kit preview above
+              included products.
+            </p>
+            {(kit?.imageUrls ?? []).length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+                {(kit?.imageUrls ?? []).map((url, idx) => (
+                  <label
+                    key={`gallery-${url}`}
+                    className="row"
+                    style={{
+                      gap: 12,
+                      alignItems: "center",
+                      padding: 10,
+                      border: "1px solid var(--line)",
+                      borderRadius: 8,
+                      background: galleryImages.includes(url) ? "var(--surface-2)" : "transparent",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={galleryImages.includes(url)}
+                      onChange={() => onToggleGalleryImage(url)}
+                    />
+                    <img
+                      src={kitImageSrc(url)}
+                      alt=""
+                      style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                    />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+                Upload images to the image gallery first, then select them here.
+              </p>
+            )}
+
+            <h3 style={{ margin: "24px 0 8px" }}>Included Products</h3>
+            <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              Upload or select images that represent included products. Optional product names override
+              Item 1, Item 2…
+            </p>
+            <div style={{ marginBottom: 12 }}>
+              <KitRoleUploadButton
+                label="Upload product image(s)"
+                multiple
+                disabled={busy}
+                onFiles={(files) => onUploadImagesForRole(files, "item")}
+              />
+            </div>
+            {(kit?.imageUrls ?? []).length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+                {(kit?.imageUrls ?? []).map((url, idx) => {
+                  const selected = itemImages.find((it) => it.imageUrl === url);
+                  return (
+                    <div
+                      key={`item-${url}`}
                       className="row"
                       style={{
                         gap: 12,
@@ -337,79 +511,60 @@ export function KitWizardView({
                         padding: 10,
                         border: "1px solid var(--line)",
                         borderRadius: 8,
-                        background: heroImage === url ? "var(--surface-2)" : "transparent",
+                        flexWrap: "wrap",
                       }}
                     >
-                      <input
-                        type="radio"
-                        name="heroImage"
-                        checked={heroImage === url}
-                        onChange={() => onSelectHero(url)}
-                      />
-                      <img
-                        src={url}
-                        alt=""
-                        style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
-                      />
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
-                    </label>
-                  ))}
-                </div>
+                      <label className="row" style={{ gap: 12, alignItems: "center", flex: 1, minWidth: 220 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!selected}
+                          onChange={() => onToggleItemImage(url)}
+                        />
+                        <img
+                          src={kitImageSrc(url)}
+                          alt=""
+                          style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                        />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
+                      </label>
+                      {selected ? (
+                        <input
+                          className="inp"
+                          style={{ flex: 1, minWidth: 160 }}
+                          placeholder="Product name (optional)"
+                          value={selected.label || ""}
+                          onChange={(e) => onSetItemLabel(url, e.target.value)}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
+                Upload product images above to mark included items.
+              </p>
+            )}
 
-                <h3 style={{ margin: "24px 0 8px" }}>Included Products</h3>
-                <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-                  Select images that represent included products. Optional product names override Item 1, Item 2…
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
-                  {(kit?.imageUrls ?? []).map((url, idx) => {
-                    const selected = itemImages.find((it) => it.imageUrl === url);
-                    return (
-                      <div
-                        key={`item-${url}`}
-                        className="row"
-                        style={{
-                          gap: 12,
-                          alignItems: "center",
-                          padding: 10,
-                          border: "1px solid var(--line)",
-                          borderRadius: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <label className="row" style={{ gap: 12, alignItems: "center", flex: 1, minWidth: 220 }}>
-                          <input
-                            type="checkbox"
-                            checked={!!selected}
-                            onChange={() => onToggleItemImage(url)}
-                          />
-                          <img
-                            src={url}
-                            alt=""
-                            style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
-                          />
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
-                        </label>
-                        {selected ? (
-                          <input
-                            className="inp"
-                            style={{ flex: 1, minWidth: 160 }}
-                            placeholder="Product name (optional)"
-                            value={selected.label || ""}
-                            onChange={(e) => onSetItemLabel(url, e.target.value)}
-                          />
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <h3 style={{ margin: "24px 0 8px" }}>Variants</h3>
-                <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-                  Select colour/appearance variants of this kit. These are not separate kits.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {(kit?.imageUrls ?? []).map((url, idx) => (
-                    <label
+            <h3 style={{ margin: "24px 0 8px" }}>Variants</h3>
+            <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              Upload or select colour/appearance variants of this kit. These are not separate kits.
+              Optional names are shown to senders and recipients when choosing a variant.
+            </p>
+            <div style={{ marginBottom: 12 }}>
+              <KitRoleUploadButton
+                label="Upload variant image(s)"
+                multiple
+                disabled={busy}
+                onFiles={(files) => onUploadImagesForRole(files, "variant")}
+              />
+            </div>
+            {(kit?.imageUrls ?? []).length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {(kit?.imageUrls ?? []).map((url, idx) => {
+                  const selected = variantImages.find((v) => v.imageUrl === url);
+                  return (
+                    <div
                       key={`variant-${url}`}
                       className="row"
                       style={{
@@ -418,24 +573,40 @@ export function KitWizardView({
                         padding: 10,
                         border: "1px solid var(--line)",
                         borderRadius: 8,
-                        background: variantImages.includes(url) ? "var(--surface-2)" : "transparent",
+                        flexWrap: "wrap",
+                        background: selected ? "var(--surface-2)" : "transparent",
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={variantImages.includes(url)}
-                        onChange={() => onToggleVariantImage(url)}
-                      />
-                      <img
-                        src={url}
-                        alt=""
-                        style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
-                      />
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
-                    </label>
-                  ))}
-                </div>
-              </>
+                      <label className="row" style={{ gap: 12, alignItems: "center", flex: 1, minWidth: 220 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!selected}
+                          onChange={() => onToggleVariantImage(url)}
+                        />
+                        <img
+                          src={kitImageSrc(url)}
+                          alt=""
+                          style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--line)" }}
+                        />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>Image {idx + 1}</span>
+                      </label>
+                      {selected ? (
+                        <input
+                          className="inp"
+                          style={{ flex: 1, minWidth: 160 }}
+                          placeholder="Variant name (optional)"
+                          value={selected.label || ""}
+                          onChange={(e) => onSetVariantLabel(url, e.target.value)}
+                        />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted" style={{ fontSize: 13 }}>
+                Upload variant images above to show colour options.
+              </p>
             )}
 
             <div className="row" style={{ gap: 8, marginTop: 18 }}>

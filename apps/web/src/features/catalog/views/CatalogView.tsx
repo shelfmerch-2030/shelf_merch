@@ -94,6 +94,12 @@ const STYLE_CATEGORIES: CategoryTile[] = [
     imageAlt: "Branded accessories",
     category: "Accessories",
   },
+  {
+    label: "Kits",
+    image: styleKitsImg,
+    imageAlt: "Pre-designed swag kits",
+    category: "Kits",
+  },
   // {
   //   label: "Festival Hampers",
   //   image: "/images/landing/catalog/ready-to-order.png",
@@ -293,7 +299,7 @@ function StyleSpotlight({ onSelect }: { onSelect: (category: string) => void }) 
           <button
             type="button"
             className="sm-style-spotlight__tile sm-style-spotlight__tile--kits"
-            onClick={() => onSelect(ALL_PRODUCTS)}
+            onClick={() => onSelect("Kits")}
             aria-label="Browse swag kits"
           >
             <img src={styleKitsImg} alt="" />

@@ -6,6 +6,7 @@ import {
   ALL_PRODUCTS,
   CATALOG_CATEGORIES,
   catalogCategorySlug,
+  KITS_CATEGORY,
   resolveCatalogCategory,
 } from "../types";
 import type { UiProduct } from "../model";
@@ -43,7 +44,7 @@ export function useCatalogController(): CatalogVm {
     seed,
     isCategorySelected,
   );
-  const items = data?.items ?? [];
+  const items = category === KITS_CATEGORY ? [] : (data?.items ?? []);
 
   return {
     category,

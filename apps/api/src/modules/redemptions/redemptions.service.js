@@ -34,6 +34,11 @@ import {
   resolveCuratedApproxValueInr,
 } from '../kits/curatedKitMeta.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
+import {
+  normalizeVariantImages,
+  variantImageUrls,
+  variantLabelForUrl,
+} from '../kits/kitVariantImages.js';
 import { env } from '../../config/env.js';
 import { redemptionSignOptions, redemptionVerifyOptions } from '../../config/jwt.js';
 import { sendOtpSms } from '../../services/msg91.service.js';
@@ -69,27 +74,26 @@ async function curatedKitUnitPriceInr(kit, meta) {
 export const CURATED_VARIANT_KEY = '__curated__';
 
 function resolveCuratedVariantImages(meta) {
-  return [...new Set((Array.isArray(meta?.variantImages) ? meta.variantImages : []).map((u) => String(u || '').trim()).filter(Boolean))];
+  return variantImageUrls(meta?.variantImages);
+}
+
+function curatedVariantLabel(meta, chosenUrl) {
+  return variantLabelForUrl(meta?.variantImages, chosenUrl);
+}
+
+function resolveChosenCuratedVariantImage(meta, chosen) {
+  const variantUrls = resolveCuratedVariantImages(meta);
+  if (!variantUrls.length) return { url: '', label: '' };
+  const fromRecipient =
+    (chosen?.variantImage && String(chosen.variantImage).trim()) ||
+    (chosen?.color && variantUrls.includes(String(chosen.color).trim()) ? String(chosen.color).trim() : '');
+  const url = fromRecipient && variantUrls.includes(fromRecipient) ? fromRecipient : variantUrls[0];
+  return { url, label: curatedVariantLabel(meta, url) };
 }
 
 function curatedItemLabel(entry, index) {
   const label = String(entry?.label || '').trim();
   return label || `Item ${index + 1}`;
-}
-
-function curatedVariantLabel(variantImages, chosenUrl) {
-  const idx = variantImages.findIndex((u) => u === chosenUrl);
-  return idx >= 0 ? `Variant ${idx + 1}` : 'Variant';
-}
-
-function resolveChosenCuratedVariantImage(meta, chosen) {
-  const variantImages = resolveCuratedVariantImages(meta);
-  if (!variantImages.length) return { url: '', label: '' };
-  const fromRecipient =
-    (chosen?.variantImage && String(chosen.variantImage).trim()) ||
-    (chosen?.color && variantImages.includes(String(chosen.color).trim()) ? String(chosen.color).trim() : '');
-  const url = fromRecipient && variantImages.includes(fromRecipient) ? fromRecipient : variantImages[0];
-  return { url, label: curatedVariantLabel(variantImages, url) };
 }
 
 /** Display rows for curated kits that have no tenant catalog productRefs. */
@@ -195,8 +199,8 @@ async function enrichCuratedMetaFromPlatform(meta) {
           label: it.label || '',
         })),
     variantImages: meta.variantImages?.length
-      ? meta.variantImages
-      : [...(platformKit.variantImages || [])],
+      ? normalizeVariantImages(meta.variantImages)
+      : normalizeVariantImages(platformKit.variantImages),
   };
 }
 
@@ -680,12 +684,14 @@ export async function getKitContents(token) {
     : entries.map((entry) => mapKitEntryToItem(entry, kit));
 
   const variantImages = curatedBundle ? resolveCuratedVariantImages(curatedMeta) : [];
+  const kitVariants = curatedBundle ? normalizeVariantImages(curatedMeta?.variantImages) : [];
 
   return {
     kit: { name: kit.name, artworkUrl: kit.artworkUrl || curatedMeta?.heroImage || '', packaging: kit.packaging || 'none' },
     items,
     curatedBundle,
     variantImages,
+    kitVariants,
     requiresKitVariant: curatedBundle && variantImages.length > 0,
   };
 }

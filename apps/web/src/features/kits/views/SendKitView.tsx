@@ -11,7 +11,7 @@ import { PaymentPanel } from "@/features/send/PaymentPanel";
 import type { SendKitVm } from "../controllers/useSendKitController";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
-import { curatedIncludedItems } from "../KitPreviewDialog";
+import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog";
 import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
@@ -211,14 +211,10 @@ export function SendKitView(vm: SendKitVm) {
       )
     : [];
 
-  const curatedVariantImages = (() => {
-    if (!curatedMeta) return [] as string[];
-    if (curatedMeta.variantImages?.length) return curatedMeta.variantImages;
-    const platformKit = platformKits?.find(
-      (k) => String(k._id) === String(curatedMeta.originalId),
-    );
-    return platformKit?.variantImages || [];
-  })();
+  const curatedKitVariants = curatedMeta
+    ? curatedKitVariantRows(curatedMeta, platformKits)
+    : [];
+  const curatedVariantImages = curatedKitVariants.map((v) => v.imageUrl);
   const activeCuratedVariant =
     selectedCuratedVariant && curatedVariantImages.includes(selectedCuratedVariant)
       ? selectedCuratedVariant
@@ -470,6 +466,10 @@ export function SendKitView(vm: SendKitVm) {
                     </p>
                   </div>
                 </div>
+                <p className="muted" style={{ margin: "10px 0 0", fontSize: 12, lineHeight: 1.5 }}>
+                  This logo will be printed in the design area as shown in the images; there may be slight
+                  variation in colour when printed.
+                </p>
               </div>
 
               {curatedVariantImages.length > 0 ? (
@@ -481,14 +481,13 @@ export function SendKitView(vm: SendKitVm) {
                     Each option is a different look for this curated kit. Recipients can be assigned a design on the next step.
                   </p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
-                    {curatedVariantImages.map((url, idx) => {
-                      const selected = activeCuratedVariant === url;
-                      const label = kitDesignLabel(idx, curatedVariantImages.length);
+                    {curatedKitVariants.map((variant) => {
+                      const selected = activeCuratedVariant === variant.imageUrl;
                       return (
                         <button
-                          key={`${url}-${idx}`}
+                          key={`${variant.imageUrl}-${variant.label}`}
                           type="button"
-                          onClick={() => setSelectedCuratedVariant(url)}
+                          onClick={() => setSelectedCuratedVariant(variant.imageUrl)}
                           className="card"
                           style={{
                             padding: 12,
@@ -501,12 +500,12 @@ export function SendKitView(vm: SendKitVm) {
                         >
                           <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
                             <img
-                              src={resolveMediaUrl(url)}
-                              alt={label}
+                              src={variant.imageUrl}
+                              alt={variant.label}
                               style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                             />
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700 }}>{label}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700 }}>{variant.label}</div>
                         </button>
                       );
                     })}
@@ -816,83 +815,65 @@ export function SendKitView(vm: SendKitVm) {
                                   [prod.id || ""]: { ...prev[prod.id || ""], color },
                                 }))
                               }
-                              product={prod}
-                            />
-                          ) : null}
-                          <button
-                            type="button"
-                            className="btn btn-dark btn-sm"
-                            onClick={() =>
-                              applyProductVariantToAll(prod.id || "", {
-                                size: bulk.size,
-                                color: bulk.color,
-                              })
-                            }
-                          >
-                            Apply
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {showEmailInput ? (
-                <div className="sk-recip-email-panel">
-                  <label className="lbl">Paste email addresses</label>
-                  <textarea
-                    className="inp"
-                    rows={3}
-                    placeholder="Separate emails with commas, spaces, or new lines"
-                    value={emailDraft}
-                    onChange={(e) => setEmailDraft(e.target.value)}
-                  />
-                  <div className="sk-recip-email-panel__actions">
-                    <button type="button" className="btn btn-brand btn-sm" onClick={handleAddEmails}>
-                      Add recipients
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setShowEmailInput(false);
-                        setEmailDraft("");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {filteredContacts.length === 0 ? (
-                <div className="sk-recip-empty">
-                  {vm.pickerContacts.length === 0
-                    ? "No recipients yet. Use Input emails or Add by CSV to get started."
-                    : "No recipients match your search."}
-                </div>
-              ) : (
-                <div className="sk-recip-table-wrap">
-                  <table className="sk-recip-table">
-                    <thead>
-                      <tr>
-                        <th className="sk-recip-th sk-recip-th--check" aria-label="Select" />
-                        <th className="sk-recip-th">Recipient</th>
-                        <th className="sk-recip-th">Email</th>
-                        <th className="sk-recip-th">Address</th>
-                        {showVariantCols && isCurated ? (
-                          <th className="sk-recip-th sk-recip-th--variant">Kit design</th>
-                        ) : null}
-                        {showVariantCols && !isCurated
-                          ? kitItems.map(({ product: p }) => (
-                              <th key={p.id} className="sk-recip-th sk-recip-th--product">
-                                <div className="sk-recip-product-head">
-                                  <div className="sk-recip-product-thumb">
-                                    <DesignedProductThumb
-                                      product={p}
-                                      artworkUrl={kit.artworkUrl}
-                                      frontOnly
+                              style={{ fontSize: 12, height: 32, minWidth: 180 }}
+                              disabled={!isSelected}
+                            >
+                              <option value="">Select variant…</option>
+                              {curatedKitVariants.map((variant) => (
+                                <option key={variant.imageUrl} value={variant.imageUrl}>
+                                  {variant.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
+                        {showVariantCols &&
+                          !isCurated &&
+                          kitItems.map(({ product: prod, opts }) => {
+                            const selection =
+                              draft.recipVariants[contact.id]?.[prod.id || ""] || {};
+                            return (
+                              <td
+                                key={prod.id}
+                                style={{ ...tdStyle, borderLeft: "1px solid var(--line)" }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 4,
+                                    flexWrap: "nowrap",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  {opts.requiresSize && opts.sizes.length > 0 && (
+                                    <SizeSelect
+                                      value={selection.size || ""}
+                                      sizes={opts.sizes}
+                                      onChange={(v) =>
+                                        dispatch({
+                                          type: "setRecipVariant",
+                                          contactId: contact.id,
+                                          productId: prod.id || "",
+                                          key: "size",
+                                          value: v,
+                                        })
+                                      }
+                                    />
+                                  )}
+                                  {opts.requiresColor && opts.colors.length > 0 && (
+                                    <ColorSelect
+                                      value={selection.color || ""}
+                                      colors={opts.colors}
+                                      onChange={(v) =>
+                                        dispatch({
+                                          type: "setRecipVariant",
+                                          contactId: contact.id,
+                                          productId: prod.id || "",
+                                          key: "color",
+                                          value: v,
+                                        })
+                                      }
+                                      product={prod}
                                     />
                                   </div>
                                   <span>{p.nm}</span>

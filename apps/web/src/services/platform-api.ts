@@ -319,6 +319,11 @@ export type KitItemImage = {
   label?: string;
 };
 
+export type KitVariantImage = {
+  imageUrl: string;
+  label?: string;
+};
+
 export type PlatformKit = {
   _id: string;
   name: string;
@@ -328,8 +333,9 @@ export type PlatformKit = {
   approxValueInr: number;
   imageUrls: string[];
   heroImage?: string;
+  galleryImages?: string[];
   itemImages?: KitItemImage[];
-  variantImages?: string[];
+  variantImages?: KitVariantImage[];
   items: KitItem[];
   rules?: KitRules;
   status: string;
@@ -345,8 +351,9 @@ export type KitInput = {
   approxValueInr?: number;
   rules?: Partial<KitRules>;
   heroImage?: string;
+  galleryImages?: string[];
   itemImages?: KitItemImage[];
-  variantImages?: string[];
+  variantImages?: KitVariantImage[];
 };
 
 export function getPlatformKit(id: string) {
@@ -363,8 +370,9 @@ export function updateKit(id: string, body: Partial<KitInput>) {
 
 export type KitImageRolesInput = {
   heroImage?: string;
+  galleryImages?: string[];
   itemImages?: KitItemImage[];
-  variantImages?: string[];
+  variantImages?: KitVariantImage[];
 };
 
 /** Update ONLY hero / included-product / variant image roles — no other kit fields. */

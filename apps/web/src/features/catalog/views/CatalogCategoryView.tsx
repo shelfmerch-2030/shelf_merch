@@ -5,10 +5,13 @@ import type { CatalogVm } from "../controllers/useCatalogController";
 import {
   ALL_PRODUCTS,
   CATALOG_SUBCATEGORIES,
+  KITS_CATEGORY,
   productMatchesSubcategory,
   resolveCatalogSubcategory,
 } from "../types";
 import { ProductCard } from "./ProductCard";
+import { CatalogKitsGrid } from "./CatalogKitsGrid";
+import { useCatalogKitsController } from "../controllers/useCatalogKitsController";
 import "./catalog-view.css";
 import accessoriesImg from "../../../../assets/catalog/category-heroes/accessories-bystadium.png";
 import apparelImg from "../../../../assets/catalog/category-heroes/apparel-bystadium.png";
@@ -16,6 +19,7 @@ import bagsImg from "../../../../assets/catalog/category-heroes/bags-bystadium.p
 import drinkwareImg from "../../../../assets/catalog/category-heroes/drinkware-bystadium.png";
 import officeImg from "../../../../assets/catalog/category-heroes/office-supplies-bystadium.png";
 import technologyImg from "../../../../assets/catalog/category-heroes/technology-bystadium.png";
+import kitsImg from "../../../../assets/catalog-style-spotlight/kits.png";
 
 const CATEGORY_COPY: Record<string, string> = {
   Apparel:
@@ -30,6 +34,8 @@ const CATEGORY_COPY: Record<string, string> = {
     "Useful tech accessories that make branded gifting feel modern, practical, and ready for hybrid workdays, launches, and events.",
   "Office Supplies":
     "Desk essentials, stationery, and workday tools made for onboarding, meetings, campaigns, and every polished brand touchpoint.",
+  Kits:
+    "Ready-made gift bundles and custom kits built from our catalog. Choose a pre-designed template or send a kit you've already created for your team.",
 };
 
 const CATEGORY_IMAGES: Record<string, string> = {
@@ -39,6 +45,7 @@ const CATEGORY_IMAGES: Record<string, string> = {
   Drinkware: drinkwareImg,
   Technology: technologyImg,
   "Office Supplies": officeImg,
+  Kits: kitsImg,
 };
 
 function CategoryPageSkeleton() {
@@ -60,6 +67,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
   const { category: categoryParam } = useParams();
   const isPublicApps = pathname.startsWith("/apps/catalog");
   const catalogHome = isPublicApps ? "/apps/catalog" : "/app/catalog";
+  const isKitsCategory = vm.category === KITS_CATEGORY;
 
   const slides = useMemo(
     () => vm.categories.filter((category) => category !== ALL_PRODUCTS),
@@ -75,6 +83,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
 
   const subcategories = useMemo(() => {
     const defined = [...(CATALOG_SUBCATEGORIES[vm.category] ?? [])];
+    if (isKitsCategory) return defined;
     const fromProducts = vm.items
       .map((item) => String(item.subcategory || "").trim())
       .filter(Boolean);
@@ -82,10 +91,11 @@ export function CatalogCategoryView(vm: CatalogVm) {
     const withoutOthers = merged.filter((sub) => sub !== "Others");
     if (merged.includes("Others")) withoutOthers.push("Others");
     return withoutOthers;
-  }, [vm.category, vm.items]);
+  }, [vm.category, vm.items, isKitsCategory]);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
     resolveCatalogSubcategory(categoryParam, vm.category),
   );
+  const kitsVm = useCatalogKitsController(isKitsCategory ? selectedSubcategory : null);
 
   useEffect(() => {
     setSelectedSubcategory(resolveCatalogSubcategory(categoryParam, vm.category));
@@ -172,7 +182,9 @@ export function CatalogCategoryView(vm: CatalogVm) {
           ) : null}
 
           <div className="sm-cat-page__main">
-            {vm.isSkeleton ? (
+            {isKitsCategory ? (
+              <CatalogKitsGrid {...kitsVm} />
+            ) : vm.isSkeleton ? (
               <CategoryPageSkeleton />
             ) : vm.errorMessage ? (
               <div className="card sm-cat-error">{vm.errorMessage}</div>

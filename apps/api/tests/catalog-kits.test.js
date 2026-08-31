@@ -123,3 +123,17 @@ describe('tenant catalog kits (platform curated)', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('public catalog kits browse', () => {
+  it('lists active platform kits without authentication', async () => {
+    const active = await seedActiveKit('Public Welcome Kit', ['/uploads/platform/product/cover.png']);
+    await PlatformKit.create({ name: 'Draft kit', status: 'draft' });
+
+    const res = await request(app).get('/api/v1/catalog/kits/public');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]._id).toBe(String(active._id));
+    expect(res.body[0].name).toBe('Public Welcome Kit');
+    expect(res.body[0].imageUrls).toEqual(['/uploads/platform/product/cover.png']);
+  });
+});
