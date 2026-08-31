@@ -30,6 +30,16 @@ import { StoreAccountMenu, type StoreOrderItem, type StoreOrderSummary } from ".
 import { StoreEmptyState } from "./StoreEmptyState";
 import { StorePageShell } from "./StorePageShell";
 import { SizeGuideTable } from "@/components/SizeGuideTable";
+import { CountrySelect } from "@/features/send/CountrySelect";
+import {
+  checkoutFormValid,
+  checkoutPhonePrefix,
+  sanitizeCheckoutField,
+  validateCheckoutField,
+  validateCheckoutForm,
+  type CheckoutFieldKey,
+  type CheckoutFormValues,
+} from "./storeCheckoutValidation";
 
 type PrintArea = {
   key?: string;
@@ -110,6 +120,8 @@ function ArtworkMockup({
   view,
   onViewChange,
   hoverSwapViews,
+  frontOnly,
+  viewTogglePlacement,
   className,
   style,
 }: {
@@ -118,6 +130,8 @@ function ArtworkMockup({
   view?: ProductViewKey;
   onViewChange?: (view: ProductViewKey) => void;
   hoverSwapViews?: boolean;
+  frontOnly?: boolean;
+  viewTogglePlacement?: "overlay" | "below";
   className?: string;
   style?: CSSProperties;
 }) {
@@ -137,6 +151,8 @@ function ArtworkMockup({
       view={view}
       onViewChange={onViewChange}
       hoverSwapViews={hoverSwapViews}
+      frontOnly={frontOnly}
+      viewTogglePlacement={viewTogglePlacement}
       className={className}
       style={style}
     />
@@ -384,6 +400,14 @@ function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
     </svg>
   );
 }
@@ -656,10 +680,12 @@ function OrderItemVariants({
   item,
   products,
   className,
+  layout = "row",
 }: {
   item?: StoreOrderItem;
   products: StoreProduct[];
   className?: string;
+  layout?: "row" | "detail";
 }) {
   const color = item?.variant?.color;
   const size = item?.variant?.size;
@@ -669,6 +695,20 @@ function OrderItemVariants({
   const colorHex = color
     ? resolveColorHex(color, product?.variants?.find((v) => v.color === color)?.colorHex)
     : undefined;
+
+  if (layout === "detail") {
+    return (
+      <div className="sf-order-detail-variant-row">
+        {color ? (
+          <span className="sf-order-detail-chip">
+            <span className="sf-order-color-swatch" style={{ background: colorHex }} title={color} aria-hidden="true" />
+            {color}
+          </span>
+        ) : null}
+        {size ? <span className="sf-order-detail-chip">Size {size}</span> : null}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -701,7 +741,7 @@ function OrderItemLine({
     return (
       <div className="sf-order-row-item">
         <div className="sf-order-row-img">
-          <OrderItemThumb item={item} products={products} />
+          <OrderItemThumb item={item} products={products} layout="row" />
         </div>
         <div className="sf-order-row-main">
           <div className="sf-order-row-title">{item.name}</div>
@@ -716,16 +756,20 @@ function OrderItemLine({
 
   return (
     <div className="sf-order-detail-product">
-      <div className="sf-order-detail-product-copy">
-        <h2 className="sf-order-detail-title">{item.name}</h2>
-        <OrderItemVariants item={item} products={products} className="sf-order-detail-variant" />
-        <p className="sf-order-detail-price">
-          {linePrice != null ? priceLabel(linePrice) : "—"}
-          {item.qty && item.qty > 1 ? ` · Qty ${item.qty}` : ""}
-        </p>
+      <div className="sf-order-detail-product-media">
+        <OrderItemThumb item={item} products={products} layout="detail" />
       </div>
-      <div className="sf-order-detail-product-img">
-        <OrderItemThumb item={item} products={products} />
+      <div className="sf-order-detail-product-copy">
+        <h3 className="sf-order-detail-title">{item.name}</h3>
+        <OrderItemVariants item={item} products={products} layout="detail" />
+        <div className="sf-order-detail-product-foot">
+          {item.qty && item.qty > 1 ? (
+            <span className="sf-order-detail-qty">Qty {item.qty}</span>
+          ) : null}
+          <span className="sf-order-detail-price">
+            {linePrice != null ? priceLabel(linePrice) : "—"}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -735,21 +779,44 @@ function OrderItemThumb({
   item,
   products,
   className,
+  layout = "row",
 }: {
   item?: StoreOrderItem;
   products: StoreProduct[];
   className?: string;
+  layout?: "row" | "detail";
 }) {
   const product = findStoreProductForOrderItem(products, item);
   const tintHex = orderItemTintHex(product, item?.variant?.color);
   const canTint = !!(product && item?.variant?.color && (product.maskImageUrl || product.artworkUrl));
 
   if (canTint && product) {
-    return <ArtworkMockup product={product} tintHex={tintHex} className={className} />;
+    return (
+      <ArtworkMockup
+        product={product}
+        tintHex={tintHex}
+        className={className}
+        frontOnly={layout === "row"}
+        viewTogglePlacement={layout === "detail" ? "below" : "overlay"}
+      />
+    );
   }
 
   const img = orderItemImage(item?.imageUrl);
-  if (img) return <img src={img} alt="" className={className} />;
+  if (img) {
+    const image = <img src={img} alt="" className={className} />;
+    if (layout === "detail") {
+      return <div className="dpt-stack"><div className="dpt-stack-image">{image}</div></div>;
+    }
+    return image;
+  }
+  if (layout === "detail") {
+    return (
+      <div className="dpt-stack">
+        <div className="dpt-stack-image"><PackageIcon /></div>
+      </div>
+    );
+  }
   return <PackageIcon />;
 }
 
@@ -864,7 +931,8 @@ export default function StoreShell({
     const full = (initialShippingAddress?.name || recipientName || "").trim();
     return full.split(/\s+/).slice(1).join(" ") || "";
   });
-  const [checkoutBusiness, setCheckoutBusiness] = useState("");
+  const [checkoutShowErrors, setCheckoutShowErrors] = useState(false);
+  const [checkoutTouched, setCheckoutTouched] = useState<Partial<Record<CheckoutFieldKey, boolean>>>({});
   /** @deprecated Manual continue step — Pay Now now tracks form validity directly. */
   const [shippingConfirmed, setShippingConfirmed] = useState(false);
   const checkoutSummaryRef = useRef<HTMLElement>(null);
@@ -969,25 +1037,41 @@ export default function StoreShell({
   const paysWithUpi = isShopper && upiDueInr > 0;
   const canCheckout = !isShopper || cart.length > 0;
 
-  const shippingValid = useMemo(() => {
-    const name = [checkoutFirst, checkoutLast].filter(Boolean).join(" ").trim();
-    return Boolean(
-      name &&
-        address.phone.trim() &&
-        address.line1.trim() &&
-        address.city.trim() &&
-        address.state.trim() &&
-        address.pincode.trim(),
-    );
-  }, [
-    checkoutFirst,
-    checkoutLast,
-    address.phone,
-    address.line1,
-    address.city,
-    address.state,
-    address.pincode,
-  ]);
+  const checkoutValues = useMemo<CheckoutFormValues>(
+    () => ({
+      firstName: checkoutFirst,
+      lastName: checkoutLast,
+      phone: address.phone,
+      line1: address.line1,
+      line2: address.line2 || "",
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+      country: address.country || "IN",
+    }),
+    [checkoutFirst, checkoutLast, address],
+  );
+
+  const shippingValid = useMemo(() => checkoutFormValid(checkoutValues), [checkoutValues]);
+
+  function markCheckoutTouched(key: CheckoutFieldKey) {
+    setCheckoutTouched((prev) => ({ ...prev, [key]: true }));
+  }
+
+  function shouldShowCheckoutError(key: CheckoutFieldKey): boolean {
+    const error = validateCheckoutField(key, checkoutValues);
+    if (!error) return false;
+    const value = checkoutValues[key];
+    return Boolean(checkoutShowErrors || checkoutTouched[key] || (typeof value === "string" && value.trim()));
+  }
+
+  function checkoutFieldError(key: CheckoutFieldKey): string | null {
+    return shouldShowCheckoutError(key) ? validateCheckoutField(key, checkoutValues) : null;
+  }
+
+  function checkoutInputClass(invalid: boolean) {
+    return `sf-checkout-inp sf-checkout-inp--icon${invalid ? " sf-checkout-inp--invalid" : ""}`;
+  }
 
   const selectedOrder = useMemo(
     () => (selectedOrderNumber ? orders.find((o) => o.orderNumber === selectedOrderNumber) : undefined),
@@ -1298,15 +1382,14 @@ export default function StoreShell({
 
   async function placeOrder() {
     setError("");
-    const next = buildAddressFromCheckout();
-    setAddress(next);
-    const missing = (["name", "phone", "line1", "city", "state", "pincode"] as const).filter(
-      (k) => !(k === "name" ? next.name : next[k]).trim(),
-    );
-    if (missing.length) {
-      setError("Please complete your shipping details (name, phone and full address).");
+    const formError = validateCheckoutForm(checkoutValues);
+    if (formError) {
+      setCheckoutShowErrors(true);
+      setError(formError);
       return;
     }
+    const next = buildAddressFromCheckout();
+    setAddress(next);
     if (!onCheckout) return;
     const missingSize = cart.find((line) => {
       const product = products.find((p) => p._id === line.productId);
@@ -1967,14 +2050,19 @@ export default function StoreShell({
                           <UserFieldIcon />
                         </span>
                         <input
-                          className="sf-checkout-inp sf-checkout-inp--icon"
+                          className={checkoutInputClass(Boolean(checkoutFieldError("firstName")))}
                           value={checkoutFirst}
                           onChange={(e) => {
-                            setCheckoutFirst(e.target.value);
+                            setCheckoutFirst(sanitizeCheckoutField("firstName", e.target.value));
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("firstName")}
+                          aria-invalid={Boolean(checkoutFieldError("firstName"))}
                         />
                       </div>
+                      {checkoutFieldError("firstName") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("firstName")}</p>
+                      ) : null}
                     </label>
                     <label className="sf-checkout-field">
                       <span className="sf-checkout-label">Last name <i>*</i></span>
@@ -1983,74 +2071,73 @@ export default function StoreShell({
                           <UserFieldIcon />
                         </span>
                         <input
-                          className="sf-checkout-inp sf-checkout-inp--icon"
+                          className={checkoutInputClass(Boolean(checkoutFieldError("lastName")))}
                           value={checkoutLast}
                           onChange={(e) => {
-                            setCheckoutLast(e.target.value);
+                            setCheckoutLast(sanitizeCheckoutField("lastName", e.target.value));
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("lastName")}
+                          aria-invalid={Boolean(checkoutFieldError("lastName"))}
                         />
                       </div>
+                      {checkoutFieldError("lastName") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("lastName")}</p>
+                      ) : null}
                     </label>
                   </div>
 
-                  <label className="sf-checkout-field">
-                    <span className="sf-checkout-label">Business name (optional)</span>
-                    <div className="sf-checkout-inp-wrap">
-                      <span className="sf-checkout-inp-icon" aria-hidden="true">
-                        <BriefcaseFieldIcon />
-                      </span>
-                      <input
-                        className="sf-checkout-inp sf-checkout-inp--icon"
-                        placeholder="Company name"
-                        value={checkoutBusiness}
-                        onChange={(e) => {
-                          setCheckoutBusiness(e.target.value);
+                  <div className="sf-checkout-form-row sf-checkout-form-row--2">
+                    <div className="sf-checkout-field">
+                      <span className="sf-checkout-label">Country <i>*</i></span>
+                      <CountrySelect
+                        hideLabel
+                        variant="checkout"
+                        required
+                        value={address.country || "IN"}
+                        invalid={Boolean(checkoutFieldError("country"))}
+                        errorId={checkoutFieldError("country") ? "checkout-country-error" : undefined}
+                        onBlur={() => markCheckoutTouched("country")}
+                        onChange={(value) => {
+                          setAddress({ ...address, country: value });
                           resetCheckoutProgress();
                         }}
                       />
+                      {checkoutFieldError("country") ? (
+                        <p id="checkout-country-error" className="sf-checkout-field-error" role="alert">
+                          {checkoutFieldError("country")}
+                        </p>
+                      ) : null}
                     </div>
-                  </label>
-
-                  <div className="sf-checkout-form-row sf-checkout-form-row--2">
-                    <label className="sf-checkout-field">
-                      <span className="sf-checkout-label">Country <i>*</i></span>
-                      <div className="sf-checkout-inp-wrap">
-                        <span className="sf-checkout-inp-icon" aria-hidden="true">
-                          <GlobeFieldIcon />
-                        </span>
-                        <select
-                          className="sf-checkout-inp sf-checkout-select sf-checkout-inp--icon"
-                          value={address.country || "IN"}
-                          onChange={(e) => {
-                            setAddress({ ...address, country: e.target.value });
-                            resetCheckoutProgress();
-                          }}
-                        >
-                          <option value="IN">India</option>
-                          <option value="US">United States</option>
-                        </select>
-                      </div>
-                    </label>
                     <label className="sf-checkout-field">
                       <span className="sf-checkout-label">Phone number <i>*</i></span>
-                      <div className="sf-checkout-phone">
+                      <div className={`sf-checkout-phone${checkoutFieldError("phone") ? " sf-checkout-phone--invalid" : ""}`}>
                         <span className="sf-checkout-inp-icon sf-checkout-inp-icon--phone" aria-hidden="true">
                           <PhoneFieldIcon />
                         </span>
                         <span className="sf-checkout-phone-prefix">
-                          {address.country === "US" ? "+1" : "+91"}
+                          {checkoutPhonePrefix(address.country || "IN")}
                         </span>
                         <input
                           className="sf-checkout-inp sf-checkout-inp--phone"
-                          placeholder={address.country === "US" ? "(555) 555-5555" : "98765 43210"}
+                          inputMode="numeric"
+                          maxLength={10}
+                          placeholder="9876543210"
                           value={address.phone}
                           onChange={(e) => {
-                            setAddress({ ...address, phone: e.target.value });
+                            setAddress({
+                              ...address,
+                              phone: sanitizeCheckoutField("phone", e.target.value),
+                            });
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("phone")}
+                          aria-invalid={Boolean(checkoutFieldError("phone"))}
                         />
                       </div>
+                      {checkoutFieldError("phone") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("phone")}</p>
+                      ) : null}
                     </label>
                   </div>
 
@@ -2061,15 +2148,20 @@ export default function StoreShell({
                         <MapPinFieldIcon />
                       </span>
                       <input
-                        className="sf-checkout-inp sf-checkout-inp--icon"
+                        className={checkoutInputClass(Boolean(checkoutFieldError("line1")))}
                         placeholder="Street address"
                         value={address.line1}
                         onChange={(e) => {
                           setAddress({ ...address, line1: e.target.value });
                           resetCheckoutProgress();
                         }}
+                        onBlur={() => markCheckoutTouched("line1")}
+                        aria-invalid={Boolean(checkoutFieldError("line1"))}
                       />
                     </div>
+                    {checkoutFieldError("line1") ? (
+                      <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("line1")}</p>
+                    ) : null}
                   </label>
 
                   <div className="sf-checkout-form-row sf-checkout-form-row--2">
@@ -2097,14 +2189,22 @@ export default function StoreShell({
                           <BuildingFieldIcon />
                         </span>
                         <input
-                          className="sf-checkout-inp sf-checkout-inp--icon"
+                          className={checkoutInputClass(Boolean(checkoutFieldError("city")))}
                           value={address.city}
                           onChange={(e) => {
-                            setAddress({ ...address, city: e.target.value });
+                            setAddress({
+                              ...address,
+                              city: sanitizeCheckoutField("city", e.target.value),
+                            });
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("city")}
+                          aria-invalid={Boolean(checkoutFieldError("city"))}
                         />
                       </div>
+                      {checkoutFieldError("city") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("city")}</p>
+                      ) : null}
                     </label>
                   </div>
 
@@ -2116,15 +2216,23 @@ export default function StoreShell({
                           <MapFieldIcon />
                         </span>
                         <input
-                          className="sf-checkout-inp sf-checkout-inp--icon"
-                          placeholder="Search"
+                          className={checkoutInputClass(Boolean(checkoutFieldError("state")))}
+                          placeholder="State or province"
                           value={address.state}
                           onChange={(e) => {
-                            setAddress({ ...address, state: e.target.value });
+                            setAddress({
+                              ...address,
+                              state: sanitizeCheckoutField("state", e.target.value),
+                            });
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("state")}
+                          aria-invalid={Boolean(checkoutFieldError("state"))}
                         />
                       </div>
+                      {checkoutFieldError("state") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("state")}</p>
+                      ) : null}
                     </label>
                     <label className="sf-checkout-field">
                       <span className="sf-checkout-label">Zip code / Pin <i>*</i></span>
@@ -2133,15 +2241,25 @@ export default function StoreShell({
                           <ZipFieldIcon />
                         </span>
                         <input
-                          className="sf-checkout-inp sf-checkout-inp--icon"
-                          placeholder="00000"
+                          className={checkoutInputClass(Boolean(checkoutFieldError("pincode")))}
+                          inputMode="numeric"
+                          maxLength={10}
+                          placeholder="000000"
                           value={address.pincode}
                           onChange={(e) => {
-                            setAddress({ ...address, pincode: e.target.value });
+                            setAddress({
+                              ...address,
+                              pincode: sanitizeCheckoutField("pincode", e.target.value),
+                            });
                             resetCheckoutProgress();
                           }}
+                          onBlur={() => markCheckoutTouched("pincode")}
+                          aria-invalid={Boolean(checkoutFieldError("pincode"))}
                         />
                       </div>
+                      {checkoutFieldError("pincode") ? (
+                        <p className="sf-checkout-field-error" role="alert">{checkoutFieldError("pincode")}</p>
+                      ) : null}
                     </label>
                   </div>
                 </div>
@@ -2173,102 +2291,118 @@ export default function StoreShell({
             <aside ref={checkoutSummaryRef} className="sf-checkout-sidebar">
               <div className="sf-checkout-summary">
                 <div className="sf-checkout-summary-head">
-                  <span className="sf-checkout-summary-icon">
-                    <SummaryDocIcon />
-                  </span>
-                  <h2 className="sf-checkout-summary-title">Order Summary</h2>
+                  <h2 className="sf-checkout-summary-title">Order summary</h2>
                 </div>
+
                 {isShopper && balanceInr != null ? (
-                  <div className={`sf-bag-funds sf-bag-funds--checkout${useRewardPoints ? "" : " sf-bag-funds--off"}`}>
-                    <div className="sf-bag-funds-label">{myWalletLabel(storeCurrency)}</div>
-                    <label className="sf-bag-funds-wallet">
+                  <div className={`sf-checkout-wallet${useRewardPoints ? "" : " sf-checkout-wallet--off"}`}>
+                    <div className="sf-checkout-wallet-header">
+                      <div>
+                        <p className="sf-checkout-wallet-kicker">{myWalletLabel(storeCurrency)}</p>
+                        <p className="sf-checkout-wallet-name">
+                          {storeCurrency === "inr"
+                            ? rewardWalletLabel(storeCurrency)
+                            : `${recipientName ? `${recipientName}'s ` : ""}${shop.name} wallet`}
+                        </p>
+                      </div>
+                      <div className="sf-checkout-wallet-balance">
+                        <span className="sf-checkout-wallet-balance-label">Available</span>
+                        <span className="sf-checkout-wallet-balance-value">{navBalanceValue(balanceInr)}</span>
+                      </div>
+                    </div>
+                    <label className="sf-checkout-wallet-toggle">
                       <input
                         type="checkbox"
                         checked={useRewardPoints}
                         onChange={(e) => setUseRewardPoints(e.target.checked)}
                       />
-                      <span className="sf-bag-funds-wallet-gift" aria-hidden="true">
-                        <GiftIcon />
-                      </span>
-                      <span>
-                        {storeCurrency === "inr"
-                          ? rewardWalletLabel(storeCurrency)
-                          : `${recipientName ? `${recipientName}'s ` : ""}${shop.name} Wallet`}
-                      </span>
+                      <span>Use wallet balance for this order</span>
                     </label>
-                    <div className="sf-bag-funds-balance">
-                      Available: <b>{navBalanceValue(balanceInr)}</b>
-                    </div>
                     {!useRewardPoints ? (
-                      <p className="sf-bag-funds-hint">Pay at checkout via UPI, cards, or net banking.</p>
+                      <p className="sf-checkout-wallet-note">Pay the full amount via UPI at checkout.</p>
                     ) : !hasEnoughPoints ? (
-                      <p className="sf-bag-funds-warning">
-                        Insufficient {creditUnit.toLowerCase()} — remaining balance can be paid via UPI at checkout.
+                      <p className="sf-checkout-wallet-note sf-checkout-wallet-note--warn">
+                        Insufficient balance. The remainder will be collected via UPI.
                       </p>
                     ) : (
-                      <p className="sf-bag-funds-hint">
-                        {storeCurrency === "inr"
-                          ? "Credits will be applied at checkout."
-                          : "Reward points will be applied at checkout."}
+                      <p className="sf-checkout-wallet-note">
+                        Your {storeCurrency === "inr" ? "credits" : "points"} will be applied automatically.
                       </p>
                     )}
                   </div>
                 ) : null}
-                <div className="sf-checkout-summary-row">
-                  <span>Bag total (Inc. of GST)</span>
-                  <b>{fmtCardPrice(cartTotalInr)}</b>
+
+                <div className="sf-checkout-summary-lines">
+                  <div className="sf-checkout-summary-line">
+                    <span>Bag total <span className="sf-checkout-summary-line-sub">(incl. GST)</span></span>
+                    <span className="sf-checkout-summary-amount">{fmtCardPrice(cartTotalInr)}</span>
+                  </div>
+                  {isShopper && useRewardPoints && pointsApplied > 0 ? (
+                    <div className="sf-checkout-summary-line sf-checkout-summary-line--credit">
+                      <span>{appliedLabel(storeCurrency)}</span>
+                      <span className="sf-checkout-summary-amount sf-checkout-summary-amount--credit">
+                        -{fmtApplied(pointsApplied)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {isShopper && paysWithUpi ? (
+                    <div className="sf-checkout-summary-line">
+                      <span>Pay via UPI</span>
+                      <span className="sf-checkout-summary-amount">{fmtYouPayDue(upiDueInr)}</span>
+                    </div>
+                  ) : null}
+                  {isShopper && balanceInr != null && useRewardPoints ? (
+                    <div className="sf-checkout-summary-line sf-checkout-summary-line--muted">
+                      <span>Remaining in wallet</span>
+                      <span className="sf-checkout-summary-amount sf-checkout-summary-amount--muted">
+                        {navBalanceValue(Math.max(0, balanceInr - pointsApplied))}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
-                {isShopper && useRewardPoints && pointsApplied > 0 ? (
-                  <div className="sf-checkout-summary-row sf-checkout-summary-row--credit">
-                    <span>{appliedLabel(storeCurrency)}</span>
-                    <b>-{fmtApplied(pointsApplied)}</b>
-                  </div>
-                ) : null}
-                {isShopper && paysWithUpi ? (
-                  <div className="sf-checkout-summary-row sf-checkout-summary-row--muted">
-                    <span>Pay via UPI</span>
-                    <b>{fmtYouPayDue(upiDueInr)}</b>
-                  </div>
-                ) : null}
-                {isShopper && balanceInr != null && useRewardPoints ? (
-                  <div className="sf-checkout-summary-row sf-checkout-summary-row--muted">
-                    <span>Remaining in wallet</span>
-                    <b>{navBalanceValue(Math.max(0, balanceInr - pointsApplied))}</b>
-                  </div>
-                ) : null}
-                <div className="sf-checkout-summary-total">
-                  <span>You pay</span>
-                  <b>
+
+                <div className="sf-checkout-summary-due">
+                  <span className="sf-checkout-summary-due-label">You pay</span>
+                  <span className="sf-checkout-summary-due-value">
                     {isShopper && useRewardPoints
                       ? fmtYouPayDue(youPayAmountInr())
                       : paysWithUpi
                         ? fmtUpiAmount(upiDueInr)
                         : fmtCardPrice(cartTotalInr)}
-                  </b>
+                  </span>
                 </div>
+
                 <button
                   type="button"
                   className="sf-checkout-pay"
-                  disabled={placing || !shippingValid || !canCheckout || cart.length === 0}
-                  onClick={() => void placeOrder()}
+                  disabled={placing || !canCheckout || cart.length === 0}
+                  onClick={() => {
+                    if (!shippingValid) {
+                      setCheckoutShowErrors(true);
+                      setError(validateCheckoutForm(checkoutValues) || "Complete all required shipping fields.");
+                      return;
+                    }
+                    void placeOrder();
+                  }}
                 >
                   {placing ? (
                     "Processing…"
                   ) : paysWithUpi ? (
-                    `Pay ${fmtYouPayDue(upiDueInr)} via UPI`
+                    <>Pay {fmtYouPayDue(upiDueInr)} via UPI</>
                   ) : (
                     <>
                       <LockIcon />
-                      Place Order
+                      Place order
                     </>
                   )}
                 </button>
                 {shippingValid ? (
-                  <p className="sf-checkout-pay-hint sf-checkout-pay-hint--valid">
-                    <CheckCircleIcon /> All required shipping fields are filled
+                  <p className="sf-checkout-pay-status sf-checkout-pay-status--ready">
+                    <CheckCircleIcon />
+                    Shipping details complete
                   </p>
                 ) : (
-                  <p className="sf-checkout-pay-hint">Complete all required shipping fields to pay.</p>
+                  <p className="sf-checkout-pay-status">Complete shipping details to continue</p>
                 )}
               </div>
 
@@ -3735,7 +3869,7 @@ function OrderRowCard({
     <button type="button" className="sf-my-order-card" onClick={onOpen}>
       <div className="sf-my-order-thumb">
         {primary ? (
-          <OrderItemThumb item={primary} products={products} />
+          <OrderItemThumb item={primary} products={products} layout="row" />
         ) : (
           <span className="sf-my-order-thumb-fallback" aria-hidden="true">
             <PackageIcon />
@@ -3792,21 +3926,51 @@ function OrderDetailView({
   const addr = order.shippingAddress;
   const breakdown = order.amountBreakdown;
   const timeline = (order.statusHistory ?? []).filter((h) => h.status && h.at);
+  const status = orderStatusDisplay(order);
+  const totalInr = breakdown?.subtotal ?? order.total;
 
   return (
     <div className="sf-order-detail-page">
-      <button type="button" className="sf-page-back" onClick={onBack}>
-        ← Back to orders
-      </button>
+      <header className="sf-order-detail-hero">
+        <button type="button" className="sf-order-detail-back" onClick={onBack}>
+          <ChevronLeftIcon />
+          Back to orders
+        </button>
+
+        <div className="sf-order-detail-hero-row">
+          <h1 className="sf-order-detail-hero-title">Order details</h1>
+          <div className={`sf-order-detail-status sf-order-detail-status--${status.tone}`}>
+            <div className="sf-order-detail-status-pill">
+              <span className="sf-order-detail-status-dot" aria-hidden="true" />
+              <span>{formatOrderStatus(order.status)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="sf-order-detail-hero-meta">
+          <span className="sf-order-detail-hero-meta-id">#{order.orderNumber}</span>
+          <span className="sf-order-detail-hero-meta-sep" aria-hidden="true">·</span>
+          <span>
+            Placed {formatOrderDate(order.createdAt)}
+            {formatOrderTime(order.createdAt) ? ` at ${formatOrderTime(order.createdAt)}` : ""}
+          </span>
+          <span className="sf-order-detail-hero-meta-sep" aria-hidden="true">·</span>
+          <span>
+            {items.length === 1 ? "1 item" : `${items.length} items`}
+          </span>
+        </div>
+        {status.message ? (
+          <p className="sf-order-detail-hero-status-msg">{status.message}</p>
+        ) : null}
+      </header>
 
       <div className="sf-order-detail-layout">
         <div className="sf-order-detail-main">
-          <div className="sf-order-detail-card">
-            <p className="sf-order-detail-order-meta">
-              {items.length > 1 ? `${items.length} items` : "1 item"}
-              <span aria-hidden="true"> · </span>
-              Seller: {shopName}
-            </p>
+          <section className="sf-order-detail-card sf-order-detail-card--items">
+            <div className="sf-order-detail-card-head">
+              <h2 className="sf-order-detail-card-title">Items in this order</h2>
+              <span className="sf-order-detail-seller-badge">Sold by {shopName}</span>
+            </div>
 
             <div className="sf-order-detail-products">
               {items.length > 0 ? (
@@ -3823,15 +3987,21 @@ function OrderDetailView({
                 <p className="sf-order-detail-empty-items">No item details available.</p>
               )}
             </div>
+          </section>
 
+          <section className="sf-order-detail-card sf-order-detail-card--timeline">
+            <h2 className="sf-order-detail-card-title">Tracking</h2>
             {timeline.length > 0 ? (
               <div className="sf-order-detail-timeline">
                 {timeline.map((step, i) => (
                   <div key={`${step.status}-${step.at}`} className="sf-order-detail-step">
-                    <div className={`sf-order-detail-step-dot${i < timeline.length - 1 ? "" : " sf-order-detail-step-dot--on"}`} />
+                    <div className={`sf-order-detail-step-dot${i === timeline.length - 1 ? " sf-order-detail-step-dot--on" : ""}`} />
                     <div className="sf-order-detail-step-copy">
                       <div className="sf-order-detail-step-title">{formatOrderStatus(step.status)}</div>
-                      <div className="sf-order-detail-step-date">{formatOrderDate(step.at)}</div>
+                      <div className="sf-order-detail-step-date">
+                        {formatOrderDate(step.at)}
+                        {formatOrderTime(step.at) ? ` · ${formatOrderTime(step.at)}` : ""}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -3842,50 +4012,60 @@ function OrderDetailView({
                   <div className="sf-order-detail-step-dot sf-order-detail-step-dot--on" />
                   <div className="sf-order-detail-step-copy">
                     <div className="sf-order-detail-step-title">{formatOrderStatus(order.status)}</div>
-                    <div className="sf-order-detail-step-date">{formatOrderDate(order.createdAt)}</div>
+                    <div className="sf-order-detail-step-date">
+                      {formatOrderDate(order.createdAt)}
+                      {formatOrderTime(order.createdAt) ? ` · ${formatOrderTime(order.createdAt)}` : ""}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="sf-order-detail-id">
-            Order #{order.orderNumber}
-          </div>
+          </section>
         </div>
 
         <aside className="sf-order-detail-side">
           {addr ? (
-            <div className="sf-order-detail-card">
+            <section className="sf-order-detail-card sf-order-detail-card--delivery">
               <h2 className="sf-order-detail-card-title">Delivery details</h2>
               <div className="sf-order-detail-delivery">
-                <p>
-                  {[addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
-                </p>
-                {(addr.name || addr.phone) && (
-                  <p className="sf-order-detail-contact">
-                    {[addr.name, addr.phone].filter(Boolean).join(" · ")}
+                {(addr.name || addr.phone) ? (
+                  <div className="sf-order-detail-delivery-contact">
+                    {addr.name ? <strong>{addr.name}</strong> : null}
+                    {addr.phone ? <span>{addr.phone}</span> : null}
+                  </div>
+                ) : null}
+                <div className="sf-order-detail-delivery-address">
+                  <MapPinFieldIcon />
+                  <p>
+                    {[addr.line1, addr.line2, addr.city, addr.state, addr.pincode, addr.country]
+                      .filter(Boolean)
+                      .join(", ")}
                   </p>
-                )}
+                </div>
               </div>
-            </div>
+            </section>
           ) : null}
 
-          <div className="sf-order-detail-card">
+          <section className="sf-order-detail-card sf-order-detail-card--price">
             <h2 className="sf-order-detail-card-title">Price details</h2>
             <div className="sf-order-detail-prices">
-              <div className="sf-order-detail-price-row sf-order-detail-price-row--total">
-                <span>Subtotal (inc of gst)</span>
-                <b>
-                  {breakdown?.subtotal != null
-                    ? priceLabel(breakdown.subtotal)
-                    : order.total != null
-                      ? priceLabel(order.total)
-                      : "—"}
-                </b>
+              <div className="sf-order-detail-price-row">
+                <span>
+                  Subtotal
+                  <span className="sf-order-detail-price-sub">Incl. GST</span>
+                </span>
+                <span className="sf-order-detail-price-value">
+                  {totalInr != null ? priceLabel(totalInr) : "—"}
+                </span>
+              </div>
+              <div className="sf-order-detail-total-panel">
+                <span className="sf-order-detail-total-label">Order total</span>
+                <span className="sf-order-detail-total-value">
+                  {totalInr != null ? priceLabel(totalInr) : "—"}
+                </span>
               </div>
             </div>
-          </div>
+          </section>
         </aside>
       </div>
     </div>

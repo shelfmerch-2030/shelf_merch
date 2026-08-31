@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { LoadingState } from "@/components/LoadingState";
 import { StoreAuthPanel } from "@/features/store-auth/StoreAuthPanel";
+import { PublicInviteError } from "./public/PublicInviteError";
 import { useRedemptionController } from "./public/controllers/useRedemptionController";
 import { RedemptionPortalView } from "./public/views/RedemptionPortalView";
 import {
@@ -30,6 +31,7 @@ type Phase =
 export default function RedemptionPortal({ token }: { token: string }) {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const [retryKey, setRetryKey] = useState(0);
 
   const finishToStore = useCallback(
     (session: ShopCustomerSession, shop: StorefrontData["shop"]) => {
@@ -53,6 +55,7 @@ export default function RedemptionPortal({ token }: { token: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setPhase({ kind: "loading" });
       try {
         // Probe whether this invite is shop-linked by attempting claim without password.
         const res = await claimRedeemShopAccount(token);
@@ -108,7 +111,7 @@ export default function RedemptionPortal({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token, finishToStore]);
+  }, [token, finishToStore, retryKey]);
 
   if (phase.kind === "loading") {
     return <LoadingState message="Opening your invite…" />;
@@ -116,14 +119,11 @@ export default function RedemptionPortal({ token }: { token: string }) {
 
   if (phase.kind === "error") {
     return (
-      <div className="auth">
-        <div className="auth-form">
-          <div className="inner">
-            <h1>Redemption unavailable</h1>
-            <p className="muted">{phase.message}</p>
-          </div>
-        </div>
-      </div>
+      <PublicInviteError
+        title="Redemption unavailable"
+        message={phase.message}
+        onRetry={() => setRetryKey((k) => k + 1)}
+      />
     );
   }
 

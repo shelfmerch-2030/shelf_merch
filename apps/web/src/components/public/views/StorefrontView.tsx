@@ -1,4 +1,5 @@
 import { LoadingState } from "@/components/LoadingState";
+import { PublicInviteError } from "@/components/public/PublicInviteError";
 import StoreShell from "@/components/store/StoreShell";
 import { normalizeCurrencyMode } from "@/lib/storeCurrency";
 import { StoreAuthPanel } from "@/features/store-auth/StoreAuthPanel";
@@ -12,14 +13,10 @@ export function StorefrontView(vm: StorefrontVm) {
 
   if (vm.state === "error" || !vm.data) {
     return (
-      <div className="auth">
-        <div className="auth-form">
-          <div className="inner">
-            <h1>Shop unavailable</h1>
-            <p className="muted">{vm.error}</p>
-          </div>
-        </div>
-      </div>
+      <PublicInviteError
+        title="Shop unavailable"
+        message={vm.error || "This shop could not be loaded right now."}
+      />
     );
   }
 

@@ -262,6 +262,8 @@ export function DesignedProductThumb({
   hoverSwapViews = false,
   /** Force front view and hide Front/Back chips (e.g. Send Kit recipient table). */
   frontOnly = false,
+  /** Place view switcher on the image (default) or in a row below it (order detail). */
+  viewTogglePlacement = "overlay",
   className,
   style,
 }: {
@@ -277,6 +279,7 @@ export function DesignedProductThumb({
   /** Hover swaps to back when a back asset exists; hides Front/Back chips. */
   hoverSwapViews?: boolean;
   frontOnly?: boolean;
+  viewTogglePlacement?: "overlay" | "below";
   className?: string;
   style?: CSSProperties;
 }) {
@@ -349,44 +352,30 @@ export function DesignedProductThumb({
   const showBaked = Boolean(viewBaked && isDefaultTint && preferBakedMockup);
   const liveTintHex = tintHex || DEFAULT_MOCKUP_TINT_HEX;
   const showViewToggle = !frontOnly && availableViews.length > 1 && viewProp == null && !hoverSwapViews;
+  const embedViewToggle = showViewToggle && viewTogglePlacement !== "below";
   const viewLabel = (v: ProductViewKey) =>
     v === "front" ? "Front" : v === "back" ? "Back" : v === "left" ? "Left" : "Right";
 
   const viewToggle = showViewToggle ? (
     <div
-      className="row"
-      style={{
-        position: "absolute",
-        top: 8,
-        left: 8,
-        zIndex: 2,
-        gap: 4,
-      }}
+      className={viewTogglePlacement === "below" ? "dpt-view-segment" : "dpt-view-segment dpt-view-segment--overlay"}
+      role="group"
+      aria-label="Product view"
     >
-      {availableViews.map((v) => {
-        return (
-          <button
-            key={v}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setView(v);
-            }}
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              padding: "3px 8px",
-              borderRadius: 6,
-              border: view === v ? "1.5px solid var(--brand)" : "1px solid var(--line)",
-              background: view === v ? "var(--brand-50)" : "rgba(255,255,255,.92)",
-              color: view === v ? "var(--brand-d)" : "var(--ink-2)",
-              cursor: "pointer",
-            }}
-          >
-            {viewLabel(v)}
-          </button>
-        );
-      })}
+      {availableViews.map((v) => (
+        <button
+          key={v}
+          type="button"
+          className={`dpt-view-segment-btn${view === v ? " is-active" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setView(v);
+          }}
+          aria-pressed={view === v}
+        >
+          {viewLabel(v)}
+        </button>
+      ))}
     </div>
   ) : null;
 
@@ -394,7 +383,7 @@ export function DesignedProductThumb({
   const inner =
     showBaked ? (
       <div className="img img-mockup" style={{ position: "relative" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <img
           src={baked}
           alt={product.nm}
@@ -405,7 +394,7 @@ export function DesignedProductThumb({
     ) : !isDefaultTint && tintMask ? (
       // Tint the active view even when it has no print artwork (e.g. blank back).
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <TintedMockupImage
           product={product}
           layers={layers}
@@ -423,7 +412,7 @@ export function DesignedProductThumb({
       </div>
     ) : layers.length && resolvedMask ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <MaskArtworkComposite
           product={product}
           mask={resolvedMask}
@@ -433,12 +422,12 @@ export function DesignedProductThumb({
       </div>
     ) : layers.length && maskStage ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <LiveArtworkComposite product={product} base={maskStage} layers={layers} />
       </div>
     ) : overlay && resolvedMask ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <MaskArtworkComposite
           product={product}
           mask={resolvedMask}
@@ -454,7 +443,7 @@ export function DesignedProductThumb({
       </div>
     ) : baked ? (
       <div className="img img-mockup" style={{ position: "relative" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         <img
           src={baked}
           alt={product.nm}
@@ -464,7 +453,7 @@ export function DesignedProductThumb({
       </div>
     ) : (
       <div className={`img${base ? " img-mockup" : ""}`} style={{ position: "relative" }}>
-        {viewToggle}
+        {embedViewToggle ? viewToggle : null}
         {base ? (
           <img
             src={base}
@@ -482,7 +471,30 @@ export function DesignedProductThumb({
       </div>
     );
 
-  if (!className && !style && !useHoverSwap) return inner;
+  if (!className && !style && !useHoverSwap && viewTogglePlacement !== "below") return inner;
+
+  if (viewTogglePlacement === "below" && showViewToggle) {
+    return (
+      <div
+        className={className ? `dpt-stack ${className}` : "dpt-stack"}
+        style={style}
+      >
+        <div className="dpt-stack-image">{inner}</div>
+        {viewToggle}
+      </div>
+    );
+  }
+
+  if (viewTogglePlacement === "below") {
+    return (
+      <div
+        className={className ? `dpt-stack ${className}` : "dpt-stack"}
+        style={style}
+      >
+        <div className="dpt-stack-image">{inner}</div>
+      </div>
+    );
+  }
 
   return (
     <div

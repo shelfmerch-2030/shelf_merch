@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { inr } from "@/components/platform/platform-ui";
 import { WizardChrome } from "@/features/swag/wizard/WizardChrome";
-import { LocField } from "@/features/send/RecipientPicker";
+import { LocField, CountrySelect } from "@/features/send/RecipientPicker";
+import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
 import type { SendKitVm } from "../controllers/useSendKitController";
@@ -14,6 +16,7 @@ import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { KitPackagingStep } from "./KitPackagingStep";
+import { KitDesignSelect, kitDesignLabel } from "../send/KitDesignSelect";
 
 const STEPS = ["Items", "Recipients", "Experience", "Packaging", "Checkout"];
 
@@ -174,6 +177,10 @@ export function SendKitView(vm: SendKitVm) {
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [selectedCuratedVariant, setSelectedCuratedVariant] = useState<string | null>(null);
+  const [bulkProductVariants, setBulkProductVariants] = useState<
+    Record<string, { size?: string; color?: string }>
+  >({});
+  const [singleLocShowErrors, setSingleLocShowErrors] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const { data: platformKits } = usePlatformKits();
 
@@ -260,13 +267,66 @@ export function SendKitView(vm: SendKitVm) {
     if (csvInputRef.current) csvInputRef.current.value = "";
   }
 
+  function applyCuratedVariantToAll(variantImage: string) {
+    if (!variantImage) {
+      toast.error("Select a kit variant first");
+      return;
+    }
+    const contactIds = vm.pickerContacts.map((c) => c.id);
+    if (!contactIds.length) {
+      toast.error("No recipients to update");
+      return;
+    }
+    dispatch({
+      type: "applyVariantToAll",
+      contactIds,
+      productId: CURATED_VARIANT_KEY,
+      patch: { variantImage },
+    });
+    toast.success(`Applied variant to ${contactIds.length} recipient${contactIds.length === 1 ? "" : "s"}`);
+  }
+
+  function applyProductVariantToAll(
+    productId: string,
+    patch: { size?: string; color?: string },
+  ) {
+    const cleanPatch = Object.fromEntries(
+      Object.entries(patch).filter((entry): entry is [string, string] => Boolean(entry[1])),
+    ) as { size?: string; color?: string };
+    if (!cleanPatch.size && !cleanPatch.color) {
+      toast.error("Select a size or color first");
+      return;
+    }
+    const contactIds = vm.pickerContacts.map((c) => c.id);
+    if (!contactIds.length) {
+      toast.error("No recipients to update");
+      return;
+    }
+    dispatch({
+      type: "applyVariantToAll",
+      contactIds,
+      productId,
+      patch: cleanPatch,
+    });
+    toast.success(`Applied to ${contactIds.length} recipient${contactIds.length === 1 ? "" : "s"}`);
+  }
+
+  function handleNext() {
+    if (vm.step === 1 && draft.mode === "single") {
+      if (validateSingleLocation(draft.singleLocation)) {
+        setSingleLocShowErrors(true);
+      }
+    }
+    vm.onNext();
+  }
+
   const footer = (
     <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
       {vm.step > 0
         ? <button type="button" className="lnk" style={{ background: "none", border: "none", cursor: "pointer" }} onClick={vm.onBack}>Back</button>
         : <span />}
       {vm.step < 4
-        ? <button type="button" className="btn btn-dark" onClick={vm.onNext}>Next</button>
+        ? <button type="button" className="btn btn-dark" onClick={handleNext}>Next</button>
         : <span />}
     </div>
   );
@@ -414,9 +474,12 @@ export function SendKitView(vm: SendKitVm) {
 
               {curatedVariantImages.length > 0 ? (
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
-                    Variants
+                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                    Kit designs
                   </label>
+                  <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+                    Each option is a different look for this curated kit. Recipients can be assigned a design on the next step.
+                  </p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
                     {curatedKitVariants.map((variant) => {
                       const selected = activeCuratedVariant === variant.imageUrl;
@@ -560,27 +623,36 @@ export function SendKitView(vm: SendKitVm) {
 
             {draft.mode === "single" && (
               <div
-                className="card"
-                style={{ padding: 18, marginBottom: 18, background: "var(--surface-2)", boxShadow: "none" }}
+                className="card sk-recip-single-loc"
+                style={{ marginBottom: 18, boxShadow: "none" }}
               >
                 <h3 style={{ fontSize: 15, marginBottom: 12 }}>Single delivery location</h3>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                   <LocField
                     label="Contact name"
                     k="name"
+                    kind="personName"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
                   <LocField
                     label="Notification email"
                     k="email"
+                    kind="email"
                     type="email"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
                   <LocField
-                    label="Phone (optional)"
+                    label="Phone"
                     k="phone"
+                    kind="phone"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
@@ -589,6 +661,9 @@ export function SendKitView(vm: SendKitVm) {
                   <LocField
                     label="Address"
                     k="line1"
+                    kind="address"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                     block
@@ -598,253 +673,147 @@ export function SendKitView(vm: SendKitVm) {
                   <LocField
                     label="City"
                     k="city"
+                    kind="city"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
                   <LocField
                     label="State"
                     k="state"
+                    kind="state"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
                   <LocField
                     label="PIN / Postal code"
                     k="pincode"
+                    kind="postal"
+                    required
+                    showErrors={singleLocShowErrors}
                     loc={draft.singleLocation}
                     onChange={(k, v) => dispatch({ type: "setSingleLoc", key: k, value: v })}
                   />
-                  <div className="field" style={{ flex: 1 }}>
-                    <label className="lbl">Country</label>
-                    <select
-                      className="inp"
-                      value={draft.singleLocation.country || "IN"}
-                      onChange={(e) =>
-                        dispatch({ type: "setSingleLoc", key: "country", value: e.target.value })
-                      }
-                    >
-                      <option value="IN">India</option>
-                      <option value="AE">UAE</option>
-                      <option value="US">USA</option>
-                    </select>
-                  </div>
+                  <CountrySelect
+                    value={draft.singleLocation.country || "IN"}
+                    onChange={(value) =>
+                      dispatch({ type: "setSingleLoc", key: "country", value })
+                    }
+                    required
+                  />
                 </div>
               </div>
             )}
 
-            <div className="sk-recip-toolbar">
-              <span className="sk-recip-count">{draft.selRecips.length} selected</span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={vm.onSelectAllRecips}
-              >
-                Select all
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => dispatch({ type: "deselectRecips" })}
-              >
-                Deselect all
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowEmailInput((open) => !open)}
-              >
-                Input emails
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => csvInputRef.current?.click()}
-              >
-                Add by CSV
-              </button>
-              <input
-                ref={csvInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                style={{ display: "none" }}
-                onChange={(e) => handleCsvChange(e.target.files?.[0])}
-              />
-              <input
-                className="inp sk-recip-search"
-                placeholder="Search by name or email…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            {showEmailInput ? (
-              <div
-                className="card"
-                style={{ padding: 14, marginBottom: 12, background: "var(--surface-2)" }}
-              >
-                <label className="lbl">Paste email addresses</label>
-                <textarea
-                  className="inp"
-                  rows={3}
-                  placeholder="Separate emails with commas, spaces, or new lines"
-                  value={emailDraft}
-                  onChange={(e) => setEmailDraft(e.target.value)}
-                />
-                <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                  <button type="button" className="btn btn-brand btn-sm" onClick={handleAddEmails}>
-                    Add recipients
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      setShowEmailInput(false);
-                      setEmailDraft("");
-                    }}
-                  >
-                    Cancel
-                  </button>
+            <div className="sk-recip-list-shell">
+              <div className="sk-recip-toolbar">
+                <div className="sk-recip-toolbar__left">
+                  <span className="sk-recip-count">
+                    <strong>{draft.selRecips.length}</strong> selected
+                  </span>
+                  <span className="sk-recip-toolbar__divider" aria-hidden="true" />
+                  <div className="sk-recip-toolbar__actions">
+                    <button
+                      type="button"
+                      className="sk-recip-toolbar__link"
+                      onClick={vm.onSelectAllRecips}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      type="button"
+                      className="sk-recip-toolbar__link"
+                      onClick={() => dispatch({ type: "deselectRecips" })}
+                    >
+                      Deselect all
+                    </button>
+                    <button
+                      type="button"
+                      className="sk-recip-toolbar__link"
+                      onClick={() => setShowEmailInput((open) => !open)}
+                    >
+                      Input emails
+                    </button>
+                    <button
+                      type="button"
+                      className="sk-recip-toolbar__link"
+                      onClick={() => csvInputRef.current?.click()}
+                    >
+                      Add by CSV
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-
-            {filteredContacts.length === 0 ? (
-              <div
-                className="muted"
-                style={{ padding: "28px 16px", textAlign: "center", fontSize: 13 }}
-              >
-                {vm.pickerContacts.length === 0
-                  ? "No recipients yet. Use Input emails or Add by CSV to get started."
-                  : "No recipients match your search."}
-              </div>
-            ) : null}
-
-            <div className="sk-recip-table-wrap">
-              <table className="sk-recip-table">
-                <thead>
-                  <tr style={{ background: "var(--surface-2)" }}>
-                    <th style={stickHeadCheckbox1}></th>
-                    <th style={stickHeadName1}>Recipient</th>
-                    <th style={stickHeadEmail1}>Email</th>
-                    <th style={{ ...stickHeadAddr1, borderRight: "none" }}>
-                      Address
-                    </th>
-                    {showVariantCols && (
-                      <th
-                        colSpan={isCurated ? 1 : kitItems.length || 1}
-                        style={{
-                          ...thStyle,
-                          borderLeft: "2px solid var(--line)",
-                          background: "var(--surface-2)",
-                        }}
+                <div className="sk-recip-toolbar__right">
+                  {showVariantCols && isCurated ? (
+                    <div className="sk-recip-bulk-inline">
+                      <KitDesignSelect
+                        designs={curatedVariantImages}
+                        value={activeCuratedVariant || ""}
+                        onChange={(url) => setSelectedCuratedVariant(url || null)}
+                        size="sm"
+                        ariaLabel="Kit design for all recipients"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-dark btn-sm"
+                        onClick={() => applyCuratedVariantToAll(activeCuratedVariant || "")}
                       >
-                        <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: ".05em" }}>
-                          {isCurated ? "Kit variant" : "Kit items & variants"}
-                        </div>
-                        <div
-                          style={{
-                            fontWeight: 400,
-                            fontSize: 11,
-                            color: "var(--ink-2)",
-                            marginTop: 2,
-                            textTransform: "none",
-                            letterSpacing: 0,
-                          }}
-                        >
-                          {isCurated
-                            ? "Choose appearance variant for each recipient"
-                            : "Configure size & color for each recipient"}
-                        </div>
-                      </th>
-                    )}
-                  </tr>
-                  {showVariantCols && !isCurated && kitItems.length > 0 && (
-                    <tr style={{ background: "#fff" }}>
-                      <th style={stickHeadCheckbox2}></th>
-                      <th style={stickHeadName2}></th>
-                      <th style={stickHeadEmail2}></th>
-                      <th style={{ ...stickHeadAddr2, borderRight: "none" }}></th>
-                      {kitItems.map(({ product: p }) => (
-                        <th
-                          key={p.id}
-                          style={{
-                            ...thStyle,
-                            borderLeft: "1px solid var(--line)",
-                            minWidth: 200,
-                            background: "#fff",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div
-                              style={{
-                                width: 44,
-                                height: 34,
-                                borderRadius: 6,
-                                overflow: "hidden",
-                                background: "var(--surface-2)",
-                                flexShrink: 0,
-                              }}
-                            >
-                              <DesignedProductThumb product={p} artworkUrl={kit.artworkUrl} frontOnly />
-                            </div>
-                            <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ink)" }}>
-                              {p.nm}
-                            </div>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  )}
-                </thead>
-                <tbody>
-                  {filteredContacts.map((contact) => {
-                    const isSelected = draft.selRecips.includes(contact.id);
-                    const addr = [contact.city, contact.state, contact.country]
-                      .filter(Boolean)
-                      .join(", ");
-                    const bg = isSelected ? "var(--brand-50)" : "#fff";
+                        Apply to all
+                      </button>
+                    </div>
+                  ) : null}
+                  <label className="search sk-recip-search">
+                    <Search size={15} aria-hidden="true" />
+                    <input
+                      type="search"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      aria-label="Search recipients"
+                    />
+                  </label>
+                </div>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => handleCsvChange(e.target.files?.[0])}
+                />
+              </div>
+
+              {showVariantCols && !isCurated ? (
+                <div className="sk-recip-bulk-strip">
+                  {kitItems.map(({ product: prod, opts }) => {
+                    const bulk = bulkProductVariants[prod.id || ""] || {};
                     return (
-                      <tr
-                        key={contact.id}
-                        style={{
-                          borderTop: "1px solid var(--line)",
-                          background: bg,
-                          opacity: isSelected ? 1 : 0.72,
-                        }}
-                      >
-                        <td style={cellCheckbox(bg)}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => dispatch({ type: "toggleRecip", id: contact.id })}
-                            style={{
-                              width: 16,
-                              height: 16,
-                              accentColor: "var(--brand)",
-                              cursor: "pointer",
-                            }}
-                          />
-                        </td>
-                        <td style={cellName(bg)}>{contact.name}</td>
-                        <td style={cellEmail(bg)}>{contact.email}</td>
-                        <td style={{ ...cellAddr(bg), borderRight: "none" }}>
-                          {addr || "—"}
-                        </td>
-                        {showVariantCols && isCurated && (
-                          <td style={{ ...tdStyle, borderLeft: "1px solid var(--line)", minWidth: 220 }}>
-                            <select
-                              className="inp"
-                              value={
-                                draft.recipVariants[contact.id]?.[CURATED_VARIANT_KEY]?.variantImage ||
-                                ""
+                      <div key={prod.id} className="sk-recip-bulk-strip__item">
+                        <span className="sk-recip-bulk-strip__name">{prod.nm}</span>
+                        <div className="sk-recip-bulk-strip__controls">
+                          {opts.requiresSize && opts.sizes.length > 0 ? (
+                            <SizeSelect
+                              value={bulk.size || ""}
+                              sizes={opts.sizes}
+                              onChange={(size) =>
+                                setBulkProductVariants((prev) => ({
+                                  ...prev,
+                                  [prod.id || ""]: { ...prev[prod.id || ""], size },
+                                }))
                               }
-                              onChange={(e) =>
-                                dispatch({
-                                  type: "setRecipVariant",
-                                  contactId: contact.id,
-                                  productId: CURATED_VARIANT_KEY,
-                                  key: "variantImage",
-                                  value: e.target.value,
-                                })
+                            />
+                          ) : null}
+                          {opts.requiresColor && opts.colors.length > 0 ? (
+                            <ColorSelect
+                              value={bulk.color || ""}
+                              colors={opts.colors}
+                              onChange={(color) =>
+                                setBulkProductVariants((prev) => ({
+                                  ...prev,
+                                  [prod.id || ""]: { ...prev[prod.id || ""], color },
+                                }))
                               }
                               style={{ fontSize: 12, height: 32, minWidth: 180 }}
                               disabled={!isSelected}
@@ -906,19 +875,131 @@ export function SendKitView(vm: SendKitVm) {
                                       }
                                       product={prod}
                                     />
-                                  )}
-                                  {!opts.requiresSize && !opts.requiresColor && (
-                                    <span style={{ fontSize: 12, color: "var(--ink-2)" }}>—</span>
-                                  )}
+                                  </div>
+                                  <span>{p.nm}</span>
                                 </div>
-                              </td>
-                            );
-                          })}
+                              </th>
+                            ))
+                          : null}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {filteredContacts.map((contact) => {
+                        const isSelected = draft.selRecips.includes(contact.id);
+                        const addr = [contact.city, contact.state, contact.country]
+                          .filter(Boolean)
+                          .join(", ");
+                        return (
+                          <tr
+                            key={contact.id}
+                            className={`sk-recip-row${isSelected ? " is-selected" : ""}`}
+                          >
+                            <td className="sk-recip-td sk-recip-td--check">
+                              <input
+                                type="checkbox"
+                                className="sk-recip-check"
+                                checked={isSelected}
+                                aria-label={`Select ${contact.name}`}
+                                onChange={() => dispatch({ type: "toggleRecip", id: contact.id })}
+                              />
+                            </td>
+                            <td className="sk-recip-td">
+                              <span className="sk-recip-name" title={contact.name}>
+                                {contact.name}
+                              </span>
+                            </td>
+                            <td className="sk-recip-td">
+                              <span className="sk-recip-muted" title={contact.email || undefined}>
+                                {contact.email}
+                              </span>
+                            </td>
+                            <td className="sk-recip-td">
+                              <span className="sk-recip-muted" title={addr || undefined}>
+                                {addr || "—"}
+                              </span>
+                            </td>
+                            {showVariantCols && isCurated ? (
+                              <td className="sk-recip-td sk-recip-td--variant">
+                                <KitDesignSelect
+                                  designs={curatedVariantImages}
+                                  value={
+                                    draft.recipVariants[contact.id]?.[CURATED_VARIANT_KEY]
+                                      ?.variantImage || ""
+                                  }
+                                  onChange={(url) =>
+                                    dispatch({
+                                      type: "setRecipVariant",
+                                      contactId: contact.id,
+                                      productId: CURATED_VARIANT_KEY,
+                                      key: "variantImage",
+                                      value: url,
+                                    })
+                                  }
+                                  size="sm"
+                                  ariaLabel={`Kit design for ${contact.name}`}
+                                />
+                              </td>
+                            ) : null}
+                            {showVariantCols &&
+                              !isCurated &&
+                              kitItems.map(({ product: prod, opts }) => {
+                                const selection =
+                                  draft.recipVariants[contact.id]?.[prod.id || ""] || {};
+                                return (
+                                  <td key={prod.id} className="sk-recip-td sk-recip-td--variant">
+                                    <div className="sk-recip-variant-controls">
+                                      {opts.requiresSize && opts.sizes.length > 0 ? (
+                                        <SizeSelect
+                                          value={selection.size || ""}
+                                          sizes={opts.sizes}
+                                          onChange={(v) =>
+                                            dispatch({
+                                              type: "setRecipVariant",
+                                              contactId: contact.id,
+                                              productId: prod.id || "",
+                                              key: "size",
+                                              value: v,
+                                            })
+                                          }
+                                        />
+                                      ) : null}
+                                      {opts.requiresColor && opts.colors.length > 0 ? (
+                                        <ColorSelect
+                                          value={selection.color || ""}
+                                          colors={opts.colors}
+                                          onChange={(v) =>
+                                            dispatch({
+                                              type: "setRecipVariant",
+                                              contactId: contact.id,
+                                              productId: prod.id || "",
+                                              key: "color",
+                                              value: v,
+                                            })
+                                          }
+                                          product={prod}
+                                        />
+                                      ) : null}
+                                      {!opts.requiresSize && !opts.requiresColor ? (
+                                        <span className="sk-recip-muted">—</span>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="sk-recip-foot">
+                {draft.selRecips.length} recipient{draft.selRecips.length !== 1 ? "s" : ""} selected
+                {filteredContacts.length > 0
+                  ? ` · Showing ${filteredContacts.length} of ${vm.pickerContacts.length}`
+                  : ""}
+              </div>
             </div>
 
             {draft.mode === "surprise" && vm.surpriseMissing.length > 0 && (
@@ -927,9 +1008,6 @@ export function SendKitView(vm: SendKitVm) {
                 sends need addresses up front.
               </div>
             )}
-            <div className="sk-recip-foot">
-              {draft.selRecips.length} recipient{draft.selRecips.length !== 1 ? "s" : ""} selected
-            </div>
           </div>
         </div>
       )}
@@ -1055,42 +1133,6 @@ export function SendKitView(vm: SendKitVm) {
     </WizardChrome>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: "10px 14px", textAlign: "left", fontSize: 11,
-  fontWeight: 700, letterSpacing: ".06em", color: "var(--text-muted)",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "12px 14px", verticalAlign: "middle",
-};
-
-const stickHeadCheckbox1: React.CSSProperties = { ...thStyle, position: "sticky", left: 0, zIndex: 20, background: "var(--surface-2)", width: 40, minWidth: 40 };
-const stickHeadName1: React.CSSProperties = { ...thStyle, position: "sticky", left: 40, zIndex: 20, background: "var(--surface-2)", width: 140, minWidth: 140 };
-const stickHeadEmail1: React.CSSProperties = { ...thStyle, position: "sticky", left: 180, zIndex: 20, background: "var(--surface-2)", width: 180, minWidth: 180 };
-const stickHeadAddr1: React.CSSProperties = { ...thStyle, position: "sticky", left: 360, zIndex: 20, background: "var(--surface-2)", width: 160, minWidth: 160, borderRight: "2px solid var(--line)" };
-
-const stickHeadCheckbox2: React.CSSProperties = { ...thStyle, position: "sticky", left: 0, zIndex: 20, background: "#fff", width: 40, minWidth: 40 };
-const stickHeadName2: React.CSSProperties = { ...thStyle, position: "sticky", left: 40, zIndex: 20, background: "#fff", width: 140, minWidth: 140 };
-const stickHeadEmail2: React.CSSProperties = { ...thStyle, position: "sticky", left: 180, zIndex: 20, background: "#fff", width: 180, minWidth: 180 };
-const stickHeadAddr2: React.CSSProperties = { ...thStyle, position: "sticky", left: 360, zIndex: 20, background: "#fff", width: 160, minWidth: 160, borderRight: "2px solid var(--line)" };
-
-const cellCheckbox = (bg: string): React.CSSProperties => ({
-  ...tdStyle, position: "sticky", left: 0, zIndex: 10, background: bg, width: 40, minWidth: 40
-});
-const cellName = (bg: string): React.CSSProperties => ({
-  ...tdStyle, position: "sticky", left: 40, zIndex: 10, background: bg, width: 140, minWidth: 140, fontWeight: 600,
-  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--ink)",
-});
-const cellEmail = (bg: string): React.CSSProperties => ({
-  ...tdStyle, position: "sticky", left: 180, zIndex: 10, background: bg, width: 180, minWidth: 180, color: "var(--ink-2)", fontSize: 12,
-  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-});
-const cellAddr = (bg: string): React.CSSProperties => ({
-  ...tdStyle, position: "sticky", left: 360, zIndex: 10, background: bg, width: 160, minWidth: 160, color: "var(--ink-2)", fontSize: 12, borderRight: "2px solid var(--line)",
-  whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-});
 
 function SumRow({
   k,

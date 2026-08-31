@@ -15,6 +15,7 @@ import {
   type KitSendTotals,
 } from "@/features/send/money";
 import { toSchedulePayload } from "@/features/send/types";
+import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import {
   addRecipientsUpToLimit,
   mergePickerContacts,
@@ -480,9 +481,9 @@ export function useSendKitController(): SendKitVm {
         return;
       }
       if (draft.mode === "single") {
-        const l = draft.singleLocation;
-        if (!l.name || !l.email.includes("@") || !l.line1 || !l.city || !l.state || !l.pincode) {
-          toast.error("Enter the location contact, email, and complete shipping address");
+        const locationError = validateSingleLocation(draft.singleLocation);
+        if (locationError) {
+          toast.error(locationError);
           return;
         }
       }
@@ -501,7 +502,7 @@ export function useSendKitController(): SendKitVm {
               const contact = pickerContacts.find((c) => c.id === rid);
               const name = contact?.name || "Recipient";
               const sel = draft.recipVariants[rid]?.[CURATED_VARIANT_KEY];
-              if (!sel?.variantImage) missingList.push(`${name}'s kit variant`);
+              if (!sel?.variantImage) missingList.push(`${name}'s kit design`);
             }
           }
         } else {
