@@ -3,6 +3,13 @@ import { Search } from "lucide-react";
 import { toast } from "sonner";
 import type { UiContact } from "@/services/mappers";
 import type { SendMode, SingleLocation } from "./types";
+import {
+  locFieldKindForKey,
+  sanitizeLocField,
+  validateLocField,
+  type LocFieldKind,
+} from "./singleLocationValidation";
+import { CountrySelect } from "./CountrySelect";
 
 const MODE_CARDS: Array<[SendMode, string, string]> = [
   [
@@ -35,6 +42,7 @@ export function RecipientPicker({
   onMode,
   singleLocation,
   onSingleLocationChange,
+  showErrors = false,
 }: {
   title: string;
   subtitle: string;
@@ -51,6 +59,7 @@ export function RecipientPicker({
   onMode?: (mode: SendMode) => void;
   singleLocation?: SingleLocation;
   onSingleLocationChange?: (key: keyof SingleLocation, value: string) => void;
+  showErrors?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [showEmailInput, setShowEmailInput] = useState(false);
@@ -116,50 +125,54 @@ export function RecipientPicker({
             be sent to the email below.
           </p>
           <div className="row">
-            <LocField label="Contact name" k="name" loc={loc} onChange={onSingleLocationChange} />
+            <LocField label="Contact name" k="name" kind="personName" required showErrors={showErrors} loc={loc} onChange={onSingleLocationChange} />
             <LocField
               label="Notification email"
               k="email"
+              kind="email"
               type="email"
+              required
+              showErrors={showErrors}
               loc={loc}
               onChange={onSingleLocationChange}
             />
             <LocField
-              label="Phone (optional)"
+              label="Phone"
               k="phone"
+              kind="phone"
+              required
+              showErrors={showErrors}
               loc={loc}
               onChange={onSingleLocationChange}
             />
           </div>
-          <LocField label="Address" k="line1" loc={loc} onChange={onSingleLocationChange} block />
+          <LocField label="Address" k="line1" kind="address" required showErrors={showErrors} loc={loc} onChange={onSingleLocationChange} block />
           <LocField
             label="Address line 2 (optional)"
             k="line2"
+            kind="address"
+            showErrors={showErrors}
             loc={loc}
             onChange={onSingleLocationChange}
             block
           />
           <div className="row">
-            <LocField label="City" k="city" loc={loc} onChange={onSingleLocationChange} />
-            <LocField label="State" k="state" loc={loc} onChange={onSingleLocationChange} />
+            <LocField label="City" k="city" kind="city" required showErrors={showErrors} loc={loc} onChange={onSingleLocationChange} />
+            <LocField label="State" k="state" kind="state" required showErrors={showErrors} loc={loc} onChange={onSingleLocationChange} />
             <LocField
               label="PIN / Postal code"
               k="pincode"
+              kind="postal"
+              required
+              showErrors={showErrors}
               loc={loc}
               onChange={onSingleLocationChange}
             />
-            <div className="field" style={{ flex: 1 }}>
-              <label className="lbl">Country</label>
-              <select
-                className="inp"
-                value={loc.country || "IN"}
-                onChange={(e) => onSingleLocationChange("country", e.target.value)}
-              >
-                <option value="IN">India</option>
-                <option value="AE">UAE</option>
-                <option value="US">USA</option>
-              </select>
-            </div>
+            <CountrySelect
+              value={loc.country || "IN"}
+              onChange={(value) => onSingleLocationChange("country", value)}
+              required
+            />
           </div>
         </div>
       )}
@@ -306,6 +319,8 @@ export function RecipientPicker({
   );
 }
 
+export { CountrySelect } from "./CountrySelect";
+
 export function LocField({
   label,
   k,
@@ -313,6 +328,9 @@ export function LocField({
   onChange,
   type = "text",
   block = false,
+  kind,
+  required = false,
+  showErrors = false,
 }: {
   label: string;
   k: keyof SingleLocation;
@@ -320,16 +338,53 @@ export function LocField({
   onChange: (key: keyof SingleLocation, value: string) => void;
   type?: string;
   block?: boolean;
+  kind?: LocFieldKind;
+  required?: boolean;
+  showErrors?: boolean;
 }) {
+  const [touched, setTouched] = useState(false);
+  const resolvedKind = kind ?? locFieldKindForKey(k);
+  const inputMode =
+    resolvedKind === "phone" || resolvedKind === "postal"
+      ? "numeric"
+      : resolvedKind === "email"
+        ? "email"
+        : undefined;
+
+  function handleChange(raw: string) {
+    const next = resolvedKind ? sanitizeLocField(resolvedKind, raw) : raw;
+    onChange(k, next);
+  }
+
+  const inputType = resolvedKind === "phone" ? "tel" : type;
+  const value = loc[k] || "";
+  const error = validateLocField(k, loc);
+  const hasValue = value.trim().length > 0;
+  const showFieldError = Boolean(error && (showErrors || touched || hasValue));
+  const errorId = `${k}-error`;
+
   return (
     <div className="field" style={block ? undefined : { flex: 1 }}>
-      <label className="lbl">{label}</label>
+      <label className="lbl">
+        {label}
+        {required ? <span aria-hidden="true"> *</span> : null}
+      </label>
       <input
-        className="inp"
-        type={type}
-        value={loc[k] || ""}
-        onChange={(e) => onChange(k, e.target.value)}
+        className={`inp${showFieldError ? " inp--invalid" : ""}`}
+        type={inputType}
+        inputMode={inputMode}
+        maxLength={resolvedKind === "phone" ? 10 : resolvedKind === "postal" ? 10 : undefined}
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={() => setTouched(true)}
+        aria-invalid={showFieldError}
+        aria-describedby={showFieldError ? errorId : undefined}
       />
+      {showFieldError ? (
+        <p id={errorId} className="field-error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

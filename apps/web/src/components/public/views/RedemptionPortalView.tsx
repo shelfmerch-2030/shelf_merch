@@ -7,6 +7,7 @@ import { StoreBanner } from "@/components/StoreBanner";
 import StoreShell from "@/components/store/StoreShell";
 import { normalizeCurrencyMode } from "@/lib/storeCurrency";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import { PublicInviteError } from "@/components/public/PublicInviteError";
 import type { RedemptionVm } from "../controllers/useRedemptionController";
 
 /** Redemption portal view: branded OTP gate, then store / kit-accept / track. */
@@ -44,14 +45,10 @@ export function RedemptionPortalView(vm: RedemptionVm) {
 
   if (vm.step === "error") {
     return (
-      <div className="auth">
-        <div className="auth-form">
-          <div className="inner">
-            <h1>Redemption unavailable</h1>
-            <p className="muted">{vm.error}</p>
-          </div>
-        </div>
-      </div>
+      <PublicInviteError
+        title="Redemption unavailable"
+        message={vm.error || "This invite link could not be opened."}
+      />
     );
   }
 

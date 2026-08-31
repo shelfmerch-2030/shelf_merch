@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { mediaUrlForCanvas, resolveMediaUrl } from "@/lib/mediaUrl";
 import { TintedGarment } from "@/components/store/TintedGarment";
 import {
   defaultPlacement,
@@ -63,22 +63,91 @@ export function artworkDownloadFilename(url: string, fallbackBase: string, blobT
   return `${base}.png`;
 }
 
-/** Triggers a download of the artwork; falls back to opening it if blocked (CORS). */
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+/** Polished download control used under fulfilment asset tiles and in the lightbox. */
+export function DownloadAssetButton({
+  url,
+  filename,
+  block = false,
+  stopPropagation = false,
+}: {
+  url: string;
+  filename: string;
+  block?: boolean;
+  stopPropagation?: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className={`pf-asset-download${block ? " pf-asset-download--block" : ""}`}
+      disabled={busy || !url}
+      aria-busy={busy}
+      onClick={(e) => {
+        if (stopPropagation) e.stopPropagation();
+        if (busy || !url) return;
+        setBusy(true);
+        void downloadArtwork(url, filename).finally(() => setBusy(false));
+      }}
+    >
+      {busy ? (
+        <span className="pf-asset-download-spinner" aria-hidden="true" />
+      ) : (
+        <DownloadIcon />
+      )}
+      <span>{busy ? "Downloading…" : "Download"}</span>
+    </button>
+  );
+}
+
+/** Triggers a real file download (uses same-origin media proxy for remote assets). */
 export async function downloadArtwork(url: string, filename: string) {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = artworkDownloadFilename(url, filename, blob.type);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(href);
-  } catch {
-    window.open(url, "_blank");
+  const resolved = resolveMediaUrl(url);
+  if (!resolved) return;
+
+  const candidates: string[] = [];
+  const proxied = mediaUrlForCanvas(resolved);
+  // Prefer proxy for remote URLs so CORS cannot block the blob download.
+  if (proxied && proxied !== resolved) candidates.push(proxied);
+  candidates.push(resolved);
+
+  let lastError: unknown;
+  for (const fetchUrl of candidates) {
+    try {
+      const res = await fetch(fetchUrl, {
+        credentials: fetchUrl.startsWith("/") ? "same-origin" : "omit",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) throw new Error("Empty file");
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = artworkDownloadFilename(resolved, filename, blob.type);
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoke after the browser has started the download.
+      window.setTimeout(() => URL.revokeObjectURL(href), 2_000);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
   }
+
+  console.warn("Artwork download failed; opening in a new tab", lastError);
+  window.open(resolved, "_blank", "noopener,noreferrer");
 }
 
 /** Minimal UiProduct so mockup-bake helpers can resolve print-area defaults. */
@@ -356,8 +425,6 @@ export function FulfillmentAssetModal({
   onClose: () => void;
   children: ReactNode;
 }) {
-  const [busy, setBusy] = useState(false);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -414,21 +481,7 @@ export function FulfillmentAssetModal({
         </div>
         <div className="row" style={{ gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
           {downloadUrl ? (
-            <button
-              type="button"
-              className="btn btn-soft btn-sm"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await downloadArtwork(downloadUrl, downloadName);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              ↓ Download
-            </button>
+            <DownloadAssetButton url={downloadUrl} filename={downloadName} />
           ) : null}
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             Close
@@ -498,17 +551,12 @@ export function FulfillmentAssetStrip({
               })
             }
             footer={
-              <button
-                type="button"
-                className="btn btn-soft btn-sm"
-                style={{ width: "100%" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void downloadArtwork(artworkUrl, `${fileBase}-logo`);
-                }}
-              >
-                ↓ Download
-              </button>
+              <DownloadAssetButton
+                url={artworkUrl}
+                filename={`${fileBase}-logo`}
+                block
+                stopPropagation
+              />
             }
           >
             <img
@@ -536,17 +584,12 @@ export function FulfillmentAssetStrip({
               })
             }
             footer={
-              <button
-                type="button"
-                className="btn btn-soft btn-sm"
-                style={{ width: "100%" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void downloadArtwork(mockup, `${fileBase}-variant`);
-                }}
-              >
-                ↓ Download
-              </button>
+              <DownloadAssetButton
+                url={mockup}
+                filename={`${fileBase}-variant`}
+                block
+                stopPropagation
+              />
             }
           >
             <img

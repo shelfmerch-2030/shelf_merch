@@ -39,7 +39,13 @@ export type SendKitAction =
   | { type: "setPay"; pay: PaymentMethod }
   | { type: "setPkg"; pkg: "none" | "box" }
   | { type: "hydrate"; draft: SendKitDraft }
-  | { type: "setRecipVariant"; contactId: string; productId: string; key: "size" | "color" | "variantImage"; value: string };
+  | { type: "setRecipVariant"; contactId: string; productId: string; key: "size" | "color" | "variantImage"; value: string }
+  | {
+      type: "applyVariantToAll";
+      contactIds: string[];
+      productId: string;
+      patch: { size?: string; color?: string; variantImage?: string };
+    };
 
 export function sendKitReducer(state: SendKitDraft, action: SendKitAction): SendKitDraft {
   switch (action.type) {
@@ -103,6 +109,16 @@ export function sendKitReducer(state: SendKitDraft, action: SendKitAction): Send
           },
         },
       };
+    }
+    case "applyVariantToAll": {
+      const next = { ...state.recipVariants };
+      for (const contactId of action.contactIds) {
+        const contactVariants = { ...(next[contactId] || {}) };
+        const productVariant = { ...(contactVariants[action.productId] || {}), ...action.patch };
+        contactVariants[action.productId] = productVariant;
+        next[contactId] = contactVariants;
+      }
+      return { ...state, recipVariants: next };
     }
     default:
       return state;
