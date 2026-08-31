@@ -256,7 +256,7 @@ function StyleSpotlight({ onSelect }: { onSelect: (category: string) => void }) 
           >
             <img src={STYLE_SPOTLIGHT_TSHIRT} alt="" />
             <span className="sm-style-spotlight__pill sm-style-spotlight__pill--bottom">
-              T-shirts <span><ArrowRight aria-hidden="true" /></span>
+              Apparel <span><ArrowRight aria-hidden="true" /></span>
             </span>
           </button>
 
@@ -340,7 +340,7 @@ function StyleSpotlight({ onSelect }: { onSelect: (category: string) => void }) 
           >
             <img src={styleSocksImg} alt="" />
             <span className="sm-style-spotlight__pill sm-style-spotlight__pill--bottom">
-              Best under $25 <span><ArrowRight aria-hidden="true" /></span>
+              Best under ₹100 <span><ArrowRight aria-hidden="true" /></span>
             </span>
           </button>
         </div>

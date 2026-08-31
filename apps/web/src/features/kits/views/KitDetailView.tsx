@@ -20,7 +20,7 @@ export function KitDetailView(vm: KitDetailVm) {
     );
   }
 
-  const { kit, products } = vm;
+  const { kit, products, isCuratedKit, logoUrl, hasUploadedLogo } = vm;
   if (!kit) {
     return (
       <div className="card empty" style={{ padding: 48 }}>
@@ -32,6 +32,8 @@ export function KitDetailView(vm: KitDetailVm) {
       </div>
     );
   }
+
+  const itemCount = products.length || kit.items;
 
   return (
     <>
@@ -45,10 +47,10 @@ export function KitDetailView(vm: KitDetailVm) {
 
       <PageHeader
         title={kit.name}
-        subtitle={`A reusable ${kit.items}-item kit. Send it to new recipients any time without rebuilding.`}
+        subtitle={`A reusable ${itemCount}-item kit. Send it to new recipients any time without rebuilding.`}
         actions={
           <div className="row" style={{ gap: 10 }}>
-            {vm.canEditKit ? (
+            {vm.canEditKit && !isCuratedKit ? (
               <Link to={`/app/kits/${kit.id}/edit`} className="btn btn-ghost">
                 <Pencil size={15} /> Edit kit
               </Link>
@@ -108,7 +110,7 @@ export function KitDetailView(vm: KitDetailVm) {
                   Items
                 </div>
                 <div className="num" style={{ fontWeight: 800 }}>
-                  {kit.items}
+                  {itemCount}
                 </div>
               </div>
             </div>
@@ -127,7 +129,7 @@ export function KitDetailView(vm: KitDetailVm) {
           </div>
         </div>
 
-        <section className="card" style={{ padding: 24 }}>
+        <section className="card" style={{ padding: 24, marginBottom: 18 }}>
           <div
             className="row"
             style={{ justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}
@@ -141,48 +143,94 @@ export function KitDetailView(vm: KitDetailVm) {
             </span>
           </div>
 
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))",
-              gap: 16,
-            }}
-          >
-            {products.map((p, i) => {
-              const src = p.img
-                ? resolveMediaUrl(p.img.mockupUrl) || resolveMediaUrl(p.img.imgUrl)
-                : undefined;
-              return (
-                <div key={`${p.name}-${i}`} className="pcard" style={{ cursor: "default" }}>
-                  {p.img && kit.artworkUrl ? (
-                    <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
-                  ) : (
-                    <div className="img">
-                      {src ? (
-                        <img
-                          src={src}
-                          alt={p.name}
-                          loading="lazy"
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                        />
-                      ) : (
-                        <div
-                          className="sm-skeleton-img"
-                          aria-hidden="true"
-                          style={{ width: "100%", height: "100%" }}
-                        />
-                      )}
+          {products.length > 0 ? (
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))",
+                gap: 16,
+              }}
+            >
+              {products.map((p, i) => {
+                const src = p.imageUrl || (p.img
+                  ? resolveMediaUrl(p.img.mockupUrl) || resolveMediaUrl(p.img.imgUrl)
+                  : undefined);
+                return (
+                  <div key={`${p.name}-${i}`} className="pcard" style={{ cursor: "default" }}>
+                    {!isCuratedKit && p.img && kit.artworkUrl ? (
+                      <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
+                    ) : (
+                      <div className="img">
+                        {src ? (
+                          <img
+                            src={src}
+                            alt={p.name}
+                            loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                          />
+                        ) : (
+                          <div
+                            className="sm-skeleton-img"
+                            aria-hidden="true"
+                            style={{ width: "100%", height: "100%" }}
+                          />
+                        )}
+                      </div>
+                    )}
+                    <div className="meta">
+                      {p.brand && <div className="brand">{p.brand}</div>}
+                      <div className="nm">{p.name}</div>
                     </div>
-                  )}
-                  <div className="meta">
-                    {p.brand && <div className="brand">{p.brand}</div>}
-                    <div className="nm">{p.name}</div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="muted" style={{ margin: 0, fontSize: 14 }}>
+              No included products for this kit yet.
+            </p>
+          )}
         </section>
+
+        {isCuratedKit ? (
+          <section className="card" style={{ padding: 24 }}>
+            <div className="eyebrow" style={{ marginBottom: 5 }}>
+              Brand logo
+            </div>
+            <h2 style={{ fontSize: 20, marginTop: 0, marginBottom: 16 }}>Logo uploaded</h2>
+
+            {hasUploadedLogo && logoUrl ? (
+              <div
+                style={{
+                  width: 160,
+                  height: 160,
+                  borderRadius: 12,
+                  border: "1px solid var(--line)",
+                  background: "var(--gray-50)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 16,
+                  marginBottom: 12,
+                }}
+              >
+                <img
+                  src={logoUrl}
+                  alt="Uploaded logo"
+                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                />
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: "0 0 12px", fontSize: 14 }}>
+                No logo uploaded yet. Upload a logo when sending this kit.
+              </p>
+            )}
+
+            <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+              Uploaded logo will be printed in the placeholders as shown in the img.
+            </p>
+          </section>
+        ) : null}
       </div>
     </>
   );
