@@ -32,6 +32,7 @@ export type CatalogKitCard = {
   subtitle: string;
   image: string;
   kind: "pre-designed" | "customised";
+  pricePerKitInr?: number;
   platformKit?: PlatformKitTemplate;
   workspaceKit?: UiKit;
 };
@@ -40,6 +41,7 @@ export type CatalogKitsVm = {
   isLoading: boolean;
   errorMessage: string | null;
   kits: CatalogKitCard[];
+  allKits: CatalogKitCard[];
   count: number;
   canSendKits: boolean;
   kitPreview: KitPreviewData | null;
@@ -47,6 +49,7 @@ export type CatalogKitsVm = {
   onPreview: (kit: CatalogKitCard) => void;
   onSend: (kit: CatalogKitCard) => void;
   sendPending: boolean;
+  suppressEmptyState?: boolean;
 };
 
 function templateImage(kit: PlatformKitTemplate): string {
@@ -79,6 +82,11 @@ function isCuratedWorkspaceKit(kit: UiKit): boolean {
 
 function curatedPricePerKit(kit: PlatformKitTemplate): number {
   return Math.max(0, Math.round(Number(kit.approxValueInr) || 0));
+}
+
+function customisedKitPrice(kit: UiKit): number | undefined {
+  const price = Math.max(0, Math.round(Number(kit.kitPrice) || 0));
+  return price > 0 ? price : undefined;
 }
 
 function buildProductRefs(
@@ -129,14 +137,18 @@ export function useCatalogKitsController(
   const catalog = workspace?.catalogProducts ?? [];
 
   const allKits = useMemo<CatalogKitCard[]>(() => {
-    const preDesigned: CatalogKitCard[] = (platformKits ?? []).map((kit) => ({
-      id: kit._id,
-      name: kit.name,
-      subtitle: templateItemLabel(kit),
-      image: templateImage(kit),
-      kind: "pre-designed",
-      platformKit: kit,
-    }));
+    const preDesigned: CatalogKitCard[] = (platformKits ?? []).map((kit) => {
+      const pricePerKitInr = curatedPricePerKit(kit);
+      return {
+        id: kit._id,
+        name: kit.name,
+        subtitle: templateItemLabel(kit),
+        image: templateImage(kit),
+        kind: "pre-designed",
+        pricePerKitInr: pricePerKitInr > 0 ? pricePerKitInr : undefined,
+        platformKit: kit,
+      };
+    });
 
     const customised: CatalogKitCard[] = (workspace?.kits ?? [])
       .filter((kit) => kit.status === "live" && !isCuratedWorkspaceKit(kit))
@@ -146,6 +158,7 @@ export function useCatalogKitsController(
         subtitle: kit.items ? `${kit.items} item${kit.items === 1 ? "" : "s"}` : "Custom kit",
         image: customisedKitImage(kit),
         kind: "customised",
+        pricePerKitInr: customisedKitPrice(kit),
         workspaceKit: kit,
       }));
 
@@ -238,6 +251,7 @@ export function useCatalogKitsController(
         : "Could not load kits"
       : null,
     kits,
+    allKits,
     count: kits.length,
     canSendKits: canSendKits(),
     kitPreview,

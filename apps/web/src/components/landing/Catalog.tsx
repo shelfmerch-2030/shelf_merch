@@ -22,7 +22,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     icon: <path d="M8 4l4 2 4-2 5 3-3 5-2-1v10H8V11l-2 1-3-5 5-3z" />,
     title: "Apparel",
     iconSize: 32,
-    to: "/apps/catalog?category=Apparel",
+    to: "/app/catalog/category/apparel",
   },
   {
     count: "02",
@@ -39,7 +39,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Drinkware",
     iconSize: 32,
-    to: "/apps/catalog?category=Drinkware",
+    to: "/app/catalog/category/drinkware",
   },
   {
     count: "03",
@@ -55,7 +55,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Tech Accessories",
     iconSize: 32,
-    to: "/apps/catalog?category=Technology",
+    to: "/app/catalog/category/technology",
   },
   {
     count: "04",
@@ -71,20 +71,22 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Bags & Travel",
     iconSize: 32,
-    to: "/apps/catalog?category=Bags",
+    to: "/app/catalog/category/bags",
   },
   {
     count: "05",
     className: "catalog-card catalog-black",
+    image: "/images/landing/catalog/accessories.png",
+    imageAlt: "Personalized metal keychain",
     icon: (
       <>
         <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
         <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z" />
       </>
     ),
-    title: "Leadership Gifts",
-    iconSize: 52,
-    to: "/apps/catalog",
+    title: "Accessories",
+    iconSize: 32,
+    to: "/app/catalog/category/accessories",
   },
   {
     count: "06",
@@ -100,7 +102,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Office Supplies",
     iconSize: 32,
-    to: "/apps/catalog?category=Office%20Supplies",
+    to: "/app/catalog/category/office-supplies",
   },
   {
     count: "07",
@@ -117,7 +119,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Festival Hampers",
     iconSize: 32,
-    to: "/apps/catalog",
+    to: "/app/catalog/category/kits",
   },
   {
     count: "08",
@@ -134,7 +136,7 @@ const CATALOG_ITEMS: CatalogItem[] = [
     ),
     title: "Made-to-Order",
     iconSize: 32,
-    to: "/apps/catalog",
+    to: "/app/catalog/category/kits",
   },
 ];
 
@@ -170,7 +172,7 @@ export function Catalog() {
         </div>
         <div>
           <p>From apparel to tech accessories, explore what you can put your logo on.</p>
-          <Link to="/apps/catalog" className="text-link">
+          <Link to="/app/catalog" className="text-link">
             View full catalog
             <span>
               <ArrowIcon />

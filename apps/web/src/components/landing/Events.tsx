@@ -34,7 +34,7 @@ const EVENTS = [
         <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z" />
       </>
     ),
-    title: "Leadership gifts",
+    title: "Accessories",
     description: "Premium, low-volume and memorable.",
   },
   {
