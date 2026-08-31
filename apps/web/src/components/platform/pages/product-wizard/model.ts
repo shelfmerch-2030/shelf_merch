@@ -27,6 +27,7 @@ export const MANUAL_CATEGORIES = [
   // "Health & Wellness",
   "Office Supplies",
   "Technology",
+  "Kits",
 ] as const;
 
 export const SUBCATEGORIES_BY_CATEGORY: Record<(typeof MANUAL_CATEGORIES)[number], readonly string[]> = {
@@ -36,6 +37,7 @@ export const SUBCATEGORIES_BY_CATEGORY: Record<(typeof MANUAL_CATEGORIES)[number
   Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers", "Others"],
   "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders", "Others"],
   Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives", "Others"],
+  Kits: ["Pre-designed kits", "Customised kits"],
 };
 
 export const emptyProductDetails: ProductInput = {

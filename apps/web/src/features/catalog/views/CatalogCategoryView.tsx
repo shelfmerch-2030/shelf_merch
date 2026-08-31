@@ -5,7 +5,9 @@ import type { CatalogVm } from "../controllers/useCatalogController";
 import {
   ALL_PRODUCTS,
   CATALOG_SUBCATEGORIES,
+  CUSTOMISED_KITS_SUBCATEGORY,
   KITS_CATEGORY,
+  PREDESIGNED_KITS_SUBCATEGORY,
   productMatchesSubcategory,
   resolveCatalogSubcategory,
 } from "../types";
@@ -81,21 +83,41 @@ export function CatalogCategoryView(vm: CatalogVm) {
     CATEGORY_COPY[vm.category] ??
     "Browse curated products in this category and open any item to see full details.";
 
-  const subcategories = useMemo(() => {
-    const defined = [...(CATALOG_SUBCATEGORIES[vm.category] ?? [])];
-    if (isKitsCategory) return defined;
-    const fromProducts = vm.items
-      .map((item) => String(item.subcategory || "").trim())
-      .filter(Boolean);
-    const merged = Array.from(new Set([...defined, ...fromProducts]));
-    const withoutOthers = merged.filter((sub) => sub !== "Others");
-    if (merged.includes("Others")) withoutOthers.push("Others");
-    return withoutOthers;
-  }, [vm.category, vm.items, isKitsCategory]);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
     resolveCatalogSubcategory(categoryParam, vm.category),
   );
   const kitsVm = useCatalogKitsController(isKitsCategory ? selectedSubcategory : null);
+
+  const subcategories = useMemo(() => {
+    const defined = [...(CATALOG_SUBCATEGORIES[vm.category] ?? [])];
+    if (isKitsCategory) {
+      return defined.filter((sub) => {
+        if (sub === PREDESIGNED_KITS_SUBCATEGORY) {
+          return (
+            kitsVm.allKits.some((kit) => kit.kind === "pre-designed") ||
+            vm.items.some((item) => productMatchesSubcategory(item, sub))
+          );
+        }
+        if (sub === CUSTOMISED_KITS_SUBCATEGORY) {
+          return (
+            kitsVm.allKits.some((kit) => kit.kind === "customised") ||
+            vm.items.some((item) => productMatchesSubcategory(item, sub))
+          );
+        }
+        return false;
+      });
+    }
+    const fromProducts = vm.items
+      .map((item) => String(item.subcategory || "").trim())
+      .filter(Boolean);
+    const merged = Array.from(new Set([...defined, ...fromProducts]));
+    const withProducts = merged.filter((sub) =>
+      vm.items.some((item) => productMatchesSubcategory(item, sub)),
+    );
+    const withoutOthers = withProducts.filter((sub) => sub !== "Others");
+    if (withProducts.includes("Others")) withoutOthers.push("Others");
+    return withoutOthers;
+  }, [vm.category, vm.items, isKitsCategory, kitsVm.allKits]);
 
   useEffect(() => {
     setSelectedSubcategory(resolveCatalogSubcategory(categoryParam, vm.category));
@@ -105,6 +127,17 @@ export function CatalogCategoryView(vm: CatalogVm) {
     if (!selectedSubcategory) return vm.items;
     return vm.items.filter((item) => productMatchesSubcategory(item, selectedSubcategory));
   }, [vm.items, selectedSubcategory]);
+
+  const hasKitProducts = filteredItems.length > 0;
+  const kitsStillLoading = kitsVm.isLoading && kitsVm.allKits.length === 0;
+  const showCombinedKitsEmpty =
+    isKitsCategory &&
+    !kitsStillLoading &&
+    !vm.isSkeleton &&
+    kitsVm.kits.length === 0 &&
+    !hasKitProducts &&
+    !kitsVm.errorMessage &&
+    !vm.errorMessage;
 
   return (
     <div className="sm-cat-page sm-cat-page--public">
@@ -183,7 +216,47 @@ export function CatalogCategoryView(vm: CatalogVm) {
 
           <div className="sm-cat-page__main">
             {isKitsCategory ? (
-              <CatalogKitsGrid {...kitsVm} />
+              <>
+                <CatalogKitsGrid
+                  {...kitsVm}
+                  suppressEmptyState={hasKitProducts || vm.isSkeleton || showCombinedKitsEmpty}
+                />
+                {vm.isSkeleton ? (
+                  <CategoryPageSkeleton />
+                ) : vm.errorMessage ? (
+                  <div className="card sm-cat-error">{vm.errorMessage}</div>
+                ) : hasKitProducts ? (
+                  <section className="sm-cat-page__results">
+                    <div className="sm-cat-page__results-head">
+                      <p className="sm-cat-page__results-count">
+                        Showing {filteredItems.length}{" "}
+                        {filteredItems.length === 1 ? "product" : "products"}
+                        {selectedSubcategory ? ` in ${selectedSubcategory}` : ""}
+                      </p>
+                      <Link to={catalogHome} className="sm-cat-page__back">
+                        Back to all categories
+                      </Link>
+                    </div>
+
+                    <div className="sm-cat-grid">
+                      {filteredItems.map((p, index) => (
+                        <ProductCard
+                          key={p.id ?? `${p.nm}-${index}`}
+                          product={p}
+                          to={p.id ? `${catalogHome}/${p.id}` : undefined}
+                          state={{ fromCatalog: pathname }}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+                {showCombinedKitsEmpty ? (
+                  <div className="card empty sm-cat-empty">
+                    <h3>No kits in this category</h3>
+                    <p className="muted">Try another subcategory or check back later for new kits.</p>
+                  </div>
+                ) : null}
+              </>
             ) : vm.isSkeleton ? (
               <CategoryPageSkeleton />
             ) : vm.errorMessage ? (

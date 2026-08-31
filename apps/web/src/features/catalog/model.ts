@@ -6,7 +6,7 @@ import {
   type CatalogProductsResult,
 } from "@/services/api-bridge";
 import type { WorkspaceSnapshot } from "@/services/workspace-api";
-import { ALL_PRODUCTS, KITS_CATEGORY } from "./types";
+import { ALL_PRODUCTS } from "./types";
 
 // Ui types re-exported here so views/controllers never import services/ directly.
 export type { UiProduct } from "@/services/mappers";
@@ -25,13 +25,12 @@ export function useCatalog(
   seed?: CatalogProductsResult,
   enabled: boolean = true,
 ) {
-  const isKitsCategory = category === KITS_CATEGORY;
   return useQuery({
     queryKey: [CATALOG_QUERY_KEY, category],
     queryFn: () => refreshCatalogProducts(category === ALL_PRODUCTS ? undefined : category),
     initialData: enabled && category === ALL_PRODUCTS ? seed : undefined,
     staleTime: 30_000,
-    enabled: enabled && !isKitsCategory,
+    enabled,
   });
 }
 

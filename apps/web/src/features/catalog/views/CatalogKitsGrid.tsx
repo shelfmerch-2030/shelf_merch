@@ -1,5 +1,7 @@
 import { KitPreviewDialog } from "@/features/kits/KitPreviewDialog";
+import { inr } from "@/components/platform/platform-ui";
 import {
+  curatedKitPriceStyle,
   curatedPreviewBtnStyle,
   curatedSendBtnStyle,
 } from "@/features/kits/curatedKitCardStyles";
@@ -29,6 +31,7 @@ export function CatalogKitsGrid(vm: CatalogKitsVm) {
   }
 
   if (vm.kits.length === 0) {
+    if (vm.suppressEmptyState) return null;
     return (
       <div className="card empty sm-cat-empty">
         <h3>No kits in this category</h3>
@@ -95,7 +98,7 @@ export function CatalogKitsGrid(vm: CatalogKitsVm) {
               <div className="muted" style={{ fontSize: 11.5, marginBottom: 10, textAlign: "center" }}>
                 {kit.subtitle}
               </div>
-              <div style={{ display: "flex", gap: 8, width: "100%" }}>
+              <div style={{ display: "flex", gap: 8, width: "100%", alignItems: "center" }}>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
@@ -104,6 +107,11 @@ export function CatalogKitsGrid(vm: CatalogKitsVm) {
                 >
                   Preview
                 </button>
+                {kit.pricePerKitInr != null && kit.pricePerKitInr > 0 ? (
+                  <div style={curatedKitPriceStyle} aria-label={`Price per kit ${inr(kit.pricePerKitInr)}`}>
+                    {inr(kit.pricePerKitInr)}
+                  </div>
+                ) : null}
                 {vm.canSendKits ? (
                   <button
                     type="button"
