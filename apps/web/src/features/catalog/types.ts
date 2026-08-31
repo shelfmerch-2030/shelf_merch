@@ -10,10 +10,14 @@ export const CATALOG_CATEGORIES = [
   "Drinkware",
   "Technology",
   "Office Supplies",
+  "Kits",
   // "Health & Wellness",
 ] as const;
 
 export const ALL_PRODUCTS = "All Products";
+export const KITS_CATEGORY = "Kits";
+export const PREDESIGNED_KITS_SUBCATEGORY = "Pre-designed kits";
+export const CUSTOMISED_KITS_SUBCATEGORY = "Customised kits";
 
 /** Subcategories shown on each category browse page. */
 export const CATALOG_SUBCATEGORIES: Record<string, readonly string[]> = {
@@ -23,6 +27,7 @@ export const CATALOG_SUBCATEGORIES: Record<string, readonly string[]> = {
   Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers", "Others"],
   "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders", "Others"],
   Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives", "Others"],
+  Kits: [PREDESIGNED_KITS_SUBCATEGORY, CUSTOMISED_KITS_SUBCATEGORY],
 };
 
 /** Legacy subcategory URL slugs that resolve to a parent category + subcategory filter. */
@@ -46,6 +51,7 @@ const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
   office: "Office Supplies",
   "office-supplies": "Office Supplies",
   all: "All Products",
+  kits: "Kits",
   // Legacy / subcategory URLs → parent category pages
   keys: "Accessories",
   "key-chains": "Accessories",

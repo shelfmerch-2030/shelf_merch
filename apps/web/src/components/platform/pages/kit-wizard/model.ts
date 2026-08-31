@@ -14,6 +14,7 @@ export {
   type KitInput,
   type KitItem,
   type KitItemImage,
+  type KitVariantImage,
   type PlatformKit,
   type ProductVariant,
 } from "@/services/platform-api";

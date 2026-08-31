@@ -263,8 +263,9 @@ export type PlatformKitTemplate = {
   packaging?: "none" | "box" | "premium_box";
   imageUrls?: string[];
   heroImage?: string;
+  galleryImages?: string[];
   itemImages?: Array<{ imageUrl: string; label?: string }>;
-  variantImages?: string[];
+  variantImages?: Array<{ imageUrl: string; label?: string }>;
   approxValueInr?: number;
   items?: Array<{ catalogProductId: string; qty?: number }>;
   status?: string;
@@ -272,6 +273,11 @@ export type PlatformKitTemplate = {
 
 export async function refreshPlatformKits(): Promise<PlatformKitTemplate[]> {
   return apiFetch<PlatformKitTemplate[]>("/catalog/kits");
+}
+
+/** Active platform kits for public catalog browse (no tenant auth required). */
+export async function refreshCatalogKitsPublic(): Promise<PlatformKitTemplate[]> {
+  return publicFetch<PlatformKitTemplate[]>("/catalog/kits/public");
 }
 
 /** Apply a workspace snapshot onto the legacy shelf-merch.js global state object. */
@@ -941,6 +947,8 @@ export type KitRedemptionData = {
   curatedBundle?: boolean;
   /** Curated kit appearance variants (same gallery roles as superadmin). */
   variantImages?: string[];
+  /** Named variant rows — prefer for display labels. */
+  kitVariants?: Array<{ imageUrl: string; label?: string }>;
   requiresKitVariant?: boolean;
 };
 

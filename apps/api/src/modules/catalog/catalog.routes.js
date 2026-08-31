@@ -8,6 +8,7 @@ import { objectId } from '../users/users.validation.js';
 import { categoryFilter, tenantCatalogFilter, withEnabledVariants } from './catalogFilters.js';
 import { CatalogProduct } from './catalogProduct.model.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
+import { withNormalizedVariantImages } from '../kits/kitVariantImages.js';
 import { NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 
@@ -49,6 +50,20 @@ router.get(
   }),
 );
 
+// Public kit browse for the marketing catalog (active platform kits only).
+router.get(
+  '/kits/public',
+  asyncHandler(async (_req, res) => {
+    const kits = await PlatformKit.find({ status: 'active' })
+      .select(
+        'name description packaging imageUrls heroImage galleryImages itemImages variantImages approxValueInr items status',
+      )
+      .sort({ name: 1 })
+      .lean();
+    res.json(kits.map(withNormalizedVariantImages));
+  }),
+);
+
 // Kits remain tenant-authenticated. Product browse is public so the marketing
 // catalog can render without a login.
 router.use(authenticate);
@@ -61,7 +76,7 @@ router.get(
   requireTenantContext,
   asyncHandler(async (_req, res) => {
     const kits = await PlatformKit.find({ status: 'active' }).sort({ name: 1 }).lean();
-    res.json(kits);
+    res.json(kits.map(withNormalizedVariantImages));
   }),
 );
 
@@ -73,7 +88,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const kit = await PlatformKit.findOne({ _id: req.params.id, status: 'active' }).lean();
     if (!kit) throw new NotFoundError('Kit not found');
-    res.json(kit);
+    res.json(withNormalizedVariantImages(kit));
   }),
 );
 

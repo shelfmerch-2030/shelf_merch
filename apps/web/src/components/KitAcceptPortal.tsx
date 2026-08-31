@@ -6,6 +6,7 @@ import {
 } from "@/services/api-bridge";
 import ProductArtworkMockup from "./store/ProductArtworkMockup";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
 import type { ShippingAddress } from "./store/StoreShell";
 
@@ -162,7 +163,19 @@ export default function KitAcceptPortal({
   const [selections, setSelections] = useState<Record<string, Selection>>(() =>
     Object.fromEntries(kitData.items.map((i) => [i.productId, {}])),
   );
-  const variantImages = kitData.variantImages || [];
+  const kitVariants = useMemo(() => {
+    if (kitData.kitVariants?.length) {
+      return kitData.kitVariants.map((v, i) => ({
+        imageUrl: resolveMediaUrl(v.imageUrl) || v.imageUrl,
+        label: v.label?.trim() || variantLabel({ imageUrl: v.imageUrl, label: v.label }, i),
+      }));
+    }
+    return normalizeVariantImages(kitData.variantImages).map((v, i) => ({
+      imageUrl: resolveMediaUrl(v.imageUrl) || v.imageUrl,
+      label: variantLabel(v, i),
+    }));
+  }, [kitData.kitVariants, kitData.variantImages]);
+  const variantImages = kitVariants.map((v) => v.imageUrl);
   const [kitVariantImage, setKitVariantImage] = useState(
     () => (kitData.requiresKitVariant ? variantImages[0] || "" : ""),
   );
@@ -311,14 +324,14 @@ export default function KitAcceptPortal({
                 marginBottom: 32,
               }}
             >
-              {variantImages.map((url, idx) => {
-                const selected = kitVariantImage === url;
+              {kitVariants.map((variant) => {
+                const selected = kitVariantImage === variant.imageUrl;
                 return (
                   <button
-                    key={`${url}-${idx}`}
+                    key={`${variant.imageUrl}-${variant.label}`}
                     type="button"
                     className="card"
-                    onClick={() => setKitVariantImage(url)}
+                    onClick={() => setKitVariantImage(variant.imageUrl)}
                     style={{
                       padding: 12,
                       borderRadius: 12,
@@ -341,12 +354,12 @@ export default function KitAcceptPortal({
                       }}
                     >
                       <img
-                        src={resolveMediaUrl(url)}
-                        alt={`Variant ${idx + 1}`}
+                        src={variant.imageUrl}
+                        alt={variant.label}
                         style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                       />
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 700 }}>Variant {idx + 1}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700 }}>{variant.label}</div>
                   </button>
                 );
               })}

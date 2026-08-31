@@ -60,6 +60,24 @@ export function KitsView({ data, error, loading, canWrite }: KitsVm) {
               label: "Items",
               render: (r) => String(Array.isArray(r.items) ? r.items.length : 0),
             },
+            {
+              key: "images",
+              label: "Images",
+              render: (r) => {
+                const hero = Boolean(String(r.heroImage || "").trim());
+                const gallery = Array.isArray(r.galleryImages) ? r.galleryImages.length : 0;
+                const items = Array.isArray(r.itemImages) ? r.itemImages.length : 0;
+                const variants = Array.isArray(r.variantImages) ? r.variantImages.length : 0;
+                return (
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {hero ? "Hero" : "—"}
+                    {gallery ? ` · ${gallery} gallery` : ""}
+                    {items ? ` · ${items} product${items === 1 ? "" : "s"}` : ""}
+                    {variants ? ` · ${variants} variant${variants === 1 ? "" : "s"}` : ""}
+                  </span>
+                );
+              },
+            },
           ]}
         />
       )}

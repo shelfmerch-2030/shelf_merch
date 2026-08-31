@@ -9,7 +9,7 @@ import { PaymentPanel } from "@/features/send/PaymentPanel";
 import type { SendKitVm } from "../controllers/useSendKitController";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
-import { curatedIncludedItems } from "../KitPreviewDialog";
+import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog";
 import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
@@ -204,14 +204,10 @@ export function SendKitView(vm: SendKitVm) {
       )
     : [];
 
-  const curatedVariantImages = (() => {
-    if (!curatedMeta) return [] as string[];
-    if (curatedMeta.variantImages?.length) return curatedMeta.variantImages;
-    const platformKit = platformKits?.find(
-      (k) => String(k._id) === String(curatedMeta.originalId),
-    );
-    return platformKit?.variantImages || [];
-  })();
+  const curatedKitVariants = curatedMeta
+    ? curatedKitVariantRows(curatedMeta, platformKits)
+    : [];
+  const curatedVariantImages = curatedKitVariants.map((v) => v.imageUrl);
   const activeCuratedVariant =
     selectedCuratedVariant && curatedVariantImages.includes(selectedCuratedVariant)
       ? selectedCuratedVariant
@@ -410,6 +406,10 @@ export function SendKitView(vm: SendKitVm) {
                     </p>
                   </div>
                 </div>
+                <p className="muted" style={{ margin: "10px 0 0", fontSize: 12, lineHeight: 1.5 }}>
+                  This logo will be printed in the design area as shown in the images; there may be slight
+                  variation in colour when printed.
+                </p>
               </div>
 
               {curatedVariantImages.length > 0 ? (
@@ -418,13 +418,13 @@ export function SendKitView(vm: SendKitVm) {
                     Variants
                   </label>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
-                    {curatedVariantImages.map((url, idx) => {
-                      const selected = activeCuratedVariant === url;
+                    {curatedKitVariants.map((variant) => {
+                      const selected = activeCuratedVariant === variant.imageUrl;
                       return (
                         <button
-                          key={`${url}-${idx}`}
+                          key={`${variant.imageUrl}-${variant.label}`}
                           type="button"
-                          onClick={() => setSelectedCuratedVariant(url)}
+                          onClick={() => setSelectedCuratedVariant(variant.imageUrl)}
                           className="card"
                           style={{
                             padding: 12,
@@ -437,12 +437,12 @@ export function SendKitView(vm: SendKitVm) {
                         >
                           <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
                             <img
-                              src={resolveMediaUrl(url)}
-                              alt={`Variant ${idx + 1}`}
+                              src={variant.imageUrl}
+                              alt={variant.label}
                               style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                             />
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700 }}>Variant {idx + 1}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700 }}>{variant.label}</div>
                         </button>
                       );
                     })}
@@ -850,9 +850,9 @@ export function SendKitView(vm: SendKitVm) {
                               disabled={!isSelected}
                             >
                               <option value="">Select variant…</option>
-                              {curatedVariantImages.map((url, idx) => (
-                                <option key={`${url}-${idx}`} value={url}>
-                                  Variant {idx + 1}
+                              {curatedKitVariants.map((variant) => (
+                                <option key={variant.imageUrl} value={variant.imageUrl}>
+                                  {variant.label}
                                 </option>
                               ))}
                             </select>
