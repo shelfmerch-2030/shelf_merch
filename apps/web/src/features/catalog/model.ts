@@ -53,5 +53,6 @@ export function useCatalogProduct(id: string, workspace?: WorkspaceSnapshot) {
     initialData: fromWorkspace,
     enabled: Boolean(id),
     staleTime: 30_000,
+    refetchOnMount: "always",
   });
 }

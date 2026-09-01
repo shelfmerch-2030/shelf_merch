@@ -159,9 +159,9 @@ export function CatalogCategoryView(vm: CatalogVm) {
             <p className="sm-cat-page__eyebrow">The best in</p>
             <h1 className="sm-cat-page__title">{vm.category}</h1>
             <p className="sm-cat-page__copy">{heroCopy}</p>
-            <button type="button" className="sm-cat-page__view-all" onClick={() => setSelectedSubcategory(null)}>
+            {/* <button type="button" className="sm-cat-page__view-all" onClick={() => setSelectedSubcategory(null)}>
               View all {vm.category}
-            </button>
+            </button> */}
             <div className="sm-cat-page__hero-nav">
               <button
                 type="button"

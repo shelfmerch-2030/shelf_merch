@@ -11,6 +11,7 @@ import {
 import { DesignedProductThumb } from "./DesignedProductThumb";
 import { listProductViews, type ProductViewKey } from "./mockup-bake";
 import { MockupViewGallery } from "./MockupViewGallery";
+import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
 
 export type SwagDesignTarget = { collection: UiCollection; product: UiProduct; pIdx: number };
 
@@ -57,9 +58,6 @@ export function SwagProductDetail({
         <div className="swag-detail-modal__titles">
           <div className="eyebrow">{collection.name}</div>
           <h1 style={{ fontSize: 22, margin: "4px 0 6px" }}>{title}</h1>
-          {product.price ? (
-            <p className="swag-detail-price">{product.price}</p>
-          ) : null}
         </div>
         <button type="button" className="btn btn-dark swag-detail-modal__cta" onClick={onAddToShop}>
           <Store size={16} /> Add to shop
@@ -131,6 +129,12 @@ export function SwagProductDetail({
               </div>
             </div>
           )}
+
+          <CatalogPrice
+            price={product.price}
+            basePriceInr={product.basePriceInr}
+            size="detail"
+          />
 
           <ProductInfoTabs product={product} />
         </div>

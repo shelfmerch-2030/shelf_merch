@@ -29,7 +29,9 @@ import emptyBagImg from "../../../assets/empty-bag.svg";
 import { StoreAccountMenu, type StoreOrderItem, type StoreOrderSummary } from "./StoreAccountMenu";
 import { StoreEmptyState } from "./StoreEmptyState";
 import { StorePageShell } from "./StorePageShell";
+import { HOME_FEATURED_COUNT, StoreHomePage } from "./StoreHomePage";
 import { SizeGuideTable } from "@/components/SizeGuideTable";
+import { ProductInfoTabs } from "@/features/catalog/views/ProductInfoTabs";
 import { CountrySelect } from "@/features/send/CountrySelect";
 import {
   checkoutFormValid,
@@ -891,6 +893,9 @@ export default function StoreShell({
   const storageKey = cartStorageKey(cartPersistId);
   const isShopper = mode === "redeem" || mode === "store";
   const [page, setPage] = useState<Page>("home");
+  const [plpCategoryNavigate, setPlpCategoryNavigate] = useState<{ category: string | null; at: number } | null>(
+    null,
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>(() => (storageKey ? readStoredCart(storageKey) : []));
   const [error, setError] = useState("");
@@ -1086,14 +1091,9 @@ export default function StoreShell({
     return `₹${inr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  /** Stadium-style product price — bold "Pts" or ₹ on cards.
-   *  Public / self-pay points shoppers also see INR equivalent. */
+  /** Stadium-style product price — points stores show Pts only; INR stores show ₹ only. */
   function fmtCardPrice(inr: number) {
-    const base = formatStoreCardPrice(inr, storeCurrency);
-    if (mode === "store" && storeCurrency === "points" && (balanceInr ?? 0) <= 0) {
-      return `${base} (${fmtUpiAmount(inr)})`;
-    }
-    return base;
+    return formatStoreCardPrice(inr, storeCurrency);
   }
 
   function navBalanceLabel() {
@@ -1194,7 +1194,8 @@ export default function StoreShell({
     setPage("product");
   }
 
-  function browseRewards() {
+  function browseRewards(category: string | null = null) {
+    setPlpCategoryNavigate({ category, at: Date.now() });
     setPage("products");
   }
 
@@ -1422,36 +1423,17 @@ export default function StoreShell({
     }
   }
 
-  const filteredBySearch = useMemo(() => {
-    if (!searchQuery.trim()) return products;
-    const q = searchQuery.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.category || "").toLowerCase().includes(q) ||
-        (p.brand || "").toLowerCase().includes(q),
-    );
-  }, [products, searchQuery]);
-
-  const { featuredProducts, remainingProducts } = useMemo(() => {
-    // Featured picks UI is temporarily disabled — always show 5 most recently added
-    // (API returns products newest-first via collection publish / created time).
-    return {
-      featuredProducts: filteredBySearch.slice(0, 5),
-      remainingProducts: filteredBySearch.slice(5),
-    };
-  }, [filteredBySearch]);
+  const homeFeaturedProducts = useMemo(() => products.slice(0, HOME_FEATURED_COUNT), [products]);
 
   const userInitials = recipientName
     ? recipientName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
     : "SM";
   const displayName = truncTopbarName(recipientName || (mode === "preview" ? "Preview" : "Guest"));
   const workspaceLabel = shop.name.toLowerCase();
-
-  const heroBannerUrl = shopHeroBannerUrl(shop) || "/images/hero-banner.png";
-  const heroBannerLabel = shop.bannerImageUrl
+  const homeBannerUrl = shopHeroBannerUrl(shop);
+  const homeBannerAlt = shop.bannerImageUrl
     ? `${shop.name} banner`
-    : shopBannerPresetLabel(shop.bannerPreset) || "Feliz Dia de los Muertos";
+    : shopBannerPresetLabel(shop.bannerPreset) || `${shop.name} banner`;
 
   /* ─── RENDER ─── */
   return (
@@ -1660,71 +1642,26 @@ export default function StoreShell({
 
       {/* ────── HOME ────── */}
       {page === "home" && (
-        <>
-          {/* Hero banner */}
-          <div className="sf-hero-banner">
-            <div className="sf-hero-banner-frame">
-              <img
-                src={heroBannerUrl}
-                alt={heroBannerLabel}
-                className="sf-hero-banner-img"
-                loading="eager"
-                decoding="async"
+        <StoreHomePage
+          products={products}
+          contentRef={catalogRef}
+          bannerUrl={homeBannerUrl || undefined}
+          bannerAlt={homeBannerAlt}
+          onViewAllProducts={() => browseRewards()}
+          onBrowseCategory={(category) => browseRewards(category)}
+          productGrid={
+            homeFeaturedProducts.length > 0 ? (
+              <StadiumProductGrid
+                products={homeFeaturedProducts}
+                shopBrand={shop.name}
+                onOpen={openProduct}
+                priceLabel={fmtCardPrice}
+                showSwatches
+                gridClassName="sf-product-grid--home"
               />
-              <div className="sf-hero-banner-overlay" aria-hidden="true" />
-            </div>
-          </div>
-
-          {/* Catalog */}
-          <div className="sf-content" ref={catalogRef}>
-            {products.length > 0 ? (
-              <>
-                <div className="sf-section-header sf-section-header--stadium">
-                  <h2 className="sf-section-title sf-section-title--stadium">Featured Products</h2>
-                  {products.length > 5 ? (
-                    <button type="button" className="sf-view-all" onClick={() => setPage("products")}>
-                      View all <ArrowRightIcon />
-                    </button>
-                  ) : null}
-                </div>
-                <StadiumProductGrid
-                  products={featuredProducts}
-                  shopBrand={shop.name}
-                  onOpen={openProduct}
-                  priceLabel={fmtCardPrice}
-                />
-                {remainingProducts.length > 0 ? (
-                  <>
-                    <div className="sf-section-header sf-section-header--stadium" style={{ marginTop: 48 }}>
-                      <h2 className="sf-section-title sf-section-title--stadium">All Products</h2>
-                      <p className="sf-section-subtitle sf-section-subtitle--stadium">
-                        {products.length} items available
-                      </p>
-                    </div>
-                    <StadiumProductGrid
-                      products={remainingProducts}
-                      shopBrand={shop.name}
-                      onOpen={openProduct}
-                      priceLabel={fmtCardPrice}
-                    />
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <div className="sf-no-products">
-                <img
-                  src={emptyBagImg}
-                  alt=""
-                  className="sf-no-products-icon"
-                  width={119}
-                  height={104}
-                  aria-hidden="true"
-                />
-                <p className="sf-no-products-title">No products yet</p>
-              </div>
-            )}
-          </div>
-        </>
+            ) : null
+          }
+        />
       )}
 
       {/* ────── PRODUCTS ────── */}
@@ -1733,6 +1670,7 @@ export default function StoreShell({
           <ProductsPageWithFilters
             products={products}
             searchQuery={searchQuery}
+            categoryNavigate={plpCategoryNavigate}
             onOpen={openProduct}
             onAddToBag={(p) => {
               const colors = productColorOptions(p);
@@ -2987,6 +2925,7 @@ type PlpSort = "featured" | "price-asc" | "price-desc" | "name";
 function ProductsPageWithFilters({
   products,
   searchQuery,
+  categoryNavigate,
   onOpen,
   onAddToBag,
   priceLabel,
@@ -2995,6 +2934,7 @@ function ProductsPageWithFilters({
 }: {
   products: StoreProduct[];
   searchQuery: string;
+  categoryNavigate?: { category: string | null; at: number } | null;
   onOpen: (id: string) => void;
   onAddToBag: (p: StoreProduct) => void;
   priceLabel: (inr: number) => string;
@@ -3012,6 +2952,12 @@ function ProductsPageWithFilters({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
   const [openFilters, setOpenFilters] = useState({ size: true, color: true, range: true });
+
+  useEffect(() => {
+    if (!categoryNavigate) return;
+    setFilterCategory(categoryNavigate.category);
+    setSelectedGroups([]);
+  }, [categoryNavigate?.at]);
 
   const priceExtent = useMemo(() => {
     if (!products.length) return { min: 0, max: 0 };
@@ -3498,12 +3444,16 @@ function StadiumProductGrid({
   onOpen,
   priceLabel,
   onAddToBag,
+  showSwatches = false,
+  gridClassName,
 }: {
   products: StoreProduct[];
   shopBrand: string;
   onOpen: (id: string) => void;
   priceLabel: (inr: number) => string;
   onAddToBag?: (p: StoreProduct) => void;
+  showSwatches?: boolean;
+  gridClassName?: string;
 }) {
   if (products.length === 0) {
     return (
@@ -3515,7 +3465,7 @@ function StadiumProductGrid({
     );
   }
   return (
-    <div className="sf-product-grid sf-product-grid--stadium">
+    <div className={`sf-product-grid sf-product-grid--stadium${gridClassName ? ` ${gridClassName}` : ""}`}>
       {products.map((p) => (
         <StadiumProductCard
           key={p._id}
@@ -3524,6 +3474,7 @@ function StadiumProductGrid({
           price={priceLabel(p.basePriceInr)}
           onOpen={() => onOpen(p._id)}
           onAddToBag={onAddToBag ? () => onAddToBag(p) : undefined}
+          showSwatches={showSwatches}
         />
       ))}
     </div>
@@ -3537,6 +3488,7 @@ function StadiumProductCard({
   onOpen,
   onAddToBag,
   listMode = false,
+  showSwatches = false,
 }: {
   product: StoreProduct;
   brandLabel: string;
@@ -3544,7 +3496,12 @@ function StadiumProductCard({
   onOpen: () => void;
   onAddToBag?: () => void;
   listMode?: boolean;
+  showSwatches?: boolean;
 }) {
+  const colors = showSwatches ? productColorOptions(product) : [];
+  const visibleColors = colors.slice(0, 4);
+  const extraColors = colors.length - visibleColors.length;
+
   return (
     <article className={`sf-pcard sf-pcard--stadium${listMode ? " sf-pcard--list" : ""}`}>
       <button type="button" className="sf-pcard-media" onClick={onOpen} aria-label={product.name}>
@@ -3556,6 +3513,20 @@ function StadiumProductCard({
         <button type="button" className="sf-pcard-text" onClick={onOpen}>
           <div className="sf-pcard-brand">{brandLabel}</div>
           <div className="sf-pcard-name">{product.name}</div>
+          {showSwatches && visibleColors.length > 0 ? (
+            <div className="sf-pcard-swatches">
+              {visibleColors.map((c) => (
+                <span
+                  key={c.name}
+                  className="sf-pcard-sw"
+                  style={{ background: c.hex }}
+                  title={c.name}
+                  aria-hidden="true"
+                />
+              ))}
+              {extraColors > 0 ? <span className="sf-pcard-sw-more">+{extraColors}</span> : null}
+            </div>
+          ) : null}
           <div className="sf-pcard-price">{price}</div>
         </button>
         {onAddToBag ? (
@@ -3574,27 +3545,6 @@ function StadiumProductCard({
       </div>
     </article>
   );
-}
-
-function parseDetailRows(value?: string): [string, string][] {
-  return String(value ?? "")
-    .split("\n")
-    .map((line) => {
-      const split = line.indexOf(":");
-      if (split > 0) return [line.slice(0, split).trim(), line.slice(split + 1).trim()] as [string, string];
-      const trimmed = line.trim();
-      return (trimmed ? [trimmed, ""] : ["", ""]) as [string, string];
-    })
-    .filter(([label, rowValue]) => label || rowValue);
-}
-
-function detailText(value: string) {
-  return value.split("\n").map((line, i, lines) => (
-    <span key={i}>
-      {line}
-      {i < lines.length - 1 ? <br /> : null}
-    </span>
-  ));
 }
 
 function SizeGuideModal({
@@ -3643,80 +3593,6 @@ function SizeGuideModal({
         </div>
       </div>
     </>
-  );
-}
-
-function ProductInfoAccordion({
-  product,
-  expanded,
-  onToggle,
-  onOpenSizeGuide,
-}: {
-  product: StoreProduct;
-  expanded: boolean;
-  onToggle: () => void;
-  onOpenSizeGuide?: () => void;
-}) {
-  const description = product.description?.trim() || "";
-  const keyFeatures = product.keyFeatures?.trim() || "";
-  const sizeGuide = product.sizeGuide?.trim() || "";
-  const featureRows = parseDetailRows(keyFeatures);
-  const hasContent = description || featureRows.length || !!sizeGuide;
-
-  if (!hasContent) return null;
-
-  return (
-    <div className="sf-pdp-accordion">
-      <button
-        type="button"
-        className="sf-pdp-accordion-head"
-        aria-expanded={expanded}
-        onClick={onToggle}
-      >
-        <span>Product Information</span>
-        <span className="sf-pdp-accordion-icon" aria-hidden="true">
-          {expanded ? <MinusIcon /> : <PlusIcon />}
-        </span>
-      </button>
-
-      {expanded ? (
-        <div className="sf-pdp-accordion-body">
-          {description ? (
-            <div className="sf-pdp-accordion-section">
-              <p className="sf-pdp-desc">{detailText(description)}</p>
-            </div>
-          ) : null}
-
-          {featureRows.length > 0 ? (
-            <div className="sf-pdp-accordion-section">
-              <div className="sf-pdp-accordion-subhead">Key features</div>
-              <div className="sf-pdp-feature-list">
-                {featureRows.map(([label, value]) => (
-                  <div key={`${label}-${value}`} className="sf-pdp-feature-row">
-                    <div>{label}</div>
-                    <div>{value ? detailText(value) : null}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {sizeGuide ? (
-            <div className="sf-pdp-accordion-section">
-              <div className="sf-pdp-accordion-subhead-row">
-                <div className="sf-pdp-accordion-subhead">Size guide</div>
-                {onOpenSizeGuide ? (
-                  <button type="button" className="sf-pdp-size-guide" onClick={onOpenSizeGuide}>
-                    View chart
-                  </button>
-                ) : null}
-              </div>
-              <SizeGuideTable sizeGuide={sizeGuide} />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -4085,7 +3961,6 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   const [selColor, setSelColor] = useState(() => primaryColorIndex(colorOptions));
   const [hasUserPickedColor, setHasUserPickedColor] = useState(false);
   const [qty, setQty] = useState(1);
-  const [infoOpen, setInfoOpen] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [mockupView, setMockupView] = useState<ProductViewKey>("front");
   const selectedColor = colorOptions[selColor];
@@ -4110,7 +3985,6 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
 
   const [size, setSize] = useState<string | undefined>(() => (sizes.length === 1 ? sizes[0] : undefined));
   const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor);
-  const hasProductInfo = !!(product.description?.trim() || product.keyFeatures?.trim() || product.sizeGuide?.trim());
   const sizeRequired = sizes.length > 1;
   const canAdd = !sizeRequired || !!size;
   const productViews = productViewKeys(product);
@@ -4122,7 +3996,6 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
     // Size depends on the selected color; the next effect will sync it after `selColor` updates.
     setSize(undefined);
     setQty(1);
-    setInfoOpen(false);
     setSizeGuideOpen(false);
     setMockupView("front");
   }, [product._id, colorOptions]);
@@ -4263,14 +4136,17 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
             <p className="sf-pdp-preview-note">Sign in to add this item to your bag.</p>
           )}
 
-          {hasProductInfo ? (
-            <ProductInfoAccordion
-              product={product}
-              expanded={infoOpen}
-              onToggle={() => setInfoOpen((v) => !v)}
-              onOpenSizeGuide={product.sizeGuide ? openSizeGuide : undefined}
-            />
-          ) : null}
+          <ProductInfoTabs
+            product={{
+              id: product._id,
+              nm: product.name,
+              description: product.description,
+              keyFeatures: product.keyFeatures,
+              sizeGuide: product.sizeGuide,
+            }}
+            variant="shop"
+            onOpenSizeGuide={product.sizeGuide ? openSizeGuide : undefined}
+          />
 
           {product.sizeGuide ? (
             <SizeGuideModal
@@ -4281,10 +4157,10 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
           ) : null}
 
           <div className="sf-pdp-footnotes">
-            <div className="sf-pdp-footnote">
+            {/* <div className="sf-pdp-footnote">
               <TruckIcon />
               <span>One print location, basic decoration, and shipping included.</span>
-            </div>
+            </div> */}
             <div className="sf-pdp-footnote sf-pdp-footnote--green">
               <LeafIcon />
               <span>Sustainable printing</span>

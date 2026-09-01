@@ -478,7 +478,7 @@ export function SendKitView(vm: SendKitVm) {
                     Kit designs
                   </label>
                   <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
-                    Each option is a different look for this curated kit. Recipients can be assigned a design on the next step.
+                  Available variants for this kit are shown below. You can select the preferred variant for each recipient in the next step.
                   </p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
                     {curatedKitVariants.map((variant) => {

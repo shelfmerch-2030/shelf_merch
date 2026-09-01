@@ -30,6 +30,17 @@ export function useCatalogProductController(): CatalogProductVm {
     ...fallback.filter((item) => !sameCategory.some((match) => match.id === item.id)),
   ].slice(0, 3);
 
+  const workspaceProduct = catalogProducts.find((p) => p.id === id);
+  const mergedProduct = product
+    ? {
+        ...workspaceProduct,
+        ...product,
+        variants: product.variants?.length ? product.variants : workspaceProduct?.variants,
+        colors: product.colors?.length ? product.colors : workspaceProduct?.colors,
+        colorHexByName: product.colorHexByName ?? workspaceProduct?.colorHexByName,
+      }
+    : workspaceProduct;
+
   return {
     isLoading: isLoading && !product,
     errorMessage: isError
@@ -37,7 +48,7 @@ export function useCatalogProductController(): CatalogProductVm {
         ? error.message
         : "Could not load product"
       : null,
-    product,
+    product: mergedProduct,
     index: safeIndex,
     suggestions,
   };

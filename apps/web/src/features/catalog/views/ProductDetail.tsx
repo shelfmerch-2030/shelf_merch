@@ -1,9 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
-import { SizeGuideTable } from "@/components/SizeGuideTable";
+import { productSwatches } from "../types";
+import { CatalogPrice } from "./CatalogPrice";
+import { ProductInfoTabs } from "./ProductInfoTabs";
 
 type GalleryItem = { key: string; label: string; url: string };
+
+function defaultColorIndex(swatches: { name: string }[]): number {
+  const whiteIdx = swatches.findIndex((c) => c.name.toLowerCase().trim() === "white");
+  return whiteIdx >= 0 ? whiteIdx : 0;
+}
+
+function distinctSizes(
+  variants: UiProduct["variants"],
+  colorName?: string,
+): string[] {
+  if (!variants?.length) return [];
+  const seen = new Set<string>();
+  const sizes: string[] = [];
+  for (const v of variants) {
+    const size = v.size?.trim();
+    if (!size) continue;
+    if (colorName) {
+      const vColor = (v.color || "").trim().toLowerCase();
+      if (vColor && vColor !== colorName.toLowerCase()) continue;
+    }
+    if (seen.has(size)) continue;
+    seen.add(size);
+    sizes.push(size);
+  }
+  return sizes;
+}
 
 /** Dedupe by path so Shopify primary + gallery rows with ?v= params collapse once. */
 function galleryUrlKey(url: string): string {
@@ -61,8 +89,13 @@ function catalogGalleryItems(product: UiProduct): GalleryItem[] {
 /** Read-only catalog product detail (description / key features / size guide). */
 export function ProductDetail({ product }: { product: UiProduct; index: number }) {
   const gallery = useMemo(() => catalogGalleryItems(product), [product]);
+  const swatches = useMemo(() => productSwatches(product), [product]);
   const [activeKey, setActiveKey] = useState(gallery[0]?.key || "");
-  const [openPanel, setOpenPanel] = useState<"info" | "size" | null>(null);
+  const [selColor, setSelColor] = useState(() => defaultColorIndex(swatches));
+  const [selSize, setSelSize] = useState<string | undefined>();
+  const [openAccordion, setOpenAccordion] = useState<"info" | "features" | "size" | "printing" | null>(
+    null,
+  );
 
   useEffect(() => {
     setActiveKey(gallery[0]?.key || "");
@@ -74,21 +107,29 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
     }
   }, [activeKey, gallery]);
 
+  useEffect(() => {
+    setSelColor(defaultColorIndex(swatches));
+    setSelSize(undefined);
+  }, [product.id, swatches]);
+
   const active = gallery.find((item) => item.key === activeKey) || gallery[0];
-  const desc = product.description?.trim() || "No product information available.";
   const showThumbs = gallery.length > 1;
   const productTitle = product.nm?.trim() || product.brand?.trim() || "Shelf Merch Product";
-  const displayPriceLabel = (product.price || (product.basePriceInr ? `Rs${product.basePriceInr}` : ""))
-    .replace(/₹|₨|â‚¹|â‚¨/g, "Rs")
-    .replace(/^Rs\.?\s*/i, "Rs");
-  const displayPriceParts = displayPriceLabel.match(/^(.*?)(Rs)\s?(.+)$/i);
-  const priceLabel = (product.price || (product.basePriceInr ? `₨${product.basePriceInr}` : ""))
-    .replace(/₹/g, "₨")
-    .replace(/^Rs\.?\s*/i, "₨");
-  const priceParts = priceLabel.match(/^(.*?)([₨₹])\s?(.+)$/u);
+  const selectedColor = swatches[selColor];
+  const sizes = useMemo(
+    () => distinctSizes(product.variants, selectedColor?.name),
+    [product.variants, selectedColor?.name],
+  );
+  const allSizes = useMemo(() => distinctSizes(product.variants), [product.variants]);
+  const displaySizes = sizes.length ? sizes : allSizes;
 
-  void priceLabel;
-  void priceParts;
+  useEffect(() => {
+    setSelSize((cur) => {
+      if (displaySizes.length === 1) return displaySizes[0];
+      if (cur && displaySizes.includes(cur)) return cur;
+      return undefined;
+    });
+  }, [displaySizes]);
 
   return (
     <div className="catalog-pdp">
@@ -150,41 +191,56 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
         <div className="catalog-pdp-info">
           <div className="catalog-pdp-summary">
             <h1 className="catalog-pdp-brand">{productTitle}</h1>
-            {displayPriceLabel ? (
-              <div className="catalog-pdp-price-block">
-                <div className="catalog-pdp-price">
-                  {displayPriceParts ? (
-                    <>
-                      {displayPriceParts[1] ? <span className="catalog-pdp-price-prefix">{displayPriceParts[1]}</span> : null}
-                      <span className="catalog-pdp-price-symbol">₹ </span>
-                      <span className="catalog-pdp-price-amount">{displayPriceParts[3]}</span>
-                    </>
-                  ) : (
-                    displayPriceLabel
-                  )}
-                </div>
-              </div>
-            ) : null}
+            <CatalogPrice
+              price={product.price}
+              basePriceInr={product.basePriceInr}
+              size="detail"
+            />
           </div>
 
-          {showThumbs ? (
+          {swatches.length > 0 ? (
             <div className="catalog-pdp-colors">
-              <div className="catalog-pdp-color-thumbs flex flex-row gap-2">
-                {gallery.map((item) => (
+              <div className="catalog-pdp-colour-label">
+                Colour: <strong>{selectedColor?.name || "—"}</strong>
+              </div>
+              <div className="catalog-pdp-color-swatches" role="list" aria-label="Colour variants">
+                {swatches.map((swatch, i) => (
                   <button
-                    key={item.key}
+                    key={swatch.name}
                     type="button"
-                    aria-label={`Select ${item.label}`}
-                    className={`catalog-pdp-color-thumb${active?.key === item.key ? " catalog-pdp-color-thumb--on" : ""}`}
-                    onClick={() => setActiveKey(item.key)}
+                    role="listitem"
+                    title={swatch.name}
+                    aria-label={swatch.name}
+                    aria-pressed={selColor === i}
+                    className={`catalog-pdp-color-swatch${selColor === i ? " catalog-pdp-color-swatch--on" : ""}`}
+                    style={{ background: swatch.hex }}
+                    onClick={() => setSelColor(i)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {displaySizes.length > 0 ? (
+            <div className="catalog-pdp-sizes">
+              <div className="catalog-pdp-size-head">
+                <span>Size{selSize ? `: ${selSize}` : ""}</span>
+                {product.sizeGuide?.trim() ? (
+                  <button type="button" onClick={() => setOpenAccordion("size")}>
+                    Size Guide
+                  </button>
+                ) : null}
+              </div>
+              <div className="catalog-pdp-size-options">
+                {displaySizes.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    className={`catalog-pdp-size-btn${selSize === size ? " catalog-pdp-size-btn--on" : ""}`}
+                    aria-pressed={selSize === size}
+                    onClick={() => setSelSize(size)}
                   >
-                    <img
-                      src={item.url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                    />
+                    {size}
                   </button>
                 ))}
               </div>
@@ -193,45 +249,16 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
 
           <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
 
-          <div className="catalog-pdp-accordions">
-            <button
-              type="button"
-              className="catalog-pdp-accordion"
-              aria-expanded={openPanel === "info"}
-              onClick={() => setOpenPanel(openPanel === "info" ? null : "info")}
-            >
-              <span>Product Information</span>
-              <span aria-hidden="true">{openPanel === "info" ? "−" : "+"}</span>
-            </button>
-            {openPanel === "info" ? (
-              <div className="catalog-pdp-accordion-panel">
-                <p>{desc}</p>
-              </div>
-            ) : null}
+          <ProductInfoTabs
+            product={product}
+            variant="catalog"
+            openSection={openAccordion}
+            onOpenSectionChange={setOpenAccordion}
+          />
 
-            <button
-              type="button"
-              className="catalog-pdp-accordion"
-              aria-expanded={openPanel === "size"}
-              onClick={() => setOpenPanel(openPanel === "size" ? null : "size")}
-            >
-              <span>Size Guide/Features</span>
-              <span aria-hidden="true">{openPanel === "size" ? "−" : "+"}</span>
-            </button>
-            {openPanel === "size" ? (
-              <div className="catalog-pdp-accordion-panel catalog-pdp-accordion-panel--size">
-                {product.sizeGuide?.trim() ? (
-                  <SizeGuideTable sizeGuide={product.sizeGuide} />
-                ) : (
-                  <p>No size guide available.</p>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <p className="catalog-pdp-print-note">
+          {/* <p className="catalog-pdp-print-note">
             <span aria-hidden="true">▣</span> One print location and basic decoration included. Learn more ↗
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

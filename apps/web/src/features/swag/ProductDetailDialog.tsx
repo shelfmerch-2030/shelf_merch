@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ProductInfoTabs } from "@/features/catalog/views/ProductInfoTabs";
+import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
 import type { UiCollection, UiProduct } from "@/services/mappers";
 import {
   collectionProductColorNames,
@@ -91,7 +92,6 @@ function Body({
         <DialogHeader className="swag-detail-modal__titles">
           <div className="eyebrow">{collection.name}</div>
           <DialogTitle style={{ fontSize: 20 }}>{title}</DialogTitle>
-          {product.price ? <p className="swag-detail-price">{product.price}</p> : null}
           <DialogDescription className="sr-only">Design detail for {title}</DialogDescription>
         </DialogHeader>
         {canAddToShop ? (
@@ -147,6 +147,12 @@ function Body({
               </div>
             </div>
           )}
+
+          <CatalogPrice
+            price={product.price}
+            basePriceInr={product.basePriceInr}
+            size="detail"
+          />
 
           <ProductInfoTabs product={product} />
         </div>
