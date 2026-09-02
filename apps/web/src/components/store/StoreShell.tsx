@@ -2951,7 +2951,7 @@ function ProductsPageWithFilters({
   const [sortBy, setSortBy] = useState<PlpSort>("featured");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
-  const [openFilters, setOpenFilters] = useState({ size: true, color: true, range: true });
+  const [openFilters, setOpenFilters] = useState({ size: false, color: false, range: true });
 
   useEffect(() => {
     if (!categoryNavigate) return;

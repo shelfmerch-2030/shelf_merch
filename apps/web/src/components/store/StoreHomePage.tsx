@@ -1,5 +1,11 @@
 import { useMemo, type ReactNode, type RefObject } from "react";
 import emptyBagImg from "../../../assets/empty-bag.svg";
+import apparelIcon from "../../../assets/store/category-icons/apparel.png";
+import keychainIcon from "../../../assets/store/category-icons/keychain.png";
+import bagsIcon from "../../../assets/store/category-icons/bags.png";
+import drinkwareIcon from "../../../assets/store/category-icons/drinkware.png";
+import officeSuppliesIcon from "../../../assets/store/category-icons/office-supplies.png";
+import technologyIcon from "../../../assets/store/category-icons/technology.png";
 
 type HomeStoreProduct = {
   category?: string;
@@ -18,84 +24,68 @@ function categoryLabel(p: HomeStoreProduct): string {
   return (p.category || "").trim() || "Other";
 }
 
+function categoryIcon(src: string) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width={28}
+      height={28}
+      className="sf-home-cat-icon-img"
+      aria-hidden="true"
+      decoding="async"
+    />
+  );
+}
+
 const CATEGORY_VISUALS: Record<string, { bg: string; icon: ReactNode }> = {
   Apparel: {
     bg: "#dff5e8",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M8 4l-2 3H3l2 5v8h14v-8l2-5h-3l-2-3-2 2H10L8 4z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  Drinkware: {
-    bg: "#dcecff",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M8 4h8v3l-1 13H9L8 7V4z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M7 7h10" stroke="#0e1e16" strokeWidth="1.6" />
-      </svg>
-    ),
-  },
-  "Office Supplies": {
-    bg: "#fff3c4",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M6 18l12-6-3-9-12 6 3 9z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M9 9l6 3" stroke="#0e1e16" strokeWidth="1.6" />
-      </svg>
-    ),
-  },
-  Stationery: {
-    bg: "#fff3c4",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M6 18l12-6-3-9-12 6 3 9z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  "Tech Accessories": {
-    bg: "#ebe4ff",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <rect x="7" y="3" width="10" height="18" rx="2" stroke="#0e1e16" strokeWidth="1.6" />
-        <path d="M10 18h4" stroke="#0e1e16" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  "Work Essentials": {
-    bg: "#ebe4ff",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <rect x="5" y="8" width="14" height="10" rx="2" stroke="#0e1e16" strokeWidth="1.6" />
-        <path d="M9 8V6a3 3 0 016 0v2" stroke="#0e1e16" strokeWidth="1.6" />
-      </svg>
-    ),
+    icon: categoryIcon(apparelIcon),
   },
   Accessories: {
     bg: "#ffe4dc",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M7 10a5 5 0 0110 0v2h2v8H5v-8h2v-2z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-      </svg>
-    ),
+    icon: categoryIcon(keychainIcon),
+  },
+  "Key Chains": {
+    bg: "#ffe4dc",
+    icon: categoryIcon(keychainIcon),
+  },
+  Bags: {
+    bg: "#f2f2f2",
+    icon: categoryIcon(bagsIcon),
+  },
+  Drinkware: {
+    bg: "#dcecff",
+    icon: categoryIcon(drinkwareIcon),
+  },
+  "Office Supplies": {
+    bg: "#fff3c4",
+    icon: categoryIcon(officeSuppliesIcon),
+  },
+  Stationery: {
+    bg: "#fff3c4",
+    icon: categoryIcon(officeSuppliesIcon),
+  },
+  Technology: {
+    bg: "#f2f2f2",
+    icon: categoryIcon(technologyIcon),
+  },
+  "Tech Accessories": {
+    bg: "#f2f2f2",
+    icon: categoryIcon(technologyIcon),
+  },
+  "Work Essentials": {
+    bg: "#f2f2f2",
+    icon: categoryIcon(technologyIcon),
   },
   Merch: {
     bg: "#dff5f0",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M4 8h16v12H4V8z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M12 8V5a2 2 0 00-4 0v3M12 8V5a2 2 0 014 0v3" stroke="#0e1e16" strokeWidth="1.6" />
-      </svg>
-    ),
+    icon: categoryIcon(bagsIcon),
   },
   Kits: {
     bg: "#dff5f0",
-    icon: (
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden="true">
-        <path d="M4 8h16v12H4V8z" stroke="#0e1e16" strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M12 8V5a2 2 0 00-4 0v3M12 8V5a2 2 0 014 0v3" stroke="#0e1e16" strokeWidth="1.6" />
-      </svg>
-    ),
+    icon: categoryIcon(bagsIcon),
   },
 };
 
