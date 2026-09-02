@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { sumKitProductPrices } from "@/features/send/money";
 import { bakeMockupsForProducts } from "@/features/swag/mockup-bake";
+import { kitPreferredPrintAreaKey } from "../kitPrintArea";
 import { usePlatformKits, useCreateKit } from "../model";
 import type { UiProduct } from "../model";
 import { kitReducer, type KitAction, type KitDraft } from "../wizard/kitDraft";
@@ -114,6 +115,7 @@ export function useKitWizardController(): KitWizardVm {
           catalog,
           draft.art.preview,
           draft.placements,
+          { resolveAreaKey: kitPreferredPrintAreaKey },
         );
         if (mockups.length < draft.picked.length) {
           throw new Error("Failed to generate mockups for all kit products — try again");

@@ -7393,44 +7393,45 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
 /* Order success + orders page */
 .sf-order-success {
   position: relative;
-  max-width: 1180px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 36px 28px 28px;
-  overflow: hidden;
-}
-.sf-order-success::before {
-  content: "";
-  position: absolute;
-  inset: -12% -8% auto auto;
-  width: min(62vw, 640px);
-  height: min(62vw, 640px);
-  border-radius: 46% 54% 48% 52%;
-  background: radial-gradient(circle at 40% 40%, rgba(182, 222, 189, 0.42), rgba(232, 245, 234, 0.18) 58%, transparent 72%);
-  pointer-events: none;
-  z-index: 0;
+  padding: 48px 28px 36px;
 }
 .sf-order-success-layout {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
-  gap: clamp(28px, 5vw, 64px);
+  display: flex;
   align-items: center;
-  min-height: min(620px, calc(100dvh - 220px));
+  justify-content: center;
+  gap: clamp(20px, 3vw, 36px);
+  min-height: min(580px, calc(100dvh - 240px));
 }
 .sf-order-success-copy {
+  flex: 1 1 420px;
   max-width: 520px;
+  min-width: 0;
+}
+.sf-order-success-icon-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 0 22px;
+}
+.sf-order-success-icon-glow {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0.06) 55%, transparent 72%);
 }
 .sf-order-success-icon {
+  position: relative;
+  z-index: 1;
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #2f8f58, #247249);
+  background: linear-gradient(145deg, #3b82f6, #2563eb);
   color: #fff;
   display: grid;
   place-items: center;
-  margin: 0 0 18px;
-  box-shadow: 0 10px 24px rgba(36, 114, 73, 0.22);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.28);
 }
 .sf-order-success-icon svg {
   width: 26px;
@@ -7440,66 +7441,70 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
-  color: #2a7a4d;
-  font-size: 12px;
+  margin-bottom: 12px;
+  color: #2563eb;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .sf-order-success-eyebrow-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2a7a4d;
+  background: #2563eb;
+  flex: none;
 }
 .sf-order-success-title {
-  margin: 0 0 10px;
-  color: #142019;
-  font-size: clamp(30px, 4.2vw, 44px);
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: clamp(32px, 4.4vw, 46px);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.12;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 .sf-order-success-copy-text {
   margin: 0;
-  color: #5f6d64;
+  color: #64748b;
   font-size: 15px;
   line-height: 1.65;
 }
 .sf-order-success-copy-text b {
-  color: #1b2a21;
+  color: #0f172a;
+  font-weight: 700;
 }
 .sf-order-success-balance {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 22px;
+  margin-top: 24px;
   padding: 14px 16px;
-  border-radius: 14px;
-  background: #eef8f1;
-  border: 1px solid #d7ebdd;
-  color: #3f5648;
+  border-radius: 12px;
+  background: #eef2f8;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   font-size: 14px;
   line-height: 1.45;
 }
 .sf-order-success-balance b {
-  color: #1f7a4a;
+  color: #0f172a;
   font-weight: 800;
 }
 .sf-order-success-balance-icon {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex: none;
   border-radius: 10px;
-  background: #dff2e5;
-  color: #247249;
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #e2e8f0;
 }
 .sf-order-success-balance-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
 }
 .sf-order-success-actions {
   display: flex;
@@ -7514,31 +7519,33 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   justify-content: center;
   gap: 10px;
   min-height: 48px;
-  padding: 0 18px;
-  border-radius: 12px;
+  padding: 0 20px;
+  border-radius: 10px;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .sf-order-success-primary {
   border: none;
-  background: #14181c;
+  background: #2563eb;
   color: #fff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.24);
 }
 .sf-order-success-primary:hover {
-  background: #0d1013;
+  background: #1d4ed8;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.28);
 }
 .sf-order-success-secondary {
-  border: 1px solid #d7ddd9;
+  border: 1px solid #cbd5e1;
   background: #fff;
-  color: #18201b;
+  color: #0f172a;
 }
 .sf-order-success-secondary:hover {
-  border-color: #b8c4bc;
-  background: #fafcfb;
+  border-color: #94a3b8;
+  background: #f8fafc;
   transform: translateY(-1px);
 }
 .sf-order-success-primary svg,
@@ -7547,25 +7554,29 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   height: 16px;
   flex: none;
 }
+.sf-order-success-secondary svg:last-child {
+  margin-left: auto;
+}
 .sf-order-success-next {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  margin-top: 22px;
-  padding: 16px 16px 15px;
-  border-radius: 14px;
-  background: #f3faf5;
-  border: 1px solid #ddece2;
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #eef2f8;
+  border: 1px solid #e2e8f0;
 }
 .sf-order-success-next-icon {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex: none;
   border-radius: 10px;
-  background: #dff1e5;
-  color: #247249;
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #e2e8f0;
 }
 .sf-order-success-next-icon svg {
   width: 17px;
@@ -7574,68 +7585,61 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
 .sf-order-success-next strong {
   display: block;
   margin-bottom: 4px;
-  color: #183023;
+  color: #2563eb;
   font-size: 14px;
   font-weight: 800;
 }
 .sf-order-success-next p {
   margin: 0;
-  color: #5f7066;
+  color: #64748b;
   font-size: 13px;
   line-height: 1.55;
 }
 .sf-order-success-art {
-  position: relative;
-  width: min(100%, 520px);
-  aspect-ratio: 1 / 1.05;
-  margin: 0 auto;
-  justify-self: center;
+  flex: 0 0 min(380px, 44%);
+  max-width: 420px;
+  margin: 0;
   pointer-events: none;
 }
-.sf-order-success-art-blob {
-  position: absolute;
-  inset: 8% 4% 10%;
-  border-radius: 48% 52% 45% 55% / 54% 46% 54% 46%;
-  background:
-    radial-gradient(circle at 42% 38%, rgba(194, 228, 199, 0.9), rgba(232, 245, 234, 0.55) 46%, rgba(245, 250, 246, 0.1) 72%),
-    radial-gradient(circle at 72% 72%, rgba(176, 216, 184, 0.45), transparent 55%);
-  filter: blur(2px);
-}
-.sf-order-success-art-glow {
-  position: absolute;
-  inset: 18% 14% 16%;
-  border-radius: 50%;
-  background: rgba(168, 212, 176, 0.35);
-  filter: blur(34px);
+.sf-order-success-art-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: clamp(20px, 4vw, 32px);
+  border-radius: 16px;
+  background: #eef2f8;
+  border: 1px solid #e2e8f0;
 }
 .sf-order-success-art-img {
-  position: relative;
-  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: contain;
-  mix-blend-mode: multiply;
-  filter: saturate(0.96) contrast(0.98) brightness(1.02);
-  -webkit-mask-image: radial-gradient(ellipse 78% 74% at 50% 52%, #000 54%, transparent 86%);
-  mask-image: radial-gradient(ellipse 78% 74% at 50% 52%, #000 54%, transparent 86%);
+  display: block;
 }
 .sf-root:has(.sf-order-success) {
-  background: #f7fbf8;
+  background: #fff;
 }
 .sf-root:has(.sf-order-success) .sf-footer {
   background: transparent;
   border-top-color: transparent;
+  margin-top: 0;
+  padding-top: 24px;
 }
 @media (max-width: 900px) {
+  .sf-order-success {
+    padding-top: 28px;
+  }
   .sf-order-success-layout {
-    grid-template-columns: 1fr;
-    gap: 18px;
+    flex-direction: column;
+    gap: 24px;
     min-height: 0;
   }
   .sf-order-success-art {
     order: -1;
-    width: min(360px, 86%);
-    aspect-ratio: 1 / 0.95;
+    flex: none;
+    width: min(340px, 100%);
+    max-width: 340px;
   }
   .sf-order-success-actions {
     flex-direction: column;

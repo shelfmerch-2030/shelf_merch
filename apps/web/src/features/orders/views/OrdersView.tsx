@@ -63,7 +63,7 @@ export function OrdersView(vm: OrdersVm) {
                   <th>Status</th>
                   <th>Amount</th>
                   <th>Invoice</th>
-                  <th>View</th>
+                  <th>Order details</th>
                 </tr>
               </thead>
               <tbody>

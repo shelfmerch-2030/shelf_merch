@@ -26,6 +26,7 @@ import { createRedemptionRazorpayOrder, type StoreSupportTicket } from "@/servic
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import walletIconImg from "../../../assets/wallet-icon.svg";
 import emptyBagImg from "../../../assets/empty-bag.svg";
+import orderPlacedImg from "../../../assets/order-placed.png";
 import { StoreAccountMenu, type StoreOrderItem, type StoreOrderSummary } from "./StoreAccountMenu";
 import { StoreEmptyState } from "./StoreEmptyState";
 import { StorePageShell } from "./StorePageShell";
@@ -320,6 +321,14 @@ function storeProductThumb(p: StoreProduct) {
 }
 
 /* ─── SVG Icons (inline for zero dependencies) ─── */
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2l2.39 6.96H22l-5.8 4.21 2.22 6.83L12 16.9l-6.42 4.1 2.22-6.83L2 8.96h7.61L12 2z" />
+    </svg>
+  );
+}
+
 function PointsIcon() {
   return (
     <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" style={{ flex: "none" }}>
@@ -2408,14 +2417,17 @@ export default function StoreShell({
         <div className="sf-content sf-order-success">
           <div className="sf-order-success-layout sf-fade-in">
             <div className="sf-order-success-copy">
-              <div className="sf-order-success-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
+              <div className="sf-order-success-icon-wrap" aria-hidden="true">
+                <div className="sf-order-success-icon-glow" />
+                <div className="sf-order-success-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                </div>
               </div>
               <div className="sf-order-success-eyebrow">
-                Order placed
                 <span className="sf-order-success-eyebrow-dot" aria-hidden="true" />
+                Order placed
               </div>
               <h1 className="sf-order-success-title">Thank you{recipientName ? `, ${recipientName}` : ""}!</h1>
               <p className="sf-order-success-copy-text">
@@ -2424,7 +2436,7 @@ export default function StoreShell({
               {balanceInr != null && balanceInr > 0 ? (
                 <div className="sf-order-success-balance">
                   <span className="sf-order-success-balance-icon" aria-hidden="true">
-                    <ShoppingBagIcon />
+                    <StarIcon />
                   </span>
                   <span>
                     You still have <b>{navBalanceValue(balanceInr)}</b> to spend in the store.
@@ -2433,7 +2445,6 @@ export default function StoreShell({
               ) : null}
               <div className="sf-order-success-actions">
                 <button type="button" className="sf-order-success-primary" onClick={continueShopping}>
-                  <ShoppingBagIcon />
                   <span>Continue shopping</span>
                   <ArrowRightIcon />
                 </button>
@@ -2462,13 +2473,13 @@ export default function StoreShell({
             </div>
 
             <div className="sf-order-success-art" aria-hidden="true">
-              <div className="sf-order-success-art-blob" />
-              <div className="sf-order-success-art-glow" />
-              <img
-                src="/images/shops/order-placed.png"
-                alt=""
-                className="sf-order-success-art-img"
-              />
+              <div className="sf-order-success-art-frame">
+                <img
+                  src={orderPlacedImg}
+                  alt=""
+                  className="sf-order-success-art-img"
+                />
+              </div>
             </div>
           </div>
         </div>

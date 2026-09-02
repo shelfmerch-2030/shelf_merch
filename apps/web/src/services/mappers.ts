@@ -152,6 +152,8 @@ export type UiKitProductRef = {
   group?: string;
   /** Pre-baked branded mockup from kit creation. */
   mockupUrl?: string;
+  /** Saved logo placement for this kit item (used when mockup is not baked). */
+  placement?: ReturnType<typeof mapPlacement>;
 };
 
 export type UiKit = {
@@ -606,7 +608,10 @@ export function mapKit(k: ApiProduct): UiKit {
         brand: ref.brand || "",
         name: ref.name || "",
         group: ref.group || "",
-        mockupUrl: typeof ref.mockupUrl === "string" ? ref.mockupUrl : "",
+        mockupUrl:
+          resolveMediaUrl(ref.mockupUrl) ||
+          (typeof ref.mockupUrl === "string" ? ref.mockupUrl : ""),
+        placement: mapPlacement(ref.placement),
       }))
     : [];
   return {
@@ -620,7 +625,10 @@ export function mapKit(k: ApiProduct): UiKit {
     productRefs,
     packaging: k.packaging || "none",
     designNotes: k.designNotes || "",
-    artworkUrl: k.artworkUrl || "",
+    artworkUrl:
+      resolveMediaUrl(k.artworkUrl) ||
+      (typeof k.artworkUrl === "string" ? k.artworkUrl : "") ||
+      "",
     kitPrice:
       typeof k.kitPrice === "number" && Number.isFinite(k.kitPrice)
         ? Math.round(k.kitPrice)
