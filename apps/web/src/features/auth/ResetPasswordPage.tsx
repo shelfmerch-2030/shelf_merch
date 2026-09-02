@@ -128,7 +128,7 @@ export function ResetPasswordPage() {
 
   if (phase === "validating") {
     return (
-      <AuthLayout title="Verifying reset link">
+      <AuthLayout variant="compact" title="Verifying reset link">
         <div className="auth-loading-panel" role="status" aria-live="polite">
           <Loader2 className="auth-spin" size={28} aria-hidden="true" />
           <p>Checking your reset link…</p>
@@ -140,6 +140,7 @@ export function ResetPasswordPage() {
   if (phase === "invalid") {
     return (
       <AuthLayout
+        variant="compact"
         title="Reset Link Expired"
         subtitle="This reset link is no longer valid."
         footerLink={{ hint: "", label: "Back to Login", to: "/login" }}
@@ -167,7 +168,7 @@ export function ResetPasswordPage() {
 
   if (phase === "success") {
     return (
-      <AuthLayout title="Password updated">
+      <AuthLayout variant="compact" title="Password updated">
         <div className="auth-success-panel" role="status">
           <CheckCircle2 className="auth-success-icon auth-success-icon--pop" size={52} strokeWidth={1.75} />
           <p className="auth-success-headline">Password updated successfully</p>
@@ -185,6 +186,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout
+      variant="compact"
       title="Create a new password"
       subtitle="Choose a strong password for your Shelf Merch account."
       footerLink={{ hint: "", label: "Back to Login", to: "/login" }}

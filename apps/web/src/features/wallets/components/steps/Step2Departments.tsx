@@ -137,8 +137,10 @@ export function Step2Departments({ state, dispatch }: StepProps) {
                     </td>
                     <td className="dept-picker-td-users dept-picker-td-muted">{d.users}</td>
                     {isEdit ? (
-                      <td className="dept-picker-td-num num">
-                        {currentBudget > 0 ? inr(currentBudget) : "—"}
+                      <td
+                        className={`dept-picker-td-num num${currentBudget > 0 ? "" : " dept-picker-td-muted"}`}
+                      >
+                        {currentBudget > 0 ? inr(currentBudget) : "Not yet assigned"}
                       </td>
                     ) : null}
                     <td className="dept-picker-td-actions" onClick={(e) => e.stopPropagation()}>

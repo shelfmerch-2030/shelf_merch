@@ -218,7 +218,7 @@ export async function assignManager({ tenantId, entityId, data, userId }) {
   });
 
   entity.managerUserId = user._id;
-  entity.managerInvitePending = sendInvite && user.status === 'invited';
+  entity.managerInvitePending = Boolean(sendInvite && inviteToken);
   entity.managerTitle = data.role || '';
   entity.managerName = data.name || user.name || '';
   entity.managerEmail = user.email || data.email || '';

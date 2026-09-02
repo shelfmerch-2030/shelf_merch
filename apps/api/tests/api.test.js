@@ -494,6 +494,33 @@ describe('user invite', () => {
     expect(reuse.status).toBe(400);
     expect(reuse.body.error.code).toBe('INVALID_INVITE_TOKEN');
   });
+
+  it('assign-manager issues accept-invite token for an already-active user', async () => {
+    const entity = await Entity.create({
+      tenantId: tenantA._id,
+      walletId: walletA._id,
+      name: 'Sales',
+    });
+
+    const assign = await request(app)
+      .post(`/api/v1/entities/${entity._id}/assign-manager`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ name: adminA.name, email: adminA.email, role: 'Sales Manager' });
+    expect(assign.status).toBe(201);
+    expect(assign.body.inviteToken).toBeTruthy();
+    expect(assign.body.manager.status).toBe('active');
+
+    const accept = await request(app)
+      .post('/api/v1/users/accept-invite')
+      .send({ token: assign.body.inviteToken, password: 'newpass123' });
+    expect(accept.status).toBe(200);
+    expect(accept.body.email).toBe(adminA.email);
+
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: adminA.email, password: 'newpass123' });
+    expect(login.status).toBe(200);
+  });
 });
 
 describe('impersonation guard (must-have §11.1)', () => {

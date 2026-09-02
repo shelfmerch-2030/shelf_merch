@@ -15,22 +15,19 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * ShelfMerch brand — matches product --blue-500 / user swatch.
- * Layout inspired by the enterprise invite mock (logo above card, icon title, detail box).
- */
+/** ShelfMerch brand tokens — aligned with app funding-success / landing page. */
 const SANS =
-  "'Inter',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const BG = '#F8F9FB';
-const CARD = '#FFFFFF';
-const PRIMARY = '#3D5FD9';
-const PRIMARY_DARK = '#2B4AB8';
-const BORDER = '#E5E7EB';
-const TITLE = '#111827';
-const BODY = '#374151';
-const MUTED = '#6B7280';
-const VALUE = '#111827';
-const ACCENT_SOFT = '#EEF2FF';
+  "'Hanken Grotesk','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const SERIF = "Georgia,'Times New Roman',Times,serif";
+const INK = '#121212';
+const CREAM = '#f7f3ea';
+const BLUE = '#3155ff';
+const CORAL = '#ff6d55';
+const MINT = '#72e2b8';
+const YELLOW = '#ffd84a';
+const LINE = 'rgba(18,18,18,0.12)';
+const BODY = '#5c5a56';
+const MUTED = '#7a7770';
 
 function emailShell({ title, bodyHtml, preheader = '' }) {
   const year = new Date().getFullYear();
@@ -41,24 +38,26 @@ function emailShell({ title, bodyHtml, preheader = '' }) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${escapeHtml(title)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <!--[if mso]>
   <style type="text/css">body, table, td { font-family: Arial, Helvetica, sans-serif !important; }</style>
   <![endif]-->
 </head>
-<body style="margin:0;padding:0;background:${BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background:${CREAM};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(preheader)}</div>
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BG};">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${CREAM};">
     <tr>
-      <td align="center" style="padding:40px 16px 24px 16px;">
+      <td align="center" style="padding:36px 16px 20px 16px;">
         ${logoAboveCard()}
       </td>
     </tr>
     <tr>
       <td align="center" style="padding:0 16px 24px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:${CARD};border:1px solid ${BORDER};border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(17,24,39,0.04),0 10px 28px rgba(17,24,39,0.06);">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border:1px solid ${LINE};border-radius:20px;overflow:hidden;box-shadow:0 12px 32px rgba(18,18,18,0.06);">
           <tr>
-            <td style="padding:40px;font-family:${SANS};">
+            <td style="height:5px;background:linear-gradient(90deg,${CORAL} 0%,${YELLOW} 42%,${MINT} 78%,${BLUE} 100%);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px 32px 32px;font-family:${SANS};">
               ${bodyHtml}
             </td>
           </tr>
@@ -66,10 +65,10 @@ function emailShell({ title, bodyHtml, preheader = '' }) {
       </td>
     </tr>
     <tr>
-      <td align="center" style="padding:8px 16px 48px 16px;font-family:${SANS};">
-        <a href="${appUrl('/privacy')}" style="color:${MUTED};text-decoration:none;font-size:12px;font-weight:500;">Privacy</a>
+      <td align="center" style="padding:4px 16px 48px 16px;font-family:${SANS};">
+        <a href="${appUrl('/privacy')}" style="color:${MUTED};text-decoration:none;font-size:12px;font-weight:600;">Privacy</a>
         <span style="color:${MUTED};margin:0 8px;">|</span>
-        <a href="mailto:support@shelfmerch.com" style="color:${MUTED};text-decoration:none;font-size:12px;font-weight:500;">Contact Support</a>
+        <a href="mailto:support@shelfmerch.com" style="color:${MUTED};text-decoration:none;font-size:12px;font-weight:600;">Contact Support</a>
         <div style="font-size:11px;color:${MUTED};margin-top:12px;line-height:1.5;">© ${year} ShelfMerch. All rights reserved.</div>
       </td>
     </tr>
@@ -82,80 +81,73 @@ function logoAboveCard() {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td valign="middle" style="padding-right:10px;">
-        <div style="width:32px;height:32px;border-radius:8px;background:${PRIMARY};color:#FFFFFF;font-family:${SANS};font-weight:700;font-size:15px;line-height:32px;text-align:center;">S</div>
+        <div style="width:34px;height:34px;border-radius:50%;background:${CORAL};color:${INK};font-family:${SANS};font-weight:900;font-size:16px;line-height:34px;text-align:center;">S</div>
       </td>
-      <td valign="middle" style="font-family:${SANS};font-weight:700;font-size:18px;color:${VALUE};letter-spacing:-0.03em;">ShelfMerch</td>
+      <td valign="middle" style="font-family:${SANS};font-weight:800;font-size:19px;color:${INK};letter-spacing:-0.04em;font-style:italic;">Shelf Merch</td>
     </tr>
   </table>`;
 }
 
-/** Circular soft icon + title row (matches mock). */
-function titleWithIcon(text) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
+function eyebrow(text) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px;">
     <tr>
-      <td valign="top" width="52" style="padding-right:14px;">
-        <div style="width:44px;height:44px;border-radius:50%;background:${ACCENT_SOFT};text-align:center;line-height:44px;">
-          <span style="font-size:20px;line-height:44px;">✉</span>
-        </div>
+      <td valign="middle" width="10" style="padding-right:8px;">
+        <div style="width:7px;height:7px;border-radius:50%;background:${CORAL};font-size:0;line-height:0;">&nbsp;</div>
       </td>
-      <td valign="middle" style="font-family:${SANS};font-weight:700;font-size:26px;line-height:1.25;letter-spacing:-0.03em;color:${TITLE};">${escapeHtml(text)}</td>
+      <td valign="middle" style="font-family:${SANS};font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${BLUE};">${escapeHtml(text)}</td>
     </tr>
   </table>`;
+}
+
+function heroTitle(lead, accent) {
+  return `<h1 style="margin:0 0 16px 0;font-family:${SANS};font-size:32px;line-height:1.02;font-weight:800;letter-spacing:-0.04em;color:${INK};">
+    ${escapeHtml(lead)} <em style="font-family:${SERIF};font-style:italic;font-weight:400;color:${BLUE};">${escapeHtml(accent)}</em>
+  </h1>`;
 }
 
 function greetingLine(name) {
   if (!name) {
-    return `<p style="margin:0 0 12px 0;font-family:${SANS};font-size:15px;color:${BODY};line-height:1.5;">Hi,</p>`;
+    return `<p style="margin:0 0 14px 0;font-family:${SERIF};font-size:16px;color:${BODY};line-height:1.6;">Hi there,</p>`;
   }
-  return `<p style="margin:0 0 12px 0;font-family:${SANS};font-size:15px;color:${BODY};line-height:1.5;">Hi <b style="color:${VALUE};font-weight:600;">${escapeHtml(name)}</b>,</p>`;
+  return `<p style="margin:0 0 14px 0;font-family:${SERIF};font-size:16px;color:${BODY};line-height:1.6;">Hi ${escapeHtml(name)},</p>`;
 }
 
-function messageParagraph(html) {
-  return `<p style="margin:0 0 14px 0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BODY};">${html}</p>`;
+function naturalParagraph(html) {
+  return `<p style="margin:0 0 16px 0;font-family:${SERIF};font-size:16px;line-height:1.72;color:${BODY};">${html}</p>`;
 }
 
-function brandBold(text) {
-  return `<b style="color:${PRIMARY_DARK};font-weight:600;">${escapeHtml(text)}</b>`;
+function inlineStrong(text) {
+  return `<strong style="color:${INK};font-weight:600;">${escapeHtml(text)}</strong>`;
 }
 
 function ctaButton(label, href) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:28px 0 24px 0;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 24px 0;">
     <tr>
-      <td align="center" style="border-radius:8px;background:${PRIMARY};">
-        <a href="${escapeHtml(href)}" style="display:block;width:100%;box-sizing:border-box;padding:14px 24px;font-family:${SANS};font-size:15px;font-weight:600;color:#FFFFFF !important;text-decoration:none;text-align:center;border-radius:8px;line-height:20px;">
-          <span style="color:#FFFFFF !important;">${escapeHtml(label)}</span>
+      <td align="left" style="border-radius:999px;background:${INK};">
+        <a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 26px;font-family:${SANS};font-size:14px;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:999px;line-height:20px;letter-spacing:0.01em;">
+          <span style="color:#ffffff !important;">${escapeHtml(label)}</span>
         </a>
       </td>
     </tr>
   </table>`;
 }
 
-/**
- * Bordered info box with icon + uppercase label + value (mock layout).
- */
 function detailBox(rows) {
   const items = rows.filter((r) => r.value);
   if (!items.length) return '';
 
-  const icons = {
-    organization: '🏢',
-    department: '👥',
-    role: '💼',
-  };
-
   const inner = items
     .map((row, i) => {
-      const border =
-        i < items.length - 1 ? `border-bottom:1px solid ${BORDER};` : '';
-      const icon = icons[row.key] || '•';
+      const border = i < items.length - 1 ? `border-bottom:1px solid ${LINE};` : '';
       return `<tr>
-        <td style="padding:16px 18px;${border}">
+        <td style="padding:10px 0;${border}">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
             <tr>
-              <td width="28" valign="middle" style="font-size:16px;padding-right:10px;">${icon}</td>
-              <td valign="middle">
-                <div style="font-family:${SANS};font-size:11px;font-weight:600;color:${MUTED};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:2px;">${escapeHtml(row.label)}</div>
-                <div style="font-family:${SANS};font-size:15px;font-weight:600;color:${VALUE};line-height:1.35;">${escapeHtml(row.value)}</div>
+              <td style="font-family:${SERIF};font-size:15px;line-height:1.55;color:${MUTED};padding-right:20px;">
+                ${escapeHtml(row.label)}
+              </td>
+              <td align="right" style="font-family:${SERIF};font-size:15px;line-height:1.55;color:${INK};font-weight:600;">
+                ${escapeHtml(row.value)}
               </td>
             </tr>
           </table>
@@ -164,26 +156,69 @@ function detailBox(rows) {
     })
     .join('');
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#FAFBFC;border:1px solid ${BORDER};border-radius:10px;margin:0 0 24px 0;">
-    ${inner}
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${CREAM};border:1px solid ${LINE};border-radius:14px;margin:0 0 22px 0;">
+    <tr>
+      <td style="padding:16px 18px 14px 18px;font-family:${SERIF};font-size:15px;line-height:1.65;color:${BODY};">
+        Here are your invite details:
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 18px 16px 18px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+          ${inner}
+        </table>
+      </td>
+    </tr>
   </table>`;
 }
 
 function inviteSentTo(email) {
   if (!email) return '';
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:16px;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${CREAM};border:1px solid ${LINE};border-radius:14px;margin-bottom:14px;">
     <tr>
-      <td width="22" valign="top" style="font-size:13px;padding-right:8px;padding-top:1px;">✉</td>
-      <td style="font-family:${SANS};font-size:13px;line-height:1.5;color:${MUTED};">
-        This invitation was sent to:<br>
-        <b style="color:${VALUE};font-weight:600;">${escapeHtml(email)}</b>
+      <td style="padding:14px 16px;font-family:${SERIF};font-size:15px;line-height:1.6;color:${BODY};">
+        We sent this invite to <strong style="color:${INK};font-weight:600;">${escapeHtml(email)}</strong>
       </td>
     </tr>
   </table>`;
 }
 
 function disclaimer(text) {
-  return `<p style="margin:0;font-family:${SANS};font-size:13px;line-height:1.55;color:${MUTED};">${escapeHtml(text)}</p>`;
+  return `<p style="margin:0;font-family:${SERIF};font-size:14px;line-height:1.65;color:${MUTED};">${escapeHtml(text)}</p>`;
+}
+
+function buildManagerEmailBody({
+  name,
+  email,
+  departmentName,
+  organizationName,
+  roleTitle,
+  link,
+  ctaLabel,
+  inviteAction = true,
+}) {
+  const safeDept = departmentName || 'your department';
+  const safeOrg = organizationName;
+  const safeRole = roleTitle || 'Department Manager';
+  const actionCopy = inviteAction
+    ? 'Accept the invitation below to set your password. You can then sign in with this email and manage your department merch budget and campaigns.'
+    : 'Sign in with your existing ShelfMerch account to manage your department merch budget and campaigns.';
+
+  return `
+    ${eyebrow('Team invite')}
+    ${heroTitle("You're on the team at", 'ShelfMerch.')}
+    ${greetingLine(name)}
+    ${naturalParagraph(
+      `${safeOrg} added you as ${inlineStrong(safeRole)} for the ${inlineStrong(safeDept)} team. ${actionCopy}`,
+    )}
+    ${ctaButton(ctaLabel, link)}
+    ${detailBox([
+      { key: 'organization', label: 'Organization', value: organizationName },
+      { key: 'department', label: 'Department', value: departmentName },
+      { key: 'role', label: 'Role', value: roleTitle },
+    ])}
+    ${inviteSentTo(email)}
+    ${disclaimer("Didn't expect this invite? You can safely ignore this email.")}`;
 }
 
 /**
@@ -201,43 +236,35 @@ export function buildManagerInviteEmail({
   const safeDept = departmentName || 'your department';
   const safeOrg = organizationName;
   const safeRole = roleTitle || 'Department Manager';
-  const subject = `You've been invited to ShelfMerch`;
+  const subject = `Your ShelfMerch invite from ${safeOrg}`;
 
-  const bodyHtml = `
-    ${titleWithIcon("You've been invited to ShelfMerch")}
-    ${greetingLine(name)}
-    ${messageParagraph(
-      `You've been assigned as ${brandBold(safeRole)} for the ${brandBold(safeDept)} department at ${brandBold(safeOrg)}.`,
-    )}
-    ${messageParagraph(
-      `Sign in to ShelfMerch to access your team's merchandise budget and start managing campaigns.`,
-    )}
-    ${ctaButton('Sign in to ShelfMerch →', fullLink)}
-    ${detailBox([
-      { key: 'organization', label: 'Organization', value: organizationName },
-      { key: 'department', label: 'Department', value: departmentName },
-      { key: 'role', label: 'Role', value: roleTitle },
-    ])}
-    ${inviteSentTo(email)}
-    ${disclaimer("If you weren't expecting this invitation, you can safely ignore this email.")}`;
+  const bodyHtml = buildManagerEmailBody({
+    name,
+    email,
+    departmentName,
+    organizationName,
+    roleTitle,
+    link: fullLink,
+    ctaLabel: 'Accept invitation',
+    inviteAction: true,
+  });
 
   const text = [
-    "You've been invited to ShelfMerch",
+    `Your ShelfMerch invite from ${safeOrg}`,
     '',
-    name ? `Hi ${name},` : 'Hi,',
+    name ? `Hi ${name},` : 'Hi there,',
     '',
-    `You've been assigned as ${safeRole} for the ${safeDept} department at ${safeOrg}.`,
+    `${safeOrg} added you as ${safeRole} for the ${safeDept} team.`,
+    'Accept the invitation below to set your password, then sign in with this email.',
     '',
-    "Sign in to ShelfMerch to access your team's merchandise budget and start managing campaigns.",
-    '',
-    `Sign in: ${fullLink}`,
+    `Accept invitation: ${fullLink}`,
     '',
     `Organization: ${organizationName}`,
-    `Department: ${departmentName || '—'}`,
+    `Department: ${departmentName || 'Not set'}`,
     `Role: ${roleTitle}`,
-    email ? `This invitation was sent to: ${email}` : '',
+    email ? `We sent this invite to: ${email}` : '',
     '',
-    "If you weren't expecting this invitation, you can safely ignore this email.",
+    "Didn't expect this invite? You can safely ignore this email.",
   ]
     .filter(Boolean)
     .join('\n');
@@ -246,7 +273,7 @@ export function buildManagerInviteEmail({
     subject,
     html: emailShell({
       title: subject,
-      preheader: `Join ${organizationName} on ShelfMerch as ${roleTitle}`,
+      preheader: `${safeOrg} invited you to join as ${safeRole}`,
       bodyHtml,
     }),
     text,
@@ -268,32 +295,25 @@ export function buildManagerAssignmentEmail({
   const safeDept = departmentName || 'your department';
   const safeOrg = organizationName;
   const safeRole = roleTitle || 'Department Manager';
-  const subject = `You've been invited to ShelfMerch`;
+  const subject = `Your ShelfMerch invite from ${safeOrg}`;
 
-  const bodyHtml = `
-    ${titleWithIcon("You've been invited to ShelfMerch")}
-    ${greetingLine(name)}
-    ${messageParagraph(
-      `You've been assigned as ${brandBold(safeRole)} for the ${brandBold(safeDept)} department at ${brandBold(safeOrg)}.`,
-    )}
-    ${messageParagraph(
-      `Sign in to ShelfMerch to access your team's merchandise budget and start managing campaigns.`,
-    )}
-    ${ctaButton('Sign in to ShelfMerch →', fullLink)}
-    ${detailBox([
-      { key: 'organization', label: 'Organization', value: organizationName },
-      { key: 'department', label: 'Department', value: departmentName },
-      { key: 'role', label: 'Role', value: roleTitle },
-    ])}
-    ${inviteSentTo(email)}
-    ${disclaimer("If you weren't expecting this invitation, you can safely ignore this email.")}`;
+  const bodyHtml = buildManagerEmailBody({
+    name,
+    email,
+    departmentName,
+    organizationName,
+    roleTitle,
+    link: fullLink,
+    ctaLabel: 'Sign in to ShelfMerch',
+    inviteAction: false,
+  });
 
   const text = [
-    "You've been invited to ShelfMerch",
+    `Your ShelfMerch invite from ${safeOrg}`,
     '',
-    name ? `Hi ${name},` : 'Hi,',
+    name ? `Hi ${name},` : 'Hi there,',
     '',
-    `You've been assigned as ${safeRole} for the ${safeDept} department at ${safeOrg}.`,
+    `${safeOrg} added you as ${safeRole} for the ${safeDept} team.`,
     '',
     `Sign in: ${fullLink}`,
   ].join('\n');
@@ -302,7 +322,7 @@ export function buildManagerAssignmentEmail({
     subject,
     html: emailShell({
       title: subject,
-      preheader: `Manage ${departmentName || 'your department'} on ShelfMerch`,
+      preheader: `You're set up as ${safeRole} for ${departmentName || 'your department'} at ${safeOrg}`,
       bodyHtml,
     }),
     text,

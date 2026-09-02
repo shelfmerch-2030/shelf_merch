@@ -608,9 +608,11 @@ export function useSendKitController(): SendKitVm {
     toast.success(
       draft.when === "sched"
         ? `Kit scheduled — wallet debited. Recipients will be notified at the scheduled time.`
-        : `Order placed for ${draft.selRecips.length} recipients! 📦`,
+        : draft.mode === "redeem"
+          ? `Invites sent to ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}. Orders will appear when they accept.`
+          : `Order placed for ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}! 📦`,
     );
-    navigate("/app/orders");
+    navigate(draft.mode === "redeem" ? "/app/kits" : "/app/orders");
     void refreshWorkspace().catch(() => undefined);
   }
 

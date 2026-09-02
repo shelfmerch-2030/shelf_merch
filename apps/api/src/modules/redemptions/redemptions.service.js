@@ -1081,11 +1081,13 @@ export async function submitRedemption(
 
   if (recipient.redemptionStatus === 'order_created') {
     const existing = await Order.findOne({ recipientId: recipient._id, tenantId: recipient.tenantId });
-    return {
-      orderNumber: existing.orderNumber,
-      estimatedDelivery: '7-10 business days',
-      idempotentReplay: true,
-    };
+    if (existing) {
+      return {
+        orderNumber: existing.orderNumber,
+        estimatedDelivery: '7-10 business days',
+        idempotentReplay: true,
+      };
+    }
   }
 
   // Heal: order may exist from a prior attempt that failed after create (e.g. later unique collision).

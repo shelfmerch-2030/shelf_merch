@@ -15,6 +15,7 @@ import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog
 import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { formatWalletAmount } from "@/lib/walletFormat";
 import { KitPackagingStep } from "./KitPackagingStep";
 import { KitDesignSelect, kitDesignLabel } from "../send/KitDesignSelect";
 
@@ -199,6 +200,14 @@ export function SendKitView(vm: SendKitVm) {
   const customisedProductPerKit = totals.itemsSubtotal ?? totals.unitPrice ?? 0;
   const customisedKitsLineTotal = customisedProductPerKit * totals.qty;
   const customisedSubtotal = customisedKitsLineTotal + totals.pkgCost;
+  const payingWithWallet = draft.pay === "wallet";
+  const checkoutWallets = vm.wallets?.length ? vm.wallets : vm.wallet ? [vm.wallet] : [];
+  const activeCheckoutWallet =
+    checkoutWallets.find((w) => w.id === vm.selectedWalletId) ?? checkoutWallets[0];
+  const walletBalance = activeCheckoutWallet ? vm.walletAvailable(activeCheckoutWallet) : 0;
+  const purchaseAmount = Math.round(totals.total);
+  const remainingBalance = Math.max(0, walletBalance - purchaseAmount);
+  const walletCur = activeCheckoutWallet?.cur ?? "INR";
 
   const curatedMeta = getCuratedKitMeta(kit);
   const isCurated = !!curatedMeta;
@@ -1103,13 +1112,6 @@ export function SendKitView(vm: SendKitVm) {
                     k={`GST (${Math.round((totals.kitGstRate ?? 0.18) * 100)}%)`}
                     v={inr(totals.tax)}
                   />
-                  <div className="divider" />
-                  <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-                    <div>
-                      <b style={{ fontSize: 18, display: "block" }}>Grand Total</b>
-                    </div>
-                    <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>{inr(totals.total)}</b>
-                  </div>
                 </>
               ) : (
                 <>
@@ -1126,15 +1128,17 @@ export function SendKitView(vm: SendKitVm) {
                     k={`GST (${Math.round((totals.kitGstRate ?? 0.18) * 100)}%)`}
                     v={inr(totals.tax)}
                   />
-                  <div className="divider" />
-                  <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-                    <div>
-                      <b style={{ fontSize: 18, display: "block" }}>Grand Total</b>
-                    </div>
-                    <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>{inr(totals.total)}</b>
-                  </div>
                 </>
               )}
+              <div className="divider" />
+              <KitCheckoutPaymentSummary
+                payingWithWallet={payingWithWallet}
+                total={purchaseAmount}
+                walletBalance={walletBalance}
+                remainingBalance={remainingBalance}
+                walletCur={walletCur}
+                walletName={activeCheckoutWallet?.name}
+              />
               <button
                 type="button"
                 className="btn btn-brand btn-block btn-lg"
@@ -1142,13 +1146,67 @@ export function SendKitView(vm: SendKitVm) {
                 disabled={vm.isSending}
                 onClick={vm.onPayAndSend}
               >
-                Pay &amp; send
+                {payingWithWallet ? "Confirm & send" : `Pay ${inr(purchaseAmount)} & send`}
               </button>
             </div>
           </div>
         </>
       )}
     </WizardChrome>
+  );
+}
+
+function KitCheckoutPaymentSummary({
+  payingWithWallet,
+  total,
+  walletBalance,
+  remainingBalance,
+  walletCur,
+  walletName,
+}: {
+  payingWithWallet: boolean;
+  total: number;
+  walletBalance: number;
+  remainingBalance: number;
+  walletCur: string;
+  walletName?: string;
+}) {
+  if (payingWithWallet) {
+    return (
+      <div style={{ marginTop: 4 }}>
+        {walletName ? (
+          <p className="muted" style={{ fontSize: 12.5, marginBottom: 10, lineHeight: 1.45 }}>
+            Paying from <strong>{walletName}</strong>. No UPI or card payment needed — the order
+            amount is deducted from your wallet.
+          </p>
+        ) : null}
+        <SumRow k="Wallet balance" v={formatWalletAmount(walletBalance, walletCur)} />
+        <SumRow k="Order amount" v={inr(total)} />
+        <SumRow k="Amount to be paid now" v={inr(0)} />
+        <div
+          className="row"
+          style={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "10px 0 0",
+          }}
+        >
+          <b style={{ fontSize: 15 }}>Remaining balance</b>
+          <b className="num" style={{ fontSize: 18, fontFamily: "var(--disp)" }}>
+            {formatWalletAmount(remainingBalance, walletCur)}
+          </b>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+      <b style={{ fontSize: 18 }}>You pay</b>
+      <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>
+        {inr(total)}
+      </b>
+    </div>
   );
 }
 
