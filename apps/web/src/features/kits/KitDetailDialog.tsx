@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import type { UiKit, UiProduct } from "@/services/mappers";
+import { mapProductRef, type UiKit, type UiProduct } from "@/services/mappers";
 
 export function KitDetailDialog({
   kit,
@@ -21,7 +21,16 @@ export function KitDetailDialog({
     return kit.productRefs.map((ref) => ({
       name: ref.name,
       brand: ref.brand,
-      img: byId.get(ref.catalogProductId),
+      img: mapProductRef(
+        {
+          catalogProductId: ref.catalogProductId,
+          name: ref.name,
+          brand: ref.brand,
+          group: ref.group,
+          mockupUrl: ref.mockupUrl,
+        },
+        byId,
+      ),
     }));
   }, [kit, catalog]);
 
@@ -96,7 +105,10 @@ export function KitDetailDialog({
                     return (
                       <div key={`${p.name}-${i}`} className="pcard">
                         {p.img && kit.artworkUrl ? (
-                          <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
+                          <DesignedProductThumb
+                            product={p.img}
+                            artworkUrl={p.img.mockupUrl ? undefined : kit.artworkUrl}
+                          />
                         ) : (
                           <div className="img">
                             {src ? (

@@ -158,7 +158,10 @@ export function KitDetailView(vm: KitDetailVm) {
                 return (
                   <div key={`${p.name}-${i}`} className="pcard" style={{ cursor: "default" }}>
                     {!isCuratedKit && p.img && kit.artworkUrl ? (
-                      <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
+                      <DesignedProductThumb
+                        product={p.img}
+                        artworkUrl={p.img.mockupUrl ? undefined : kit.artworkUrl}
+                      />
                     ) : (
                       <div className="img">
                         {src ? (

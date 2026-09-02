@@ -14,6 +14,7 @@ import {
   resolveProductArtworkLayers,
   type Placement,
   type ProductViewKey,
+  isPhotoProductImage,
 } from "./mockup-bake";
 
 function hexToRgbTuple(hex: string): [number, number, number] {
@@ -349,6 +350,13 @@ export function DesignedProductThumb({
     productThumbUrl(product, true);
 
   const isDefaultTint = isDefaultMockupTint(tintHex);
+  const useMaskTint = Boolean(resolvedMask && !isPhotoProductImage(product, resolvedMask));
+  const photoCompositeBase =
+    stageBase ||
+    resolveMediaUrl(product.photoUrl) ||
+    resolveMediaUrl(product.imageUrls?.[0]) ||
+    (resolvedMask && !useMaskTint ? resolvedMask : "") ||
+    base;
   const showBaked = Boolean(viewBaked && isDefaultTint && preferBakedMockup);
   const liveTintHex = tintHex || DEFAULT_MOCKUP_TINT_HEX;
   const showViewToggle = !frontOnly && availableViews.length > 1 && viewProp == null && !hoverSwapViews;
@@ -410,7 +418,7 @@ export function DesignedProductThumb({
           }
         />
       </div>
-    ) : layers.length && resolvedMask ? (
+    ) : layers.length && useMaskTint && resolvedMask ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {embedViewToggle ? viewToggle : null}
         <MaskArtworkComposite
@@ -420,12 +428,17 @@ export function DesignedProductThumb({
           tintHex={liveTintHex}
         />
       </div>
+    ) : layers.length && photoCompositeBase ? (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {embedViewToggle ? viewToggle : null}
+        <LiveArtworkComposite product={product} base={photoCompositeBase} layers={layers} />
+      </div>
     ) : layers.length && maskStage ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {embedViewToggle ? viewToggle : null}
         <LiveArtworkComposite product={product} base={maskStage} layers={layers} />
       </div>
-    ) : overlay && resolvedMask ? (
+    ) : overlay && useMaskTint && resolvedMask ? (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         {embedViewToggle ? viewToggle : null}
         <MaskArtworkComposite
@@ -439,6 +452,21 @@ export function DesignedProductThumb({
             },
           ]}
           tintHex={liveTintHex}
+        />
+      </div>
+    ) : overlay && photoCompositeBase ? (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {embedViewToggle ? viewToggle : null}
+        <LiveArtworkComposite
+          product={product}
+          base={photoCompositeBase}
+          layers={[
+            {
+              areaKey: layers[0]?.areaKey || "area_1",
+              artUrl: overlay,
+              placement: product.placement ?? defaultPlacement(product),
+            },
+          ]}
         />
       </div>
     ) : baked ? (

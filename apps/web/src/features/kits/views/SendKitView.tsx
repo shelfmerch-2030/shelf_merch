@@ -555,7 +555,7 @@ export function SendKitView(vm: SendKitVm) {
                       </div>
                     )}
                     {distinctSizes.length === 0 && distinctColors.length === 0 && (
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Standard size/color</div>
+                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>No variants for this product</div>
                     )}
                   </div>
                 );
@@ -997,8 +997,11 @@ export function SendKitView(vm: SendKitVm) {
                                           product={prod}
                                         />
                                       ) : null}
-                                      {!opts.requiresSize && !opts.requiresColor ? (
-                                        <span className="sk-recip-muted">—</span>
+                                      {!opts.requiresSize &&
+                                      !opts.requiresColor &&
+                                      opts.sizes.length === 0 &&
+                                      opts.colors.length === 0 ? (
+                                        <span className="sk-recip-muted">No variants for this product</span>
                                       ) : null}
                                     </div>
                                   </td>

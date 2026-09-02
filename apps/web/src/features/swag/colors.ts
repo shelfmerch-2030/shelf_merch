@@ -87,9 +87,7 @@ export function ensureWhiteSwatch(swatches: ColorSwatch[]): ColorSwatch[] {
 }
 
 export function collectionProductColorSwatches(col: UiCollection, p: UiProduct): ColorSwatch[] {
-  return ensureWhiteSwatch(
-    curatedColorSwatches(productVariantSwatches(p), col?.preferredColors),
-  );
+  return curatedColorSwatches(productVariantSwatches(p), col?.preferredColors);
 }
 
 export function productColorHex(p: UiProduct, name: string): string {

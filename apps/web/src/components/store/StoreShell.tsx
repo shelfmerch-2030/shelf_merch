@@ -7,7 +7,7 @@ import { shopBannerPresetLabel, shopHeroBannerUrl } from "@/lib/shop-banners";
 import { DesignedProductThumb,
   storeProductAsUi,
 } from "@/features/swag/DesignedProductThumb";
-import { ensureWhiteSwatch, getMockupTintHex, defaultWhiteColorIndex } from "@/features/swag/colors";
+import { getMockupTintHex, defaultWhiteColorIndex } from "@/features/swag/colors";
 import { listProductViews, type ProductViewKey } from "@/features/swag/mockup-bake";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import {
@@ -113,7 +113,7 @@ function primaryColorIndex(colors: Array<{ name: string; hex: string }>) {
 }
 
 function productColorOptions(p: StoreProduct): Array<{ name: string; hex: string }> {
-  return ensureWhiteSwatch(curatedColorSwatches(productVariantSwatches(p), p.preferredColors));
+  return curatedColorSwatches(productVariantSwatches(p), p.preferredColors);
 }
 
 function ArtworkMockup({
@@ -1678,8 +1678,8 @@ export default function StoreShell({
               addToCart(
                 p,
                 {
-                  size: sizes[0],
-                  color: colors[0]?.name,
+                  ...(sizes.length === 1 ? { size: sizes[0] } : {}),
+                  ...(colors.length === 1 ? { color: colors[0]?.name } : {}),
                 },
                 1,
               );
@@ -3967,6 +3967,9 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   const sizes = useMemo(() => {
     const colorName = selectedColor?.name;
     const colorHex = selectedColor?.hex;
+    if (!colorOptions.length) {
+      return distinct(variants.map((v) => v.size));
+    }
     return distinct(
       variants
         .filter((v) => {
@@ -3981,11 +3984,12 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
         })
         .map((v) => v.size),
     );
-  }, [variants, selectedColor?.name, selectedColor?.hex]);
+  }, [variants, selectedColor?.name, selectedColor?.hex, colorOptions.length]);
 
   const [size, setSize] = useState<string | undefined>(() => (sizes.length === 1 ? sizes[0] : undefined));
   const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor);
   const sizeRequired = sizes.length > 1;
+  const hasVariants = colorOptions.length > 0 || sizes.length > 0;
   const canAdd = !sizeRequired || !!size;
   const productViews = productViewKeys(product);
   const hasMultipleViews = productViews.length > 1;
@@ -4098,6 +4102,12 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
             </div>
           ) : null}
 
+          {!hasVariants ? (
+            <p className="muted" style={{ fontSize: 14, margin: "0 0 4px" }}>
+              No variants for this product
+            </p>
+          ) : null}
+
           {isShopper ? (
             <div className="sf-pdp-purchase">
               <div className="sf-pdp-purchase-qty">
@@ -4127,7 +4137,15 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
                 className="sf-pdp-add-btn"
                 disabled={!canAdd}
                 title={!canAdd ? "Select a size" : undefined}
-                onClick={() => onAdd({ size, color: selectedColor?.name }, qty)}
+                onClick={() =>
+                  onAdd(
+                    {
+                      ...(size ? { size } : {}),
+                      ...(selectedColor?.name ? { color: selectedColor.name } : {}),
+                    },
+                    qty,
+                  )
+                }
               >
                 Add to bag
               </button>

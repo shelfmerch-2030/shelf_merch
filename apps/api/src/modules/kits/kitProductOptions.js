@@ -34,10 +34,6 @@ export const APPAREL_GROUPS = new Set([
   'crew',
 ]);
 
-export const DEFAULT_APPAREL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
-const STANDARD_SIZES = new Set(['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL']);
-
 const GROUP_BY_CATEGORY = {
   Apparel: 'tee',
   Drinkware: 'bottle',
@@ -81,9 +77,6 @@ function isApparelProduct(product, ref = {}) {
   return APPAREL_GROUPS.has(group) || category === 'apparel';
 }
 
-function hasStandardSizes(sizes) {
-  return sizes.some((s) => STANDARD_SIZES.has(String(s).toUpperCase()));
-}
 
 function firstUrl(...candidates) {
   for (const url of candidates) {
@@ -108,12 +101,10 @@ export function resolveKitItemOptions(product, ref = {}) {
   }
 
   if (isApparelProduct(product, ref)) {
-    let sizes = hasStandardSizes(rawSizes) ? rawSizes.filter((s) => STANDARD_SIZES.has(String(s).toUpperCase())) : [];
-    if (!sizes.length) sizes = DEFAULT_APPAREL_SIZES;
     return {
-      sizes,
+      sizes: rawSizes,
       colors: rawColors,
-      requiresSize: sizes.length > 0,
+      requiresSize: rawSizes.length > 0,
       requiresColor: rawColors.length > 0,
     };
   }

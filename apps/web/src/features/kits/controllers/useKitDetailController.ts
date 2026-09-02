@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { mapProductRef } from "@/services/mappers";
 import { curatedIncludedItems } from "../KitPreviewDialog";
 import {
   curatedKitHasBrandLogo,
@@ -57,20 +58,28 @@ export function useKitDetailController(): KitDetailVm {
 
     if (!kit.productRefs?.length) return [];
     const byId = new Map((workspace?.catalogProducts ?? []).map((p) => [p.id, p]));
-    return kit.productRefs.map((ref) => ({
-      name: ref.name,
-      brand: ref.brand,
-      img: byId.get(ref.catalogProductId),
-      imageUrl: (() => {
-        const product = byId.get(ref.catalogProductId);
-        if (!product) return undefined;
-        return (
-          resolveMediaUrl(product.mockupUrl) ||
-          resolveMediaUrl(product.imgUrl) ||
-          undefined
-        );
-      })(),
-    }));
+    return kit.productRefs.map((ref) => {
+      const img = mapProductRef(
+        {
+          catalogProductId: ref.catalogProductId,
+          name: ref.name,
+          brand: ref.brand,
+          group: ref.group,
+          mockupUrl: ref.mockupUrl,
+        },
+        byId,
+      );
+      return {
+        name: ref.name,
+        brand: ref.brand,
+        img,
+        imageUrl:
+          resolveMediaUrl(ref.mockupUrl) ||
+          resolveMediaUrl(img.mockupUrl) ||
+          resolveMediaUrl(img.imgUrl) ||
+          undefined,
+      };
+    });
   }, [kit, curatedMeta, platformKits, workspace?.catalogProducts]);
 
   const hasUploadedLogo = curatedKitHasBrandLogo(kit);

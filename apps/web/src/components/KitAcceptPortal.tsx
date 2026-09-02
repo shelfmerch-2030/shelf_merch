@@ -4,13 +4,61 @@ import {
   type KitRedemptionData,
   type KitRedemptionItem,
 } from "@/services/api-bridge";
-import ProductArtworkMockup from "./store/ProductArtworkMockup";
+import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
+import { mapPlacement, type UiProduct } from "@/services/mappers";
 import type { ShippingAddress } from "./store/StoreShell";
 
 type Selection = { size?: string; color?: string };
+
+function kitItemAsProduct(item: KitRedemptionItem): UiProduct {
+  const photo =
+    resolveMediaUrl(item.primaryImageUrl) ||
+    resolveMediaUrl(item.imageUrls?.[0]) ||
+    "";
+  const base = resolveMediaUrl(item.baseImageUrl) || "";
+  return {
+    id: item.productId,
+    g: item.group || "tee",
+    brand: item.brand,
+    nm: item.name,
+    sw: 4,
+    photoUrl: photo,
+    baseImageUrl: base,
+    // Mask PNGs include "YOUR DESIGN HERE" placeholders — use clean base/photo only.
+    maskImageUrl: undefined,
+    imgUrl: base || photo,
+    mockupUrl: item.mockupUrl,
+    placement: mapPlacement(item.placement),
+    printAreas: item.printAreas,
+    imageUrls: item.imageUrls,
+  };
+}
+
+/** Redeem preview: baked mockup when available, else logo on clean product photo. */
+function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
+  const baked = resolveMediaUrl(item.mockupUrl || "");
+  if (baked) {
+    return (
+      <img
+        src={baked}
+        alt={item.name}
+        loading="lazy"
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+      />
+    );
+  }
+
+  return (
+    <DesignedProductThumb
+      product={kitItemAsProduct(item)}
+      artworkUrl={item.artworkUrl || undefined}
+      frontOnly
+    />
+  );
+}
 
 function KitItemCard({
   item,
@@ -24,30 +72,14 @@ function KitItemCard({
   /** Curated kits: show the product photo only — never overlay kit artwork. */
   curatedPlain?: boolean;
 }) {
-  const imageCandidates = (
-    item.isDrinkware
-      ? [item.imageUrl, item.primaryImageUrl, ...(item.imageUrls || []), item.baseImageUrl]
-      : [item.maskImageUrl, item.imageUrl, item.primaryImageUrl, ...(item.imageUrls || []), item.baseImageUrl]
-  ).filter((u): u is string => Boolean(u));
-
   const colorSwatches = productVariantSwatches({
     colors: item.colors,
     colorHexByName: item.colorHexByName,
   });
 
   const plainSrc = resolveMediaUrl(
-    item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
+    item.mockupUrl || item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
   );
-
-  const mockupProduct = {
-    name: item.name,
-    maskImageUrl: item.isDrinkware ? undefined : item.maskImageUrl || item.imageUrl,
-    primaryImageUrl: item.imageUrl || item.primaryImageUrl,
-    imageUrls: item.imageUrls,
-    // Curated redeem must not brand-overlay item photos.
-    artworkUrl: curatedPlain ? undefined : item.artworkUrl,
-    printAreas: curatedPlain ? [] : item.printAreas,
-  };
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -77,11 +109,7 @@ function KitItemCard({
             </div>
           )
         ) : (
-          <ProductArtworkMockup
-            product={mockupProduct}
-            imageCandidates={imageCandidates}
-            style={{ height: "100%" }}
-          />
+          <KitRedeemProductImage item={item} />
         )}
       </div>
       {item.brand && (
@@ -128,6 +156,16 @@ function KitItemCard({
           </div>
         </div>
       )}
+
+      {!curatedPlain &&
+      !item.requiresSize &&
+      !item.requiresColor &&
+      item.sizes.length === 0 &&
+      colorSwatches.length === 0 ? (
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          No variants for this product
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -184,11 +222,17 @@ export default function KitAcceptPortal({
   const [placing, setPlacing] = useState(false);
 
   const missingSizes = useMemo(
-    () => kitData.items.filter((i) => i.requiresSize && !selections[i.productId]?.size),
+    () =>
+      kitData.items.filter(
+        (i) => i.requiresSize && i.sizes.length > 0 && !selections[i.productId]?.size,
+      ),
     [kitData.items, selections],
   );
   const missingColors = useMemo(
-    () => kitData.items.filter((i) => i.requiresColor && !selections[i.productId]?.color),
+    () =>
+      kitData.items.filter(
+        (i) => i.requiresColor && i.colors.length > 0 && !selections[i.productId]?.color,
+      ),
     [kitData.items, selections],
   );
 
