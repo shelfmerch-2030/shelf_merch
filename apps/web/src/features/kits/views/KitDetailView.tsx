@@ -2,9 +2,66 @@ import { Link } from "react-router";
 import { ArrowLeft, Box, CheckCircle2, Pencil, Send } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import type { KitDetailVm } from "../controllers/useKitDetailController";
+import type { KitDetailProduct, KitDetailVm } from "../controllers/useKitDetailController";
+import { KitReviewProductThumb } from "./KitReviewProductThumb";
+
+function KitDetailProductImage({
+  product,
+  artworkUrl,
+}: {
+  product: KitDetailProduct;
+  artworkUrl?: string;
+}) {
+  if (product.bakedMockupUrl) {
+    return (
+      <div className="img">
+        <img
+          src={product.bakedMockupUrl}
+          alt={product.name}
+          loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      </div>
+    );
+  }
+
+  if (product.img && artworkUrl && product.printAreaKey) {
+    return (
+      <KitReviewProductThumb
+        product={product.img}
+        artworkUrl={artworkUrl}
+        printAreaKey={product.printAreaKey}
+        placement={product.placement}
+      />
+    );
+  }
+
+  const src =
+    product.imageUrl ||
+    (product.img
+      ? resolveMediaUrl(product.img.mockupUrl) || resolveMediaUrl(product.img.imgUrl)
+      : undefined);
+
+  return (
+    <div className="img">
+      {src ? (
+        <img
+          src={src}
+          alt={product.name}
+          loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      ) : (
+        <div
+          className="sm-skeleton-img"
+          aria-hidden="true"
+          style={{ width: "100%", height: "100%" }}
+        />
+      )}
+    </div>
+  );
+}
 
 /** Kit detail page: header, artwork/status summary, included products grid. */
 export function KitDetailView(vm: KitDetailVm) {
@@ -151,19 +208,15 @@ export function KitDetailView(vm: KitDetailVm) {
                 gap: 16,
               }}
             >
-              {products.map((p, i) => {
-                const src = p.imageUrl || (p.img
-                  ? resolveMediaUrl(p.img.mockupUrl) || resolveMediaUrl(p.img.imgUrl)
-                  : undefined);
-                return (
+              {products.map((p, i) => (
                   <div key={`${p.name}-${i}`} className="pcard" style={{ cursor: "default" }}>
-                    {!isCuratedKit && p.img && kit.artworkUrl ? (
-                      <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
+                    {!isCuratedKit ? (
+                      <KitDetailProductImage product={p} artworkUrl={kit.artworkUrl} />
                     ) : (
                       <div className="img">
-                        {src ? (
+                        {p.imageUrl ? (
                           <img
-                            src={src}
+                            src={p.imageUrl}
                             alt={p.name}
                             loading="lazy"
                             style={{ width: "100%", height: "100%", objectFit: "contain" }}
@@ -182,8 +235,7 @@ export function KitDetailView(vm: KitDetailVm) {
                       <div className="nm">{p.name}</div>
                     </div>
                   </div>
-                );
-              })}
+                ))}
             </div>
           ) : (
             <p className="muted" style={{ margin: 0, fontSize: 14 }}>

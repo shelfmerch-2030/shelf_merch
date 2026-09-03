@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { Gift, Send } from "lucide-react";
+import kitPublishedImg from "../../../../assets/kit-published.png";
 import "./kit-published-success.css";
 
-const CONFETTI_COLORS = ["#17633f", "#2f855a", "#65a86e", "#a6d18d", "#d7ebd2"];
+const CONFETTI_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#fbbf24", "#93c5fd"];
 
 export function KitPublishedSuccess({
   kitName,
@@ -53,11 +54,14 @@ export function KitPublishedSuccess({
       <section className="kit-published-card" aria-labelledby="kit-published-title">
         <div className="kit-published-art" aria-hidden="true">
           <div className="kit-published-glow" />
-          <img src="/images/kits/kit-published.png" alt="" />
+          <img src={kitPublishedImg} alt="" />
         </div>
 
         <div className="kit-published-copy">
-          <span className="kit-published-eyebrow">Ready to share</span>
+          <span className="kit-published-eyebrow">
+            <span className="kit-published-eyebrow-dot" aria-hidden="true" />
+            Ready to share
+          </span>
           <h1 id="kit-published-title">Your kit has been published!</h1>
           <p className="kit-published-name">{kitName}</p>
           <p className="kit-published-lead">Now send this kit to your colleagues.</p>

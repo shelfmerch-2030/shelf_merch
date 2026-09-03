@@ -1,7 +1,13 @@
 import { useMemo } from "react";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import type { UiProduct } from "@/services/mappers";
 import { customisedKitSendTotals, netPriceExGst } from "@/features/send/money";
+import {
+  defaultPlacement,
+  placementKey,
+  type Placement,
+} from "@/features/swag/mockup-bake";
+import { kitPreferredPrintAreaKey } from "../kitPrintArea";
+import { KitReviewProductThumb } from "./KitReviewProductThumb";
 
 function formatInr(n: number) {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -33,10 +39,12 @@ export function KitReviewPricingStep({
   kitName,
   products,
   artworkUrl,
+  placements = {},
 }: {
   kitName: string;
   products: UiProduct[];
   artworkUrl?: string;
+  placements?: Record<string, Placement>;
 }) {
   // Packaging is chosen at send time — review shows products + kit GST only.
   const pricing = useMemo(
@@ -63,8 +71,11 @@ export function KitReviewPricingStep({
           <p className="muted" style={{ margin: 0 }}>No products selected.</p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-            {products.map((p) => {
+            {products.map((p, idx) => {
               const netPrice = netPriceExGst(Number(p.basePriceInr) || 0, p.category);
+              const areaKey = kitPreferredPrintAreaKey(p);
+              const draftPlacement = placements[placementKey(p, idx)];
+              const placement = draftPlacement ?? defaultPlacement(p, 1, areaKey);
               return (
                 <li
                   key={p.id || p.nm}
@@ -78,17 +89,20 @@ export function KitReviewPricingStep({
                 >
                   <div
                     style={{
-                      width: 56,
-                      height: 56,
+                      position: "relative",
+                      width: 64,
+                      height: 64,
                       borderRadius: 8,
                       overflow: "hidden",
-                      background: "var(--gray-100)",
+                      background: "#fff",
                       flexShrink: 0,
                     }}
                   >
-                    <DesignedProductThumb
+                    <KitReviewProductThumb
                       product={p}
-                      artworkUrl={p.mockupUrl ? undefined : artworkUrl}
+                      artworkUrl={artworkUrl}
+                      printAreaKey={areaKey}
+                      placement={placement}
                     />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>

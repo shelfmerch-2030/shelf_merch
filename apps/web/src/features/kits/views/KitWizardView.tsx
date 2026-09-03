@@ -184,6 +184,7 @@ export function KitWizardView(vm: KitWizardVm) {
         kitName={draft.name}
         products={vm.pickedProducts}
         artworkUrl={draft.art?.preview}
+        placements={draft.placements}
       />
     </WizardChrome>
   );

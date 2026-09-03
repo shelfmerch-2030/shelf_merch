@@ -11,6 +11,7 @@ import {
   rememberArtwork,
   type PreviousArtwork,
 } from "@/features/swag/wizard/artworkHistory";
+import { kitPreferredPrintAreaKey } from "../kitPrintArea";
 import type { KitArtFile } from "../wizard/kitDraft";
 
 const ART_ACCEPT = /\.(svg|png|jpe?g|ai)$/i;
@@ -310,6 +311,7 @@ export function KitBrandingStep({
             <div className="sw-mockups">
               {products.map((p, idx) => {
                 const key = placementKey(p, idx);
+                const areaKey = kitPreferredPrintAreaKey(p);
                 return (
                   <div key={key} className="pcard mockup-card sw-mockup-card">
                     <button type="button" className="sw-mockup-menu" aria-label="Product options">
@@ -319,6 +321,7 @@ export function KitBrandingStep({
                       <MockupCanvas
                         product={p}
                         artUrl={art.preview}
+                        printAreaKey={areaKey}
                         placement={placements[key]}
                         resetEpoch={placementEpoch}
                         onChange={(placement) => onPlacementChange(key, placement)}

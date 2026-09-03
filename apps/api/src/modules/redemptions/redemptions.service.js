@@ -238,7 +238,7 @@ function colorHexByNameFromVariants(variants) {
 function mapKitEntryToItem({ ref, product }, kit) {
   const options = resolveKitItemOptions(product, ref);
   const drinkware = isDrinkwareProduct(product, ref);
-  const imageUrl = kitProductImageUrl(product, ref);
+  const imageUrl = ref.mockupUrl || kitProductImageUrl(product, ref);
   return {
     productId: String(product._id),
     name: ref.name || product.name,
@@ -259,6 +259,8 @@ function mapKitEntryToItem({ ref, product }, kit) {
     baseRightImageUrl: product.baseRightImageUrl || '',
     primaryImageUrl: product.primaryImageUrl || '',
     imageUrls: product.imageUrls || [],
+    mockupUrl: ref.mockupUrl || '',
+    placement: ref.placement || null,
     requiresSize: options.requiresSize,
     requiresColor: options.requiresColor,
     sizes: options.sizes,

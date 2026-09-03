@@ -458,9 +458,10 @@ export async function createKitFlow(payload: {
 
   if (payload.artwork) {
     const file = await prepareArtworkUploadFile(payload.artwork);
-    if (file) {
-      kit = await uploadKitArtworkApi(kit.id, file);
+    if (!file) {
+      throw new Error("Could not prepare artwork for upload — try re-uploading your logo");
     }
+    kit = await uploadKitArtworkApi(kit.id, file);
   }
   if (payload.mockups?.length) {
     const withMockups = await uploadKitMockupsApi(kit.id, payload.mockups);
@@ -501,9 +502,10 @@ export async function updateKitFlow(payload: {
   });
   if (payload.artwork) {
     const file = await prepareArtworkUploadFile(payload.artwork);
-    if (file) {
-      kit = await uploadKitArtworkApi(kit.id, file);
+    if (!file) {
+      throw new Error("Could not prepare artwork for upload — try re-uploading your logo");
     }
+    kit = await uploadKitArtworkApi(kit.id, file);
   }
   return kit;
 }
@@ -925,6 +927,17 @@ export type KitRedemptionItem = {
   baseRightImageUrl?: string;
   primaryImageUrl?: string;
   imageUrls?: string[];
+  /** Pre-baked branded mockup saved on the kit at publish. */
+  mockupUrl?: string;
+  placement?: {
+    xPct: number;
+    yPct: number;
+    wPct: number;
+    rot: number;
+    printCxPct?: number;
+    printCyPct?: number;
+    printWPct?: number;
+  };
   printAreas?: Array<{
     key?: string;
     label?: string;

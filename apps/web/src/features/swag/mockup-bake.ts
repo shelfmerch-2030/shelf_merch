@@ -629,13 +629,20 @@ export async function bakeMockupsForProducts(
   catalog: UiProduct[],
   artUrl: string,
   placements: Record<string, Placement>,
+  options?: { resolveAreaKey?: (product: UiProduct) => string },
 ): Promise<MockupUploadItem[]> {
   const baked = await Promise.all(
     pickedIndices.map(async (catalogIndex, idx) => {
       const product = catalog[catalogIndex];
       if (!product?.id) return null;
-      const areaKey = primaryAreaKey(product);
-      const placement = resolvePlacementForBake(product, placements, idx, areaKey);
+      const areaKey = options?.resolveAreaKey?.(product) ?? primaryAreaKey(product);
+      // When a custom area resolver is used (create-a-kit polos → "left"), also
+      // accept the product-level placement the kit branding step stores.
+      const placement = options?.resolveAreaKey
+        ? placements[areaPlacementKey(product, idx, areaKey)] ??
+          placements[placementKey(product, idx)] ??
+          defaultPlacement(product, 1, areaKey)
+        : resolvePlacementForBake(product, placements, idx, areaKey);
       const areaPlacements = collectAreaPlacements(product, placements, idx);
       const [dataUrl, design] = await Promise.all([
         bakeMockup(product, artUrl, placement, 1000, false, areaKey),

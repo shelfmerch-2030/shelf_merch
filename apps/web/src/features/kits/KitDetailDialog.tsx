@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
+import { mapProductRef, type UiKit, type UiProduct } from "@/services/mappers";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import type { UiKit, UiProduct } from "@/services/mappers";
+import { kitPreferredPrintAreaKey } from "../kitPrintArea";
+import { KitReviewProductThumb } from "./KitReviewProductThumb";
 
 export function KitDetailDialog({
   kit,
@@ -18,11 +19,19 @@ export function KitDetailDialog({
   const products = useMemo(() => {
     if (!kit?.productRefs?.length) return [];
     const byId = new Map(catalog.map((p) => [p.id, p]));
-    return kit.productRefs.map((ref) => ({
-      name: ref.name,
-      brand: ref.brand,
-      img: byId.get(ref.catalogProductId),
-    }));
+    return kit.productRefs.map((ref) => {
+      const img = mapProductRef(ref as Parameters<typeof mapProductRef>[0], byId);
+      const bakedMockupUrl =
+        resolveMediaUrl(ref.mockupUrl) || img.mockupUrl || undefined;
+      return {
+        name: ref.name,
+        brand: ref.brand,
+        img,
+        bakedMockupUrl,
+        printAreaKey: kitPreferredPrintAreaKey(img),
+        placement: ref.placement ?? img.placement,
+      };
+    });
   }, [kit, catalog]);
 
   return (
@@ -89,17 +98,31 @@ export function KitDetailDialog({
                   className="grid"
                   style={{ gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 12 }}
                 >
-                  {products.map((p, i) => {
-                    const src = p.img
-                      ? resolveMediaUrl(p.img.mockupUrl) || resolveMediaUrl(p.img.imgUrl)
-                      : undefined;
-                    return (
-                      <div key={`${p.name}-${i}`} className="pcard">
-                        {p.img && kit.artworkUrl ? (
-                          <DesignedProductThumb product={p.img} artworkUrl={kit.artworkUrl} />
-                        ) : (
-                          <div className="img">
-                            {src ? (
+                  {products.map((p, i) => (
+                    <div key={`${p.name}-${i}`} className="pcard">
+                      {p.bakedMockupUrl ? (
+                        <div className="img">
+                          <img
+                            src={p.bakedMockupUrl}
+                            alt={p.name}
+                            loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                          />
+                        </div>
+                      ) : p.img && kit.artworkUrl && p.printAreaKey ? (
+                        <KitReviewProductThumb
+                          product={p.img}
+                          artworkUrl={kit.artworkUrl}
+                          printAreaKey={p.printAreaKey}
+                          placement={p.placement}
+                        />
+                      ) : (
+                        <div className="img">
+                          {(() => {
+                            const src = p.img
+                              ? resolveMediaUrl(p.img.mockupUrl) || resolveMediaUrl(p.img.imgUrl)
+                              : undefined;
+                            return src ? (
                               <img
                                 src={src}
                                 alt={p.name}
@@ -112,16 +135,16 @@ export function KitDetailDialog({
                                 aria-hidden="true"
                                 style={{ width: "100%", height: "100%" }}
                               />
-                            )}
-                          </div>
-                        )}
-                        <div className="meta">
-                          {p.brand && <div className="brand">{p.brand}</div>}
-                          <div className="nm">{p.name}</div>
+                            );
+                          })()}
                         </div>
+                      )}
+                      <div className="meta">
+                        {p.brand && <div className="brand">{p.brand}</div>}
+                        <div className="nm">{p.name}</div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

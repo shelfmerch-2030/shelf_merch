@@ -4,13 +4,96 @@ import {
   type KitRedemptionData,
   type KitRedemptionItem,
 } from "@/services/api-bridge";
-import ProductArtworkMockup from "./store/ProductArtworkMockup";
+import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
+import { kitPreferredPrintAreaKey } from "@/features/kits/kitPrintArea";
+import { KitReviewProductThumb } from "@/features/kits/views/KitReviewProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
 import type { ShippingAddress } from "./store/StoreShell";
 
 type Selection = { size?: string; color?: string };
+
+/** Branded kit item on redeem — prefer baked mockup; else logo on clean base (not placeholder mask). */
+function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
+  const baked = resolveMediaUrl(item.mockupUrl);
+  if (baked) {
+    return (
+      <img
+        src={baked}
+        alt={item.name}
+        loading="lazy"
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+      />
+    );
+  }
+
+  const product = storeProductAsUi({
+    _id: item.productId,
+    name: item.name,
+    brand: item.brand,
+    group: item.group,
+    maskImageUrl: item.maskImageUrl,
+    baseImageUrl: item.baseImageUrl,
+    maskBackImageUrl: item.maskBackImageUrl,
+    baseBackImageUrl: item.baseBackImageUrl,
+    maskLeftImageUrl: item.maskLeftImageUrl,
+    baseLeftImageUrl: item.baseLeftImageUrl,
+    maskRightImageUrl: item.maskRightImageUrl,
+    baseRightImageUrl: item.baseRightImageUrl,
+    primaryImageUrl: item.primaryImageUrl,
+    imageUrls: item.imageUrls,
+    printAreas: item.printAreas,
+    placement: item.placement,
+  });
+
+  const artworkUrl = item.artworkUrl ? resolveMediaUrl(item.artworkUrl) || item.artworkUrl : "";
+  if (!artworkUrl) {
+    const fallback =
+      resolveMediaUrl(item.imageUrl) ||
+      resolveMediaUrl(item.primaryImageUrl) ||
+      resolveMediaUrl(item.imageUrls?.[0]);
+    return fallback ? (
+      <img
+        src={fallback}
+        alt={item.name}
+        loading="lazy"
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+      />
+    ) : (
+      <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
+        <span className="mut3" style={{ fontSize: 12 }}>
+          No image
+        </span>
+      </div>
+    );
+  }
+
+  const cleanBase =
+    resolveMediaUrl(item.baseImageUrl) ||
+    resolveMediaUrl(item.primaryImageUrl) ||
+    resolveMediaUrl(item.imageUrls?.[0]);
+  const mask = resolveMediaUrl(item.maskImageUrl);
+  const useCleanBase = Boolean(cleanBase && (!mask || cleanBase !== mask));
+
+  return (
+    <KitReviewProductThumb
+      product={
+        useCleanBase
+          ? {
+              ...product,
+              maskImageUrl: undefined,
+              baseImageUrl: cleanBase,
+              imgUrl: cleanBase,
+            }
+          : product
+      }
+      artworkUrl={artworkUrl}
+      printAreaKey={kitPreferredPrintAreaKey(product)}
+      placement={item.placement}
+    />
+  );
+}
 
 function KitItemCard({
   item,
@@ -24,12 +107,6 @@ function KitItemCard({
   /** Curated kits: show the product photo only — never overlay kit artwork. */
   curatedPlain?: boolean;
 }) {
-  const imageCandidates = (
-    item.isDrinkware
-      ? [item.imageUrl, item.primaryImageUrl, ...(item.imageUrls || []), item.baseImageUrl]
-      : [item.maskImageUrl, item.imageUrl, item.primaryImageUrl, ...(item.imageUrls || []), item.baseImageUrl]
-  ).filter((u): u is string => Boolean(u));
-
   const colorSwatches = productVariantSwatches({
     colors: item.colors,
     colorHexByName: item.colorHexByName,
@@ -38,16 +115,6 @@ function KitItemCard({
   const plainSrc = resolveMediaUrl(
     item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
   );
-
-  const mockupProduct = {
-    name: item.name,
-    maskImageUrl: item.isDrinkware ? undefined : item.maskImageUrl || item.imageUrl,
-    primaryImageUrl: item.imageUrl || item.primaryImageUrl,
-    imageUrls: item.imageUrls,
-    // Curated redeem must not brand-overlay item photos.
-    artworkUrl: curatedPlain ? undefined : item.artworkUrl,
-    printAreas: curatedPlain ? [] : item.printAreas,
-  };
 
   return (
     <div className="card" style={{ padding: 16 }}>
@@ -77,11 +144,7 @@ function KitItemCard({
             </div>
           )
         ) : (
-          <ProductArtworkMockup
-            product={mockupProduct}
-            imageCandidates={imageCandidates}
-            style={{ height: "100%" }}
-          />
+          <KitRedeemProductImage item={item} />
         )}
       </div>
       {item.brand && (
