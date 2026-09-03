@@ -407,7 +407,7 @@ describe('campaign lifecycle (§11.1)', () => {
     expect(order.shippingAddress.line1).toBe('123 Street');
     expect(order.shippingAddress.pincode).toBe('500001');
     expect(order.items).toHaveLength(1);
-    expect(order.items[0].variant.size).toBe('XS');
+    expect(order.items[0].variant.size).toBe('');
 
     const portal = await request(app).get(`/api/v1/redemptions/${recipient.redemptionToken}`);
     expect(portal.status).toBe(409);
@@ -737,6 +737,10 @@ describe('redemption portal (§11.1)', () => {
       group: 'hoodie',
       basePriceInr: 1200,
       maskImageUrl: '/uploads/platform/product/hoodie-mask.png',
+      variants: [
+        { size: 'M', sku: 'HOODIE-M' },
+        { size: 'L', sku: 'HOODIE-L' },
+      ],
     });
     const jockey = await CatalogProduct.create({
       sku: 'SM-TEE-JOCKEY',
@@ -745,6 +749,10 @@ describe('redemption portal (§11.1)', () => {
       group: 'tee',
       basePriceInr: 500,
       maskImageUrl: '/uploads/platform/product/tee-mask.png',
+      variants: [
+        { size: 'L', sku: 'JOCKEY-L' },
+        { size: 'XL', sku: 'JOCKEY-XL' },
+      ],
     });
     const kit = await Kit.create({
       tenantId: tenant._id,

@@ -238,7 +238,8 @@ function colorHexByNameFromVariants(variants) {
 function mapKitEntryToItem({ ref, product }, kit) {
   const options = resolveKitItemOptions(product, ref);
   const drinkware = isDrinkwareProduct(product, ref);
-  const imageUrl = ref.mockupUrl || kitProductImageUrl(product, ref);
+  const bakedMockup = ref.mockupUrl ? String(ref.mockupUrl).trim() : '';
+  const imageUrl = bakedMockup || kitProductImageUrl(product, ref);
   return {
     productId: String(product._id),
     name: ref.name || product.name,
@@ -247,6 +248,8 @@ function mapKitEntryToItem({ ref, product }, kit) {
     category: product.category || '',
     isDrinkware: drinkware,
     imageUrl,
+    mockupUrl: bakedMockup,
+    placement: ref.placement || undefined,
     artworkUrl: kit.artworkUrl || '',
     printAreas: product.printAreas || [],
     maskImageUrl: drinkware ? '' : product.maskImageUrl || '',
@@ -259,8 +262,6 @@ function mapKitEntryToItem({ ref, product }, kit) {
     baseRightImageUrl: product.baseRightImageUrl || '',
     primaryImageUrl: product.primaryImageUrl || '',
     imageUrls: product.imageUrls || [],
-    mockupUrl: ref.mockupUrl || '',
-    placement: ref.placement || null,
     requiresSize: options.requiresSize,
     requiresColor: options.requiresColor,
     sizes: options.sizes,
@@ -1083,13 +1084,11 @@ export async function submitRedemption(
 
   if (recipient.redemptionStatus === 'order_created') {
     const existing = await Order.findOne({ recipientId: recipient._id, tenantId: recipient.tenantId });
-    if (existing) {
-      return {
-        orderNumber: existing.orderNumber,
-        estimatedDelivery: '7-10 business days',
-        idempotentReplay: true,
-      };
-    }
+    return {
+      orderNumber: existing.orderNumber,
+      estimatedDelivery: '7-10 business days',
+      idempotentReplay: true,
+    };
   }
 
   // Heal: order may exist from a prior attempt that failed after create (e.g. later unique collision).
@@ -1207,10 +1206,10 @@ export async function submitRedemption(
         if (item.qty !== 1) {
           throw new ApiError(422, `Quantity must be 1 for kit item ${product.name}`, 'KIT_QTY_INVALID');
         }
-        if (options.requiresSize && !item.variant?.size) {
+        if (options.requiresSize && options.sizes.length > 0 && !item.variant?.size) {
           throw new ApiError(422, `Size is required for ${product.name}`, 'SIZE_REQUIRED');
         }
-        if (options.requiresColor && !item.variant?.color) {
+        if (options.requiresColor && options.colors.length > 0 && !item.variant?.color) {
           throw new ApiError(422, `Colour is required for ${product.name}`, 'COLOR_REQUIRED');
         }
         if (item.variant?.size && options.sizes.length && !options.sizes.includes(item.variant.size)) {

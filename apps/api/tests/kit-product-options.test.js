@@ -51,14 +51,16 @@ describe('kitProductOptions', () => {
     expect(resolveKitItemOptions(product, { group: 'tee' }).requiresSize).toBe(false);
   });
 
-  it('tee without variants gets default apparel sizes', () => {
+  it('tee without variants does not invent size or colour pickers', () => {
     const product = { group: 'tee', category: 'Apparel', variants: [] };
     const opts = resolveKitItemOptions(product, { group: 'tee' });
-    expect(opts.requiresSize).toBe(true);
-    expect(opts.sizes).toEqual(['XS', 'S', 'M', 'L', 'XL', 'XXL']);
+    expect(opts.requiresSize).toBe(false);
+    expect(opts.requiresColor).toBe(false);
+    expect(opts.sizes).toEqual([]);
+    expect(opts.colors).toEqual([]);
   });
 
-  it('hoodie with non-standard variant sizes falls back to defaults', () => {
+  it('hoodie with non-standard variant sizes uses catalog sizes only', () => {
     const product = {
       group: 'hoodie',
       category: 'Apparel',
@@ -66,7 +68,7 @@ describe('kitProductOptions', () => {
     };
     const opts = resolveKitItemOptions(product, { group: 'hoodie' });
     expect(opts.requiresSize).toBe(true);
-    expect(opts.sizes).toEqual(['XS', 'S', 'M', 'L', 'XL', 'XXL']);
+    expect(opts.sizes).toEqual(['G']);
     expect(opts.requiresColor).toBe(true);
     expect(opts.colors).toEqual(['#d33636']);
   });

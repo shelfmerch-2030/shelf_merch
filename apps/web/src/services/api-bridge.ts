@@ -916,7 +916,19 @@ export type KitRedemptionItem = {
   category?: string;
   isDrinkware?: boolean;
   imageUrl: string;
+  /** Pre-baked branded mockup from kit publish — preferred for redeem previews. */
+  mockupUrl?: string;
   artworkUrl: string;
+  /** Saved logo placement from kit branding (matches baked mockup). */
+  placement?: {
+    xPct: number;
+    yPct: number;
+    wPct: number;
+    rot: number;
+    printCxPct?: number;
+    printCyPct?: number;
+    printWPct?: number;
+  };
   maskImageUrl?: string;
   baseImageUrl?: string;
   maskBackImageUrl?: string;

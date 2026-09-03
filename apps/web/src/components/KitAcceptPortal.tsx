@@ -4,19 +4,42 @@ import {
   type KitRedemptionData,
   type KitRedemptionItem,
 } from "@/services/api-bridge";
-import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
-import { kitPreferredPrintAreaKey } from "@/features/kits/kitPrintArea";
-import { KitReviewProductThumb } from "@/features/kits/views/KitReviewProductThumb";
+import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
+import { mapPlacement, type UiProduct } from "@/services/mappers";
 import type { ShippingAddress } from "./store/StoreShell";
 
 type Selection = { size?: string; color?: string };
 
-/** Branded kit item on redeem — prefer baked mockup; else logo on clean base (not placeholder mask). */
+function kitItemAsProduct(item: KitRedemptionItem): UiProduct {
+  const photo =
+    resolveMediaUrl(item.primaryImageUrl) ||
+    resolveMediaUrl(item.imageUrls?.[0]) ||
+    "";
+  const base = resolveMediaUrl(item.baseImageUrl) || "";
+  return {
+    id: item.productId,
+    g: item.group || "tee",
+    brand: item.brand,
+    nm: item.name,
+    sw: 4,
+    photoUrl: photo,
+    baseImageUrl: base,
+    // Mask PNGs include "YOUR DESIGN HERE" placeholders — use clean base/photo only.
+    maskImageUrl: undefined,
+    imgUrl: base || photo,
+    mockupUrl: item.mockupUrl,
+    placement: mapPlacement(item.placement),
+    printAreas: item.printAreas,
+    imageUrls: item.imageUrls,
+  };
+}
+
+/** Redeem preview: baked mockup when available, else logo on clean product photo. */
 function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
-  const baked = resolveMediaUrl(item.mockupUrl);
+  const baked = resolveMediaUrl(item.mockupUrl || "");
   if (baked) {
     return (
       <img
@@ -28,69 +51,11 @@ function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
     );
   }
 
-  const product = storeProductAsUi({
-    _id: item.productId,
-    name: item.name,
-    brand: item.brand,
-    group: item.group,
-    maskImageUrl: item.maskImageUrl,
-    baseImageUrl: item.baseImageUrl,
-    maskBackImageUrl: item.maskBackImageUrl,
-    baseBackImageUrl: item.baseBackImageUrl,
-    maskLeftImageUrl: item.maskLeftImageUrl,
-    baseLeftImageUrl: item.baseLeftImageUrl,
-    maskRightImageUrl: item.maskRightImageUrl,
-    baseRightImageUrl: item.baseRightImageUrl,
-    primaryImageUrl: item.primaryImageUrl,
-    imageUrls: item.imageUrls,
-    printAreas: item.printAreas,
-    placement: item.placement,
-  });
-
-  const artworkUrl = item.artworkUrl ? resolveMediaUrl(item.artworkUrl) || item.artworkUrl : "";
-  if (!artworkUrl) {
-    const fallback =
-      resolveMediaUrl(item.imageUrl) ||
-      resolveMediaUrl(item.primaryImageUrl) ||
-      resolveMediaUrl(item.imageUrls?.[0]);
-    return fallback ? (
-      <img
-        src={fallback}
-        alt={item.name}
-        loading="lazy"
-        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-      />
-    ) : (
-      <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
-        <span className="mut3" style={{ fontSize: 12 }}>
-          No image
-        </span>
-      </div>
-    );
-  }
-
-  const cleanBase =
-    resolveMediaUrl(item.baseImageUrl) ||
-    resolveMediaUrl(item.primaryImageUrl) ||
-    resolveMediaUrl(item.imageUrls?.[0]);
-  const mask = resolveMediaUrl(item.maskImageUrl);
-  const useCleanBase = Boolean(cleanBase && (!mask || cleanBase !== mask));
-
   return (
-    <KitReviewProductThumb
-      product={
-        useCleanBase
-          ? {
-              ...product,
-              maskImageUrl: undefined,
-              baseImageUrl: cleanBase,
-              imgUrl: cleanBase,
-            }
-          : product
-      }
-      artworkUrl={artworkUrl}
-      printAreaKey={kitPreferredPrintAreaKey(product)}
-      placement={item.placement}
+    <DesignedProductThumb
+      product={kitItemAsProduct(item)}
+      artworkUrl={item.artworkUrl || undefined}
+      frontOnly
     />
   );
 }
@@ -113,7 +78,7 @@ function KitItemCard({
   });
 
   const plainSrc = resolveMediaUrl(
-    item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
+    item.mockupUrl || item.imageUrl || item.primaryImageUrl || item.imageUrls?.[0] || "",
   );
 
   return (
@@ -191,6 +156,16 @@ function KitItemCard({
           </div>
         </div>
       )}
+
+      {!curatedPlain &&
+      !item.requiresSize &&
+      !item.requiresColor &&
+      item.sizes.length === 0 &&
+      colorSwatches.length === 0 ? (
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          No variants for this product
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -247,11 +222,17 @@ export default function KitAcceptPortal({
   const [placing, setPlacing] = useState(false);
 
   const missingSizes = useMemo(
-    () => kitData.items.filter((i) => i.requiresSize && !selections[i.productId]?.size),
+    () =>
+      kitData.items.filter(
+        (i) => i.requiresSize && i.sizes.length > 0 && !selections[i.productId]?.size,
+      ),
     [kitData.items, selections],
   );
   const missingColors = useMemo(
-    () => kitData.items.filter((i) => i.requiresColor && !selections[i.productId]?.color),
+    () =>
+      kitData.items.filter(
+        (i) => i.requiresColor && i.colors.length > 0 && !selections[i.productId]?.color,
+      ),
     [kitData.items, selections],
   );
 

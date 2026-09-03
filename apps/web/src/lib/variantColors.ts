@@ -55,9 +55,10 @@ export function curatedColorSwatches(
   preferredColors?: string[],
 ): ColorSwatch[] {
   const availableNames = swatches.map((c) => c.name);
+  if (!availableNames.length) return [];
   const prefs = (preferredColors || []).filter(Boolean);
   const names = prefs.length
-    ? prefs.filter((c) => !availableNames.length || availableNames.includes(c))
+    ? prefs.filter((c) => availableNames.includes(c))
     : availableNames;
   const finalNames = names.length ? names : availableNames;
   const byName = new Map(swatches.map((c) => [c.name.toLowerCase(), c]));

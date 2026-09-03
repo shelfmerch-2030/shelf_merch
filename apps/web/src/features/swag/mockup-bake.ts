@@ -159,6 +159,13 @@ function sameMediaPath(a: string, b: string): boolean {
   return normMediaPath(a) === normMediaPath(b);
 }
 
+/** True when the asset is the catalog marketing photo, not a dedicated garment mask. */
+export function isPhotoProductImage(p: UiProduct | undefined, url: string | undefined): boolean {
+  if (!p || !url) return false;
+  const photo = resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imageUrls?.[0]);
+  return photo ? sameMediaPath(url, photo) : false;
+}
+
 /** Which garment view a print area belongs to (from mockup URL and/or key/label). */
 export function printAreaViewKey(
   p: UiProduct | undefined,

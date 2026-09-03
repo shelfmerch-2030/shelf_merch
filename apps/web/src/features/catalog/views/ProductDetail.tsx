@@ -247,6 +247,12 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
             </div>
           ) : null}
 
+          {swatches.length === 0 && displaySizes.length === 0 ? (
+            <p className="muted" style={{ fontSize: 14, margin: 0 }}>
+              No variants for this product
+            </p>
+          ) : null}
+
           <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
 
           <ProductInfoTabs

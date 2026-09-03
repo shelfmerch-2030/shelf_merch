@@ -3,26 +3,20 @@ import { useParams } from "react-router";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import type { Placement } from "@/features/swag/mockup-bake";
-import { mapProductRef, type UiKit, type UiProduct } from "@/services/mappers";
+import { mapProductRef } from "@/services/mappers";
 import { curatedIncludedItems } from "../KitPreviewDialog";
-import { kitPreferredPrintAreaKey } from "../kitPrintArea";
 import {
   curatedKitHasBrandLogo,
   getCuratedKitMeta,
 } from "./useSendKitController";
-import { usePlatformKits } from "../model";
+import { usePlatformKits, type UiKit, type UiProduct } from "../model";
 
 export type KitDetailProduct = {
   name: string;
   brand?: string;
   imageUrl?: string;
-  /** Pre-baked branded mockup saved on the kit product ref at publish. */
-  bakedMockupUrl?: string;
-  /** Merged catalog + kit ref — used to composite artwork when mockup is missing. */
+  /** Catalog product — only for customised kits that use DesignedProductThumb. */
   img?: UiProduct;
-  printAreaKey?: string;
-  placement?: Placement;
 };
 
 export type KitDetailVm = {
@@ -65,23 +59,24 @@ export function useKitDetailController(): KitDetailVm {
     if (!kit.productRefs?.length) return [];
     const byId = new Map((workspace?.catalogProducts ?? []).map((p) => [p.id, p]));
     return kit.productRefs.map((ref) => {
-      const img = mapProductRef(ref as Parameters<typeof mapProductRef>[0], byId);
-      const bakedMockupUrl =
-        resolveMediaUrl(ref.mockupUrl) ||
-        img.mockupUrl ||
-        undefined;
-      const catalogProduct = byId.get(ref.catalogProductId);
+      const img = mapProductRef(
+        {
+          catalogProductId: ref.catalogProductId,
+          name: ref.name,
+          brand: ref.brand,
+          group: ref.group,
+          mockupUrl: ref.mockupUrl,
+        },
+        byId,
+      );
       return {
         name: ref.name,
         brand: ref.brand,
         img,
-        bakedMockupUrl,
-        printAreaKey: kitPreferredPrintAreaKey(img),
-        placement: ref.placement ?? img.placement,
         imageUrl:
-          bakedMockupUrl ||
-          resolveMediaUrl(catalogProduct?.mockupUrl) ||
-          resolveMediaUrl(catalogProduct?.imgUrl) ||
+          resolveMediaUrl(ref.mockupUrl) ||
+          resolveMediaUrl(img.mockupUrl) ||
+          resolveMediaUrl(img.imgUrl) ||
           undefined,
       };
     });

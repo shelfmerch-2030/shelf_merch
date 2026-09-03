@@ -71,9 +71,6 @@ const APPAREL_GROUPS = new Set([
   'crew',
 ]);
 
-const DEFAULT_APPAREL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const STANDARD_SIZES = new Set(['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL']);
-
 const GROUP_BY_CATEGORY: Record<string, string> = {
   Apparel: 'tee',
   Drinkware: 'bottle',
@@ -119,10 +116,6 @@ function isApparelProduct(product: UiProduct, ref: any = {}) {
   return APPAREL_GROUPS.has(group) || category === 'apparel';
 }
 
-function hasStandardSizes(sizes: string[]) {
-  return sizes.some((s) => STANDARD_SIZES.has(String(s).toUpperCase()));
-}
-
 export function resolveKitItemOptions(product: UiProduct, ref: any = {}) {
   const rawSizes = distinctVariantValues(product.variants, 'size');
   const rawColors = distinctVariantValues(product.variants, 'color');
@@ -137,12 +130,10 @@ export function resolveKitItemOptions(product: UiProduct, ref: any = {}) {
   }
 
   if (isApparelProduct(product, ref)) {
-    let sizes = hasStandardSizes(rawSizes) ? rawSizes.filter((s) => STANDARD_SIZES.has(String(s).toUpperCase())) : [];
-    if (!sizes.length) sizes = DEFAULT_APPAREL_SIZES;
     return {
-      sizes,
+      sizes: rawSizes,
       colors: rawColors,
-      requiresSize: sizes.length > 0,
+      requiresSize: rawSizes.length > 0,
       requiresColor: rawColors.length > 0,
     };
   }
@@ -515,8 +506,8 @@ export function useSendKitController(): SendKitVm {
               const ref = kit?.productRefs?.find((r) => r.catalogProductId === prod.id) ?? {};
               const opts = resolveKitItemOptions(prod, ref);
               const sel = variants[prod.id || ""] || {};
-              if (opts.requiresSize && !sel.size) missingList.push(`${name}'s size for ${prod.nm}`);
-              if (opts.requiresColor && !sel.color) missingList.push(`${name}'s color for ${prod.nm}`);
+              if (opts.requiresSize && opts.sizes.length > 0 && !sel.size) missingList.push(`${name}'s size for ${prod.nm}`);
+              if (opts.requiresColor && opts.colors.length > 0 && !sel.color) missingList.push(`${name}'s color for ${prod.nm}`);
             }
           }
         }
