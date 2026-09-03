@@ -7,8 +7,8 @@ type AuthLayoutProps = {
   children: ReactNode;
   title: string;
   subtitle?: string;
-  /** `welcome` = merch backdrop + card with wordmark above (login / signup). */
-  variant?: "branded" | "welcome";
+  /** `welcome` = merch backdrop + card with wordmark above (login / signup). `compact` = smaller card for reset flows. */
+  variant?: "branded" | "welcome" | "compact";
   footerLink?: { hint: string; label: string; to: "/login" | "/signup" | "/forgot-password" };
 };
 
@@ -20,13 +20,14 @@ export function AuthLayout({
   footerLink,
 }: AuthLayoutProps) {
   const isWelcome = variant === "welcome";
+  const isCompact = variant === "compact";
   const authBackgroundStyle = {
     "--auth-bg": `url(${authMerchImage})`,
   } as CSSProperties;
 
   return (
     <div
-      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}`}
+      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}${isCompact ? " auth-simple--compact" : ""}`}
       style={authBackgroundStyle}
     >
       <div className="auth-simple-body">
@@ -59,7 +60,7 @@ export function AuthLayout({
           ) : (
             <section className="auth-simple-card">
               <Link to="/" className="auth-simple-logo" aria-label="Shelf Merch home">
-                <ShelfMerchLogo height={42} className="auth-simple-logo-img" />
+                <ShelfMerchLogo height={isCompact ? 32 : 42} className="auth-simple-logo-img" />
               </Link>
               <h1 className="auth-simple-title">{title}</h1>
               {subtitle ? <p className="auth-simple-subtitle">{subtitle}</p> : null}

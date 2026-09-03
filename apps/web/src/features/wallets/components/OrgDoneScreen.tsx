@@ -1,9 +1,9 @@
 import { type ReactNode } from "react";
-import { ArrowRight, Box, Check, Send, Store, Users, Wallet } from "lucide-react";
+import { Box, Check, Send, Store, Users, Wallet } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { inr } from "@/components/platform/platform-ui";
-import walletSubmittedIllust from "../../../../assets/wallet-submitted-illust-blend.png";
+import walletIconImg from "../../../../assets/wallet-icon.svg";
 import { selectedDepartments, type WizardState } from "../types";
 
 function StatusTag({ label, tone = "live" }: { label: string; tone?: "live" | "warn" }) {
@@ -68,54 +68,77 @@ export function OrgDoneScreen({
 
   if (isWalletFlow) {
     return (
-      <div className="wallet-done wallet-done--wallet fade-in">
-        <div className="wallet-submit">
-          <div className="wallet-submit__art" aria-hidden="true">
-            <img src={walletSubmittedIllust} alt="" />
-          </div>
+      <div className="funding-success fade-in">
+        <div className="funding-success__layout">
+          <div className="funding-success__copy">
+            <div className="funding-success__icon" aria-hidden="true">
+              <Check strokeWidth={2.6} />
+            </div>
+            <p className="funding-success__eyebrow">
+              <span className="funding-success__eyebrow-dot" aria-hidden="true" />
+              Request received
+            </p>
+            <h1 className="funding-success__title">
+              Funding request <em>submitted.</em>
+            </h1>
+            <p className="funding-success__lead">
+              ShelfMerch finance is reviewing your purchase order. Once approved,{" "}
+              <strong>{inr(o.amount)}</strong> will be added to <strong>{o.name}</strong> and you can
+              allocate funds across departments.
+            </p>
 
-          <div className="wallet-submit__content">
-            <header className="wallet-submit__card">
-              <div className="wallet-submit__check" aria-hidden="true">
-                <Check strokeWidth={2.75} />
-                <span className="wallet-submit__spark wallet-submit__spark--1" />
-                <span className="wallet-submit__spark wallet-submit__spark--2" />
-                <span className="wallet-submit__spark wallet-submit__spark--3" />
-              </div>
-              <div>
-                <h1>Funding request submitted</h1>
-                <p>
-                  ShelfMerch finance will review your PO. Once approved,{" "}
-                  <strong className="wallet-submit__hl">{inr(o.amount)}</strong> will be added to
-                  your organization budget and you can allocate funds to departments.
-                </p>
-              </div>
-            </header>
-
-            <Link to="/app/shops/new" className="wallet-submit__next">
-              <span className="wallet-submit__next-icon" aria-hidden="true">
-                <Store size={18} strokeWidth={2} />
+            <div className="funding-success__amount">
+              <span className="funding-success__amount-icon" aria-hidden="true">
+                <Wallet size={17} strokeWidth={2} />
               </span>
-              <span className="wallet-submit__next-text">Next step — create your shop.</span>
-              <span className="wallet-submit__next-arrow" aria-hidden="true">
-                <ArrowRight size={16} strokeWidth={2.5} />
+              <span>
+                <strong className="num">{inr(o.amount)}</strong> pending approval
               </span>
-            </Link>
+            </div>
 
-            <div className="wallet-submit__actions">
-              <Link to="/app/shops/new" className="wallet-submit__btn wallet-submit__btn--primary">
-                <Store size={16} strokeWidth={2} aria-hidden="true" />
-                Create shop
+            <div className="funding-success__actions">
+              <Link to="/app/shops/new" className="btn btn-brand btn-lg">
+                Create store <Send size={15} />
               </Link>
-              <button
-                type="button"
-                className="wallet-submit__btn wallet-submit__btn--outline"
-                onClick={onGoToDashboard}
-              >
-                <Wallet size={16} strokeWidth={2} aria-hidden="true" />
+              <button type="button" className="btn btn-ghost btn-lg" onClick={onGoToDashboard}>
                 Go to budget dashboard
               </button>
             </div>
+
+            <div className="funding-success__note">
+              <strong>What happens next</strong>
+              <p>
+                We verify your PO, credit your organization budget, and notify you when you&apos;re
+                ready to allocate funds and launch your shop.
+              </p>
+            </div>
+          </div>
+
+          <div className="funding-success__visual" aria-hidden="true">
+            <div className="funding-success__shape funding-success__shape--coral" />
+            <div className="funding-success__shape funding-success__shape--yellow" />
+            <div className="funding-success__shape funding-success__shape--blue" />
+            <article className="funding-success__card">
+              <span className="funding-success__card-label">Organization budget</span>
+              <h3>
+                Your merch
+                <br />
+                wallet
+              </h3>
+              <div className="funding-success__card-icon">
+                <img src={walletIconImg} alt="" />
+              </div>
+              <div className="funding-success__meter">
+                <div>
+                  <span className="num">{inr(o.amount)}</span>
+                  <small>Requested</small>
+                </div>
+                <div>
+                  <b>Pending</b>
+                  <small>Finance review</small>
+                </div>
+              </div>
+            </article>
           </div>
         </div>
       </div>

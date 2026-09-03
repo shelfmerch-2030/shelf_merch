@@ -10,18 +10,23 @@ function readInviteToken(searchToken: string): string {
   return "";
 }
 
+function invitePasswordValid(password: string, confirm: string): boolean {
+  if (password.length < 10) return false;
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return false;
+  return password === confirm;
+}
+
 export type AcceptInviteVm = {
   token: string;
   password: string;
   confirm: string;
-  showPassword: boolean;
   loading: boolean;
   error: string;
   done: boolean;
   showLoginHint: boolean;
+  canSubmit: boolean;
   onPassword: (password: string) => void;
   onConfirm: (confirm: string) => void;
-  onToggleShowPassword: () => void;
   onSubmit: (e: FormEvent) => void;
 };
 
@@ -30,11 +35,12 @@ export function useAcceptInviteController(searchToken: string): AcceptInviteVm {
   const token = useMemo(() => readInviteToken(searchToken), [searchToken]);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [done, setDone] = useState(false);
+
+  const canSubmit = invitePasswordValid(password, confirm);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -44,19 +50,15 @@ export function useAcceptInviteController(searchToken: string): AcceptInviteVm {
       setError("Invalid invitation link — ask your admin to resend the invite.");
       return;
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords do not match.");
+    if (!invitePasswordValid(password, confirm)) {
+      setError("Password must be at least 10 characters and include a letter and a number.");
       return;
     }
     setLoading(true);
     try {
       await acceptInvite(token, password);
       setDone(true);
-      window.location.href = "/";
+      window.location.assign("/app");
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -73,14 +75,13 @@ export function useAcceptInviteController(searchToken: string): AcceptInviteVm {
     token,
     password,
     confirm,
-    showPassword,
     loading,
     error,
     done,
     showLoginHint: errorCode === "INVALID_INVITE_TOKEN" || errorCode === "INVITE_EXPIRED",
+    canSubmit,
     onPassword: setPassword,
     onConfirm: setConfirm,
-    onToggleShowPassword: () => setShowPassword((v) => !v),
     onSubmit,
   };
 }

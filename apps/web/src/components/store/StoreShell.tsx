@@ -2413,13 +2413,22 @@ export default function StoreShell({
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
               </div>
-              <div className="sf-order-success-eyebrow">
-                Order placed
+              <p className="sf-order-success-eyebrow">
                 <span className="sf-order-success-eyebrow-dot" aria-hidden="true" />
-              </div>
-              <h1 className="sf-order-success-title">Thank you{recipientName ? `, ${recipientName}` : ""}!</h1>
+                Order placed
+              </p>
+              <h1 className="sf-order-success-title">
+                Thank you
+                {recipientName ? (
+                  <>
+                    , <em>{recipientName}</em>
+                  </>
+                ) : null}
+                !
+              </h1>
               <p className="sf-order-success-copy-text">
-                Order <b>#{orderNumber}</b> is confirmed. We&apos;ll email you tracking once it ships.
+                Order <strong>#{orderNumber}</strong> is confirmed. We&apos;ll email you tracking once it
+                ships.
               </p>
               {balanceInr != null && balanceInr > 0 ? (
                 <div className="sf-order-success-balance">
@@ -2427,7 +2436,7 @@ export default function StoreShell({
                     <ShoppingBagIcon />
                   </span>
                   <span>
-                    You still have <b>{navBalanceValue(balanceInr)}</b> to spend in the store.
+                    You still have <strong>{navBalanceValue(balanceInr)}</strong> to spend in the store.
                   </span>
                 </div>
               ) : null}
@@ -2451,24 +2460,39 @@ export default function StoreShell({
                 </button>
               </div>
               <div className="sf-order-success-next">
-                <span className="sf-order-success-next-icon" aria-hidden="true">
-                  <PackageIcon />
-                </span>
-                <div>
-                  <strong>What happens next?</strong>
-                  <p>We&apos;re packing your order with care. You&apos;ll receive an email with tracking details once it&apos;s on the way.</p>
-                </div>
+                <strong>What happens next</strong>
+                <p>
+                  We&apos;re packing your order with care. You&apos;ll get an email with tracking
+                  details once it&apos;s on the way.
+                </p>
               </div>
             </div>
 
-            <div className="sf-order-success-art" aria-hidden="true">
-              <div className="sf-order-success-art-blob" />
-              <div className="sf-order-success-art-glow" />
-              <img
-                src="/images/shops/order-placed.png"
-                alt=""
-                className="sf-order-success-art-img"
-              />
+            <div className="sf-order-success-visual" aria-hidden="true">
+              <div className="sf-order-success-shape sf-order-success-shape--coral" />
+              <div className="sf-order-success-shape sf-order-success-shape--yellow" />
+              <div className="sf-order-success-shape sf-order-success-shape--blue" />
+              <article className="sf-order-success-card">
+                <span className="sf-order-success-card-label">Store order</span>
+                <h3>
+                  Merch on
+                  <br />
+                  the way
+                </h3>
+                <div className="sf-order-success-card-icon">
+                  <PackageIcon />
+                </div>
+                <div className="sf-order-success-meter">
+                  <div>
+                    <span>#{orderNumber || "—"}</span>
+                    <small>Order</small>
+                  </div>
+                  <div>
+                    <b>Confirmed</b>
+                    <small>Status</small>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
         </div>

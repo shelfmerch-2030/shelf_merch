@@ -113,7 +113,12 @@ export async function inviteUser(
     if (phone) user.phone = phone;
     await user.save({ session });
   } else {
-    // Active user in this workspace — update profile fields if provided.
+    // Active user in this workspace — issue a fresh accept link when sendInvite is on.
+    if (sendInvite) {
+      inviteToken = crypto.randomBytes(32).toString('hex');
+      user.inviteTokenHash = sha256(inviteToken);
+      user.inviteTokenExpiresAt = new Date(Date.now() + INVITE_TTL_MS);
+    }
     if (name && user.name !== name) user.name = name;
     if (phone) user.phone = phone;
     if (user.isModified()) await user.save({ session });
@@ -152,8 +157,6 @@ export async function inviteUser(
 
   if (sendInvite && inviteToken) {
     await sendInviteEmail(normalizedEmail, inviteToken, mailContext);
-  } else if (sendInvite && user.status === 'active') {
-    await sendManagerAssignmentEmail({ to: normalizedEmail, ...mailContext });
   } else if (!sendInvite && user.status === 'active') {
     await sendManagerAssignmentEmail({ to: normalizedEmail, ...mailContext });
   }
@@ -166,13 +169,13 @@ export async function acceptInvite({ token, password }) {
   const user = await User.findOne({
     inviteTokenHash: tokenHash,
     inviteTokenExpiresAt: { $gt: new Date() },
-    status: 'invited',
+    status: { $in: ['invited', 'active'] },
   }).select('+inviteTokenHash');
 
   if (!user) {
     const expiredInvite = await User.findOne({
       inviteTokenHash: tokenHash,
-      status: 'invited',
+      status: { $in: ['invited', 'active'] },
     }).select('+inviteTokenHash');
     if (expiredInvite) {
       throw new ApiError(
@@ -189,7 +192,9 @@ export async function acceptInvite({ token, password }) {
   }
 
   user.passwordHash = await hashPassword(password);
-  user.status = 'active';
+  if (user.status === 'invited') {
+    user.status = 'active';
+  }
   user.inviteTokenHash = null;
   user.inviteTokenExpiresAt = null;
   await user.save();

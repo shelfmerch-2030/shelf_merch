@@ -589,6 +589,7 @@ async function createFulfillmentOrdersIfNeeded(campaign, tenantId) {
     );
     await createSingleLocationOrderForCampaign({ tenantId, campaign });
   }
+  // Redeem mode: orders are created when the recipient accepts via /redemptions/:token/submit.
 }
 
 /**
@@ -714,9 +715,9 @@ export async function launchCampaign({
   const entity = await Entity.findOne({ _id: campaign.entityId, tenantId });
   if (!entity) throw new NotFoundError('Entity not found');
 
-  // Surprise/single: create Orders before charging so a failure (e.g. curated
-  // kit with no lines, missing addresses) does not debit the wallet orphaned.
-  // Redeem mode is a no-op here — Orders form when recipients submit.
+  // Surprise/single: create Orders before charging so a failure (e.g. curated kit with
+  // no lines, missing addresses) does not debit the wallet orphaned.
+  // Redeem mode defers order creation until the recipient accepts.
   if (openRedemptionNow) {
     await createFulfillmentOrdersIfNeeded(campaign, tenantId);
   }

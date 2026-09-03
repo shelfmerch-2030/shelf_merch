@@ -188,6 +188,98 @@ describe('campaign lifecycle (§11.1)', () => {
 
     const updatedKit = await Kit.findOne({ _id: kit._id, tenantId: tenant._id });
     expect(updatedKit.lastSentAt).toBeTruthy();
+
+    const ordersAtLaunch = await Order.find({ tenantId: tenant._id, campaignId: id });
+    expect(ordersAtLaunch).toHaveLength(0);
+  });
+
+  it('redeem kit: order appears on tenant orders only after recipient accepts', async () => {
+    const bottle = await CatalogProduct.create({
+      sku: 'SM-BOTTLE-REDEEM',
+      name: 'Work Bottle',
+      category: 'Drinkware',
+      group: 'bottle',
+      basePriceInr: 320,
+      variants: [{ size: 'S', color: 'White', sku: 'BTL-S' }],
+      primaryImageUrl: '/uploads/platform/product/bottle.png',
+    });
+    const kit = await Kit.create({
+      tenantId: tenant._id,
+      name: 'Redeem Kit',
+      productRefs: [{ catalogProductId: bottle._id, name: 'Work Bottle', brand: '', group: 'bottle' }],
+      kitPrice: 500,
+      packaging: 'none',
+      status: 'live',
+    });
+
+    const created = await request(app)
+      .post('/api/v1/campaigns')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        entityId: String(entity._id),
+        name: 'Redeem flow',
+        type: 'kit',
+        kitId: String(kit._id),
+        fulfillmentMode: 'redeem',
+        message: { from: 'People Team', body: 'Pick your kit!' },
+        schedule: { mode: 'now' },
+      });
+    expect(created.status).toBe(201);
+    const campaignId = created.body._id;
+
+    await request(app)
+      .post(`/api/v1/campaigns/${campaignId}/recipients/import`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        recipients: [{ name: 'Alice', email: 'alice@test.io' }],
+        packaging: 'none',
+      });
+
+    const launch = await request(app)
+      .post(`/api/v1/campaigns/${campaignId}/launch`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .set('Idempotency-Key', `launch-redeem-${campaignId}`);
+    expect(launch.status).toBe(200);
+
+    expect(await Order.countDocuments({ tenantId: tenant._id, campaignId })).toBe(0);
+
+    const recipient = await Recipient.findOne({ tenantId: tenant._id, campaignId }).select(
+      '+redemptionToken',
+    );
+    expect(recipient.redemptionToken).toBeTruthy();
+    recipient.redemptionStatus = 'verified';
+    await recipient.save();
+
+    const { signRedemptionSession } = await import('../src/modules/redemptions/redemptions.service.js');
+    const sessionToken = signRedemptionSession(recipient);
+
+    const submit = await request(app)
+      .post(`/api/v1/redemptions/${recipient.redemptionToken}/submit`)
+      .set('Authorization', `Bearer ${sessionToken}`)
+      .set('Idempotency-Key', 'redeem-accept-1')
+      .send({
+        items: [{ productId: String(bottle._id), qty: 1, variant: { color: 'White' } }],
+        shippingAddress: {
+          name: 'Alice',
+          phone: '+91 99999 99999',
+          line1: '123 Street',
+          city: 'Hyderabad',
+          state: 'Telangana',
+          pincode: '500001',
+        },
+      });
+    expect(submit.status).toBe(201);
+    expect(submit.body.orderNumber).toMatch(/^SM-/);
+
+    const order = await Order.findOne({ tenantId: tenant._id, campaignId });
+    expect(order).toBeTruthy();
+    expect(order.orderNumber).toBe(submit.body.orderNumber);
+
+    const tenantList = await request(app)
+      .get('/api/v1/orders')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(tenantList.status).toBe(200);
+    expect(tenantList.body.items.some((o) => o.orderNumber === order.orderNumber)).toBe(true);
   });
 
   it('scheduled points send debits wallet immediately but defers email and credits', async () => {

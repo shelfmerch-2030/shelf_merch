@@ -63,7 +63,6 @@ export function OrdersView(vm: OrdersVm) {
                   <th>Status</th>
                   <th>Amount</th>
                   <th>Invoice</th>
-                  <th>View</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,9 +115,6 @@ export function OrdersView(vm: OrdersVm) {
                           Download
                         </button>
                       </span>
-                    </td>
-                    <td className="data-list-cell">
-                      <span className="lnk">{o.track ? "Tracking" : "View"}</span>
                     </td>
                   </tr>
                 ))}
