@@ -8,6 +8,12 @@ import { tenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { objectId } from '../users/users.validation.js';
 import { Contact } from './contact.model.js';
+import {
+  assertContactAccess,
+  getContactOrThrow,
+  listContactsForUser,
+  prepareContactPayloadForUser,
+} from './contacts.service.js';
 import { ImportJob } from '../imports/importJob.model.js';
 import { enqueueCsvImport } from '../../jobs/queues.js';
 import { writeAudit } from '../../services/audit.service.js';
@@ -45,7 +51,7 @@ router.get(
   '/',
   canRead,
   asyncHandler(async (req, res) => {
-    res.json(await Contact.find({ tenantId: req.tenantId }).sort({ name: 1 }));
+    res.json(await listContactsForUser({ tenantId: req.tenantId, user: req.user }));
   }),
 );
 
@@ -54,7 +60,12 @@ router.post(
   canWrite,
   validate({ body: createSchema }),
   asyncHandler(async (req, res) => {
-    const contact = await Contact.create({ tenantId: req.tenantId, ...req.body, source: 'manual' });
+    const payload = await prepareContactPayloadForUser({
+      tenantId: req.tenantId,
+      user: req.user,
+      body: req.body,
+    });
+    const contact = await Contact.create({ tenantId: req.tenantId, ...payload, source: 'manual' });
     writeAudit({ req, action: 'contact.create', entityType: 'Contact', entityId: contact._id, after: contact.toObject() });
     res.status(201).json(contact);
   }),
@@ -65,10 +76,21 @@ router.patch(
   canWrite,
   validate({ params: z.object({ id: objectId }), body: createSchema.partial() }),
   asyncHandler(async (req, res) => {
-    const contact = await Contact.findOne({ _id: req.params.id, tenantId: req.tenantId });
-    if (!contact) throw new NotFoundError('Contact not found');
+    const contact = await getContactOrThrow({ tenantId: req.tenantId, contactId: req.params.id });
+    await assertContactAccess({ tenantId: req.tenantId, user: req.user, contact });
+
+    const payload = await prepareContactPayloadForUser({
+      tenantId: req.tenantId,
+      user: req.user,
+      body: {
+        department: contact.department,
+        ...req.body,
+      },
+      existingContact: contact,
+    });
+
     const before = contact.toObject();
-    Object.assign(contact, req.body);
+    Object.assign(contact, payload);
     await contact.save();
     writeAudit({ req, action: 'contact.update', entityType: 'Contact', entityId: contact._id, before, after: contact.toObject() });
     res.json(contact);
@@ -80,8 +102,8 @@ router.delete(
   canWrite,
   validate({ params: z.object({ id: objectId }) }),
   asyncHandler(async (req, res) => {
-    const contact = await Contact.findOne({ _id: req.params.id, tenantId: req.tenantId });
-    if (!contact) throw new NotFoundError('Contact not found');
+    const contact = await getContactOrThrow({ tenantId: req.tenantId, contactId: req.params.id });
+    await assertContactAccess({ tenantId: req.tenantId, user: req.user, contact });
     if (contact.role === 'Owner') {
       throw new ApiError(403, 'The workspace owner contact cannot be deleted', 'OWNER_PROTECTED');
     }

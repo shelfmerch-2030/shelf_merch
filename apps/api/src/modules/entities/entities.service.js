@@ -87,6 +87,21 @@ async function entityIdsVisibleToManager({ tenantId, user }) {
   return merged;
 }
 
+/**
+ * Department names an entity manager may see/create contacts for.
+ * Returns null for company admins (unscoped); [] when an EM has no departments.
+ */
+export async function managedEntityNamesForUser({ tenantId, user }) {
+  const visibleIds = await entityIdsVisibleToManager({ tenantId, user });
+  if (visibleIds === null) return null;
+  if (!visibleIds.length) return [];
+
+  const entities = await Entity.find({ tenantId, _id: { $in: visibleIds } })
+    .select('name')
+    .lean();
+  return entities.map((e) => String(e.name || '').trim()).filter(Boolean);
+}
+
 export async function listEntities({ tenantId, user, walletId }) {
   const filter = { tenantId, ...(walletId ? { walletId } : {}) };
   const visibleIds = await entityIdsVisibleToManager({ tenantId, user });

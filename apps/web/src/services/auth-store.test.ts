@@ -21,6 +21,7 @@ const user: AuthUser = {
 };
 
 beforeEach(() => {
+  localStorage.clear();
   sessionStorage.clear();
 });
 
@@ -46,8 +47,20 @@ describe("auth-store", () => {
   });
 
   it("returns null for corrupt stored user JSON", () => {
-    sessionStorage.setItem("sm_user", "{not-json");
+    localStorage.setItem("sm_user", "{not-json");
     expect(getStoredUser()).toBeNull();
+  });
+
+  it("migrates an existing sessionStorage session into localStorage", () => {
+    sessionStorage.setItem("sm_access", "legacy-access");
+    sessionStorage.setItem("sm_refresh", "legacy-refresh");
+    sessionStorage.setItem("sm_user", JSON.stringify(user));
+
+    expect(getAccessToken()).toBe("legacy-access");
+    expect(getRefreshToken()).toBe("legacy-refresh");
+    expect(getStoredUser()).toEqual(user);
+    expect(localStorage.getItem("sm_access")).toBe("legacy-access");
+    expect(sessionStorage.getItem("sm_access")).toBeNull();
   });
 
   it("detects platform users by scope or role prefix", () => {

@@ -97,13 +97,22 @@ export function ContactFormDialogView(vm: ContactFormVm) {
                 <label className="lbl" htmlFor="ac-role">
                   Role
                 </label>
-                <select id="ac-role" className="inp" {...vm.register("role")}>
-                  {vm.roleOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                {vm.canManageContactRoles ? (
+                  <select id="ac-role" className="inp" {...vm.register("role")}>
+                    {vm.roleOptions.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <input type="hidden" {...vm.register("role")} />
+                    <div className="inp" style={{ display: "flex", alignItems: "center" }} aria-readonly>
+                      {vm.roleDisplay}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="field">
                 <label className="lbl" htmlFor="ac-dept">

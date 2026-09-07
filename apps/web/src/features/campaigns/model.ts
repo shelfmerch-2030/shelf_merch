@@ -60,6 +60,7 @@ export function useCampaignRecipients(campaignId: string | null) {
 
 const LIVE_STATUSES = ["live", "launched", "redemption_open"];
 export const COMPLETE_STATUSES = ["completed", "redemption_closed", "fulfilled"];
+export const INCOMPLETE_STATUSES = ["draft", "recipients_uploaded", "credits_allocated", "approved"];
 
 export function isPointsCampaign(c: UiCampaign) {
   return c.type === "send_points" || c.type === "points";
@@ -71,4 +72,14 @@ export function isLiveCampaign(c: UiCampaign) {
 
 export function isSentKitCampaign(c: UiCampaign) {
   return !isPointsCampaign(c) && LIVE_STATUSES.includes(c.status);
+}
+
+/** Incomplete wizard campaigns that can be resumed (points or kit). */
+export function isIncompleteCampaign(c: UiCampaign) {
+  return INCOMPLETE_STATUSES.includes(c.status);
+}
+
+/** Finished campaigns — includes kit sends shown as "Sent". */
+export function isCompletedCampaign(c: UiCampaign) {
+  return COMPLETE_STATUSES.includes(c.status) || isSentKitCampaign(c);
 }

@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
-import { COMPLETE_STATUSES, isLiveCampaign, isPointsCampaign } from "../model";
+import {
+  isCompletedCampaign,
+  isIncompleteCampaign,
+  isLiveCampaign,
+  isPointsCampaign,
+} from "../model";
 import type { UiCampaign, UiKit, UiShop } from "../model";
 
 const PER_PAGE = 5;
@@ -69,6 +74,7 @@ export type CampaignsVm = {
   onSendGift: () => void;
   onSendPointsCampaign: () => void;
   onSendKitCampaign: () => void;
+  onResumeCampaign: (campaign: UiCampaign) => void;
   gift: SendGiftVm;
 };
 
@@ -100,7 +106,7 @@ export function useCampaignsController(): CampaignsVm {
   const stats: CampaignStats = {
     total: campaigns.length,
     live: campaigns.filter(isLiveCampaign).length,
-    draft: campaigns.filter((c) => c.status === "draft").length,
+    draft: campaigns.filter(isIncompleteCampaign).length,
     recipients: campaigns.reduce((s, c) => s + (c.recipientCount || 0), 0),
   };
 
@@ -115,9 +121,8 @@ export function useCampaignsController(): CampaignsVm {
 
   let filtered = typed;
   if (filter === "live") filtered = filtered.filter(isLiveCampaign);
-  else if (filter === "draft") filtered = filtered.filter((c) => c.status === "draft");
-  else if (filter === "completed")
-    filtered = filtered.filter((c) => COMPLETE_STATUSES.includes(c.status));
+  else if (filter === "draft") filtered = filtered.filter(isIncompleteCampaign);
+  else if (filter === "completed") filtered = filtered.filter(isCompletedCampaign);
   const q = search.toLowerCase();
   if (q) filtered = filtered.filter((c) => c.name.toLowerCase().includes(q));
 
@@ -137,6 +142,24 @@ export function useCampaignsController(): CampaignsVm {
   function goToSendPoints(shopId: string) {
     closeGift();
     navigate(`/app/campaigns/send-points?shop=${encodeURIComponent(shopId)}`);
+  }
+
+  function onResumeCampaign(campaign: UiCampaign) {
+    if (!isIncompleteCampaign(campaign)) return;
+
+    if (isPointsCampaign(campaign)) {
+      if (!campaign.shopId) return;
+      const params = new URLSearchParams({
+        shop: campaign.shopId,
+        campaign: campaign.id,
+      });
+      navigate(`/app/campaigns/send-points?${params}`);
+      return;
+    }
+
+    if (campaign.kitId) {
+      navigate(`/app/kits/${encodeURIComponent(campaign.kitId)}/send`);
+    }
   }
 
   return {
@@ -187,6 +210,7 @@ export function useCampaignsController(): CampaignsVm {
       setGiftOpen(true);
       setGiftView("kit");
     },
+    onResumeCampaign,
     gift: {
       open: giftOpen,
       view: giftView,

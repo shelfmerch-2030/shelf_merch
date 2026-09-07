@@ -19,7 +19,7 @@ import {
   Trees,
   Users,
 } from "lucide-react";
-import { COMPLETE_STATUSES, isLiveCampaign, isPointsCampaign, isSentKitCampaign } from "../model";
+import { COMPLETE_STATUSES, isIncompleteCampaign, isLiveCampaign, isPointsCampaign, isSentKitCampaign } from "../model";
 import type { UiCampaign } from "../model";
 import type {
   CampaignFilter,
@@ -123,7 +123,7 @@ function statusChip(c: UiCampaign) {
         Scheduled
       </span>
     );
-  if (c.status === "draft")
+  if (isIncompleteCampaign(c))
     return (
       <span className="camp-chip camp-chip--draft">
         <span className="camp-chip__dot" />
@@ -176,6 +176,7 @@ export function CampaignsTableView({
   onSendGift,
   onSendPointsCampaign,
   onSendKitCampaign,
+  onResumeCampaign,
 }: {
   stats: CampaignStats;
   typeTab: CampaignTypeTab;
@@ -197,6 +198,7 @@ export function CampaignsTableView({
   onSendGift: () => void;
   onSendPointsCampaign: () => void;
   onSendKitCampaign: () => void;
+  onResumeCampaign: (campaign: UiCampaign) => void;
 }) {
   const kpis = [
     {
@@ -336,8 +338,29 @@ export function CampaignsTableView({
               {pageItems.length ? (
                 pageItems.map((c) => {
                   const { Icon, tone } = campaignVisual(c);
+                  const resumable =
+                    canSend &&
+                    isIncompleteCampaign(c) &&
+                    (isPointsCampaign(c) ? Boolean(c.shopId) : Boolean(c.kitId));
                   return (
-                    <div key={c.id} className="camp-row" role="listitem">
+                    <div
+                      key={c.id}
+                      className={`camp-row${resumable ? " camp-row--resumable" : ""}`}
+                      role="listitem"
+                      tabIndex={resumable ? 0 : undefined}
+                      aria-label={resumable ? `Continue draft ${campaignTitle(c)}` : undefined}
+                      onClick={resumable ? () => onResumeCampaign(c) : undefined}
+                      onKeyDown={
+                        resumable
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                onResumeCampaign(c);
+                              }
+                            }
+                          : undefined
+                      }
+                    >
                       <div className="camp-row__main">
                         <div className={`camp-row__icon camp-row__icon--${tone}`} aria-hidden="true">
                           <Icon size={17} strokeWidth={2} />
@@ -346,6 +369,9 @@ export function CampaignsTableView({
                           <span className="camp-row__title">{campaignTitle(c)}</span>
                           {campaignSubtext(c) ? (
                             <span className="camp-row__sub">{campaignSubtext(c)}</span>
+                          ) : null}
+                          {resumable ? (
+                            <span className="camp-row__resume">Continue sending</span>
                           ) : null}
                         </div>
                       </div>

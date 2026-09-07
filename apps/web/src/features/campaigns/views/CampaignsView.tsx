@@ -42,6 +42,7 @@ export function CampaignsView(vm: CampaignsVm) {
           onSendGift={vm.onSendGift}
           onSendPointsCampaign={vm.onSendPointsCampaign}
           onSendKitCampaign={vm.onSendKitCampaign}
+          onResumeCampaign={vm.onResumeCampaign}
         />
       ) : (
         <CampaignsEmptyStateView

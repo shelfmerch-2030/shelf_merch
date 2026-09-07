@@ -211,6 +211,7 @@ export type UiCampaign = {
   status: string;
   type: string;
   shopId?: string;
+  kitId?: string;
   senderName?: string;
   createdAt?: string;
   recipientCount: number;
@@ -731,6 +732,7 @@ export function mapCampaign(c: ApiProduct): UiCampaign {
     status: c.status,
     type: c.type,
     shopId: c.shopId ? String(c.shopId) : "",
+    kitId: c.kitId ? String(c.kitId) : undefined,
     senderName:
       typeof (c as { message?: { from?: unknown } }).message?.from === "string"
         ? String((c as { message?: { from?: string } }).message?.from || "")

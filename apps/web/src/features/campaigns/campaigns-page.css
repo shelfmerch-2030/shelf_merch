@@ -322,6 +322,23 @@
   box-shadow: inset 3px 0 0 var(--brand, #3152ff);
 }
 
+.camp-row--resumable {
+  cursor: pointer;
+}
+
+.camp-row--resumable:focus-visible {
+  outline: 2px solid var(--brand, #3152ff);
+  outline-offset: -2px;
+}
+
+.camp-row__resume {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--brand, #3152ff);
+}
+
 .camp-row__main {
   display: flex;
   align-items: center;

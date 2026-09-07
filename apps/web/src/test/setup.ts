@@ -29,3 +29,10 @@ if (typeof globalThis.sessionStorage === "undefined") {
     configurable: true,
   });
 }
+
+if (typeof globalThis.localStorage === "undefined") {
+  Object.defineProperty(globalThis, "localStorage", {
+    value: memoryStorage(),
+    configurable: true,
+  });
+}

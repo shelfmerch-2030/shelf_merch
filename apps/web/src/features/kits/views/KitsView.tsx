@@ -129,11 +129,51 @@ type KitRow = {
   status: "live" | "draft" | "archived";
   lastSent: string;
   sentDate: string;
+  lastSentAt?: string;
   featured?: boolean;
   /** Present only for real workspace kits; absent for default sample rows. */
   kit?: UiKit;
   platformKit?: PlatformKitTemplate;
 };
+
+type LastSentFilter = "any" | "never" | "7d" | "30d" | "90d";
+
+const LAST_SENT_FILTER_OPTIONS: { id: LastSentFilter; label: string }[] = [
+  { id: "any", label: "Any time" },
+  { id: "never", label: "Never sent" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "90d", label: "Last 90 days" },
+];
+
+function formatKitLastSent(iso?: string): { primary: string; secondary: string } {
+  if (!iso) return { primary: "—", secondary: "Never sent" };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { primary: "—", secondary: "Never sent" };
+  return {
+    primary: d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }),
+    secondary: d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    }),
+  };
+}
+
+function matchesLastSentFilter(iso: string | undefined, filter: LastSentFilter) {
+  if (filter === "any") return true;
+  if (filter === "never") return !iso;
+  if (!iso) return false;
+  const sentAt = new Date(iso).getTime();
+  if (Number.isNaN(sentAt)) return false;
+  const days = filter === "7d" ? 7 : filter === "30d" ? 30 : 90;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return sentAt >= cutoff;
+}
 
 function getCuratedKitMeta(kit: any) {
   try {
@@ -282,6 +322,8 @@ export function KitsView(vm: KitsVm) {
   const [recentTab, setRecentTab] = useState<"all" | "live" | "draft" | "archived">("all");
   const [recentSearch, setRecentSearch] = useState("");
   const [recentSort, setRecentSort] = useState<"name" | "items" | "newest">("newest");
+  const [lastSentFilter, setLastSentFilter] = useState<LastSentFilter>("any");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [recentPage, setRecentPage] = useState(1);
 
   const { canCreateKits, canSendKits } = vm;
@@ -290,18 +332,22 @@ export function KitsView(vm: KitsVm) {
   const workspaceRows = useMemo<KitRow[]>(() => {
     return vm.kits
       .filter((kit) => !getCuratedKitMeta(kit))
-      .map((kit): KitRow => ({
-        id: kit.id,
-        name: kit.name,
-        description: kit.description?.trim() || "Custom kit created in your workspace.",
-        audience: "Customised",
-        image: kit.artworkUrl ? resolveMediaUrl(kit.artworkUrl) : kitPreviewImg,
-        items: kit.items,
-        status: kit.status === "live" ? "live" : kit.status === "archived" ? "archived" : "draft",
-        lastSent: kit.sent ? "Recently" : "-",
-        sentDate: kit.sent ? "Recent" : "Never sent",
-        kit,
-      }));
+      .map((kit): KitRow => {
+        const sent = formatKitLastSent(kit.lastSentAt);
+        return {
+          id: kit.id,
+          name: kit.name,
+          description: kit.description?.trim() || "Custom kit created in your workspace.",
+          audience: "Customised",
+          image: kit.artworkUrl ? resolveMediaUrl(kit.artworkUrl) : kitPreviewImg,
+          items: kit.items,
+          status: kit.status === "live" ? "live" : kit.status === "archived" ? "archived" : "draft",
+          lastSent: sent.primary,
+          sentDate: sent.secondary,
+          lastSentAt: kit.lastSentAt,
+          kit,
+        };
+      });
   }, [vm.kits]);
 
   /** Map platform curated kits into KitRow shape */
@@ -333,6 +379,7 @@ export function KitsView(vm: KitsVm) {
             ? matchedWk.items
             : imageItemCount) || 0;
 
+      const sent = formatKitLastSent(matchedWk?.lastSentAt);
       return {
         id: matchedWk ? matchedWk.id : kit._id,
         name: matchedWk ? matchedWk.name : kit.name,
@@ -343,8 +390,9 @@ export function KitsView(vm: KitsVm) {
         status: matchedWk
           ? (matchedWk.status === "live" ? "live" : matchedWk.status === "archived" ? "archived" : "draft")
           : "live",
-        lastSent: matchedWk?.sent ? "Recently" : "-",
-        sentDate: matchedWk?.sent ? "Recent" : "Never sent",
+        lastSent: sent.primary,
+        sentDate: sent.secondary,
+        lastSentAt: matchedWk?.lastSentAt,
         platformKit: kit,
         kit: matchedWk,
       };
@@ -376,6 +424,9 @@ export function KitsView(vm: KitsVm) {
       const q = recentSearch.toLowerCase();
       list = list.filter((r) => r.name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
     }
+    if (lastSentFilter !== "any") {
+      list = list.filter((r) => matchesLastSentFilter(r.lastSentAt, lastSentFilter));
+    }
     if (recentSort === "name") {
       list.sort((a, b) => a.name.localeCompare(b.name));
     } else if (recentSort === "items") {
@@ -383,13 +434,13 @@ export function KitsView(vm: KitsVm) {
     } else {
       // newest — sent date descending
       list.sort((a, b) => {
-        const ta = a.kit?.lastSentAt ? new Date(a.kit.lastSentAt).getTime() : 0;
-        const tb = b.kit?.lastSentAt ? new Date(b.kit.lastSentAt).getTime() : 0;
+        const ta = a.lastSentAt ? new Date(a.lastSentAt).getTime() : 0;
+        const tb = b.lastSentAt ? new Date(b.lastSentAt).getTime() : 0;
         return tb - ta;
       });
     }
     return list;
-  }, [allKits, recentTab, recentSearch, recentSort]);
+  }, [allKits, recentTab, recentSearch, recentSort, lastSentFilter]);
 
   const RECENT_ITEMS_PER_PAGE = 8;
 
@@ -714,14 +765,17 @@ export function KitsView(vm: KitsVm) {
               : "Browse custom and curated kits, then send them to your team."}
           </p>
         </div>
-        {canCreateKits ? (
-          <div className="kits-hero__actions">
+        <div className="kits-hero__actions">
+          <Link to="/app/catalog/category/kits" className="kits-hero__cta kits-hero__cta--ghost">
+            View all kits
+          </Link>
+          {canCreateKits ? (
             <Link to="/app/kits/new" className="kits-hero__cta">
               <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               Create a kit
             </Link>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </header>
 
       <div className="kits-kpi" aria-label="Kit metrics">
@@ -804,9 +858,40 @@ export function KitsView(vm: KitsVm) {
                     }}
                   />
                 </div>
-                <button type="button" className="kits-tool-btn">
-                  <SlidersHorizontal size={16} /> Filters
-                </button>
+                <div className="kits-filter-wrap">
+                  <button
+                    type="button"
+                    className={`kits-tool-btn${lastSentFilter !== "any" ? " kits-tool-btn--active" : ""}`}
+                    aria-expanded={filtersOpen}
+                    onClick={() => setFiltersOpen((o) => !o)}
+                  >
+                    <SlidersHorizontal size={16} />
+                    {lastSentFilter === "any"
+                      ? "Filters"
+                      : LAST_SENT_FILTER_OPTIONS.find((o) => o.id === lastSentFilter)?.label ||
+                        "Filters"}
+                  </button>
+                  {filtersOpen ? (
+                    <div className="kits-filter-menu" role="menu">
+                      <div className="kits-filter-menu__label">Last sent</div>
+                      {LAST_SENT_FILTER_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="menuitem"
+                          className={lastSentFilter === opt.id ? "on" : ""}
+                          onClick={() => {
+                            setLastSentFilter(opt.id);
+                            setFiltersOpen(false);
+                            setRecentPage(1);
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <select
                     value={recentSort}

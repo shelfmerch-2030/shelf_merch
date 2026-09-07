@@ -18,16 +18,56 @@ function notifyAuthChange() {
   }
 }
 
+/** Prefer localStorage so auth is shared across tabs (e.g. Catalog opened in a new tab). */
+function readAuthItem(key: string): string | null {
+  try {
+    const fromLocal = localStorage.getItem(key);
+    if (fromLocal != null) return fromLocal;
+    // Migrate any in-flight sessionStorage session from before this change.
+    const fromSession = sessionStorage.getItem(key);
+    if (fromSession != null) {
+      localStorage.setItem(key, fromSession);
+      sessionStorage.removeItem(key);
+      return fromSession;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthItem(key: string, value: string) {
+  localStorage.setItem(key, value);
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeAuthItem(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function getAccessToken(): string | null {
-  return sessionStorage.getItem(ACCESS_KEY);
+  return readAuthItem(ACCESS_KEY);
 }
 
 export function getRefreshToken(): string | null {
-  return sessionStorage.getItem(REFRESH_KEY);
+  return readAuthItem(REFRESH_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
-  const raw = sessionStorage.getItem(USER_KEY);
+  const raw = readAuthItem(USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as AuthUser;
@@ -41,16 +81,16 @@ export function setSession(tokens: {
   refreshToken: string;
   user: AuthUser;
 }) {
-  sessionStorage.setItem(ACCESS_KEY, tokens.accessToken);
-  sessionStorage.setItem(REFRESH_KEY, tokens.refreshToken);
-  sessionStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
+  writeAuthItem(ACCESS_KEY, tokens.accessToken);
+  writeAuthItem(REFRESH_KEY, tokens.refreshToken);
+  writeAuthItem(USER_KEY, JSON.stringify(tokens.user));
   notifyAuthChange();
 }
 
 export function clearSession() {
-  sessionStorage.removeItem(ACCESS_KEY);
-  sessionStorage.removeItem(REFRESH_KEY);
-  sessionStorage.removeItem(USER_KEY);
+  removeAuthItem(ACCESS_KEY);
+  removeAuthItem(REFRESH_KEY);
+  removeAuthItem(USER_KEY);
   notifyAuthChange();
 }
 
