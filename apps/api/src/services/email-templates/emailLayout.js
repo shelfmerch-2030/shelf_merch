@@ -3,8 +3,11 @@ import { env } from '../../config/env.js';
 /**
  * Production transactional email system - Oracle-style layout for ShelfMerch.
  *
- * Structure: muted logo header -> colored hero banner -> body + CTA -> legal footer.
+ * Structure: muted logo header -> single continuous hero banner -> body + CTA -> legal footer.
  * Table-based, inline styles only (email-client safe). No web-font dependency.
+ *
+ * One layout for all viewports: full banner PNG (blue + gift art) with title overlaid
+ * on the left blue area. Mobile only scales typography/padding.
  */
 
 export function appUrl(path = '') {
@@ -30,6 +33,7 @@ export const tokens = {
   heroBg: '#3155FF',
   heroAccent: '#FFD84A',
   heroImageCid: 'email-hero-banner@shelfmerch',
+  heroArtCid: 'email-hero-art@shelfmerch',
   ink: '#1F1F1F',
   body: '#454545',
   muted: '#8A8A8A',
@@ -63,7 +67,7 @@ export function emailShell({
   const help = escapeHtml(appUrl('/help'));
   const heroImageUrl = heroImageCid ? `cid:${heroImageCid}` : '';
   const heroBgStyle = heroImageUrl
-    ? `background-color:${escapeHtml(heroBg)};background-image:url('${escapeHtml(heroImageUrl)}');background-size:cover;background-position:center right;background-repeat:no-repeat;`
+    ? `background-color:${escapeHtml(heroBg)};background-image:url('${escapeHtml(heroImageUrl)}');background-size:cover;background-position:right center;background-repeat:no-repeat;`
     : `background-color:${escapeHtml(heroBg)};`;
   const heroBgAttr = escapeHtml(heroBg);
   const heroBgImageAttr = heroImageUrl ? ` background="${escapeHtml(heroImageUrl)}"` : '';
@@ -74,6 +78,8 @@ export function emailShell({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${escapeHtml(title)}</title>
   <!--[if mso]>
   <noscript>
@@ -87,25 +93,44 @@ export function emailShell({
     body, table, td { font-family: Arial, Helvetica, sans-serif !important; }
   </style>
   <![endif]-->
+  <style type="text/css">
+    :root { color-scheme: light; }
+    @media only screen and (max-width: 620px) {
+      .em-outer { padding: 12px 8px 24px 8px !important; }
+      .em-card { width: 100% !important; max-width: 100% !important; }
+      .em-logo { padding: 16px 16px 10px 16px !important; }
+      .em-logo img { width: 132px !important; height: auto !important; }
+      .em-hero { padding: 22px 16px 24px 16px !important; background-size: cover !important; background-position: right center !important; background-repeat: no-repeat !important; }
+      .em-hero-copy { width: 50% !important; max-width: 50% !important; }
+      .em-hero-eyebrow { font-size: 11px !important; line-height: 1.3 !important; margin-bottom: 4px !important; }
+      .em-hero-accent { width: 36px !important; margin-bottom: 10px !important; }
+      .em-hero-title { font-size: 18px !important; line-height: 1.25 !important; }
+      .em-body { padding: 22px 16px 8px 16px !important; }
+      .em-footer-wrap { padding: 0 16px 24px 16px !important; }
+      .em-footer-brand,
+      .em-footer-legal { display: block !important; width: 100% !important; max-width: 100% !important; padding-right: 0 !important; text-align: left !important; }
+      .em-footer-legal { padding-top: 16px !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:${T.outerBg};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(preheader)}</div>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${T.outerBg};">
     <tr>
-      <td align="center" style="padding:32px 16px 48px 16px;">
+      <td class="em-outer" align="center" style="padding:32px 16px 48px 16px;">
         <!--[if mso]>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"><tr><td>
         <![endif]-->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;width:100%;background:${T.cardBg};">
+        <table class="em-card" role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;width:100%;background:${T.cardBg};">
 
           <tr>
-            <td style="padding:28px 40px 20px 40px;font-family:${T.font};">
+            <td class="em-logo" bgcolor="#FFFFFF" style="padding:28px 40px 20px 40px;font-family:${T.font};background:#FFFFFF;">
               ${headerLogo()}
             </td>
           </tr>
 
           <tr>
-            <td bgcolor="${heroBgAttr}"${heroBgImageAttr} width="600" valign="top" style="${heroBgStyle}padding:36px 40px 40px 40px;font-family:${T.font};">
+            <td class="em-hero" bgcolor="${heroBgAttr}"${heroBgImageAttr} width="600" valign="top" style="${heroBgStyle}padding:36px 40px 40px 40px;font-family:${T.font};">
               ${heroBlock(heroEyebrow, heroTitle)}
             </td>
           </tr>
@@ -113,22 +138,22 @@ export function emailShell({
           ${bannerHtml}
 
           <tr>
-            <td style="padding:36px 40px 8px 40px;font-family:${T.font};color:${T.body};">
+            <td class="em-body" style="padding:36px 40px 8px 40px;font-family:${T.font};color:${T.body};">
               ${bodyHtml}
             </td>
           </tr>
 
           <tr>
-            <td style="padding:0 40px 36px 40px;font-family:${T.font};">
+            <td class="em-footer-wrap" style="padding:0 40px 36px 40px;font-family:${T.font};">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
                   <td style="border-top:1px solid ${T.line};padding-top:28px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
-                        <td valign="top" style="font-family:${T.font};padding-right:16px;">
+                        <td class="em-footer-brand" valign="top" style="font-family:${T.font};padding-right:16px;">
                           ${footerBrand()}
                         </td>
-                        <td valign="top" align="right" style="font-family:${T.font};font-size:11px;line-height:1.55;color:${T.muted};">
+                        <td class="em-footer-legal" valign="top" align="right" style="font-family:${T.font};font-size:11px;line-height:1.55;color:${T.muted};">
                           ${footerNote ? `<div style="margin-bottom:6px;">${escapeHtml(footerNote)}</div>` : ''}
                           <div style="margin-bottom:6px;">Please do not reply directly to this email.</div>
                           <div style="margin-bottom:8px;">Copyright &copy; ${year} ShelfMerch. All rights reserved.</div>
@@ -178,21 +203,21 @@ function headerLogo() {
 function heroBlock(eyebrow, title) {
   // Keep copy inside the solid blue zone so long titles never spill onto the gift art.
   const eyebrowHtml = eyebrow
-    ? `<div style="font-family:${T.font};font-size:13px;font-weight:400;line-height:1.4;color:#FFFFFF;margin:0 0 6px 0;">
+    ? `<div class="em-hero-eyebrow" style="font-family:${T.font};font-size:13px;font-weight:400;line-height:1.4;color:#FFFFFF;margin:0 0 6px 0;">
         ${escapeHtml(eyebrow)}
       </div>
-      <div style="width:48px;height:2px;background:${T.heroAccent};font-size:0;line-height:0;margin:0 0 16px 0;">&nbsp;</div>`
+      <div class="em-hero-accent" style="width:48px;height:2px;background:${T.heroAccent};font-size:0;line-height:0;margin:0 0 16px 0;">&nbsp;</div>`
     : '';
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
     <tr>
-      <td width="320" valign="top" style="width:320px;max-width:54%;font-family:${T.font};">
+      <td class="em-hero-copy" width="300" valign="top" style="width:50%;max-width:300px;font-family:${T.font};">
         ${eyebrowHtml}
-        <div style="font-family:${T.font};font-size:26px;font-weight:700;line-height:1.28;letter-spacing:-0.02em;color:#FFFFFF;margin:0;max-width:320px;">
+        <div class="em-hero-title" style="font-family:${T.font};font-size:26px;font-weight:700;line-height:1.28;letter-spacing:-0.02em;color:#FFFFFF;margin:0;max-width:300px;">
           ${escapeHtml(title)}
         </div>
       </td>
-      <td width="200" style="width:200px;font-size:0;line-height:0;">&nbsp;</td>
+      <td width="50%" style="width:50%;font-size:0;line-height:0;">&nbsp;</td>
     </tr>
   </table>`;
 }

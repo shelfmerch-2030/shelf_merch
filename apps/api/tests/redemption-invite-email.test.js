@@ -29,7 +29,13 @@ describe('redemption invite email template', () => {
       expect(html).toContain('Rubix');
       expect(html).toContain('redeem/test-token-abc');
       expect(html).toContain('email-hero-banner@shelfmerch');
-      expect(html).toContain('width:320px');
+      expect(html).toContain('background-image');
+      expect(html).toContain('shelfmerch-logo@shelfmerch');
+      expect(html).not.toContain('em-hero-desktop');
+      expect(html).not.toContain('em-hero-mobile');
+      expect(html).not.toContain('email-hero-art@shelfmerch');
+      expect(html).not.toContain('em-hero-art');
+      expect(html).toContain('em-hero-copy');
       expect(html).not.toContain('cid:shop-banner-');
       expect(html).not.toContain('cid:shop-logo@shelfmerch');
       expect(html).not.toContain('Link expires in 30 days');
@@ -38,7 +44,8 @@ describe('redemption invite email template', () => {
       expect(html).toContain('#F0F0F0');
       expect(html).toContain('#3155FF');
       expect(html).toContain('Helvetica Neue');
-      expect(html).toContain('A gift is waiting for you');    } finally {
+      expect(html).toContain('A gift is waiting for you');
+    } finally {
       env.APP_URL = prevAppUrl;
     }
   });
