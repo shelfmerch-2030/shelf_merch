@@ -98,6 +98,22 @@ function SidebarNavLink({
       onBlur: onItemLeave,
     };
 
+  // Catalog opens in a new tab; auth is in localStorage so the session is shared.
+  if (item.key === "catalog") {
+    return (
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+        aria-label={a11y}
+        {...hoverHandlers}
+      >
+        {content}
+      </a>
+    );
+  }
+
   return (
     <Link to={item.href} className={className} aria-label={a11y} {...hoverHandlers}>
       {content}

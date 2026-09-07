@@ -142,17 +142,29 @@ export function CatalogCategoryView(vm: CatalogVm) {
   return (
     <div className="sm-cat-page sm-cat-page--public">
       <div className="sm-cat-page__container">
-        <nav className="sm-cat-page__crumbs" aria-label="Breadcrumb">
-          <Link to={catalogHome}>Catalog</Link>
-          <ChevronRight size={14} aria-hidden="true" />
-          <span>{vm.category}</span>
-          {selectedSubcategory ? (
-            <>
-              <ChevronRight size={14} aria-hidden="true" />
-              <span>{selectedSubcategory}</span>
-            </>
+        <div className="sm-cat-page__topbar">
+          <nav className="sm-cat-page__crumbs" aria-label="Breadcrumb">
+            <Link to={catalogHome}>Catalog</Link>
+            <ChevronRight size={14} aria-hidden="true" />
+            <span>{vm.category}</span>
+            {selectedSubcategory ? (
+              <>
+                <ChevronRight size={14} aria-hidden="true" />
+                <span>{selectedSubcategory}</span>
+              </>
+            ) : null}
+          </nav>
+          {!isPublicApps ? (
+            <div className="sm-cat-page__topbar-actions">
+              <Link to="/app/swag/new" className="btn btn-ghost sm-cat-page__topbar-btn">
+                Design Swag
+              </Link>
+              <Link to="/app/kits/new" className="btn btn-dark sm-cat-page__topbar-btn">
+                Create kit
+              </Link>
+            </div>
           ) : null}
-        </nav>
+        </div>
 
         <header className="sm-cat-page__hero">
           <div className="sm-cat-page__hero-copy">

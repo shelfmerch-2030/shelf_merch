@@ -47,23 +47,22 @@ export function Step4Managers({ state, dispatch }: StepProps) {
                 <label className="lbl" htmlFor={`mgr-role-${d.id}`}>
                   Role
                 </label>
-                <select
+                <input
                   id={`mgr-role-${d.id}`}
                   className="inp"
-                  value={
-                    ORG_ROLES.includes(d.mgr.role as (typeof ORG_ROLES)[number]) ? d.mgr.role : ""
-                  }
+                  list={`mgr-role-options-${d.id}`}
+                  value={d.mgr.role}
+                  placeholder="Select or type a role"
+                  autoComplete="off"
                   onChange={(e) =>
                     dispatch({ type: "mgrField", id: d.id, field: "role", value: e.target.value })
                   }
-                >
-                  {!ORG_ROLES.includes(d.mgr.role as (typeof ORG_ROLES)[number]) && (
-                    <option value="">{d.mgr.role || "Select role"}</option>
-                  )}
+                />
+                <datalist id={`mgr-role-options-${d.id}`}>
                   {ORG_ROLES.map((r) => (
-                    <option key={r}>{r}</option>
+                    <option key={r} value={r} />
                   ))}
-                </select>
+                </datalist>
               </div>
             </div>
             <div className="row" style={{ gap: 12 }}>

@@ -1396,13 +1396,34 @@
   padding: clamp(24px, 4vw, 40px) clamp(20px, 5vw, 72px) clamp(40px, 6vw, 72px);
 }
 
+.sm-cat-page__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
 .sm-cat-page__crumbs {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   color: var(--sm-cat-muted);
   font-size: 13px;
+}
+
+.sm-cat-page__topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.sm-cat-page__topbar-btn {
+  white-space: nowrap;
+  text-decoration: none;
 }
 
 .sm-cat-page__crumbs a {

@@ -16,8 +16,11 @@ export type ContactsVm = {
   errorMessage: string | null;
   query: string;
   roleFilter: string;
-  filterOpen: boolean;
+  departmentFilter: string;
+  departmentOptions: string[];
+  filterOpen: "role" | "dept" | "sort" | null;
   sortKey: SortKey;
+  sortDir: SortDir;
   counts: RoleCounts;
   filtered: UiContact[];
   selected: Set<string>;
@@ -32,7 +35,9 @@ export type ContactsVm = {
   editing: UiContact | null;
   onQuery: (query: string) => void;
   onRoleFilter: (role: string) => void;
-  onFilterOpenChange: (open: boolean) => void;
+  onDepartmentFilter: (department: string) => void;
+  onSortDir: (dir: SortDir) => void;
+  onFilterOpenChange: (open: "role" | "dept" | "sort" | null) => void;
   onToggleSort: (key: SortKey) => void;
   onToggleAll: () => void;
   onToggleOne: (id: string) => void;
@@ -77,15 +82,25 @@ export function useContactsController(): ContactsVm {
 
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("email");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [addInitialTab, setAddInitialTab] = useState<"manual" | "csv">("manual");
   const [editing, setEditing] = useState<UiContact | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState<"role" | "dept" | "sort" | null>(null);
 
   const counts = useMemo(() => roleCounts(contacts ?? []), [contacts]);
+
+  const departmentOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of contacts ?? []) {
+      const dept = (c.department || "").trim();
+      if (dept) set.add(dept);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [contacts]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -98,8 +113,13 @@ export function useContactsController(): ContactsVm {
     if (roleFilter !== "all") {
       list = list.filter((c) => c.role === roleFilter);
     }
+    if (departmentFilter !== "all") {
+      list = list.filter(
+        (c) => (c.department || "").trim().toLowerCase() === departmentFilter.toLowerCase(),
+      );
+    }
     return sortContacts(list, sortKey, sortDir);
-  }, [contacts, query, roleFilter, sortKey, sortDir]);
+  }, [contacts, query, roleFilter, departmentFilter, sortKey, sortDir]);
 
   const allSelected =
     filtered.length > 0 && filtered.every((c) => selected.has(c.id) || c.role === "Owner");
@@ -131,6 +151,7 @@ export function useContactsController(): ContactsVm {
   }
 
   async function onRoleChange(contact: UiContact, role: string) {
+    if (!canManageUsers()) return;
     if (contact.role === "Owner" || role === contact.role) return;
     try {
       await updateContact.mutateAsync({
@@ -180,8 +201,11 @@ export function useContactsController(): ContactsVm {
       : null,
     query,
     roleFilter,
+    departmentFilter,
+    departmentOptions,
     filterOpen,
     sortKey,
+    sortDir,
     counts,
     filtered,
     selected,
@@ -197,7 +221,16 @@ export function useContactsController(): ContactsVm {
     onQuery: setQuery,
     onRoleFilter: (role) => {
       setRoleFilter(role);
-      setFilterOpen(false);
+      setFilterOpen(null);
+    },
+    onDepartmentFilter: (department) => {
+      setDepartmentFilter(department);
+      setFilterOpen(null);
+    },
+    onSortDir: (dir) => {
+      setSortKey("name");
+      setSortDir(dir);
+      setFilterOpen(null);
     },
     onFilterOpenChange: setFilterOpen,
     onToggleSort,

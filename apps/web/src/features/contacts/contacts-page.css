@@ -108,7 +108,7 @@
   border: 1px solid rgba(15, 18, 25, 0.08);
   border-radius: 18px;
   box-shadow: 0 22px 50px rgba(15, 18, 25, 0.08);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ct-panel__toolbar {
@@ -118,6 +118,9 @@
   flex-wrap: wrap;
   padding: 16px 18px;
   border-bottom: 1px solid var(--line);
+  position: relative;
+  z-index: 20;
+  overflow: visible;
 }
 
 .ct-search {
@@ -145,7 +148,9 @@
   color: var(--ink);
 }
 
-.ct-filter-wrap { position: relative; }
+.ct-filter-wrap { position: relative; z-index: 1; }
+
+.ct-filter-wrap:has(.ct-filter-menu) { z-index: 40; }
 
 .ct-filter-btn {
   height: 44px;
@@ -167,12 +172,14 @@
   top: calc(100% + 6px);
   right: 0;
   min-width: 168px;
+  max-height: min(280px, 50vh);
+  overflow-y: auto;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
   padding: 6px;
-  z-index: 30;
+  z-index: 50;
 }
 
 .ct-filter-menu button {
@@ -195,7 +202,10 @@
   color: var(--brand, #3152ff);
 }
 
-.ct-table-wrap { overflow-x: auto; }
+.ct-table-wrap {
+  overflow-x: auto;
+  border-radius: 0 0 18px 18px;
+}
 
 .ct-table {
   width: 100%;

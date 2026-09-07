@@ -1,5 +1,17 @@
-import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import {
+  BarChart3,
+  Code2,
+  Coins,
+  Headphones,
+  LayoutGrid,
+  Megaphone,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { inr } from "@/components/platform/platform-ui";
 import {
@@ -11,6 +23,22 @@ import {
 } from "../../types";
 import { DepartmentModal } from "../DepartmentModal";
 import type { StepProps } from "./StepProps";
+
+type DeptSuggestMeta = {
+  Icon: ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
+  tone: string;
+};
+
+const DEPT_SUGGEST_META: Record<(typeof ORG_SUGG)[number], DeptSuggestMeta> = {
+  Marketing: { Icon: Megaphone, tone: "violet" },
+  Sales: { Icon: BarChart3, tone: "sky" },
+  HR: { Icon: Users, tone: "emerald" },
+  Admin: { Icon: Settings, tone: "orange" },
+  "Customer Success": { Icon: Headphones, tone: "purple" },
+  Engineering: { Icon: Code2, tone: "blue" },
+  Finance: { Icon: Coins, tone: "amber" },
+  Operations: { Icon: LayoutGrid, tone: "rose" },
+};
 
 export function Step2Departments({ state, dispatch }: StepProps) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,36 +76,52 @@ export function Step2Departments({ state, dispatch }: StepProps) {
 
   return (
     <div className="dept-picker">
-      <header className="dept-picker-head">
-        <h3>{isEdit ? "Select departments" : "Create departments"}</h3>
-        <p className="muted">
-          {isEdit
-            ? "Choose cost centers for this allocation round."
-            : "Add teams that will run campaigns and order swag."}
-        </p>
-      </header>
+      <section className="dept-picker-card">
+        <header className="dept-picker-head">
+          <div className="dept-picker-head__icon" aria-hidden="true">
+            <Users size={22} strokeWidth={2} />
+          </div>
+          <div className="dept-picker-head__copy">
+            <h3>{isEdit ? "Select departments" : "Create departments"}</h3>
+            <p>
+              {isEdit
+                ? "Choose cost centers for this allocation round."
+                : "Add teams that will run campaigns and order swag."}
+            </p>
+          </div>
+          <span className="dept-picker-head__badge">
+            {state.departments.length} department{state.departments.length === 1 ? "" : "s"}
+          </span>
+        </header>
 
-      <div className="dept-picker-suggest">
-        <span className="dept-picker-suggest__label">Suggestions</span>
-        {ORG_SUGG.map((s, i) => {
-          const taken = used.includes(s.toLowerCase());
-          return (
-            <button
-              key={s}
-              type="button"
-              className={`dept-picker-suggest__link${taken ? " is-added" : ""}`}
-              disabled={taken}
-              onClick={() => {
-                dispatch({ type: "quickAddDept", name: s });
-                toast.success(`${s} added`);
-              }}
-            >
-              <span className="dept-dot" style={{ background: deptPaletteColor(i) }} aria-hidden />
-              {s}
-            </button>
-          );
-        })}
-      </div>
+        <div className="dept-picker-suggest">
+          <span className="dept-picker-suggest__label">Suggestions</span>
+          <div className="dept-picker-suggest__grid">
+            {ORG_SUGG.map((s) => {
+              const taken = used.includes(s.toLowerCase());
+              const { Icon, tone } = DEPT_SUGGEST_META[s];
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  className={`dept-picker-suggest__card${taken ? " is-added" : ""}`}
+                  disabled={taken}
+                  onClick={() => {
+                    dispatch({ type: "quickAddDept", name: s });
+                    toast.success(`${s} added`);
+                  }}
+                >
+                  <span className={`dept-picker-suggest__icon dept-picker-suggest__icon--${tone}`} aria-hidden>
+                    <Icon size={15} strokeWidth={2.1} />
+                  </span>
+                  <span className="dept-picker-suggest__name">{s}</span>
+                  <span className={`dept-picker-suggest__radio${taken ? " is-on" : ""}`} aria-hidden />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       <div className="dept-picker-shell">
         <div className="dept-picker-toolbar">

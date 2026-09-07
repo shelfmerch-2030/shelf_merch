@@ -1,4 +1,6 @@
 import {
+  ArrowDownAZ,
+  ArrowUpAZ,
   ArrowUpDown,
   Ban,
   ChevronDown,
@@ -15,6 +17,7 @@ import { ROLES } from "../types";
 import type { UiContact } from "../model";
 import {
   type ContactsVm,
+  type SortDir,
   type SortKey,
 } from "../controllers/useContactsController";
 import "../contacts-page.css";
@@ -35,6 +38,11 @@ const FILTER_OPTIONS: [string, string][] = [
   ["Sender", "Sender"],
   ["Member", "Member"],
   ["Non-Member", "Non-Member"],
+];
+
+const SORT_OPTIONS: [SortDir, string][] = [
+  ["asc", "A–Z"],
+  ["desc", "Z–A"],
 ];
 
 function permissionLabel(role: string) {
@@ -85,21 +93,36 @@ function SortHead({
   col,
   className,
   sortKey,
+  sortDir,
   onToggleSort,
 }: {
   label: string;
   col?: SortKey;
   className?: string;
   sortKey: SortKey;
+  sortDir: SortDir;
   onToggleSort: (key: SortKey) => void;
 }) {
   const active = col && sortKey === col;
   return (
     <th className={className}>
       {col ? (
-        <button type="button" className="ct-th-sort" onClick={() => onToggleSort(col)}>
+        <button
+          type="button"
+          className="ct-th-sort"
+          onClick={() => onToggleSort(col)}
+          aria-label={`Sort by ${label} ${active && sortDir === "asc" ? "descending" : "ascending"}`}
+        >
           {label}
-          <ArrowUpDown size={12} className={active ? "on" : ""} aria-hidden="true" />
+          {active ? (
+            sortDir === "asc" ? (
+              <ArrowUpAZ size={12} className="on" aria-hidden="true" />
+            ) : (
+              <ArrowDownAZ size={12} className="on" aria-hidden="true" />
+            )
+          ) : (
+            <ArrowUpDown size={12} aria-hidden="true" />
+          )}
         </button>
       ) : (
         label
@@ -110,6 +133,9 @@ function SortHead({
 
 /** Contacts screen: role summary, search/filter toolbar, and contacts table. */
 export function ContactsView(vm: ContactsVm) {
+  const hasActiveFilters =
+    Boolean(vm.query) || vm.roleFilter !== "all" || vm.departmentFilter !== "all";
+
   return (
     <>
       <div className="contacts-page">
@@ -174,13 +200,44 @@ export function ContactsView(vm: ContactsVm) {
                 <button
                   type="button"
                   className="ct-filter-btn"
-                  aria-expanded={vm.filterOpen}
-                  onClick={() => vm.onFilterOpenChange(!vm.filterOpen)}
+                  aria-expanded={vm.filterOpen === "sort"}
+                  onClick={() =>
+                    vm.onFilterOpenChange(vm.filterOpen === "sort" ? null : "sort")
+                  }
+                >
+                  {vm.sortDir === "asc" ? "A–Z" : "Z–A"}
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+                {vm.filterOpen === "sort" && (
+                  <div className="ct-filter-menu" role="menu">
+                    {SORT_OPTIONS.map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        role="menuitem"
+                        className={vm.sortKey === "name" && vm.sortDir === value ? "on" : ""}
+                        onClick={() => vm.onSortDir(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="ct-filter-wrap">
+                <button
+                  type="button"
+                  className="ct-filter-btn"
+                  aria-expanded={vm.filterOpen === "role"}
+                  onClick={() =>
+                    vm.onFilterOpenChange(vm.filterOpen === "role" ? null : "role")
+                  }
                 >
                   {vm.roleFilter === "all" ? "All roles" : vm.roleFilter}
                   <ChevronDown size={14} aria-hidden="true" />
                 </button>
-                {vm.filterOpen && (
+                {vm.filterOpen === "role" && (
                   <div className="ct-filter-menu" role="menu">
                     {FILTER_OPTIONS.map(([value, label]) => (
                       <button
@@ -196,15 +253,52 @@ export function ContactsView(vm: ContactsVm) {
                   </div>
                 )}
               </div>
+
+              {vm.canManageContactRoles ? (
+                <div className="ct-filter-wrap">
+                  <button
+                    type="button"
+                    className="ct-filter-btn"
+                    aria-expanded={vm.filterOpen === "dept"}
+                    onClick={() =>
+                      vm.onFilterOpenChange(vm.filterOpen === "dept" ? null : "dept")
+                    }
+                  >
+                    {vm.departmentFilter === "all" ? "All departments" : vm.departmentFilter}
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {vm.filterOpen === "dept" && (
+                    <div className="ct-filter-menu" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={vm.departmentFilter === "all" ? "on" : ""}
+                        onClick={() => vm.onDepartmentFilter("all")}
+                      >
+                        All departments
+                      </button>
+                      {vm.departmentOptions.map((dept) => (
+                        <button
+                          key={dept}
+                          type="button"
+                          role="menuitem"
+                          className={vm.departmentFilter === dept ? "on" : ""}
+                          onClick={() => vm.onDepartmentFilter(dept)}
+                        >
+                          {dept}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             {vm.filtered.length === 0 ? (
               <div className="ct-empty">
-                <h3>
-                  {vm.query || vm.roleFilter !== "all" ? "No matching contacts" : "No contacts yet"}
-                </h3>
+                <h3>{hasActiveFilters ? "No matching contacts" : "No contacts yet"}</h3>
                 <p>
-                  {vm.query || vm.roleFilter !== "all"
+                  {hasActiveFilters
                     ? "Try a different search or filter."
                     : "Add people to start sending gifts and points."}
                 </p>
@@ -229,12 +323,14 @@ export function ContactsView(vm: ContactsVm) {
                         label="Person"
                         col="name"
                         sortKey={vm.sortKey}
+                        sortDir={vm.sortDir}
                         onToggleSort={vm.onToggleSort}
                       />
                       <SortHead
                         label="Email"
                         col="email"
                         sortKey={vm.sortKey}
+                        sortDir={vm.sortDir}
                         onToggleSort={vm.onToggleSort}
                       />
                       <th>Role</th>
@@ -247,88 +343,88 @@ export function ContactsView(vm: ContactsVm) {
                     {vm.filtered.map((c: UiContact) => {
                       const tone = avatarTone(c.id || c.email || c.name);
                       return (
-                      <tr key={c.id}>
-                        <td className="ct-td-check">
-                          <input
-                            type="checkbox"
-                            aria-label={`Select ${c.name || c.email}`}
-                            checked={vm.selected.has(c.id)}
-                            disabled={c.role === "Owner"}
-                            onChange={() => vm.onToggleOne(c.id)}
-                          />
-                        </td>
-                        <td>
-                          <div className="ct-person">
-                            <span
-                              className="ct-avatar"
-                              style={{ backgroundColor: tone.bg, color: tone.fg }}
-                              aria-hidden="true"
-                            >
-                              {initials(c)}
+                        <tr key={c.id}>
+                          <td className="ct-td-check">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${c.name || c.email}`}
+                              checked={vm.selected.has(c.id)}
+                              disabled={c.role === "Owner"}
+                              onChange={() => vm.onToggleOne(c.id)}
+                            />
+                          </td>
+                          <td>
+                            <div className="ct-person">
+                              <span
+                                className="ct-avatar"
+                                style={{ backgroundColor: tone.bg, color: tone.fg }}
+                                aria-hidden="true"
+                              >
+                                {initials(c)}
+                              </span>
+                              <span className="ct-name">{emptyCell(c.name)}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="ct-email" title={c.email}>
+                              {c.email}
                             </span>
-                            <span className="ct-name">{emptyCell(c.name)}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="ct-email" title={c.email}>
-                            {c.email}
-                          </span>
-                        </td>
-                        <td>
-                          {c.role === "Owner" || !vm.canManageContactRoles ? (
-                            <span className={`ct-chip ct-chip--${roleTone(c.role)}`}>
-                              {permissionLabel(c.role)}
-                            </span>
-                          ) : (
-                            <select
-                              className="ct-role-select"
-                              value={c.role}
-                              disabled={vm.isRolePending}
-                              onChange={(e) => vm.onRoleChange(c, e.target.value)}
-                            >
-                              {ROLES.filter((r) => r !== "Owner").map((r) => (
-                                <option key={r} value={r}>
-                                  {r}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        <td className="ct-muted">{emptyCell(c.department)}</td>
-                        <td className="ct-muted">{emptyCell(c.loc)}</td>
-                        <td className="ct-td-actions">
-                          {vm.canManageContacts ? (
-                            <>
-                              <button
-                                type="button"
-                                className="ct-row-action"
-                                aria-label={`Restrict ${c.name || c.email}`}
-                                disabled={c.role === "Owner"}
-                                onClick={vm.onRestrict}
+                          </td>
+                          <td>
+                            {c.role === "Owner" || !vm.canManageContactRoles ? (
+                              <span className={`ct-chip ct-chip--${roleTone(c.role)}`}>
+                                {permissionLabel(c.role)}
+                              </span>
+                            ) : (
+                              <select
+                                className="ct-role-select"
+                                value={c.role}
+                                disabled={vm.isRolePending}
+                                onChange={(e) => vm.onRoleChange(c, e.target.value)}
                               >
-                                <Ban size={15} />
-                              </button>
-                              <button
-                                type="button"
-                                className="ct-row-action"
-                                aria-label={`Edit ${c.name || c.email}`}
-                                onClick={() => vm.onEdit(c)}
-                              >
-                                <SquareArrowOutUpRight size={15} />
-                              </button>
-                              <button
-                                type="button"
-                                className="ct-row-action ct-row-action--danger"
-                                aria-label={`Delete ${c.name || c.email}`}
-                                disabled={c.role === "Owner" || vm.isDeletePending}
-                                onClick={() => vm.onDelete(c)}
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </>
-                          ) : null}
-                        </td>
-                      </tr>
+                                {ROLES.filter((r) => r !== "Owner").map((r) => (
+                                  <option key={r} value={r}>
+                                    {r}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                          <td className="ct-muted">{emptyCell(c.department)}</td>
+                          <td className="ct-muted">{emptyCell(c.loc)}</td>
+                          <td className="ct-td-actions">
+                            {vm.canManageContacts ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="ct-row-action"
+                                  aria-label={`Restrict ${c.name || c.email}`}
+                                  disabled={c.role === "Owner"}
+                                  onClick={vm.onRestrict}
+                                >
+                                  <Ban size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ct-row-action"
+                                  aria-label={`Edit ${c.name || c.email}`}
+                                  onClick={() => vm.onEdit(c)}
+                                >
+                                  <SquareArrowOutUpRight size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ct-row-action ct-row-action--danger"
+                                  aria-label={`Delete ${c.name || c.email}`}
+                                  disabled={c.role === "Owner" || vm.isDeletePending}
+                                  onClick={() => vm.onDelete(c)}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </>
+                            ) : null}
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -355,6 +451,7 @@ export function ContactsView(vm: ContactsVm) {
         onOpenChange={vm.onAddOpenChange}
         mode="add"
         canImportContacts
+        canManageContactRoles={vm.canManageContactRoles}
         initialTab={vm.addInitialTab}
       />
       <ContactFormDialog
@@ -362,6 +459,7 @@ export function ContactsView(vm: ContactsVm) {
         onOpenChange={vm.onEditOpenChange}
         mode="edit"
         contact={vm.editing ?? undefined}
+        canManageContactRoles={vm.canManageContactRoles}
       />
     </>
   );

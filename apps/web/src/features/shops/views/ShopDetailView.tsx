@@ -77,24 +77,10 @@ export function ShopDetailView(vm: ShopDetailVm) {
           <h1 className="shop-detail-head-title">{shop.name}</h1>
           <div className="shop-detail-head-meta">
             {shop.live ? (
-              <>
-                <span className="tag tag-live">
-                  <span className="dot" />
-                  Live
-                </span>
-                <button
-                  type="button"
-                  className="lnk"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                  onClick={vm.onViewLiveShop}
-                >
-                  View shop
-                </button>
-              </>
+              <span className="tag tag-live">
+                <span className="dot" />
+                Live
+              </span>
             ) : vm.canEditShop ? (
               <button type="button" className="btn btn-brand btn-sm" onClick={vm.onPublishShop}>
                 Publish
@@ -106,11 +92,18 @@ export function ShopDetailView(vm: ShopDetailVm) {
             )}
           </div>
         </div>
-        {vm.canSendPoints ? (
-          <button type="button" className="btn btn-brand shop-detail-head-action" onClick={() => vm.onSendPoints()}>
-            <Coins size={16} /> {sendFlowTitle(shop.currencyMode)}
-          </button>
-        ) : null}
+        <div className="shop-detail-head-actions">
+          {shop.live ? (
+            <button type="button" className="btn btn-ghost shop-detail-head-action" onClick={vm.onViewLiveShop}>
+              View shop
+            </button>
+          ) : null}
+          {vm.canSendPoints ? (
+            <button type="button" className="btn btn-brand shop-detail-head-action" onClick={() => vm.onSendPoints()}>
+              <Coins size={16} /> {sendFlowTitle(shop.currencyMode)}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="tabs" style={{ marginBottom: 22 }} role="tablist" aria-label="Shop sections">
