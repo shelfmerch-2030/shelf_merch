@@ -495,7 +495,8 @@ describe('user invite', () => {
     expect(reuse.body.error.code).toBe('INVALID_INVITE_TOKEN');
   });
 
-  it('assign-manager issues accept-invite token for an already-active user', async () => {
+  it('assign-manager does not re-invite an already-active user', async () => {
+    const { user: existingMgr } = await makeUser(tenantA, 'entity_manager', 'entity');
     const entity = await Entity.create({
       tenantId: tenantA._id,
       walletId: walletA._id,
@@ -505,20 +506,85 @@ describe('user invite', () => {
     const assign = await request(app)
       .post(`/api/v1/entities/${entity._id}/assign-manager`)
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ name: adminA.name, email: adminA.email, role: 'Sales Manager' });
+      .send({
+        name: existingMgr.name,
+        email: existingMgr.email,
+        role: 'Sales Manager',
+        sendInvite: true,
+      });
     expect(assign.status).toBe(201);
-    expect(assign.body.inviteToken).toBeTruthy();
+    expect(assign.body.inviteToken).toBeFalsy();
+    expect(assign.body.alreadyActive).toBe(true);
     expect(assign.body.manager.status).toBe('active');
 
-    const accept = await request(app)
-      .post('/api/v1/users/accept-invite')
-      .send({ token: assign.body.inviteToken, password: 'newpass123' });
-    expect(accept.status).toBe(200);
-    expect(accept.body.email).toBe(adminA.email);
+    const refreshed = await Entity.findOne({ _id: entity._id, tenantId: tenantA._id });
+    expect(refreshed.managerInvitePending).toBe(false);
+
+    const user = await User.findById(existingMgr._id).select('+inviteTokenHash');
+    expect(user.status).toBe('active');
+    expect(user.inviteTokenHash).toBeFalsy();
+  });
+
+  it('allocating budget to an active entity manager does not create a new invite', async () => {
+    const { hashPassword } = await import('../src/modules/auth/auth.service.js');
+    const { user: existingMgr } = await makeUser(tenantA, 'entity_manager', 'entity');
+    existingMgr.passwordHash = await hashPassword('keep-my-password');
+    await existingMgr.save();
+
+    // Ensure wallet is past entities_added so allocate is allowed.
+    walletA.status = 'entities_added';
+    await walletA.save();
+
+    const entity = await Entity.create({
+      tenantId: tenantA._id,
+      walletId: walletA._id,
+      name: 'Ops',
+    });
+
+    await request(app)
+      .post(`/api/v1/entities/${entity._id}/assign-manager`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        name: existingMgr.name,
+        email: existingMgr.email,
+        role: 'Ops Manager',
+        sendInvite: true,
+      });
+
+    const firstAlloc = await request(app)
+      .post(`/api/v1/wallets/${walletA._id}/allocate`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .set('Idempotency-Key', `test-alloc-active-first-${entity._id}`)
+      .send({ allocations: [{ entityId: String(entity._id), amount: 10000 }] });
+    expect(firstAlloc.status).toBe(201);
+
+    const beforeUser = await User.findOne({ email: existingMgr.email }).select(
+      '+passwordHash +inviteTokenHash',
+    );
+    expect(beforeUser.status).toBe('active');
+    const beforeHash = beforeUser.passwordHash;
+
+    const secondAlloc = await request(app)
+      .post(`/api/v1/wallets/${walletA._id}/allocate`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .set('Idempotency-Key', `test-alloc-active-second-${entity._id}`)
+      .send({ allocations: [{ entityId: String(entity._id), amount: 5000 }] });
+    expect(secondAlloc.status).toBe(201);
+
+    const afterUser = await User.findOne({ email: existingMgr.email }).select(
+      '+passwordHash +inviteTokenHash',
+    );
+    expect(afterUser.status).toBe('active');
+    expect(String(afterUser.passwordHash)).toBe(String(beforeHash));
+    expect(afterUser.inviteTokenHash).toBeFalsy();
+
+    const afterEntity = await Entity.findOne({ _id: entity._id, tenantId: tenantA._id });
+    expect(afterEntity.allocatedAmount).toBe(15000);
+    expect(afterEntity.managerInvitePending).toBe(false);
 
     const login = await request(app)
       .post('/api/v1/auth/login')
-      .send({ email: adminA.email, password: 'newpass123' });
+      .send({ email: existingMgr.email, password: 'keep-my-password' });
     expect(login.status).toBe(200);
   });
 });

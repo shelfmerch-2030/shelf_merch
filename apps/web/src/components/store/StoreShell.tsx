@@ -1556,30 +1556,6 @@ export default function StoreShell({
             </div>
           </div>
         </div>
-
-        <div className="sf-topbar-row sf-topbar-row--categories">
-          <div className="sf-topbar-inner sf-topbar-inner--categories">
-            <nav className="sf-nav sf-nav--stadium sf-nav--stadium-compact" aria-label="Store sections">
-              <button
-                type="button"
-                className={`sf-nav-link${page === "products" || page === "product" ? " active" : ""}`}
-                onClick={() => setPage("products")}
-              >
-                Products
-              </button>
-              <button
-                type="button"
-                className={`sf-nav-link${page === "orders" || page === "order-detail" ? " active" : ""}`}
-                onClick={() => {
-                  setPage("orders");
-                  if (isShopper) void refreshOrders();
-                }}
-              >
-                Orders
-              </button>
-            </nav>
-          </div>
-        </div>
       </div>
 
       {addedToBag ? (

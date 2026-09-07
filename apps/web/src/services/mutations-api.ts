@@ -1287,7 +1287,12 @@ export async function syncOrgWizardApi(
     await Promise.all([...ids].map((id) => deleteIfIncomplete(id)));
   };
 
-  const allocationDeltas: Array<{ walletId: string; entityId: string; delta: number }> = [];
+  const allocationDeltas: Array<{
+    walletId: string;
+    entityId: string;
+    delta: number;
+    target: number;
+  }> = [];
   const plannedAllocations: Array<{ entityId: string; amount: number }> = [];
 
   const allEntities = await apiFetch<ApiEntityRow[]>("/entities");
@@ -1414,10 +1419,10 @@ export async function syncOrgWizardApi(
             email: mgrEmail,
             role: dept.mgr.role || "",
             mobile: dept.mgr.mobile || "",
-            sendInvite: Boolean(dept.mgr.invite),
+            sendInvite: dept.mgr.inviteStatus !== "active",
           }),
         });
-        if (dept.mgr.invite) {
+        if (dept.mgr.inviteStatus !== "active") {
           invites.push({
             email: mgrEmail,
             name: mgrName,
@@ -1441,7 +1446,7 @@ export async function syncOrgWizardApi(
 
       const delta = target - currentAllocated;
       if (delta !== 0) {
-        allocationDeltas.push({ walletId: defaultWalletId, entityId, delta });
+        allocationDeltas.push({ walletId: defaultWalletId, entityId, delta, target });
       }
     }
 
@@ -1473,9 +1478,16 @@ export async function syncOrgWizardApi(
     for (const [walletId, allocations] of allocationsByWallet) {
       if (!allocations.length) continue;
       const ordered = [...allocations].sort((a, b) => a.amount - b.amount);
+      // Key by target totals so retries of the same finish are safe, but a new
+      // top-up to a different target (e.g. another +₹500) is never deduped away.
+      const targetKey = allocationDeltas
+        .filter((d) => d.walletId === walletId)
+        .map((d) => `${d.entityId}:to:${d.target}`)
+        .sort()
+        .join("|");
       await apiFetch(`/wallets/${walletId}/allocate`, {
         method: "POST",
-        idempotencyKey: `alloc-${walletId}-${Date.now()}-${ordered.map((a) => `${a.entityId}:${a.amount}`).join("|")}`,
+        idempotencyKey: `alloc-${walletId}-${targetKey || ordered.map((a) => `${a.entityId}:${a.amount}`).join("|")}`,
         body: JSON.stringify({ allocations: ordered }),
       });
     }

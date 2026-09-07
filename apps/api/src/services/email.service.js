@@ -12,28 +12,33 @@ import {
   buildManagerInviteEmail,
 } from './email-templates/managerEmails.template.js';
 import { buildDemoRequestConfirmationEmail } from './email-templates/demoRequestConfirmation.template.js';
+import { buildBudgetAllocatedEmail } from './email-templates/budgetAllocated.template.js';
+import {
+  buildNotificationEmail,
+  buildOtpEmail,
+  buildSignupVerificationEmail,
+} from './email-templates/verification.template.js';
 
 let transporter;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function presetBannerAttachment(preset = '') {
-  if (!preset || !/^[a-z0-9-]+$/i.test(preset)) return null;
-  const filePath = path.resolve(__dirname, '../../../web/public/shop-banners', `${preset}.png`);
+function heroBannerAttachment() {
+  const filePath = path.resolve(__dirname, 'email-assets/email-hero-banner.png');
   if (!fs.existsSync(filePath)) return null;
   return {
-    filename: `shop-banner-${preset}.png`,
+    filename: 'email-hero-banner.png',
     path: filePath,
-    cid: `shop-banner-${preset}@shelfmerch`,
+    cid: 'email-hero-banner@shelfmerch',
   };
 }
 
-function demoRequestSuccessAttachment() {
-  const filePath = path.resolve(__dirname, 'email-assets/demo-request-success-icon.png');
+function logoAttachment() {
+  const filePath = path.resolve(__dirname, 'email-assets/shelfmerch-logo.png');
   if (!fs.existsSync(filePath)) return null;
   return {
-    filename: 'demo-request-success-icon.png',
+    filename: 'shelfmerch-logo.png',
     path: filePath,
-    cid: 'demo-request-success@shelfmerch',
+    cid: 'shelfmerch-logo@shelfmerch',
   };
 }
 
@@ -67,16 +72,29 @@ export async function sendEmail({ to, subject, text, html, attachments }) {
   }
 
   const from = env.EMAIL_FROM || env.EMAIL_USER;
-  const info = await getTransporter().sendMail({ from, to, subject, text, html, attachments });
+  const hero = heroBannerAttachment();
+  const logo = logoAttachment();
+  const htmlStr = html ? String(html) : '';
+  const merged = [
+    ...(Array.isArray(attachments) ? attachments : attachments ? [attachments] : []),
+    ...(logo && htmlStr.includes('shelfmerch-logo@shelfmerch') ? [logo] : []),
+    ...(hero && htmlStr.includes('email-hero-banner@shelfmerch') ? [hero] : []),
+  ];
+  const info = await getTransporter().sendMail({
+    from,
+    to,
+    subject,
+    text,
+    html,
+    attachments: merged.length ? merged : undefined,
+  });
 
   logger.info({ to, subject, messageId: info.messageId }, 'Email sent');
   return { success: true, provider: 'smtp', messageId: info.messageId };
 }
 
 export async function sendOtpEmail(to, otp) {
-  const subject = 'Your ShelfMerch verification code';
-  const text = `Your verification code is ${otp}. It expires in 10 minutes.`;
-  const html = `<p>Your verification code is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p>`;
+  const { subject, text, html } = buildOtpEmail({ otp, minutes: 10 });
 
   try {
     return await sendEmail({ to, subject, text, html });
@@ -90,9 +108,7 @@ export async function sendOtpEmail(to, otp) {
  * Signup email verification — never logs OTP plaintext (including stub mode).
  */
 export async function sendSignupVerificationEmail(to, otp) {
-  const subject = 'Verify your ShelfMerch email';
-  const text = `Your ShelfMerch verification code is ${otp}. It expires in 2 minutes. If you did not sign up, ignore this email.`;
-  const html = `<p>Your verification code is <strong style="letter-spacing:2px;font-size:18px;">${otp}</strong>.</p><p>It expires in <strong>2 minutes</strong>.</p><p style="color:#6B7280;font-size:13px;">If you did not create a ShelfMerch account, you can ignore this email.</p>`;
+  const { subject, text, html } = buildSignupVerificationEmail({ otp, minutes: 2 });
 
   try {
     if (!emailConfigured()) {
@@ -100,10 +116,8 @@ export async function sendSignupVerificationEmail(to, otp) {
       logger.info({ to, subject }, 'EMAIL (stub) — signup verification dispatched (OTP redacted)');
       return { success: true, provider: 'stub' };
     }
-    const from = env.EMAIL_FROM || env.EMAIL_USER;
-    const info = await getTransporter().sendMail({ from, to, subject, text, html });
-    logger.info({ to, subject, messageId: info.messageId }, 'Signup verification email sent');
-    return { success: true, provider: 'smtp', messageId: info.messageId };
+    // Use sendEmail so the shared hero banner CID attachment is included.
+    return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.error({ err, to }, 'Signup verification email send failed');
     throw new ApiError(502, 'Failed to send verification email', 'EMAIL_SEND_FAILED');
@@ -170,6 +184,37 @@ export async function sendManagerAssignmentEmail({
   }
 }
 
+/**
+ * Notify an active Entity Manager that additional budget was allocated.
+ * Does not invite or reset credentials.
+ */
+export async function sendBudgetAllocatedEmail({
+  to,
+  recipientName = '',
+  amount = 0,
+  newBalance = null,
+  departmentName = '',
+  organizationName = '',
+  link = '/app/wallets',
+}) {
+  const fullLink = link.startsWith('http') ? link : appUrl(link);
+  const { subject, html, text } = buildBudgetAllocatedEmail({
+    recipientName,
+    amount,
+    newBalance,
+    departmentName,
+    organizationName,
+    link: fullLink,
+  });
+
+  try {
+    return await sendEmail({ to, subject, text, html });
+  } catch (err) {
+    logger.warn({ err, to, subject }, 'Budget allocated email send failed');
+    return { success: false, provider: 'smtp' };
+  }
+}
+
 export async function sendRedemptionInviteEmail({
   to,
   recipientName = '',
@@ -186,7 +231,10 @@ export async function sendRedemptionInviteEmail({
   shopBannerPreset = '',
   shopCurrencyMode = 'points',
 }) {
-  const bannerAttachment = presetBannerAttachment(shopBannerPreset);
+  void shopLogoUrl;
+  void shopBannerTheme;
+  void shopBannerPreset;
+
   const { subject, html, text } = buildRedemptionInviteEmail({
     recipientName,
     senderName,
@@ -197,20 +245,11 @@ export async function sendRedemptionInviteEmail({
     campaignType,
     pointsScope,
     shopName,
-    shopBannerTheme,
-    shopBannerPreset,
-    shopBannerCid: bannerAttachment?.cid ?? '',
     shopCurrencyMode,
   });
 
   try {
-    return await sendEmail({
-      to,
-      subject,
-      text,
-      html,
-      attachments: bannerAttachment ? [bannerAttachment] : undefined,
-    });
+    return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.warn({ err, to, subject }, 'Redemption invite email send failed');
     return { success: false, provider: 'smtp' };
@@ -243,15 +282,7 @@ export async function sendSurpriseGiftEmail({
 
 export async function sendNotificationEmail({ to, title, body = '', link = '' }) {
   const fullLink = link ? (link.startsWith('http') ? link : appUrl(link)) : '';
-  const subject = title;
-  const text = [title, body, fullLink].filter(Boolean).join('\n\n');
-  const html = [
-    `<p><strong>${title}</strong></p>`,
-    body ? `<p>${body}</p>` : '',
-    fullLink ? `<p><a href="${fullLink}">${fullLink}</a></p>` : '',
-  ]
-    .filter(Boolean)
-    .join('');
+  const { subject, text, html } = buildNotificationEmail({ title, body, link: fullLink });
 
   try {
     return await sendEmail({ to, subject, text, html });
@@ -273,24 +304,16 @@ export async function sendDemoRequestConfirmationEmail({
   mobileNumber = '',
   requirement = '',
 }) {
-  const successAttachment = demoRequestSuccessAttachment();
   const { subject, text, html } = buildDemoRequestConfirmationEmail({
     fullName,
     companyName,
     workEmail: workEmail || to,
     mobileNumber,
     requirement,
-    successCid: successAttachment?.cid ?? '',
   });
 
   try {
-    return await sendEmail({
-      to,
-      subject,
-      text,
-      html,
-      attachments: successAttachment ? [successAttachment] : undefined,
-    });
+    return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.warn({ err, to, subject }, 'Demo request confirmation email send failed');
     return { success: false, provider: 'smtp' };

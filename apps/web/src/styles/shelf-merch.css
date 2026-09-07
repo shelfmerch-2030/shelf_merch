@@ -15888,6 +15888,10 @@ tr:hover .camp-avatar {
   width: 20%;
   vertical-align: middle;
 }
+.orders-list .data-list-table th,
+.orders-list .data-list-table td {
+  width: auto;
+}
 .data-list-table th {
   padding-top: 12px;
   padding-bottom: 12px;

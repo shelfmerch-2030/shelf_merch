@@ -56,6 +56,14 @@ export function OrdersView(vm: OrdersVm) {
             </div>
           ) : (
             <table className="tbl data-list-table">
+              <colgroup>
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "28%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -63,7 +71,7 @@ export function OrdersView(vm: OrdersVm) {
                   <th>Status</th>
                   <th>Amount</th>
                   <th>Invoice</th>
-                  <th>Order details</th>
+                  <th>Download</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,31 +102,28 @@ export function OrdersView(vm: OrdersVm) {
                     </td>
                     <td className="num data-list-cell data-list-amount">{inr(o.amount)}</td>
                     <td className="data-list-cell">
-                      <span className="row" style={{ gap: 10 }}>
-                        <button
-                          type="button"
-                          className="lnk"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vm.onViewInvoice(o);
-                          }}
-                        >
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          className="lnk"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vm.onDownloadInvoice(o);
-                          }}
-                        >
-                          Download
-                        </button>
-                      </span>
+                      <button
+                        type="button"
+                        className="lnk"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vm.onViewInvoice(o);
+                        }}
+                      >
+                        View
+                      </button>
                     </td>
                     <td className="data-list-cell">
-                      <span className="lnk">{o.track ? "Tracking" : "View"}</span>
+                      <button
+                        type="button"
+                        className="lnk"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vm.onDownloadInvoice(o);
+                        }}
+                      >
+                        Download
+                      </button>
                     </td>
                   </tr>
                 ))}

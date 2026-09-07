@@ -3,7 +3,7 @@ import { User } from './user.model.js';
 import { RoleAssignment } from '../roles/roleAssignment.model.js';
 import { hashPassword } from '../auth/auth.service.js';
 import { ApiError, ConflictError, NotFoundError } from '../../utils/errors.js';
-import { sendInviteEmail, sendManagerAssignmentEmail } from '../../services/email.service.js';
+import { sendInviteEmail } from '../../services/email.service.js';
 
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -87,9 +87,11 @@ export async function inviteUser(
   }
 
   let inviteToken = null;
+  let isNewOrPendingInvite = false;
 
   if (!user) {
     inviteToken = crypto.randomBytes(32).toString('hex');
+    isNewOrPendingInvite = true;
     [user] = await User.create(
       [
         {
@@ -105,7 +107,9 @@ export async function inviteUser(
       session ? { session } : {},
     );
   } else if (user.status === 'invited') {
+    // Existing pending invite — refresh token instead of creating a duplicate account.
     inviteToken = crypto.randomBytes(32).toString('hex');
+    isNewOrPendingInvite = true;
     user.tenantId = tenantId;
     user.inviteTokenHash = sha256(inviteToken);
     user.inviteTokenExpiresAt = new Date(Date.now() + INVITE_TTL_MS);
@@ -113,12 +117,8 @@ export async function inviteUser(
     if (phone) user.phone = phone;
     await user.save({ session });
   } else {
-    // Active user in this workspace — issue a fresh accept link when sendInvite is on.
-    if (sendInvite) {
-      inviteToken = crypto.randomBytes(32).toString('hex');
-      user.inviteTokenHash = sha256(inviteToken);
-      user.inviteTokenExpiresAt = new Date(Date.now() + INVITE_TTL_MS);
-    }
+    // ACTIVE (or other non-invited) user in this workspace.
+    // Never re-issue an invite token or force password creation again.
     if (name && user.name !== name) user.name = name;
     if (phone) user.phone = phone;
     if (user.isModified()) await user.save({ session });
@@ -155,13 +155,14 @@ export async function inviteUser(
     roleTitle: emailContext.roleTitle || 'Department Manager',
   };
 
-  if (sendInvite && inviteToken) {
+  // Invitation emails for new / still-pending accounts are always sent.
+  // Client sendInvite must not suppress them (stale UI can claim "Active" incorrectly).
+  // Active managers never get invite mail — budget notifications come from allocate.
+  if (inviteToken && isNewOrPendingInvite) {
     await sendInviteEmail(normalizedEmail, inviteToken, mailContext);
-  } else if (!sendInvite && user.status === 'active') {
-    await sendManagerAssignmentEmail({ to: normalizedEmail, ...mailContext });
   }
 
-  return { user, inviteToken };
+  return { user, inviteToken: isNewOrPendingInvite ? inviteToken : null };
 }
 
 export async function acceptInvite({ token, password }) {

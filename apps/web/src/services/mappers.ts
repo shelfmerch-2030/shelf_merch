@@ -793,10 +793,12 @@ export function mapEntityToDept(e: ApiEntity, usersById: Map<string, ApiUser>): 
   const hasManager = Boolean(e.managerUserId || mgrEmail || mgrName);
   let inviteStatus: 'unassigned' | 'pending' | 'active' = 'unassigned';
   if (hasManager) {
-    if (e.managerInvitePending || mgr?.status === 'invited') {
-      inviteStatus = 'pending';
-    } else {
+    // Active ONLY when the linked user account is actually active.
+    // Missing/deleted users, pending invites, or email-only drafts must not look Active.
+    if (mgr?.status === 'active' && !e.managerInvitePending) {
       inviteStatus = 'active';
+    } else if (e.managerUserId || e.managerInvitePending || mgr?.status === 'invited' || mgrEmail) {
+      inviteStatus = 'pending';
     }
   }
   return {

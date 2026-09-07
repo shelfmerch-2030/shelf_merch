@@ -54,7 +54,10 @@ export function OrgDoneScreen({
   const o = state.wallet;
   const isWalletFlow = state.flow === "wallet";
   const depts = selectedDepartments(state.departments);
-  const invited = depts.filter((d) => d.mgr.invite && d.mgr.email).length;
+  const invited = depts.filter(
+    (d) => Boolean(d.mgr.email?.trim()) && d.mgr.inviteStatus !== "active",
+  ).length;
+  const budgetNotified = depts.filter((d) => d.mgr.inviteStatus === "active" && d.mgr.email).length;
   const inviteLinks = state.sentInvites.filter((i) => i.inviteToken);
   const totalAllocated = depts.reduce((sum, d) => sum + (d.allocated || 0), 0);
 
@@ -181,13 +184,21 @@ export function OrgDoneScreen({
             <StatCard
               icon={<Users size={18} />}
               label="Managers"
-              value={String(invited)}
+              value={String(depts.filter((d) => d.mgr.email).length)}
               meta={
-                invited
-                  ? "Invitation emails sent — check spam if not received"
-                  : "No manager invites sent"
+                invited && budgetNotified
+                  ? `${invited} invitation${invited === 1 ? "" : "s"} · ${budgetNotified} budget notification${budgetNotified === 1 ? "" : "s"}`
+                  : invited
+                    ? "Invitation emails sent — check spam if not received"
+                    : budgetNotified
+                      ? "Budget allocation emails sent to active managers"
+                      : "No manager emails sent"
               }
-              tag={invited > 0 ? <StatusTag label="Sent" /> : undefined}
+              tag={
+                invited > 0 || budgetNotified > 0 ? (
+                  <StatusTag label={invited > 0 ? "Sent" : "Notified"} />
+                ) : undefined
+              }
             />
           </div>
 
@@ -205,10 +216,12 @@ export function OrgDoneScreen({
                     {d.mgr.name || d.mgr.email || "Manager not assigned"}
                   </div>
                   <div>
-                    {d.mgr.invite && d.mgr.email ? (
+                    {d.mgr.inviteStatus === "active" && d.mgr.email ? (
+                      <StatusTag label="Budget allocated" />
+                    ) : d.mgr.email ? (
                       <StatusTag label="Invited" />
                     ) : (
-                      <span className="tag tag-draft">No invite</span>
+                      <span className="tag tag-draft">No manager</span>
                     )}
                   </div>
                 </div>

@@ -211,11 +211,11 @@ export function OrgWizard({
 
       const result = await sync.mutateAsync(state);
       dispatch({ type: "finished", walletId: result.walletId, invites: result.invites });
-      const withLinks = result.invites.filter((i) => i.inviteToken).length;
+      const inviteCount = result.invites.length;
       toast.success(
-        withLinks
-          ? `Allocations saved — ${withLinks} manager invite(s) sent`
-          : "Budget allocation saved",
+        inviteCount > 0
+          ? `Allocations saved — ${inviteCount} invitation${inviteCount === 1 ? "" : "s"} sent`
+          : "Allocations saved — active managers notified",
       );
       onExit();
     } catch (err) {
@@ -363,8 +363,8 @@ export function OrgWizard({
                   </>
                 ) : (
                   <>
-                    Save allocations for <b>{state.wallet.name}</b> ({inr(fromPool)}) and send
-                    manager invites.
+                    Save allocations for <b>{state.wallet.name}</b> ({inr(fromPool)}). New managers
+                    get an invitation; active managers get a budget notification.
                   </>
                 )}
               </DialogDescription>
