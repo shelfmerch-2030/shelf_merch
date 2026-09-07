@@ -61,6 +61,19 @@ export function appUrl(path = '') {
   return `${base}${suffix}`;
 }
 
+/** Prefer a branded From header, e.g. "ShelfMerch" <support@shelfmerch.com>. */
+function formatFromAddress(raw = '') {
+  const value = String(raw || '').trim();
+  if (!value) return value;
+  // Already has a display name: Name <email@domain>
+  if (/^[^<]+<\s*[^>]+>\s*$/.test(value)) return value;
+  // Bare address — add ShelfMerch display name
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return `"ShelfMerch" <${value}>`;
+  }
+  return value;
+}
+
 /**
  * Send a transactional email via SMTP (Gmail when EMAIL_SERVICE=gmail).
  * Falls back to structured logging when credentials are not set (tests/dev).
@@ -71,7 +84,7 @@ export async function sendEmail({ to, subject, text, html, attachments }) {
     return { success: true, provider: 'stub' };
   }
 
-  const from = env.EMAIL_FROM || env.EMAIL_USER;
+  const from = formatFromAddress(env.EMAIL_FROM || env.EMAIL_USER);
   const hero = heroBannerAttachment();
   const logo = logoAttachment();
   const htmlStr = html ? String(html) : '';
@@ -116,7 +129,7 @@ export async function sendSignupVerificationEmail(to, otp) {
       logger.info({ to, subject }, 'EMAIL (stub) — signup verification dispatched (OTP redacted)');
       return { success: true, provider: 'stub' };
     }
-    // Use sendEmail so the shared hero banner CID attachment is included.
+    // Use sendEmail so shared logo / hero-banner CID attachments are included.
     return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.error({ err, to }, 'Signup verification email send failed');
