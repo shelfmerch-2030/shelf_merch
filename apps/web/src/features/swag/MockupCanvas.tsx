@@ -425,11 +425,14 @@ export function MockupCanvas({
           globalCompositeOperation: "multiply",
           opacity: isActive ? 0.96 : 0.9,
           name: `art:${g.areaKey}`,
+          // Konva passes/expects absolute stage position; clamp in plate-local space.
           dragBoundFunc: isActive
             ? (pos) => {
                 const w = Math.abs(node.width() * node.scaleX());
                 const h = Math.abs(node.height() * node.scaleY());
-                return clampCenter(pos.x, pos.y, w, h, node.rotation(), bounds);
+                const local = parentToPrintLocal(pos.x, pos.y, g.box.bx, g.box.by, g.plateRot);
+                const clamped = clampCenter(local.x, local.y, w, h, node.rotation(), bounds);
+                return printLocalToParent(clamped.x, clamped.y, g.box.bx, g.box.by, g.plateRot);
               }
             : undefined,
         });
