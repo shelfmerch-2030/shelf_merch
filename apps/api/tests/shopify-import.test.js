@@ -9,6 +9,10 @@ import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { signAccessToken } from '../src/modules/auth/auth.service.js';
 import {
   mapShopifyContent,
+  mapShopifyProduct,
+  mapShopifyVariantOptions,
+  mergeShopifyVariants,
+  inferColorFromTitle,
   parseShopifyStorefrontTabs,
   resolveHsnFromInventoryItems,
   normalizeDomain,
@@ -248,6 +252,114 @@ describe('Shopify catalog import', () => {
     expect(JSON.stringify(tabs)).not.toContain('Do not import this');
   });
 
+  it('infers colour from product title when Shopify only has Default Title', () => {
+    expect(inferColorFromTitle('Black Hard-Handle Laptop Office Bag')).toBe('Black');
+    expect(inferColorFromTitle('Grey Slim Laptop Sleeve Bag')).toBe('Grey');
+    expect(inferColorFromTitle('Navy Blue Travel Backpack')).toBe('Navy Blue');
+
+    const mapped = mapShopifyProduct(
+      {
+        id: 555,
+        title: 'Brown Vegan Leather Laptop Messenger Bag',
+        handle: 'brown-bag',
+        vendor: 'Acme',
+        body_html: '',
+        options: [{ name: 'Title' }],
+        images: [],
+        variants: [
+          {
+            sku: 'XG-B02-550',
+            title: 'Default Title',
+            price: '1200',
+            inventory_quantity: 0,
+            option1: 'Default Title',
+          },
+        ],
+      },
+      'acme.myshopify.com',
+    );
+    expect(mapped.variants[0]).toMatchObject({
+      sku: 'XG-B02-550',
+      color: 'Brown',
+    });
+    expect(mapped.variants[0].size).toBeFalsy();
+  });
+
+  it('maps Shopify variant options by name, including custom labels', () => {
+    expect(
+      mapShopifyVariantOptions(
+        { option1: 'Navy', option2: 'XL' },
+        ['Colour', 'Size'],
+      ),
+    ).toEqual({ color: 'Navy', size: 'XL' });
+
+    expect(
+      mapShopifyVariantOptions({
+        selectedOptions: [
+          { name: 'Shade', value: 'Forest' },
+          { name: 'Fit', value: 'M' },
+        ],
+      }),
+    ).toEqual({ color: 'Forest', size: 'M' });
+
+    // Custom labels still land in size/color instead of being dropped.
+    expect(
+      mapShopifyVariantOptions(
+        { option1: 'Classic', option2: 'Red' },
+        ['Style', 'Variant'],
+      ),
+    ).toEqual({ size: 'Classic', color: 'Red' });
+
+    expect(
+      mapShopifyVariantOptions({ option1: 'Default Title' }, ['Title']),
+    ).toEqual({});
+  });
+
+  it('mapShopifyProduct keeps size, color, and stock on variants', () => {
+    const mapped = mapShopifyProduct(
+      {
+        id: 999,
+        title: 'Hoodie',
+        handle: 'hoodie',
+        vendor: 'Acme',
+        body_html: '',
+        options: [{ name: 'Color' }, { name: 'Size' }],
+        images: [],
+        variants: [
+          {
+            sku: 'XG-813-525',
+            price: '799',
+            inventory_quantity: 14,
+            option1: 'Black',
+            option2: 'L',
+          },
+        ],
+      },
+      'acme.myshopify.com',
+    );
+    expect(mapped.variants[0]).toMatchObject({
+      sku: 'XG-813-525',
+      color: 'Black',
+      size: 'L',
+      stock: 14,
+    });
+  });
+
+  it('mergeShopifyVariants preserves enabled/colorHex while refreshing options', () => {
+    const merged = mergeShopifyVariants(
+      [{ sku: 'XG-813-525', size: '', color: '', stock: 0, enabled: false, colorHex: '#111111' }],
+      [{ sku: 'XG-813-525', size: 'L', color: 'Black', stock: 14, enabled: true }],
+    );
+    expect(merged[0]).toMatchObject({
+      sku: 'XG-813-525',
+      size: 'L',
+      color: 'Black',
+      stock: 14,
+      enabled: false,
+      colorHex: '#111111',
+    });
+  });
+
   it('prefers India country HSN over the general HS code', () => {
     expect(
       resolveHsnFromInventoryItems([
@@ -289,7 +401,8 @@ describe('Shopify catalog import', () => {
     expect(tee.basePriceInr).toBe(499); // min variant price
     expect(tee.hsnCode).toBe('610520');
     expect(tee.variants).toHaveLength(2);
-    expect(tee.variants[0]).toMatchObject({ color: 'Black', size: 'M', sku: 'TEE-BLK-M' });
+    expect(tee.variants[0]).toMatchObject({ color: 'Black', size: 'M', sku: 'TEE-BLK-M', stock: 10 });
+    expect(tee.variants[1]).toMatchObject({ color: 'Black', size: 'L', sku: 'TEE-BLK-L', stock: 5 });
     expect(tee.primaryImageUrl).toBe('https://cdn.shopify.com/tee.jpg');
     expect(tee.imageUrls).toEqual(['https://cdn.shopify.com/tee.jpg']);
     expect(tee.maskImageUrl).toBe('');
@@ -494,6 +607,40 @@ describe('Shopify catalog import', () => {
     expect(reloaded.maskBackImageUrl).toBe('/uploads/platform/product/mask-back.png');
     expect(reloaded.printAreas).toHaveLength(1);
     expect(reloaded.printAreas[0]).toMatchObject({ key: 'front', label: 'Front', widthIn: 10, heightIn: 12 });
+  });
+
+  it('backfills empty variant size/color/stock on re-import', async () => {
+    vi.stubGlobal('fetch', stubShopifyFetch());
+    await importReq(catalogToken);
+
+    const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    tee.variants = [
+      { sku: 'TEE-BLK-M', size: '', color: '', stock: 0, enabled: true },
+      { sku: 'TEE-BLK-L', size: '', color: '', stock: 0, enabled: false },
+    ];
+    await tee.save();
+
+    vi.stubGlobal('fetch', stubShopifyFetch());
+    const res = await importReq(catalogToken);
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBeGreaterThanOrEqual(1);
+
+    const reloaded = await CatalogProduct.findOne({ 'source.externalId': '111' });
+    expect(reloaded.variants).toHaveLength(2);
+    expect(reloaded.variants[0]).toMatchObject({
+      sku: 'TEE-BLK-M',
+      color: 'Black',
+      size: 'M',
+      stock: 10,
+      enabled: true,
+    });
+    expect(reloaded.variants[1]).toMatchObject({
+      sku: 'TEE-BLK-L',
+      color: 'Black',
+      size: 'L',
+      stock: 5,
+      enabled: false,
+    });
   });
 
   it('backfills empty hsnCode on re-import without overwriting a set value', async () => {

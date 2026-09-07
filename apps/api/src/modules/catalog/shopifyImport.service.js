@@ -101,12 +101,135 @@ function graphProductToRest(node) {
         price: variant.price,
         inventory_quantity: variant.inventoryQuantity ?? 0,
         inventory_item_id: gidNum(variant.inventoryItem?.id),
+        // Keep names so mapShopifyProduct can match Color/Size even when
+        // product.options order differs from selectedOptions order.
+        selectedOptions: selected
+          .map((option) => ({ name: option?.name || '', value: option?.value || '' }))
+          .filter((option) => option.value),
         option1: selected[0]?.value,
         option2: selected[1]?.value,
         option3: selected[2]?.value,
       };
     }),
   };
+}
+
+/** Shopify's placeholder option for single-SKU products — not a real size/color. */
+function isShopifyDefaultOption(name, value) {
+  const n = String(name || '').trim().toLowerCase();
+  const v = String(value || '').trim().toLowerCase();
+  if (n === 'title') return true;
+  return v === 'default title' || v === 'default';
+}
+
+/** Map a Shopify option label onto CatalogProduct variant fields. */
+export function shopifyOptionFieldKey(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n || n === 'title') return null;
+  if (n.includes('size') || n.includes('sizing') || /\b(fit|length|waist|chest)\b/.test(n)) {
+    return 'size';
+  }
+  if (
+    n.includes('color')
+    || n.includes('colour')
+    || n.includes('shade')
+    || n.includes('finish')
+    || n.includes('pattern')
+  ) {
+    return 'color';
+  }
+  if (n.includes('material') || n.includes('fabric')) return 'material';
+  return null;
+}
+
+/**
+ * Resolve size/color/material from a Shopify variant.
+ * Prefers selectedOptions[{name,value}]; falls back to option1/2/3 + product.options.
+ * Unrecognized option values fill empty size → color → material slots so custom
+ * labels (e.g. "Style", "Variant") are not dropped.
+ */
+export function mapShopifyVariantOptions(variant = {}, optionNames = []) {
+  const pairs = Array.isArray(variant.selectedOptions) && variant.selectedOptions.length
+    ? variant.selectedOptions.map((option) => [option?.name, option?.value])
+    : [variant.option1, variant.option2, variant.option3]
+      .map((value, index) => [optionNames[index], value]);
+
+  const out = {};
+  const unmapped = [];
+  for (const [name, value] of pairs) {
+    if (value == null || String(value).trim() === '') continue;
+    if (isShopifyDefaultOption(name, value)) continue;
+    const key = shopifyOptionFieldKey(name);
+    if (key && !out[key]) out[key] = String(value);
+    else if (!key) unmapped.push(String(value));
+  }
+  for (const value of unmapped) {
+    if (!out.size) out.size = value;
+    else if (!out.color) out.color = value;
+    else if (!out.material) out.material = value;
+  }
+  return out;
+}
+
+/** Common colour words embedded in Shopify product titles when options are Title-only. */
+const TITLE_COLOR_TOKENS = [
+  'navy blue',
+  'charcoal grey',
+  'charcoal gray',
+  'light blue',
+  'dark blue',
+  'forest green',
+  'olive green',
+  'rose gold',
+  'hot pink',
+  'charcoal',
+  'navy',
+  'black',
+  'white',
+  'red',
+  'blue',
+  'green',
+  'grey',
+  'gray',
+  'brown',
+  'beige',
+  'tan',
+  'orange',
+  'yellow',
+  'pink',
+  'purple',
+  'maroon',
+  'cream',
+  'ivory',
+  'silver',
+  'gold',
+  'khaki',
+  'teal',
+  'coral',
+  'burgundy',
+].sort((a, b) => b.length - a.length);
+
+function titleCaseColor(token) {
+  return String(token)
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+    .replace(/\bGray\b/g, 'Grey');
+}
+
+/** Infer a colour from a product/variant title when Shopify has no Colour option. */
+export function inferColorFromTitle(title = '') {
+  const text = String(title || '');
+  if (!text.trim()) return '';
+  for (const token of TITLE_COLOR_TOKENS) {
+    const pattern = new RegExp(`(?:^|[^a-z])${token.replace(/\s+/g, '\\s+')}(?:[^a-z]|$)`, 'i');
+    if (pattern.test(text)) return titleCaseColor(token);
+  }
+  return '';
+}
+
+function isLikelySizeLabel(value) {
+  return /^(xxs|xs|s|m|l|xl|xxl|2xl|3xl|4xl|\d{1,2})$/i.test(String(value || '').trim());
 }
 
 function stripHtml(html = '') {
@@ -552,24 +675,25 @@ export async function fetchShopifyStorefrontTabs({ domain, handle }) {
 
 /** Map a Shopify product into CatalogProduct fields (status draft). */
 export function mapShopifyProduct(p, domain, metafields = [], hsnCode = '') {
-  const optionNames = (p.options ?? []).map((o) => String(o.name || '').toLowerCase());
-  const optKey = (i) =>
-    optionNames[i]?.includes('size') ? 'size'
-      : optionNames[i]?.includes('material') ? 'material'
-        : optionNames[i]?.includes('color') || optionNames[i]?.includes('colour') ? 'color'
-          : null;
+  const optionNames = (p.options ?? []).map((o) => String(o.name || ''));
+  const titleColor = inferColorFromTitle(p.title);
 
   const variants = (p.variants ?? []).map((v) => {
-    const out = {
+    const options = mapShopifyVariantOptions(v, optionNames);
+    // Colour option products often expose the shade on variant.title as well.
+    if (!options.color && v.title && !isShopifyDefaultOption('Title', v.title) && !isLikelySizeLabel(v.title)) {
+      options.color = String(v.title).trim();
+    }
+    // Many Shelf Merch SKUs are Title/Default Title only — colour lives in the product name.
+    if (!options.color && titleColor) options.color = titleColor;
+    const stockRaw = v.inventory_quantity ?? v.inventoryQuantity;
+    return {
       sku: v.sku || '',
       priceOverrideInr: v.price != null ? Number(v.price) : null,
-      stock: Number(v.inventory_quantity ?? 0),
+      stock: Number.isFinite(Number(stockRaw)) ? Number(stockRaw) : 0,
+      enabled: true,
+      ...options,
     };
-    [v.option1, v.option2, v.option3].forEach((val, i) => {
-      const key = optKey(i);
-      if (key && val) out[key] = String(val);
-    });
-    return out;
   });
 
   const prices = (p.variants ?? []).map((v) => Number(v.price)).filter((n) => Number.isFinite(n));
@@ -610,8 +734,60 @@ function catalogFieldFilled(value) {
 }
 
 /**
- * Shopify re-import may refresh marketing/content fields. Category, GST, masks,
- * and print areas are set in the catalog wizard — keep them when already filled.
+ * Merge Shopify variants into an existing catalog product.
+ * Match by SKU when possible; preserve admin `enabled` / `colorHex` choices.
+ */
+export function mergeShopifyVariants(existingVariants = [], mappedVariants = []) {
+  const previous = [...(existingVariants ?? [])];
+  const used = new Set();
+
+  return (mappedVariants ?? []).map((incoming) => {
+    const sku = String(incoming.sku || '').trim();
+    let index = sku
+      ? previous.findIndex((variant, i) => !used.has(i) && String(variant.sku || '').trim() === sku)
+      : -1;
+    if (index < 0) {
+      index = previous.findIndex((variant, i) => {
+        if (used.has(i)) return false;
+        return String(variant.size || '') === String(incoming.size || '')
+          && String(variant.color || '') === String(incoming.color || '')
+          && String(variant.sku || '').trim() === '';
+      });
+    }
+    const prior = index >= 0 ? previous[index] : null;
+    if (index >= 0) used.add(index);
+
+    return {
+      sku: incoming.sku || prior?.sku || '',
+      size: incoming.size || '',
+      color: incoming.color || '',
+      material: incoming.material || prior?.material || '',
+      priceOverrideInr: incoming.priceOverrideInr ?? prior?.priceOverrideInr ?? null,
+      stock: Number.isFinite(Number(incoming.stock)) ? Number(incoming.stock) : (prior?.stock ?? 0),
+      // Keep admin-tuned fields when present.
+      colorHex: prior?.colorHex || '',
+      enabled: prior?.enabled !== false,
+    };
+  });
+}
+
+function variantsShopifySignature(variants = []) {
+  return JSON.stringify(
+    (variants ?? []).map((variant) => ({
+      sku: String(variant.sku || ''),
+      size: String(variant.size || ''),
+      color: String(variant.color || ''),
+      material: String(variant.material || ''),
+      stock: Number(variant.stock ?? 0),
+      priceOverrideInr: variant.priceOverrideInr ?? null,
+    })),
+  );
+}
+
+/**
+ * Shopify re-import may refresh marketing/content fields and variant options.
+ * Category, GST, masks, and print areas are set in the catalog wizard — keep
+ * them when already filled.
  */
 function applyShopifyCatalogUpdate(exists, mapped) {
   exists.description = mapped.description;
@@ -619,6 +795,10 @@ function applyShopifyCatalogUpdate(exists, mapped) {
   exists.sizeGuide = mapped.sizeGuide;
   exists.primaryImageUrl = mapped.primaryImageUrl;
   exists.imageUrls = mapped.imageUrls;
+
+  if (Array.isArray(mapped.variants)) {
+    exists.variants = mergeShopifyVariants(exists.variants, mapped.variants);
+  }
 
   if (!catalogFieldFilled(exists.category) && catalogFieldFilled(mapped.category)) {
     exists.category = mapped.category;
@@ -801,9 +981,11 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
         const imagesChanged =
           String(exists.primaryImageUrl ?? '') !== String(mapped.primaryImageUrl ?? '')
           || JSON.stringify(exists.imageUrls ?? []) !== JSON.stringify(mapped.imageUrls ?? []);
+        const variantsChanged =
+          variantsShopifySignature(exists.variants) !== variantsShopifySignature(mapped.variants);
         // Fill HSN from Shopify when the draft still has none; never overwrite a set value.
         const hsnFilled = !String(exists.hsnCode || '').trim() && Boolean(mapped.hsnCode);
-        if (contentChanged || imagesChanged || hsnFilled) {
+        if (contentChanged || imagesChanged || variantsChanged || hsnFilled) {
           applyShopifyCatalogUpdate(exists, mapped);
 
           if (hsnFilled) exists.hsnCode = mapped.hsnCode;
