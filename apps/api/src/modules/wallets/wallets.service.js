@@ -9,6 +9,10 @@ import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
 import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
+import { User } from '../users/user.model.js';
+import { Tenant } from '../tenants/tenant.model.js';
+import { sendBudgetAllocatedEmail } from '../../services/email.service.js';
+import { logger } from '../../config/logger.js';
 
 function withMeta(wallet) {
   const obj = wallet.toObject ? wallet.toObject() : wallet;
@@ -320,9 +324,41 @@ export async function allocate({ tenantId, walletId, userId, allocations }) {
       },
     });
     evaluateEntityLowBudgetAlert({ tenantId, entityId: entity._id }).catch(() => {});
+
+    // Notify active Entity Managers of additional budget (never an invitation).
+    notifyActiveManagerBudgetAllocated({
+      tenantId,
+      entity,
+      amount: txn.amount,
+    }).catch((err) => {
+      logger.warn({ err, entityId: entity._id }, 'Budget allocated email failed');
+    });
   }
 
   return { transactions: txns, wallet: withMeta(fresh) };
+}
+
+async function notifyActiveManagerBudgetAllocated({ tenantId, entity, amount }) {
+  if (!entity?.managerUserId || !(Number(amount) > 0)) return;
+  if (entity.managerInvitePending) return;
+
+  const manager = await User.findOne({ _id: entity.managerUserId, tenantId })
+    .select('name email status')
+    .lean();
+  if (!manager || manager.status !== 'active' || !manager.email) return;
+
+  const tenant = await Tenant.findById(tenantId).select('name').lean();
+  const available = Math.max(0, (entity.allocatedAmount || 0) - (entity.spentAmount || 0));
+
+  await sendBudgetAllocatedEmail({
+    to: manager.email,
+    recipientName: manager.name || entity.managerName || '',
+    amount,
+    newBalance: available,
+    departmentName: entity.name || '',
+    organizationName: tenant?.name || 'your organization',
+    link: '/app/wallets',
+  });
 }
 
 export async function transfer({ tenantId, walletId, toWalletId, amount, userId }) {

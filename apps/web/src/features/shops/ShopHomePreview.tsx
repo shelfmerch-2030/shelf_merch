@@ -91,10 +91,6 @@ export function ShopHomePreview({
             </span>
           </div>
         </div>
-        <div className="shop-builder-preview-nav">
-          <span className="shop-builder-preview-nav-link">Products</span>
-          <span className="shop-builder-preview-nav-link">Orders</span>
-        </div>
       </div>
 
       {banner}

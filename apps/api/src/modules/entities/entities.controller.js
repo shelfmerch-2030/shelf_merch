@@ -70,6 +70,7 @@ export async function assignManager(req, res) {
   res.status(201).json({
     entity,
     manager: { id: String(manager._id), email: manager.email, status: manager.status },
+    alreadyActive: manager.status === 'active',
     ...(env.NODE_ENV !== 'production' ? { inviteToken } : {}),
   });
 }

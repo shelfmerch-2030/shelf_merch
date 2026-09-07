@@ -293,11 +293,20 @@ export function wizardReducer(state: WizardState, action: WizardState | WizardAc
     case "mgrField":
       return {
         ...state,
-        departments: state.departments.map((d) =>
-          String(d.id) === String(action.id)
-            ? { ...d, mgr: { ...d.mgr, [action.field]: action.value } }
-            : d,
-        ),
+        departments: state.departments.map((d) => {
+          if (String(d.id) !== String(action.id)) return d;
+          const nextMgr = { ...d.mgr, [action.field]: action.value };
+          // Typing a new email must not keep a stale "Active" badge from a prior session.
+          if (action.field === "email") {
+            const email = String(action.value || "").trim().toLowerCase();
+            const prev = String(d.mgr.email || "").trim().toLowerCase();
+            if (email !== prev) {
+              nextMgr.inviteStatus = email ? "pending" : "unassigned";
+              nextMgr.invite = Boolean(email);
+            }
+          }
+          return { ...d, mgr: nextMgr };
+        }),
       };
     case "toggleInvite":
       return {

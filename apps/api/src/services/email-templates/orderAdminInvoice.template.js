@@ -1,15 +1,13 @@
-function escapeHtml(value = '') {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+import {
+  callout,
+  detailRows,
+  emailShell,
+  greeting,
+  paragraph,
+  signOff,
+  strong,
+} from './emailLayout.js';
 
-/**
- * Company-admin notification when a campaign order invoice PDF is generated.
- */
 export function buildOrderAdminInvoiceEmail({
   companyAdminName = 'Admin',
   placedByName = '',
@@ -25,26 +23,14 @@ export function buildOrderAdminInvoiceEmail({
   orderTotal = '0',
   paymentStatus = '',
 } = {}) {
-  const safeAdmin = escapeHtml(companyAdminName);
-  const safePlacedBy = escapeHtml(placedByName);
-  const safeRole = escapeHtml(placedByRole);
-  const safeOrder = escapeHtml(orderNumber);
-  const safeDate = escapeHtml(orderDate);
-  const safeEntity = escapeHtml(entityName);
-  const safeCampaign = escapeHtml(campaignName);
-  const safeDelivery = escapeHtml(deliveryMode);
-  const safePayment = escapeHtml(paymentStatus);
-  const safeTotal = escapeHtml(orderTotal);
-
   const placedByLine = placedByRole
     ? `${placedByName} (${placedByRole})`
     : placedByName || 'Workspace user';
-  const safePlacedByLine = escapeHtml(placedByLine);
 
   const subject = `Invoice for order ${orderNumber}`;
 
   const text = [
-    `Hi ${companyAdminName},`,
+    `Hello ${companyAdminName},`,
     '',
     `An order invoice is ready for ${campaignName || 'your campaign'}.`,
     '',
@@ -63,27 +49,37 @@ export function buildOrderAdminInvoiceEmail({
     .filter((line) => line != null)
     .join('\n');
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;color:#1a1a1a;line-height:1.5">
-  <p>Hi ${safeAdmin},</p>
-  <p>An order invoice is ready${safeCampaign ? ` for <strong>${safeCampaign}</strong>` : ''}.</p>
-  <table cellpadding="6" cellspacing="0" style="border-collapse:collapse">
-    <tr><td>Order Number</td><td><strong>${safeOrder}</strong></td></tr>
-    <tr><td>Order Date</td><td>${safeDate}</td></tr>
-    ${safeEntity ? `<tr><td>Department</td><td>${safeEntity}</td></tr>` : ''}
-    <tr><td>Placed by</td><td>${safePlacedByLine}</td></tr>
-    ${safeDelivery ? `<tr><td>Delivery</td><td>${safeDelivery}</td></tr>` : ''}
-    <tr><td>Recipients</td><td>${Number(recipientCount) || 1}</td></tr>
-    <tr><td>Items</td><td>${Number(itemCount) || 0} lines / ${Number(totalQuantity) || 0} units</td></tr>
-    <tr><td>Order total (INR)</td><td><strong>${safeTotal}</strong></td></tr>
-    ${safePayment ? `<tr><td>Payment</td><td>${safePayment}</td></tr>` : ''}
-  </table>
-  <p>The invoice PDF is attached.</p>
-  <p style="color:#666;font-size:12px">Shelf Merch</p>
-</body>
-</html>`.trim();
+  const bodyHtml = `
+    ${greeting(companyAdminName)}
+    ${paragraph(
+      campaignName
+        ? `An order invoice is ready for ${strong(campaignName)}.`
+        : 'An order invoice is ready for your campaign.',
+    )}
+    ${detailRows([
+      { label: 'Order Number', value: orderNumber },
+      { label: 'Order Date', value: orderDate },
+      { label: 'Department', value: entityName },
+      { label: 'Placed by', value: placedByLine },
+      { label: 'Delivery', value: deliveryMode },
+      { label: 'Recipients', value: String(Number(recipientCount) || 1) },
+      {
+        label: 'Items',
+        value: `${Number(itemCount) || 0} lines / ${Number(totalQuantity) || 0} units`,
+      },
+      { label: 'Order total (INR)', value: orderTotal },
+      { label: 'Payment', value: paymentStatus },
+    ])}
+    ${callout('', 'The invoice PDF is attached to this email.')}
+    ${signOff()}`;
+
+  const html = emailShell({
+    title: subject,
+    heroEyebrow: 'ShelfMerch Orders',
+    heroTitle: 'Invoice ready',
+    preheader: `Invoice for order ${orderNumber} is ready. PDF attached.`,
+    bodyHtml,
+  });
 
   return { subject, text, html };
 }

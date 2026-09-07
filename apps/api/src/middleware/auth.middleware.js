@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { accessVerifyOptions } from '../config/jwt.js';
 import { setRequestContext } from '../config/requestContext.js';
 import { RoleAssignment } from '../modules/roles/roleAssignment.model.js';
+import { User } from '../modules/users/user.model.js';
 import { UnauthorizedError } from '../utils/errors.js';
 
 /**
@@ -17,6 +18,16 @@ export async function authenticate(req, _res, next) {
 
   try {
     const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, accessVerifyOptions());
+
+    // Reject tokens for users that were deleted or no longer exist.
+    const existing = await User.findById(payload.sub).select('_id status').lean();
+    if (!existing) {
+      return next(new UnauthorizedError('Account no longer exists. Please sign in again.'));
+    }
+    if (existing.status === 'suspended') {
+      return next(new UnauthorizedError('Account is suspended'));
+    }
+
     const user = {
       userId: payload.sub,
       tenantId: payload.tenantId ?? null,
@@ -43,7 +54,8 @@ export async function authenticate(req, _res, next) {
     req.impersonation = payload.impersonation ?? { isImpersonating: false, originalUserId: null };
     setRequestContext({ userId: user.userId });
     next();
-  } catch {
+  } catch (err) {
+    if (err instanceof UnauthorizedError) return next(err);
     next(new UnauthorizedError('Invalid or expired access token'));
   }
 }

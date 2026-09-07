@@ -218,7 +218,8 @@ export async function assignManager({ tenantId, entityId, data, userId }) {
   });
 
   entity.managerUserId = user._id;
-  entity.managerInvitePending = Boolean(sendInvite && inviteToken);
+  // Pending whenever the bound account still needs to accept / activate.
+  entity.managerInvitePending = user.status === 'invited';
   entity.managerTitle = data.role || '';
   entity.managerName = data.name || user.name || '';
   entity.managerEmail = user.email || data.email || '';
@@ -240,7 +241,12 @@ export async function assignManager({ tenantId, entityId, data, userId }) {
     }
   }
 
-  return { entity, manager: user, inviteToken: sendInvite ? inviteToken : undefined };
+  return {
+    entity,
+    manager: user,
+    inviteToken: user.status === 'invited' ? inviteToken : undefined,
+    alreadyActive: user.status === 'active',
+  };
 }
 
 export async function entityRoleAssignment({ tenantId, entityId }) {
