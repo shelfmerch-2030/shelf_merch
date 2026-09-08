@@ -177,12 +177,12 @@ export function OrderFulfillmentView({
                 const rawArtworkUrl = item.artworkUrl || product?.artworkUrl || "";
                 const artworkUrl = rawArtworkUrl ? resolveMediaUrl(rawArtworkUrl) : "";
                 const printAreas = product?.printAreas ?? [];
+                const designedMockupUrl = item.imageUrl || product?.designedMockupUrl || "";
                 // Prefer the production mask — print-area % coords are authored
                 // against it in the product wizard (same stage as Konva bake).
                 const mockup = resolveMediaUrl(
                   // Prefer frozen line image (selected curated variant / order snapshot).
-                  item.imageUrl ||
-                    product?.designedMockupUrl ||
+                  designedMockupUrl ||
                     product?.maskImageUrl ||
                     printAreas[0]?.mockupImageUrl ||
                     product?.baseImageUrl ||
@@ -250,7 +250,8 @@ export function OrderFulfillmentView({
                         printAreas={printAreas}
                         placement={placement}
                         product={product}
-                        designedMockupUrl={product?.designedMockupUrl}
+                        designedMockupUrl={designedMockupUrl}
+                        referenceArtworkUrl={designedMockupUrl ? "" : artworkUrl}
                         sku={item.sku || item.name || "kit"}
                       />
                     </div>

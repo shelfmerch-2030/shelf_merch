@@ -54,6 +54,16 @@ const SESSION_TTL = '30m';
 const sha256 = (v) => crypto.createHash('sha256').update(v).digest('hex');
 const POOLED_REDEMPTION_STATUSES = ['opened', 'verified'];
 
+function firstPlacementArtworkUrl(placements = []) {
+  return placements.find((p) => p?.artworkUrl)?.artworkUrl || '';
+}
+
+function placementWithoutArtwork(placement) {
+  if (!placement) return null;
+  const { key: _key, artworkUrl: _artworkUrl, ...rest } = placement;
+  return rest;
+}
+
 function isKitFulfillment(campaign) {
   return ['kit', 'items'].includes(campaign.type) && !!campaign.kitId;
 }
@@ -1200,6 +1210,10 @@ export async function submitRedemption(
         ? kitEntries.find((e) => String(e.product._id) === String(listing.catalogProductId))?.ref ?? null
         : null;
       const listingSnap = resolveBrandedListingSnapshot(shopCollections, listing);
+      const listingArtworkUrl =
+        listingSnap.artworkUrl || firstPlacementArtworkUrl(listingSnap.placements);
+      const listingPlacement =
+        listingSnap.placement || placementWithoutArtwork(listingSnap.placements[0]);
 
       if (kitFulfillment) {
         const options = resolveKitItemOptions(product, kitRef || {});
@@ -1231,6 +1245,9 @@ export async function submitRedemption(
         costPriceInr: product.costPriceInr ?? 0,
         gstRate: product.gstRate ?? 18,
         hsnCode: product.hsnCode ?? '',
+        artworkUrl: listingArtworkUrl,
+        placement: listingPlacement,
+        placements: listingSnap.placements,
         imageUrl:
           listingSnap.mockupUrl ||
           mockupUrlFromCollections(shopCollections, listing.collectionId, listing.catalogProductId) ||

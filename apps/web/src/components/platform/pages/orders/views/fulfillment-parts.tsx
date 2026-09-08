@@ -504,6 +504,7 @@ export function FulfillmentAssetStrip({
   placement,
   product,
   designedMockupUrl,
+  referenceArtworkUrl,
   sku,
 }: {
   artworkUrl: string;
@@ -516,12 +517,15 @@ export function FulfillmentAssetStrip({
   placement?: Placement | null;
   product?: OrderItemProduct | null;
   designedMockupUrl?: string;
+  referenceArtworkUrl?: string;
   sku?: string;
 }) {
   const [preview, setPreview] = useState<AssetPreview | null>(null);
   const fileBase = sku || "asset";
   const resolvedMask = maskUrl ? resolveMediaUrl(maskUrl) : "";
   const resolvedDesigned = designedMockupUrl ? resolveMediaUrl(designedMockupUrl) : "";
+  const overlayArtworkUrl = referenceArtworkUrl ?? artworkUrl;
+  const hasReferenceMockup = Boolean(artworkUrl || resolvedDesigned);
 
   return (
     <>
@@ -662,18 +666,18 @@ export function FulfillmentAssetStrip({
         {printAreas.length > 0 && mockup && (
           <div>
             <div className="lbl" style={{ marginBottom: 6, fontSize: 10.5, letterSpacing: ".05em" }}>
-              {artworkUrl ? "Reference mockup" : "Print areas"}
+              {hasReferenceMockup ? "Reference mockup" : "Print areas"}
             </div>
             <PrintAreaPreview
               mockup={mockup}
               areas={printAreas}
               tintHex={tintHex}
-              artworkUrl={artworkUrl || undefined}
+              artworkUrl={overlayArtworkUrl || undefined}
               placement={placement}
               product={product}
               onOpen={() =>
                 setPreview({
-                  title: artworkUrl ? "Reference mockup" : "Print areas",
+                  title: hasReferenceMockup ? "Reference mockup" : "Print areas",
                   downloadUrl: resolvedDesigned || artworkUrl || mockup,
                   downloadName: `${fileBase}-mockup`,
                   body: (
@@ -681,7 +685,7 @@ export function FulfillmentAssetStrip({
                       mockup={mockup}
                       areas={printAreas}
                       tintHex={tintHex}
-                      artworkUrl={artworkUrl || undefined}
+                      artworkUrl={overlayArtworkUrl || undefined}
                       placement={placement}
                       product={product}
                       large

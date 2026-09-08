@@ -33,6 +33,20 @@ const OPEN_ORDER_STATUSES = [
 
 const PRODUCTION_ORDER_STATUSES = ['mockup_pending', 'mockup_approved', 'in_production', 'qc_pending', 'packed'];
 
+function listingAssetKey(collectionId, catalogProductId) {
+  return collectionId && catalogProductId ? `${String(collectionId)}:${String(catalogProductId)}` : '';
+}
+
+function firstPlacementArtworkUrl(placements = []) {
+  return placements.find((p) => p?.artworkUrl)?.artworkUrl || '';
+}
+
+function placementWithoutArtwork(placement) {
+  if (!placement) return null;
+  const { key: _key, artworkUrl: _artworkUrl, ...rest } = placement;
+  return rest;
+}
+
 // ---------------------------------------------------------------------------
 // Orders (§3.5)
 // ---------------------------------------------------------------------------
@@ -115,8 +129,12 @@ export async function getPlatformOrderDetail(orderId) {
 
   // Resolve print artwork + Konva placement from shop collections or kit branding.
   const artworkByProductId = {};
+  const artworkByListingKey = {};
   const placementByProductId = {};
+  const placementByListingKey = {};
+  const placementsByListingKey = {};
   const designedMockupByProductId = {};
+  const designedMockupByListingKey = {};
   if (campaign?.shopId) {
     const collections = await Collection.find({
       $or: [{ shopId: campaign.shopId }, { shopIds: campaign.shopId }],
@@ -128,11 +146,27 @@ export async function getPlatformOrderDetail(orderId) {
     for (const col of collections) {
       for (const ref of col.productRefs ?? []) {
         const pid = String(ref.catalogProductId);
-        if (col.artworkUrl && !artworkByProductId[pid]) {
-          artworkByProductId[pid] = col.artworkUrl;
+        if (!pid) continue;
+        const listingKey = listingAssetKey(col._id, pid);
+        const refArtworkUrl = col.artworkUrl || firstPlacementArtworkUrl(ref.placements);
+        const refPlacement = ref.placement || placementWithoutArtwork(ref.placements?.[0]);
+        if (listingKey && refArtworkUrl) {
+          artworkByListingKey[listingKey] = refArtworkUrl;
         }
-        if (ref.placement && !placementByProductId[pid]) {
-          placementByProductId[pid] = ref.placement;
+        if (listingKey && refPlacement) {
+          placementByListingKey[listingKey] = refPlacement;
+        }
+        if (listingKey && Array.isArray(ref.placements)) {
+          placementsByListingKey[listingKey] = ref.placements;
+        }
+        if (listingKey && ref.mockupUrl) {
+          designedMockupByListingKey[listingKey] = ref.mockupUrl;
+        }
+        if (refArtworkUrl && !artworkByProductId[pid]) {
+          artworkByProductId[pid] = refArtworkUrl;
+        }
+        if (refPlacement && !placementByProductId[pid]) {
+          placementByProductId[pid] = refPlacement;
         }
         if (ref.mockupUrl && !designedMockupByProductId[pid]) {
           designedMockupByProductId[pid] = ref.mockupUrl;
@@ -167,16 +201,30 @@ export async function getPlatformOrderDetail(orderId) {
   const obj = order.toObject();
   const items = (obj.items ?? []).map((item) => {
     const pid = item.catalogProductId ? String(item.catalogProductId) : '';
+    const listingKey = listingAssetKey(item.collectionId, pid);
     const product = pid ? productById[pid] : null;
     const artworkUrl =
-      item.artworkUrl || (pid ? artworkByProductId[pid] ?? '' : '') || (!pid ? kitArtworkUrl : '');
-    const placement = pid ? placementByProductId[pid] ?? null : null;
+      item.artworkUrl ||
+      (listingKey ? artworkByListingKey[listingKey] ?? '' : '') ||
+      (pid ? artworkByProductId[pid] ?? '' : '') ||
+      (!pid ? kitArtworkUrl : '');
+    const placement =
+      item.placement ||
+      (listingKey ? placementByListingKey[listingKey] ?? null : null) ||
+      (pid ? placementByProductId[pid] ?? null : null);
+    const placements =
+      (Array.isArray(item.placements) && item.placements.length ? item.placements : null) ||
+      (listingKey ? placementsByListingKey[listingKey] ?? [] : []);
     const designedMockupUrl =
-      (pid ? designedMockupByProductId[pid] ?? '' : '') || (!pid && item.imageUrl ? item.imageUrl : '');
+      item.imageUrl ||
+      (listingKey ? designedMockupByListingKey[listingKey] ?? '' : '') ||
+      (pid ? designedMockupByProductId[pid] ?? '' : '') ||
+      (!pid && item.imageUrl ? item.imageUrl : '');
     return {
       ...item,
       artworkUrl,
       placement,
+      placements,
       product: product
         ? {
             _id: product._id,
@@ -189,6 +237,7 @@ export async function getPlatformOrderDetail(orderId) {
             variants: product.variants ?? [],
             artworkUrl,
             placement,
+            placements,
             designedMockupUrl,
           }
         : item.imageUrl

@@ -11,6 +11,8 @@ import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { Order } from '../src/modules/orders/order.model.js';
+import { Collection } from '../src/modules/collections/collection.model.js';
+import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Vendor } from '../src/modules/vendors/vendor.model.js';
 import { Shipment } from '../src/modules/shipments/shipment.model.js';
 import { SupportTicket } from '../src/modules/support/supportTicket.model.js';
@@ -165,6 +167,102 @@ describe('platform vendor assignment', () => {
       .send({ vendorId: vendor._id });
     expect(res.status).toBe(200);
     expect(String(res.body.vendorId)).toBe(String(vendor._id));
+  });
+});
+
+describe('platform order detail fulfillment assets', () => {
+  it('keeps artwork and mockups scoped to the ordered branded listing', async () => {
+    const campaign = await Campaign.findById(order.campaignId);
+    const product = await CatalogProduct.create({
+      sku: 'APPT-1053',
+      name: 'Corporate Polo',
+      category: 'Apparel',
+      group: 'tee',
+      basePriceInr: 610,
+      baseImageUrl: '/uploads/base-polo.png',
+      maskImageUrl: '/uploads/mask-polo.png',
+      printAreas: [
+        {
+          key: 'left',
+          label: 'Left',
+          xIn: 2,
+          yIn: 3,
+          widthIn: 2,
+          heightIn: 2,
+          box: { xPct: 20, yPct: 20, widthPct: 10, heightPct: 10 },
+          methods: ['dtf'],
+        },
+      ],
+    });
+
+    const [appleCollection, googleCollection] = await Collection.create([
+      {
+        tenantId: tenant._id,
+        shopId: campaign.shopId,
+        code: 'C-APPLE',
+        name: 'Apple Polo Design',
+        status: 'ready',
+        artworkUrl: '/uploads/apple-logo.png',
+        productRefs: [
+          {
+            catalogProductId: product._id,
+            name: 'Corporate Polo',
+            mockupUrl: '/uploads/apple-polo-mockup.png',
+            placement: { xPct: 10, yPct: 20, wPct: 15, rot: 0 },
+          },
+        ],
+      },
+      {
+        tenantId: tenant._id,
+        shopId: campaign.shopId,
+        code: 'C-GOOGLE',
+        name: 'Google Polo Design',
+        status: 'ready',
+        artworkUrl: '/uploads/google-logo.png',
+        productRefs: [
+          {
+            catalogProductId: product._id,
+            name: 'Corporate Polo',
+            mockupUrl: '/uploads/google-polo-mockup.png',
+            placement: { xPct: 35, yPct: 45, wPct: 18, rot: 0 },
+          },
+        ],
+      },
+    ]);
+
+    const ordered = await Order.create({
+      tenantId: tenant._id,
+      campaignId: order.campaignId,
+      recipientId: order.recipientId,
+      orderNumber: 'SM-2026-000002',
+      items: [
+        {
+          catalogProductId: product._id,
+          collectionId: googleCollection._id,
+          name: 'Corporate Polo',
+          sku: 'APPT-1053',
+          variant: { size: 'S', color: 'White' },
+          qty: 1,
+          unitPriceInr: 610,
+          imageUrl: '/uploads/google-polo-mockup.png',
+        },
+      ],
+      shippingAddress: { name: 'Alice', line1: '123 St', city: 'Hyderabad', state: 'TS', pincode: '500001' },
+      amountBreakdown: { subtotal: 610, serviceFee: 0, gst: 110, total: 720 },
+      status: 'mockup_approved',
+    });
+
+    const res = await request(app)
+      .get(`/api/v1/platform/orders/${ordered._id}`)
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].collectionId).toBe(String(googleCollection._id));
+    expect(res.body.items[0].collectionId).not.toBe(String(appleCollection._id));
+    expect(res.body.items[0].artworkUrl).toBe('/uploads/google-logo.png');
+    expect(res.body.items[0].placement.xPct).toBe(35);
+    expect(res.body.items[0].product.designedMockupUrl).toBe('/uploads/google-polo-mockup.png');
   });
 });
 

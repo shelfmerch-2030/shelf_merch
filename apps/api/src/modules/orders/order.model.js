@@ -59,6 +59,38 @@ const orderSchema = new mongoose.Schema(
         imageUrl: { type: String, default: '' },
         /** Brand logo / kit artwork URL frozen at order time (curated kits). */
         artworkUrl: { type: String, default: '' },
+        /** Branded listing placement frozen at order time. */
+        placement: {
+          type: {
+            printCxPct: Number,
+            printCyPct: Number,
+            printWPct: Number,
+            xPct: Number,
+            yPct: Number,
+            wPct: Number,
+            rot: Number,
+          },
+          default: null,
+          _id: false,
+        },
+        /** Per print-area placements/artwork frozen from the selected branded listing. */
+        placements: {
+          type: [
+            {
+              key: { type: String, default: '' },
+              printCxPct: Number,
+              printCyPct: Number,
+              printWPct: Number,
+              xPct: Number,
+              yPct: Number,
+              wPct: Number,
+              rot: Number,
+              artworkUrl: { type: String, default: '' },
+            },
+          ],
+          default: [],
+          _id: false,
+        },
       },
     ],
     shippingAddress: {
