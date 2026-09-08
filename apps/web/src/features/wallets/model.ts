@@ -9,7 +9,7 @@ import {
   fetchWalletTransactionsApi,
   updateWalletContactApi,
 } from "@/services/mutations-api";
-import { useInvalidateWorkspace } from "@/hooks/useWorkspace";
+import { WORKSPACE_QUERY_KEY, useInvalidateWorkspace } from "@/hooks/useWorkspace";
 import { departmentsForSync, type WizardState } from "./types";
 
 // Ui types re-exported here so views/controllers never import services/ directly.
@@ -39,10 +39,13 @@ export function useSyncOrgWizard() {
 
 /** Create wallet only (step 1) — PO upload + finance approval request. */
 export function useCreateWallet() {
-  const invalidateWorkspace = useInvalidateWorkspace();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (state: WizardState) => createWalletOnlyApi({ wallet: state.wallet }),
-    onSuccess: () => invalidateWorkspace(),
+    onSuccess: () => {
+      // Invalidate without blocking the success screen on a full workspace refetch.
+      void queryClient.invalidateQueries({ queryKey: WORKSPACE_QUERY_KEY });
+    },
   });
 }
 

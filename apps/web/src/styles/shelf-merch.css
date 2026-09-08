@@ -6940,6 +6940,190 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
 .succ-item .si{width:34px;height:34px;border-radius:9px;background:var(--surface-2);display:grid;place-items:center;color:var(--brand)}
 .succ-item .si svg{width:17px;height:17px}
 
+/* Funding request submitted — same layout as the branded error/success cards */
+.funding-success{
+  --fs-ink:#121212;
+  --fs-cream:#f7f3ea;
+  --fs-blue:#3155ff;
+  --fs-coral:#ff6d55;
+  --fs-mint:#72e2b8;
+  --fs-yellow:#ffd84a;
+  --fs-line:rgba(18,18,18,.12);
+  position:relative;
+  max-width:1140px;
+  margin:0 auto;
+  padding:12px 4px 28px;
+  overflow:hidden;
+}
+.funding-success::before{
+  content:"";
+  position:absolute;
+  inset:-18% auto auto -12%;
+  width:min(58vw,520px);
+  height:min(58vw,520px);
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 40%,rgba(114,226,184,.28),rgba(247,243,234,.12) 58%,transparent 72%);
+  pointer-events:none;
+  z-index:0;
+}
+.funding-success__layout{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(280px,.95fr);
+  gap:clamp(28px,5vw,56px);
+  align-items:center;
+}
+.funding-success__copy{max-width:540px}
+.funding-success__icon{
+  width:56px;height:56px;border-radius:50%;
+  background:var(--fs-ink);color:#fff;
+  display:grid;place-items:center;
+  margin:0 0 18px;
+  box-shadow:0 12px 28px rgba(18,18,18,.14);
+}
+.funding-success__icon svg{width:26px;height:26px}
+.funding-success__eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  margin:0 0 12px;
+  font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--fs-blue);
+}
+.funding-success__eyebrow-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--fs-coral);flex:none;
+}
+.funding-success__title{
+  margin:0 0 14px;
+  font-size:clamp(32px,4.5vw,48px);
+  line-height:.98;
+  letter-spacing:-.04em;
+  color:var(--fs-ink);
+}
+.funding-success__title em{
+  font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;font-weight:400;
+  color:var(--fs-blue);
+}
+.funding-success__lead{
+  margin:0;
+  max-width:46ch;
+  font-size:15px;line-height:1.65;
+  color:var(--ink-2,#5c5a56);
+}
+.funding-success__lead strong{color:var(--fs-ink);font-weight:700}
+.funding-success__amount{
+  display:flex;align-items:center;gap:12px;
+  margin-top:22px;padding:14px 16px;
+  border-radius:16px;
+  background:#fff;
+  border:1px solid var(--fs-line);
+  font-size:13px;line-height:1.45;color:var(--ink-2,#5c5a56);
+}
+.funding-success__amount strong,
+.funding-success__amount .num{color:var(--fs-ink);font-weight:700}
+.funding-success__amount-icon{
+  width:36px;height:36px;flex:none;border-radius:11px;
+  background:var(--fs-cream);border:1px solid var(--fs-line);
+  color:var(--fs-ink);
+  display:grid;place-items:center;
+}
+.funding-success__actions{
+  display:flex;flex-wrap:wrap;gap:12px;
+  margin-top:24px;
+}
+.funding-success__note{
+  margin-top:24px;padding:16px 18px;
+  border-radius:16px;
+  background:#fff;border:1px solid var(--fs-line);
+}
+.funding-success__note strong{
+  display:block;margin-bottom:6px;
+  font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--fs-ink);
+}
+.funding-success__note p{
+  margin:0;font-size:13px;line-height:1.6;color:var(--ink-2,#5c5a56);
+}
+.funding-success__visual{
+  position:relative;
+  width:min(100%,500px);
+  aspect-ratio:1/1.02;
+  margin:0 auto;
+  justify-self:center;
+}
+.funding-success__shape{
+  position:absolute;border-radius:50%;z-index:0;
+}
+.funding-success__shape--coral{
+  width:120px;height:120px;top:6%;right:4%;
+  background:var(--fs-coral);
+  opacity:.92;
+}
+.funding-success__shape--yellow{
+  width:84px;height:84px;left:2%;bottom:8%;
+  background:var(--fs-yellow);
+}
+.funding-success__shape--blue{
+  width:180px;height:180px;right:-4%;bottom:-2%;
+  background:var(--fs-blue);
+  opacity:.14;
+}
+.funding-success__card{
+  position:absolute;inset:12% 8% 10%;
+  z-index:1;
+  padding:28px 26px 24px;
+  border-radius:24px;
+  background:var(--fs-coral);
+  color:var(--fs-ink);
+  border:1.3px solid var(--fs-ink);
+  box-shadow:12px 16px 0 rgba(18,18,18,.08);
+  transform:rotate(-2.5deg);
+  display:flex;flex-direction:column;
+}
+.funding-success__card-label{
+  font-size:9px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;
+}
+.funding-success__card h3{
+  margin:18px 0 0;
+  font-size:clamp(28px,3.2vw,36px);
+  line-height:.94;letter-spacing:-.055em;
+}
+.funding-success__card-icon{
+  flex:1;
+  display:grid;
+  place-items:center;
+  padding:12px 0;
+}
+.funding-success__card-icon img{
+  width:min(120px,42%);
+  height:auto;
+  display:block;
+}
+.funding-success__meter{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  gap:16px;margin-top:auto;padding-top:16px;
+  border-top:1px solid rgba(18,18,18,.18);
+}
+.funding-success__meter > div{
+  display:flex;flex-direction:column;align-items:flex-start;min-width:0;
+}
+.funding-success__meter span,
+.funding-success__meter small,
+.funding-success__meter b{display:block;position:static}
+.funding-success__meter span,
+.funding-success__meter .num{
+  font-family:var(--disp,"Bricolage Grotesque",sans-serif);
+  font-size:22px;font-weight:800;line-height:1.1;
+}
+.funding-success__meter b{font-size:15px;font-weight:800;line-height:1.2}
+.funding-success__meter small{
+  margin-top:5px;font-size:9px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:rgba(18,18,18,.62);
+}
+@media (max-width:860px){
+  .funding-success__layout{grid-template-columns:1fr;gap:28px}
+  .funding-success__visual{width:min(100%,420px);aspect-ratio:1/1.05}
+}
+
 /* wallet wizard ? completion screen */
 .wallet-done{max-width:1120px;margin:0 auto}
 .wallet-done--wallet{max-width:1080px}
