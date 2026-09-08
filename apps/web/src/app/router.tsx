@@ -21,6 +21,11 @@ const tenantChildren: RouteObject[] = [
   { path: "orders", lazy: page(() => import("@/features/orders/OrdersPage"), "OrdersPage") },
   { path: "wallets", lazy: page(() => import("@/features/wallets/WalletsPage"), "WalletsPage") },
   {
+    path: "wallets/:walletId",
+    loader: ({ params }) =>
+      redirect(`/app/wallets?wallet=${encodeURIComponent(params.walletId || "")}`),
+  },
+  {
     path: "shops",
     children: [
       { index: true, lazy: page(() => import("@/features/shops/ShopsPage"), "ShopsPage") },

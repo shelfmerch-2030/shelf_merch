@@ -130,7 +130,7 @@ export async function approveFunding({ walletId, amount, performedBy }) {
       userId: refreshed.ownerUserId,
       title: 'Budget funded',
       body: `₹${creditAmount.toLocaleString('en-IN')} has been added to ${refreshed.name}.`,
-      link: `/wallets/${refreshed._id}`,
+      link: `/app/wallets?wallet=${refreshed._id}`,
     });
   }
 

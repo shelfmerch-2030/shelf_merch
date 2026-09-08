@@ -48,10 +48,13 @@ export function useWalletsController(): WalletsScreen {
     () => (location.state as { startCreateWallet?: boolean } | null)?.startCreateWallet === true,
   );
   const [wizard, dispatch] = useReducer(wizardReducer, undefined, seedNewWizard);
+  const [dismissedSuccessKey, setDismissedSuccessKey] = useState<string | null>(null);
 
-  function dismissDoneScreen() {
+  function dismissDoneScreen(successKey: string) {
     clearFundingSuccess();
+    setDismissedSuccessKey(successKey);
     setInWizard(false);
+    dispatch(seedNewWizard());
   }
 
   if (isLoading && !workspace) {
@@ -88,13 +91,16 @@ export function useWalletsController(): WalletsScreen {
       : storedSuccess
         ? wizardFromFundingSuccess(storedSuccess)
         : null;
+  const successKey = doneState
+    ? `${doneState.wallet.id || "new"}:${doneState.wallet.amount}:${doneState.wallet.name}`
+    : null;
 
-  if (doneState) {
+  if (doneState && successKey && successKey !== dismissedSuccessKey) {
     return {
       kind: "done",
       account,
       state: doneState,
-      onGoToDashboard: dismissDoneScreen,
+      onGoToDashboard: () => dismissDoneScreen(successKey),
     };
   }
 

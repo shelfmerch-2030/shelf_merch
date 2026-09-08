@@ -58,6 +58,12 @@ export function resolveNotificationLink(link: string): string | null {
   const trimmed = link?.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  const walletDeepLink = trimmed.match(/^(?:\/app)?\/wallets\/([a-fA-F0-9]{24})\/?$/);
+  if (walletDeepLink) {
+    return `/app/wallets?wallet=${walletDeepLink[1]}`;
+  }
+
   if (
     trimmed.startsWith("/app") ||
     trimmed.startsWith("/platform") ||

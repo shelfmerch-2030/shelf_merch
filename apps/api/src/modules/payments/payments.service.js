@@ -481,7 +481,7 @@ async function settleWalletFundingPayment({
       userId: wallet.ownerUserId,
       title: 'Payment received — pending approval',
       body: `Your payment of ₹${fresh.amount.toLocaleString('en-IN')} for ${wallet.name} is awaiting finance review.`,
-      link: `/wallets/${wallet._id}`,
+      link: `/app/wallets?wallet=${wallet._id}`,
     });
   }
 
@@ -570,7 +570,7 @@ async function processPaymentFailed(entity, rawEvent) {
       userId: wallet.ownerUserId,
       title: 'Wallet payment failed',
       body: `Your payment of ₹${payment.amount} could not be processed. Please try again.`,
-      link: `/wallets/${wallet._id}`,
+      link: `/app/wallets?wallet=${wallet._id}`,
     });
   }
 
