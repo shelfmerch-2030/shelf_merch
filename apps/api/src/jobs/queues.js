@@ -3,8 +3,13 @@ import { ensureRedisReady, getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
 import { processCsvImport } from '../modules/imports/imports.service.js';
 
+export const SCHEDULED_CAMPAIGN_QUEUE = 'scheduled-campaigns';
+const MAX_IN_PROCESS_DELAY_MS = 2_147_483_647;
+
 let csvImportQueue = null;
 let notificationQueue = null;
+let scheduledCampaignQueue = null;
+const localDeliveryTimers = new Map();
 
 function makeQueue(name) {
   return new Queue(name, { connection: getRedis() });
@@ -18,6 +23,76 @@ export function getCsvImportQueue() {
 export function getNotificationQueue() {
   if (!notificationQueue) notificationQueue = makeQueue('notifications');
   return notificationQueue;
+}
+
+export function getScheduledCampaignQueue() {
+  if (!scheduledCampaignQueue) scheduledCampaignQueue = makeQueue(SCHEDULED_CAMPAIGN_QUEUE);
+  return scheduledCampaignQueue;
+}
+
+function clearLocalDeliveryTimer(campaignId) {
+  const key = String(campaignId);
+  const existing = localDeliveryTimers.get(key);
+  if (existing) {
+    clearTimeout(existing);
+    localDeliveryTimers.delete(key);
+  }
+}
+
+async function runLocalScheduledDelivery({ tenantId, campaignId }) {
+  localDeliveryTimers.delete(String(campaignId));
+  try {
+    const { deliverScheduledCampaign } = await import('../modules/campaigns/campaigns.service.js');
+    await deliverScheduledCampaign({ tenantId, campaignId });
+  } catch (err) {
+    logger.error(
+      { err: err.message, campaignId: String(campaignId) },
+      'in-process scheduled campaign delivery failed',
+    );
+  }
+}
+
+/** Fire delivery at sendAt in this process (survives Redis-less deploys; lost on restart). */
+export function scheduleLocalCampaignDelivery({ tenantId, campaignId, sendAt }) {
+  const at = new Date(sendAt).getTime();
+  if (!Number.isFinite(at)) return;
+  const delay = Math.max(0, at - Date.now());
+  if (delay > MAX_IN_PROCESS_DELAY_MS) return;
+  clearLocalDeliveryTimer(campaignId);
+  const timer = setTimeout(() => {
+    void runLocalScheduledDelivery({ tenantId, campaignId });
+  }, delay);
+  timer.unref?.();
+  localDeliveryTimers.set(String(campaignId), timer);
+}
+
+export function clearLocalCampaignDeliveries() {
+  for (const timer of localDeliveryTimers.values()) clearTimeout(timer);
+  localDeliveryTimers.clear();
+}
+
+/**
+ * Arm exact-time delivery for a launched scheduled campaign.
+ * Uses an in-process timer plus a Redis delayed job when available.
+ */
+export async function enqueueScheduledCampaignDelivery({ tenantId, campaignId, sendAt }) {
+  scheduleLocalCampaignDelivery({ tenantId, campaignId, sendAt });
+  try {
+    if (!(await ensureRedisReady())) return;
+    const delay = Math.max(0, new Date(sendAt).getTime() - Date.now());
+    if (!Number.isFinite(delay)) return;
+    const queue = getScheduledCampaignQueue();
+    const jobId = `scheduled-campaign:${campaignId}`;
+    const existing = await queue.getJob(jobId);
+    if (existing) await existing.remove().catch(() => {});
+    await queue.add(
+      'deliver-campaign',
+      { tenantId: String(tenantId), campaignId: String(campaignId) },
+      { delay, jobId, removeOnComplete: true, removeOnFail: 50 },
+    );
+  } catch (err) {
+    logger.warn({ err: err.message, campaignId: String(campaignId) }, 'Could not enqueue delayed scheduled campaign job');
+  }
 }
 
 /**

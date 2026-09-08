@@ -1184,7 +1184,7 @@ function KitCheckoutPaymentSummary({
           </p>
         ) : null}
         <SumRow k="Wallet balance" v={formatWalletAmount(walletBalance, walletCur)} />
-        <SumRow k="Order amount" v={inr(total)} />
+        <SumRow k="Order amount" v={inr(total)} large />
         <SumRow k="Amount to be paid now" v={inr(0)} />
         <div
           className="row"

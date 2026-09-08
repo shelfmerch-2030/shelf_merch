@@ -1,11 +1,18 @@
-import { Queue, Worker } from 'bullmq';
+import { Worker } from 'bullmq';
 import { ensureRedisReady, getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
-import { processDueScheduledCampaigns } from '../modules/campaigns/campaigns.service.js';
+import {
+  deliverScheduledCampaign,
+  processDueScheduledCampaigns,
+} from '../modules/campaigns/campaigns.service.js';
+import {
+  SCHEDULED_CAMPAIGN_QUEUE,
+  clearLocalCampaignDeliveries,
+  getScheduledCampaignQueue,
+} from './queues.js';
 
-const QUEUE = 'scheduled-campaigns';
-/** Poll frequently so overdue sends recover quickly after downtime. */
-const EVERY_MS = 30_000;
+/** Backup poll so overdue sends recover after downtime / missed timers. */
+const EVERY_MS = 5_000;
 
 async function runDueScheduled() {
   try {
@@ -23,41 +30,44 @@ async function runDueScheduled() {
   }
 }
 
+async function processScheduledJob(job) {
+  const campaignId = job?.data?.campaignId;
+  const tenantId = job?.data?.tenantId;
+  if (campaignId && tenantId) {
+    await deliverScheduledCampaign({ tenantId, campaignId });
+    return;
+  }
+  await runDueScheduled();
+}
+
 /**
- * Deliver scheduled campaign invites + point credits at (or after) sendAt.
- * BullMQ repeatable job when Redis is up; in-process interval otherwise.
- * Overdue campaigns are processed immediately on each tick (no silent skip).
+ * Deliver scheduled campaign invites + point credits at sendAt.
+ * Always polls in-process (Redis-less and Redis-up). When Redis is up, also
+ * consumes delayed per-campaign jobs queued at launch for exact timing.
  */
 export async function startScheduledCampaignWorker() {
-  // Catch anything already overdue as soon as the process boots.
   await runDueScheduled();
 
-  if (!(await ensureRedisReady())) {
-    const timer = setInterval(runDueScheduled, EVERY_MS);
-    timer.unref?.();
-    return { close: async () => clearInterval(timer) };
+  const timer = setInterval(runDueScheduled, EVERY_MS);
+  timer.unref?.();
+
+  let worker = null;
+  if (await ensureRedisReady()) {
+    worker = new Worker(SCHEDULED_CAMPAIGN_QUEUE, processScheduledJob, {
+      connection: getRedis(),
+    });
+    worker.on('failed', (_job, err) =>
+      logger.error({ err: err.message }, 'scheduled campaign job failed'),
+    );
+    // Keep a queue handle so delayed jobs from launch share the same Redis connection.
+    getScheduledCampaignQueue();
   }
 
-  const connection = getRedis();
-  const queue = new Queue(QUEUE, { connection });
-  await queue.add(
-    'deliver-due',
-    {},
-    {
-      repeat: { every: EVERY_MS },
-      jobId: 'scheduled-campaign-deliver',
-      removeOnComplete: true,
-      removeOnFail: 50,
-    },
-  );
-  const worker = new Worker(QUEUE, runDueScheduled, { connection });
-  worker.on('failed', (_job, err) =>
-    logger.error({ err: err.message }, 'scheduled campaign job failed'),
-  );
   return {
     close: async () => {
-      await worker.close();
-      await queue.close();
+      clearInterval(timer);
+      clearLocalCampaignDeliveries();
+      if (worker) await worker.close();
     },
   };
 }

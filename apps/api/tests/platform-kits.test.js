@@ -114,4 +114,62 @@ describe('platform kit creation (predefined curated kits)', () => {
       .send({ name: 'Sneaky kit' });
     expect(res.status).toBe(403);
   });
+
+  it('removes a kit image from the gallery and any roles that used it', async () => {
+    const kit = await PlatformKit.create({
+      name: 'Photo kit',
+      approxValueInr: 400,
+      imageUrls: ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'],
+      heroImage: 'https://cdn.example/a.jpg',
+      galleryImages: ['https://cdn.example/a.jpg', 'https://cdn.example/b.jpg'],
+      itemImages: [{ imageUrl: 'https://cdn.example/a.jpg', label: 'Pen' }],
+      variantImages: [{ imageUrl: 'https://cdn.example/b.jpg', label: 'Blue' }],
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/platform/kits/${kit._id}/images`)
+      .set(auth(catalogToken))
+      .send({ imageUrl: 'https://cdn.example/a.jpg' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.imageUrls).toEqual(['https://cdn.example/b.jpg']);
+    expect(res.body.heroImage).toBe('https://cdn.example/b.jpg');
+    expect(res.body.galleryImages).toEqual(['https://cdn.example/b.jpg']);
+    expect(res.body.itemImages).toEqual([]);
+    expect(res.body.variantImages).toHaveLength(1);
+    expect(res.body.variantImages[0].imageUrl).toBe('https://cdn.example/b.jpg');
+  });
+
+  it('allows deleting the last kit image', async () => {
+    const kit = await PlatformKit.create({
+      name: 'Last photo kit',
+      imageUrls: ['https://cdn.example/only.jpg'],
+      heroImage: 'https://cdn.example/only.jpg',
+      galleryImages: ['https://cdn.example/only.jpg'],
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/platform/kits/${kit._id}/images`)
+      .set(auth(catalogToken))
+      .send({ imageUrl: 'https://cdn.example/only.jpg' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.imageUrls).toEqual([]);
+    expect(res.body.heroImage).toBe('');
+    expect(res.body.galleryImages).toEqual([]);
+  });
+
+  it('returns 404 when the kit image is not in the gallery', async () => {
+    const kit = await PlatformKit.create({
+      name: 'Empty photo kit',
+      imageUrls: ['https://cdn.example/kept.jpg'],
+    });
+
+    const res = await request(app)
+      .delete(`/api/v1/platform/kits/${kit._id}/images`)
+      .set(auth(catalogToken))
+      .send({ imageUrl: 'https://cdn.example/missing.jpg' });
+
+    expect(res.status).toBe(404);
+  });
 });

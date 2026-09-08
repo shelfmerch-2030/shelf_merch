@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveColorHex } from "@/lib/colorMap";
@@ -9,7 +9,7 @@ import {
   variantLabel,
 } from "@/lib/kitVariantImages";
 import type { PlatformKitTemplate } from "@/services/api-bridge";
-import type { UiKit, UiProduct } from "@/services/mappers";
+import { mapProductRef, type UiKit, type UiProduct } from "@/services/mappers";
 import { inr } from "@/components/platform/platform-ui";
 
 export type KitPreviewProduct = {
@@ -87,9 +87,27 @@ function productImageUrl(product?: UiProduct): string | undefined {
   return (
     resolveMediaUrl(product.mockupUrl) ||
     resolveMediaUrl(product.photoUrl) ||
+    resolveMediaUrl(product.baseImageUrl) ||
     resolveMediaUrl(product.imgUrl) ||
     undefined
   );
+}
+
+/** Preview-only: overlay logo on the full-color photo, not the production mask. */
+function previewCompositeProduct(product: UiProduct): UiProduct {
+  const photo =
+    resolveMediaUrl(product.photoUrl) ||
+    resolveMediaUrl(product.baseImageUrl) ||
+    resolveMediaUrl(product.imageUrls?.[0]);
+  if (!photo) return product;
+  return {
+    ...product,
+    maskImageUrl: undefined,
+    maskBackImageUrl: undefined,
+    maskLeftImageUrl: undefined,
+    maskRightImageUrl: undefined,
+    imgUrl: photo,
+  };
 }
 
 type CuratedImageSource = {
@@ -285,14 +303,24 @@ export function buildKitPreviewFromWorkspace(
   const products: KitPreviewProduct[] =
     itemProducts ??
     (kit.productRefs ?? []).map((ref, i) => {
-      const product = byId.get(ref.catalogProductId);
+      const product = mapProductRef(
+        {
+          catalogProductId: ref.catalogProductId,
+          name: ref.name,
+          brand: ref.brand,
+          group: ref.group,
+          mockupUrl: ref.mockupUrl,
+          placement: ref.placement,
+        },
+        byId,
+      );
       return {
         key: `${ref.catalogProductId}-${i}`,
-        name: ref.name || product?.nm || "Product",
-        brand: ref.brand || product?.brand,
-        imageUrl: productImageUrl(product),
+        name: ref.name || product.nm || "Product",
+        brand: ref.brand || product.brand,
+        imageUrl: resolveMediaUrl(ref.mockupUrl) || productImageUrl(product),
         product,
-        variants: product?.variants ?? [],
+        variants: product.variants ?? [],
       };
     });
 
@@ -388,6 +416,63 @@ const labelStyle: CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
+
+function KitPreviewProductImage({
+  name,
+  imageUrl,
+  product,
+  artworkUrl,
+}: {
+  name: string;
+  imageUrl?: string;
+  product?: UiProduct;
+  artworkUrl?: string;
+}) {
+  const baked = resolveMediaUrl(product?.mockupUrl) || "";
+  const imgStyle: CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
+
+  let inner: ReactNode;
+  if (baked) {
+    inner = <img src={baked} alt={name} style={imgStyle} />;
+  } else if (product && artworkUrl) {
+    inner = (
+      <DesignedProductThumb
+        product={previewCompositeProduct(product)}
+        artworkUrl={artworkUrl}
+        frontOnly
+        className="kit-preview-dpt"
+        style={{ width: "100%", height: "100%" }}
+      />
+    );
+  } else if (imageUrl) {
+    inner = <img src={imageUrl} alt={name} style={imgStyle} />;
+  } else {
+    inner = (
+      <div className="sm-skeleton-img" aria-hidden="true" style={{ width: "100%", height: "100%" }} />
+    );
+  }
+
+  return (
+    <div
+      className="kit-preview-thumb"
+      style={{
+        aspectRatio: "1",
+        width: "100%",
+        position: "relative",
+        overflow: "hidden",
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      {inner}
+    </div>
+  );
+}
 
 function ProductAvailability({
   colors,
@@ -639,31 +724,12 @@ export function KitPreviewDialog({
                         gap: 8,
                       }}
                     >
-                      <div
-                        style={{
-                          aspectRatio: "1",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {p.product && data.artworkUrl ? (
-                          <DesignedProductThumb product={p.product} artworkUrl={data.artworkUrl} />
-                        ) : p.imageUrl ? (
-                          <img
-                            src={p.imageUrl}
-                            alt={p.name}
-                            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                          />
-                        ) : (
-                          <div
-                            className="sm-skeleton-img"
-                            aria-hidden="true"
-                            style={{ width: "100%", height: "100%" }}
-                          />
-                        )}
-                      </div>
+                      <KitPreviewProductImage
+                        name={p.name}
+                        imageUrl={p.imageUrl}
+                        product={p.product}
+                        artworkUrl={data.artworkUrl}
+                      />
                       <div>
                         {p.brand ? (
                           <div style={labelStyle}>{p.brand}</div>

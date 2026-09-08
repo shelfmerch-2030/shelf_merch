@@ -11,6 +11,7 @@ import {
   getPlatformProduct,
   KIT_WIZARD_STEPS,
   publishKit,
+  removeKitImage,
   removeKitItem,
   type KitInput,
   type KitItem,
@@ -172,6 +173,21 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
     if (!id || !itemId) return;
     await removeKitItem(id, itemId);
     await refresh();
+  }
+
+  async function dropImage(imageUrl: string) {
+    if (!id || !imageUrl) return;
+    if (!window.confirm("Remove this image from the kit?")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await removeKitImage(id, imageUrl);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove image");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function uploadImagesForRole(files: FileList | null, role: KitImageUploadRole) {
@@ -354,6 +370,7 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
     onPickQty: setPickQty,
     onAddItem: addItem,
     onDropItem: dropItem,
+    onRemoveImage: dropImage,
     onUploadImages: uploadImages,
     onUploadImagesForRole: uploadImagesForRole,
     onSelectHero: setHeroImage,

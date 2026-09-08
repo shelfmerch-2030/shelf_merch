@@ -4,6 +4,8 @@ import { connectDb, disconnectDb } from './config/db.js';
 import { initObservability } from './config/observability.js';
 import { createApp } from './app.js';
 import { startScheduledCampaignWorker } from './jobs/scheduledCampaign.worker.js';
+import { startNotificationWorker } from './jobs/notification.worker.js';
+import { ensureRedisReady } from './config/redis.js';
 
 async function main() {
   await initObservability();
@@ -14,6 +16,7 @@ async function main() {
   // Ensure overdue scheduled sends are recovered even when the dedicated
   // worker process is not running (common in local / single-node deploys).
   const scheduleWorker = await startScheduledCampaignWorker();
+  const notificationWorker = (await ensureRedisReady()) ? startNotificationWorker() : null;
 
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
@@ -55,6 +58,7 @@ async function main() {
     logger.info({ signal }, 'Shutting down');
     server.close(async () => {
       await scheduleWorker.close();
+      if (notificationWorker) await notificationWorker.close();
       await disconnectDb();
       process.exit(0);
     });

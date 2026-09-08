@@ -7,6 +7,7 @@ export {
   getPlatformKit,
   getPlatformProduct,
   publishKit,
+  removeKitImage,
   removeKitItem,
   updateKit,
   updateKitImageRoles,
