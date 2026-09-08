@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
@@ -523,6 +523,31 @@ describe('user invite', () => {
     const user = await User.findById(existingMgr._id).select('+inviteTokenHash');
     expect(user.status).toBe('active');
     expect(user.inviteTokenHash).toBeFalsy();
+  });
+
+  it('assign-manager sendInvite false does not email a new manager', async () => {
+    const emailService = await import('../src/services/email.service.js');
+    const spy = vi.spyOn(emailService, 'sendInviteEmail').mockResolvedValue(undefined);
+    const entity = await Entity.create({
+      tenantId: tenantA._id,
+      walletId: walletA._id,
+      name: 'Marketing',
+    });
+
+    const assign = await request(app)
+      .post(`/api/v1/entities/${entity._id}/assign-manager`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({
+        name: 'New Manager',
+        email: `new-mgr-${Date.now()}@test.io`,
+        role: 'Marketing Manager',
+        sendInvite: false,
+      });
+
+    expect(assign.status).toBe(201);
+    expect(assign.body.manager.status).toBe('invited');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('allocating budget to an active entity manager does not create a new invite', async () => {

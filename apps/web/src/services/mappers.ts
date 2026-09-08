@@ -817,7 +817,7 @@ export function mapEntityToDept(e: ApiEntity, usersById: Map<string, ApiUser>): 
       email: mgrEmail,
       mobile: mgr?.phone || "",
       role: e.managerTitle || (mgr ? "Entity Manager" : ""),
-      invite: inviteStatus === 'pending',
+      invite: inviteStatus !== 'active',
       inviteStatus,
     },
   };

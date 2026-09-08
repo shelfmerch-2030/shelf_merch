@@ -1419,10 +1419,10 @@ export async function syncOrgWizardApi(
             email: mgrEmail,
             role: dept.mgr.role || "",
             mobile: dept.mgr.mobile || "",
-            sendInvite: dept.mgr.inviteStatus !== "active",
+            sendInvite: dept.mgr.inviteStatus !== "active" && dept.mgr.invite !== false,
           }),
         });
-        if (dept.mgr.inviteStatus !== "active") {
+        if (dept.mgr.invite !== false && dept.mgr.inviteStatus !== "active") {
           invites.push({
             email: mgrEmail,
             name: mgrName,

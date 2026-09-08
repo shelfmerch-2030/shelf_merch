@@ -2,18 +2,51 @@ import { inr } from "@/components/platform/platform-ui";
 import { ORG_ROLES, selectedDepartments, wizardTargetAllocation } from "../../types";
 import type { StepProps } from "./StepProps";
 
+function managerFooter(inviteStatus: string | undefined, hasEmail: boolean) {
+  if (inviteStatus === "active") {
+    return {
+      title: "Budget will be allocated",
+      detail:
+        "This manager already has an active account. Extra budget is added to their wallet. They keep the same password and do not set a new one.",
+      badge: "Active",
+      badgeClass: "tag-live",
+      showInviteToggle: false,
+    } as const;
+  }
+  if (hasEmail) {
+    return {
+      title: "Send invitation",
+      detail: "Email the manager an invite to activate their account",
+      badge: "Invite",
+      badgeClass: "tag-ready",
+      showInviteToggle: true,
+    } as const;
+  }
+  return {
+    title: "Add an email to continue",
+    detail: "Enter the manager’s work email to invite them or allocate budget.",
+    badge: "Needed",
+    badgeClass: "tag-draft",
+    showInviteToggle: false,
+  } as const;
+}
+
 export function Step4Managers({ state, dispatch }: StepProps) {
   return (
     <>
       <div style={{ marginBottom: 14 }}>
         <h3 style={{ fontSize: 18 }}>Assign department managers</h3>
         <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-          Managers control campaigns, recipients and spending for their department. Invitations are
-          sent the moment setup completes.
+          New managers get an invitation. Active managers keep their login — only additional budget
+          is added.
         </p>
       </div>
 
-      {selectedDepartments(state.departments).map((d) => (
+      {selectedDepartments(state.departments).map((d) => {
+        const hasEmail = Boolean(d.mgr.email?.trim());
+        const active = d.mgr.inviteStatus === "active";
+        const footer = managerFooter(d.mgr.inviteStatus, hasEmail);
+        return (
         <div key={d.id} className="mgr-card">
           <div className="mgr-head">
             <div
@@ -26,6 +59,9 @@ export function Step4Managers({ state, dispatch }: StepProps) {
             <div className="mb">
               Budget <b>{inr(wizardTargetAllocation(d))}</b>
             </div>
+            <span className={`tag ${footer.badgeClass}`} style={{ marginLeft: 8 }}>
+              {footer.badge}
+            </span>
           </div>
           <div className="mgr-body" style={{ display: "block", padding: 18 }}>
             <div className="row" style={{ gap: 12, marginBottom: 14 }}>
@@ -76,6 +112,7 @@ export function Step4Managers({ state, dispatch }: StepProps) {
                   type="email"
                   value={d.mgr.email}
                   placeholder="name@company.net"
+                  disabled={active}
                   onChange={(e) =>
                     dispatch({ type: "mgrField", id: d.id, field: "email", value: e.target.value })
                   }
@@ -102,28 +139,36 @@ export function Step4Managers({ state, dispatch }: StepProps) {
             style={{
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 16,
               padding: "14px 18px",
               borderTop: "1px solid var(--line)",
               background: "var(--surface-2)",
             }}
           >
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>Send invitation</div>
-              <div className="mut3" style={{ fontSize: 11.5 }}>
-                Email the manager an invite to activate their account
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{footer.title}</div>
+              <div className="mut3" style={{ fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
+                {footer.detail}
               </div>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={d.mgr.invite}
-              aria-label={`Send invitation to ${d.name} manager`}
-              className={`switch ${d.mgr.invite ? "on" : ""}`}
-              onClick={() => dispatch({ type: "toggleInvite", id: d.id })}
-            />
+            {footer.showInviteToggle ? (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={d.mgr.invite !== false}
+                aria-label={`Send invitation to ${d.name} manager`}
+                className={`switch ${d.mgr.invite !== false ? "on" : ""}`}
+                onClick={() => dispatch({ type: "toggleInvite", id: d.id })}
+              />
+            ) : (
+              <span className={`tag ${footer.badgeClass}`} style={{ flexShrink: 0 }}>
+                {footer.badge}
+              </span>
+            )}
           </div>
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }

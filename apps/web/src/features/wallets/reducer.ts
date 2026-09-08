@@ -43,7 +43,10 @@ export function seedAllocateWizard(org: OrgSnapshot, startStep = 2): WizardState
         selected: true,
         seedAllocated: d.allocated || 0,
         allocBaselineReset: false,
-        mgr: { ...d.mgr },
+        mgr: {
+          ...d.mgr,
+          invite: d.mgr.inviteStatus !== "active",
+        },
       })),
     ),
     unallocatedAtStart:
@@ -313,7 +316,7 @@ export function wizardReducer(state: WizardState, action: WizardState | WizardAc
         ...state,
         departments: state.departments.map((d) =>
           String(d.id) === String(action.id)
-            ? { ...d, mgr: { ...d.mgr, invite: !d.mgr.invite } }
+            ? { ...d, mgr: { ...d.mgr, invite: d.mgr.invite === false } }
             : d,
         ),
       };

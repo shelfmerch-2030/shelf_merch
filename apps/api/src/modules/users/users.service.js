@@ -155,10 +155,9 @@ export async function inviteUser(
     roleTitle: emailContext.roleTitle || 'Department Manager',
   };
 
-  // Invitation emails for new / still-pending accounts are always sent.
-  // Client sendInvite must not suppress them (stale UI can claim "Active" incorrectly).
+  // New / pending accounts: honor the Assign Managers "Send invitation" toggle.
   // Active managers never get invite mail — budget notifications come from allocate.
-  if (inviteToken && isNewOrPendingInvite) {
+  if (sendInvite && inviteToken && isNewOrPendingInvite) {
     await sendInviteEmail(normalizedEmail, inviteToken, mailContext);
   }
 

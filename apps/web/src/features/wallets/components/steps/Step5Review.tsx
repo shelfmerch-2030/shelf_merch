@@ -83,6 +83,13 @@ export function Step5Review({ state, dispatch, account }: StepProps & { account:
                     {d.mgr.name
                       ? `${d.mgr.name}${d.mgr.email ? ` · ${d.mgr.email}` : ""}`
                       : "No manager assigned"}
+                    {d.mgr.inviteStatus === "active"
+                      ? " · Active account — extra budget only, no new password"
+                      : d.mgr.email
+                        ? d.mgr.invite !== false
+                          ? " · Invitation will be sent"
+                          : " · Assigned without invite"
+                        : ""}
                   </div>
                 </div>
                 <span className="num" style={{ fontWeight: 700, fontSize: 13 }}>
