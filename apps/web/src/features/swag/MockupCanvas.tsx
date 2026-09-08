@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type Konva from "konva";
 import type { UiProduct } from "@/services/mappers";
 import {
@@ -36,6 +36,7 @@ const MIN_ART_PX = 16;
 const BRAND = "#3D5FD9";
 
 type PrintBoxPx = { bx: number; by: number; bw: number; bh: number };
+type StageFit = { fit: number; offsetX: number; offsetY: number; drawnW: number; drawnH: number };
 
 /** One print-area layer on the shared mockup image. */
 export type MockupAreaLayer = {
@@ -61,21 +62,11 @@ function maxFitWidth(aspect: number, rotDeg: number, bw: number, bh: number) {
   const s = Math.abs(Math.sin(rad));
   const denomW = c + aspect * s;
   const denomH = s + aspect * c;
-  const maxW = Math.min(
-    denomW > 0 ? bw / denomW : bw,
-    denomH > 0 ? bh / denomH : bh,
-  );
+  const maxW = Math.min(denomW > 0 ? bw / denomW : bw, denomH > 0 ? bh / denomH : bh);
   return Math.max(MIN_ART_PX, maxW);
 }
 
-function clampCenter(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  rotDeg: number,
-  box: PrintBoxPx,
-) {
+function clampCenter(x: number, y: number, w: number, h: number, rotDeg: number, box: PrintBoxPx) {
   const { halfW, halfH } = rotatedHalfExtents(w, h, rotDeg);
   const minX = box.bx + halfW;
   const maxX = box.bx + box.bw - halfW;
@@ -90,6 +81,25 @@ function clampCenter(
 function layersSignature(layers: MockupAreaLayer[]): string {
   // Art URLs + area keys only — placements update via Konva; remounting would kill drag.
   return layers.map((l) => `${l.areaKey}:${l.artUrl || ""}`).join("|");
+}
+
+export function mockupStageFit(containerWidth: number, containerHeight: number): StageFit | null {
+  if (containerWidth < 8 || containerHeight < 8) return null;
+  const fit = Math.min(containerWidth / CANVAS_WIDTH, containerHeight / CANVAS_HEIGHT);
+  if (!Number.isFinite(fit) || fit <= 0) return null;
+  const drawnW = CANVAS_WIDTH * fit;
+  const drawnH = CANVAS_HEIGHT * fit;
+  return {
+    fit,
+    drawnW,
+    drawnH,
+    offsetX: Math.max(0, (containerWidth - drawnW) / 2),
+    offsetY: Math.max(0, (containerHeight - drawnH) / 2),
+  };
+}
+
+function stageFitTransform(fit: StageFit) {
+  return `translate(${fit.offsetX}px, ${fit.offsetY}px) scale(${fit.fit})`;
 }
 
 function localPrintStage(box: PrintBoxPx) {
@@ -191,7 +201,8 @@ export function MockupCanvas({
           },
         ];
 
-  const activeAreaKey = activeAreaKeyProp || printAreaKey || (layersProp?.length ? undefined : layers[0]?.areaKey);
+  const activeAreaKey =
+    activeAreaKeyProp || printAreaKey || (layersProp?.length ? undefined : layers[0]?.areaKey);
   const activeArea = activeAreaKey
     ? listPrintAreas(product).find((a, i) => catalogPrintAreaKey(product, a, i) === activeAreaKey)
     : null;
@@ -201,8 +212,9 @@ export function MockupCanvas({
     designImgUrlForView(product, resolvedView) || designImgUrl(product, activeAreaKey),
   );
   const sig = layersSignature(layers);
+  const stageFit = mockupStageFit(wrapSize.w, wrapSize.h);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wrap = wrapRef.current;
     if (!wrap) return;
     const update = () => {
@@ -237,13 +249,12 @@ export function MockupCanvas({
           ];
 
     (async () => {
-      if (wrap.clientWidth < 8 || wrap.clientHeight < 8) return;
+      const fit = mockupStageFit(wrap.clientWidth, wrap.clientHeight);
+      if (!fit) return;
       const Konva = (await import("konva")).default;
       if (cancelled || !host.isConnected) return;
 
-      const maskImg = maskSrc
-        ? await loadImageEl(maskSrc, true).catch(() => null)
-        : null;
+      const maskImg = maskSrc ? await loadImageEl(maskSrc, true).catch(() => null) : null;
       if (cancelled || !host.isConnected) return;
 
       const artEntries = await Promise.all(
@@ -254,13 +265,8 @@ export function MockupCanvas({
       );
       if (cancelled || !host.isConnected) return;
 
-      const fit = Math.min(wrap.clientWidth / CANVAS_WIDTH, wrap.clientHeight / CANVAS_HEIGHT) || 1;
-      const drawnW = CANVAS_WIDTH * fit;
-      const drawnH = CANVAS_HEIGHT * fit;
-      const offsetX = Math.max(0, (wrap.clientWidth - drawnW) / 2);
-      const offsetY = Math.max(0, (wrap.clientHeight - drawnH) / 2);
       host.innerHTML = "";
-      stageBox.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${fit})`;
+      stageBox.style.transform = stageFitTransform(fit);
 
       stage = new Konva.Stage({ container: host, width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
       const layer = new Konva.Layer();
@@ -521,7 +527,14 @@ export function MockupCanvas({
           const nextEff = effectiveArtworkDpi(activeNaturalW, nw, g.ppi);
           setDpiWarn(nextEff > 0 && nextEff < MIN_EFFECTIVE_DPI ? Math.round(nextEff) : null);
           onChangeRef.current?.(
-            localPixelsToPlacement(pos.x, pos.y, nw, Math.round(node.rotation()), g.box, g.plateRot),
+            localPixelsToPlacement(
+              pos.x,
+              pos.y,
+              nw,
+              Math.round(node.rotation()),
+              g.box,
+              g.plateRot,
+            ),
             g.areaKey,
           );
           transformer?.forceUpdate();
@@ -600,7 +613,9 @@ export function MockupCanvas({
           left: 0,
           width: CANVAS_WIDTH,
           height: CANVAS_HEIGHT,
+          transform: stageFit ? stageFitTransform(stageFit) : undefined,
           transformOrigin: "top left",
+          visibility: stageFit ? "visible" : "hidden",
           willChange: "transform",
           zIndex: 0,
         }}
@@ -670,9 +685,7 @@ export function buildMockupLayers(
     view?: ProductViewKey;
   },
 ): MockupAreaLayer[] {
-  const areas = args.view
-    ? listPrintAreasForView(product, args.view)
-    : listPrintAreas(product);
+  const areas = args.view ? listPrintAreasForView(product, args.view) : listPrintAreas(product);
   const list = areas.length ? areas : args.view ? [] : [null];
   const primary = primaryAreaKey(product);
   const productKey = placementKey(product, args.idx);
@@ -686,8 +699,7 @@ export function buildMockupLayers(
       (areaKey === args.activeAreaKey ? args.stagingPreview : undefined) ||
       undefined;
     const placement =
-      args.placements[draftKey] ??
-      (areaKey === primary ? args.placements[productKey] : undefined);
+      args.placements[draftKey] ?? (areaKey === primary ? args.placements[productKey] : undefined);
     return {
       areaKey,
       label: a?.label || `Area ${i + 1}`,

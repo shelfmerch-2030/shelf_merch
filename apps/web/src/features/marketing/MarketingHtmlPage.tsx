@@ -613,6 +613,272 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
       padding-bottom: 36px !important;
     }
   }
+
+  @media (max-width: 960px) {
+    main,
+    section,
+    .hero,
+    .story,
+    .made,
+    .principles,
+    .control,
+    .gifting,
+    .swag,
+    .stores,
+    .recognition,
+    .layout,
+    .intro,
+    .events-section,
+    .production {
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+
+    .hero,
+    .story,
+    .made,
+    .principles,
+    .control,
+    .stores,
+    .recognition,
+    .layout,
+    .intro,
+    .events-section,
+    .production {
+      grid-template-columns: 1fr !important;
+    }
+
+    .section-head,
+    .control-head,
+    .split-heading {
+      grid-template-columns: 1fr !important;
+    }
+
+    .section-head > .kicker,
+    .intro#connects .flow {
+      grid-column: auto !important;
+    }
+
+    .model-grid,
+    .brief-grid,
+    .feature-grid,
+    .control-grid,
+    .why-grid,
+    .principle-grid,
+    .choice-grid,
+    .testimonial-grid,
+    .event-grid,
+    .catalog-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .hero-copy,
+    .made-copy,
+    .production-copy,
+    .events-copy,
+    .stores-copy {
+      padding-left: 6vw !important;
+      padding-right: 6vw !important;
+    }
+
+    .collage,
+    .hero-ui,
+    .hero-art,
+    .made,
+    .made-image,
+    .production-image {
+      min-height: 460px !important;
+    }
+  }
+
+  @media (max-width: 760px) {
+    :host {
+      --marketing-header-offset: 60px;
+    }
+
+    h1,
+    .hero h1 {
+      font-size: 40px !important;
+      line-height: 1.05 !important;
+      letter-spacing: 0 !important;
+      overflow-wrap: anywhere !important;
+    }
+
+    h2,
+    .headline h2,
+    .section-head h2,
+    .control h2,
+    .control-head h2,
+    .manifesto h2,
+    .story h2,
+    .made h2,
+    .principles h2,
+    .stores h2,
+    .open-head h2 {
+      font-size: 31px !important;
+      line-height: 1.05 !important;
+      letter-spacing: 0 !important;
+    }
+
+    .hero {
+      min-height: 0 !important;
+    }
+
+    .hero-copy,
+    .final,
+    .cta,
+    .help {
+      padding: 44px 5vw !important;
+    }
+
+    .actions,
+    .hero-actions,
+    .team-actions,
+    .final > div,
+    .cta > div,
+    .final-cta > div:last-child {
+      align-items: stretch !important;
+      flex-direction: column !important;
+      gap: 14px !important;
+      width: 100% !important;
+    }
+
+    .button,
+    .header-cta,
+    .actions > a,
+    .hero-actions > a {
+      width: 100% !important;
+      max-width: 100% !important;
+      text-align: center !important;
+    }
+
+    .model-grid,
+    .brief-grid,
+    .feature-grid,
+    .control-grid,
+    .why-grid,
+    .principle-grid,
+    .choice-grid,
+    .testimonial-grid,
+    .event-grid,
+    .catalog-grid,
+    .summary-grid,
+    .data-grid,
+    .open-grid,
+    .job-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    .model-grid article,
+    .brief-grid article,
+    .feature,
+    .swag-card,
+    .gift-card,
+    .control-grid article,
+    .why-grid article,
+    .principle-grid article,
+    .step,
+    .job,
+    .data-card {
+      min-height: 0 !important;
+      border-radius: 18px !important;
+    }
+
+    .collage,
+    .hero-ui,
+    .hero-art,
+    .made,
+    .made-image,
+    .production-image {
+      min-height: 380px !important;
+    }
+
+    .main-photo {
+      width: 86% !important;
+      height: 62% !important;
+      top: 12% !important;
+      right: -5% !important;
+    }
+
+    .small-photo {
+      width: 48% !important;
+      height: 31% !important;
+      left: 4% !important;
+      bottom: 6% !important;
+      border-width: 7px !important;
+    }
+
+    .dashboard,
+    .store-browser,
+    .mock {
+      max-width: calc(100vw - 10vw) !important;
+    }
+
+    .dashboard {
+      height: auto !important;
+      min-height: 320px !important;
+      left: 5vw !important;
+      right: 5vw !important;
+      top: 46px !important;
+      transform: none !important;
+    }
+
+    .model-card-foot {
+      min-height: 90px !important;
+      margin-top: 18px !important;
+    }
+
+    .model-visual {
+      width: 38% !important;
+      max-width: 130px !important;
+    }
+
+    .toc,
+    .tabs {
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+
+    .toc a,
+    .tabs button {
+      white-space: nowrap !important;
+    }
+  }
+
+  @media (max-width: 430px) {
+    h1,
+    .hero h1,
+    .cta h2,
+    .final h2,
+    .help h2 {
+      font-size: 35px !important;
+    }
+
+    h2,
+    .headline h2,
+    .section-head h2,
+    .control h2,
+    .control-head h2,
+    .manifesto h2,
+    .story h2,
+    .made h2,
+    .principles h2,
+    .stores h2,
+    .open-head h2 {
+      font-size: 28px !important;
+    }
+
+    .feature,
+    .swag-card,
+    .gift-card,
+    .model-grid article,
+    .brief-grid article,
+    .why-grid article,
+    .control-grid article {
+      padding: 18px !important;
+    }
+  }
 `;
 const PAGE_TITLE: Record<MarketingPageKey, string> = {
   about: "About Shelf Merch - Built to Make Brand Moments Real",

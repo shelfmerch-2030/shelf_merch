@@ -1,5 +1,6 @@
 .resources-dropdown {
   position: relative;
+  min-width: 0;
 }
 .resources-trigger {
   display: flex;
@@ -32,7 +33,10 @@
   opacity: 0;
   visibility: hidden;
   transform: translateX(-50%) translateY(-8px);
-  transition: 0.2s;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    visibility 0.2s ease;
   z-index: 60;
 }
 .resources-menu:before {
@@ -70,9 +74,14 @@
   opacity: 1;
   font-weight: 400;
   font-size: inherit;
+  min-width: 0;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
 }
 .resources-menu > a:hover {
   background: #f3efe6;
+  transform: translateX(2px);
 }
 .resources-menu > a > i {
   width: 40px;
@@ -98,6 +107,7 @@
 .resources-menu em {
   display: block;
   font-family: Arial, Helvetica, sans-serif;
+  min-width: 0;
 }
 .resources-menu b {
   font-size: 12px;
@@ -123,17 +133,23 @@
   .resources-trigger {
     justify-content: space-between;
   }
+  .resources-trigger-chevron {
+    transform: rotate(180deg);
+  }
   .resources-menu {
     position: static;
     width: 100%;
     left: auto;
-    margin-top: 12px;
-    padding: 11px 0 0;
-    background: #f4f0e8;
+    margin: 6px 0 4px;
+    padding: 10px;
+    background: #f7f3ea;
+    border: 1px solid rgba(18, 18, 18, 0.08);
+    border-radius: 14px;
     box-shadow: none;
     opacity: 1;
     visibility: visible;
     transform: none;
+    transition: none;
   }
   .resources-dropdown:hover .resources-menu,
   .resources-dropdown:focus-within .resources-menu {
@@ -144,10 +160,22 @@
   }
   .resources-menu > a {
     grid-template-columns: 36px 1fr auto;
-    padding: 9px;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: 10px;
+  }
+  .resources-menu > a:hover {
+    transform: none;
   }
   .resources-menu > a > i {
     width: 34px;
     height: 34px;
+    border-radius: 9px;
+  }
+  .resources-menu em {
+    white-space: normal;
+  }
+  .resources-menu strong {
+    font-size: 12px;
   }
 }

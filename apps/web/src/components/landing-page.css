@@ -758,3 +758,72 @@
   }
 }
 
+/* Mobile header refinement shared by marketing and resource pages. */
+.shelf-landing .menu-button span {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    width 0.2s ease;
+}
+.shelf-landing .menu-button[aria-expanded="true"] span:first-child {
+  transform: translateY(3px) rotate(45deg);
+}
+.shelf-landing .menu-button[aria-expanded="true"] span:last-child {
+  transform: translateY(-3px) rotate(-45deg);
+}
+
+@media (max-width: 760px) {
+  .shelf-landing .site-header {
+    z-index: 80;
+  }
+
+  .shelf-landing .nav-links {
+    display: flex;
+    top: 63px;
+    left: max(12px, 3.4vw);
+    right: max(12px, 3.4vw);
+    max-height: 0;
+    padding: 0 20px;
+    gap: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition:
+      max-height 0.28s ease,
+      opacity 0.22s ease,
+      padding 0.28s ease,
+      transform 0.28s ease;
+  }
+
+  .shelf-landing .nav-links.open {
+    max-height: calc(100vh - 78px);
+    padding: 14px 18px 16px;
+    opacity: 1;
+    overflow-y: auto;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .shelf-landing .nav-links > a,
+  .shelf-landing .nav-links .resources-trigger,
+  .shelf-landing .nav-links .header-login {
+    width: 100%;
+    min-height: 46px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(18, 18, 18, 0.09);
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .shelf-landing .nav-links .header-login {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .shelf-landing .brand-wordmark {
+    max-width: 148px;
+  }
+}
+

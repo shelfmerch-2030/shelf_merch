@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { ResourceDropdown } from "../resources/ResourceDropdown";
 import "../resources/resource-nav.css";
 
@@ -18,10 +18,28 @@ function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?:
 }
 
 export function Header() {
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => {
     setMenuOpen(false);
   };
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
 
   return (
     <header className="site-header">
@@ -30,6 +48,7 @@ export function Header() {
       </Link>
 
       <nav
+        id="site-navigation"
         className={`nav-links${menuOpen ? " open" : ""}`}
         aria-label="Main navigation"
       >
@@ -56,6 +75,7 @@ export function Header() {
           type="button"
           className="menu-button"
           aria-label="Toggle menu"
+          aria-controls="site-navigation"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
         >

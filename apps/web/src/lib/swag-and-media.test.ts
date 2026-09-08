@@ -13,6 +13,7 @@ import {
 } from "@/lib/printCoords";
 import { slugifyShopName, shopRedeemPath, shopStorefrontPath } from "@/lib/shopRedeemUrl";
 import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
+import { mockupStageFit } from "@/features/swag/MockupCanvas";
 import { pickPrintArea, printAreaStableKey } from "@/features/swag/mockup-bake";
 import type { UiProduct } from "@/services/mappers";
 
@@ -77,6 +78,33 @@ describe("printCoords", () => {
   });
 });
 
+describe("mockupStageFit", () => {
+  it("centers the logical mockup stage inside a wider first-paint container", () => {
+    const fit = mockupStageFit(1000, 600);
+
+    expect(fit?.fit).toBeCloseTo(1, 5);
+    expect(fit?.drawnW).toBeCloseTo(800, 5);
+    expect(fit?.drawnH).toBeCloseTo(600, 5);
+    expect(fit?.offsetX).toBeCloseTo(100, 5);
+    expect(fit?.offsetY).toBeCloseTo(0, 5);
+  });
+
+  it("scales the mockup stage down before the image loader redraws", () => {
+    const fit = mockupStageFit(400, 400);
+
+    expect(fit?.fit).toBeCloseTo(0.5, 5);
+    expect(fit?.drawnW).toBeCloseTo(400, 5);
+    expect(fit?.drawnH).toBeCloseTo(300, 5);
+    expect(fit?.offsetX).toBeCloseTo(0, 5);
+    expect(fit?.offsetY).toBeCloseTo(50, 5);
+  });
+
+  it("does not expose the raw stage before a usable container is measured", () => {
+    expect(mockupStageFit(0, 400)).toBeNull();
+    expect(mockupStageFit(400, 0)).toBeNull();
+  });
+});
+
 describe("shopRedeemUrl", () => {
   it("slugifies shop names and builds public paths", () => {
     expect(slugifyShopName("Salesforce HQ")).toBe("salesforce-hq");
@@ -110,7 +138,15 @@ describe("storeProductAsUi", () => {
 describe("printAreaStableKey", () => {
   const box = { xPct: 10, yPct: 10, widthPct: 12, heightPct: 14 };
   const front1 = { key: "front", label: "Front", widthIn: 2, heightIn: 2.2, box };
-  const front2 = { key: "front", label: "Front", widthIn: 2.006, heightIn: 2.317, xIn: 8, yIn: 6, box };
+  const front2 = {
+    key: "front",
+    label: "Front",
+    widthIn: 2.006,
+    heightIn: 2.317,
+    xIn: 8,
+    yIn: 6,
+    box,
+  };
   const back = { key: "back", label: "Back", widthIn: 4, heightIn: 4, box };
 
   it("keeps a unique catalog key as-is", () => {
