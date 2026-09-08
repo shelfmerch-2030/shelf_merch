@@ -11,6 +11,7 @@ import {
 import { inr } from "@/components/platform/platform-ui";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { useInvalidateWorkspace } from "@/hooks/useWorkspace";
+import { persistFundingSuccess } from "../fundingSuccess";
 import { parseAmt, type WalletUploadFile } from "../types";
 import { useCreateRazorpayOrder, useFundWallet, useVerifyRazorpayPayment } from "../model";
 import { DocumentUploadZone } from "./DocumentUploadZone";
@@ -118,6 +119,11 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
         docNumber: docNumber.trim(),
         uploadFile: uploadFile?.file,
       });
+      persistFundingSuccess({
+        amount,
+        name: walletName,
+        walletId,
+      });
       toast.success("Funding request submitted", {
         description: "Finance will review your PO and credit your budget once approved.",
       });
@@ -140,6 +146,11 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
+            });
+            persistFundingSuccess({
+              amount,
+              name: walletName,
+              walletId,
             });
             toast.success("Payment received — submitted for review", {
               description: `${inr(amount)} will be added to your organization budget once finance approves.`,

@@ -2,6 +2,11 @@ import { useReducer, useState, type Dispatch } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { orgForWallet, type WorkspaceSnapshot } from "@/services/workspace-api";
+import {
+  clearFundingSuccess,
+  readFundingSuccess,
+  wizardFromFundingSuccess,
+} from "../fundingSuccess";
 import { seedAllocateWizard, seedNewWizard, wizardReducer, type WizardAction } from "../reducer";
 import type { OrgSnapshot, WizardState } from "../types";
 
@@ -44,6 +49,11 @@ export function useWalletsController(): WalletsScreen {
   );
   const [wizard, dispatch] = useReducer(wizardReducer, undefined, seedNewWizard);
 
+  function dismissDoneScreen() {
+    clearFundingSuccess();
+    setInWizard(false);
+  }
+
   if (isLoading && !workspace) {
     return { kind: "loading" };
   }
@@ -61,6 +71,7 @@ export function useWalletsController(): WalletsScreen {
 
   function startBudgetSetup() {
     if (hasBudget) return;
+    clearFundingSuccess();
     dispatch(seedNewWizard());
     setInWizard(true);
   }
@@ -70,15 +81,24 @@ export function useWalletsController(): WalletsScreen {
     setInWizard(true);
   }
 
+  const storedSuccess = readFundingSuccess();
+  const doneState =
+    wizard.done && wizard.flow === "wallet"
+      ? wizard
+      : storedSuccess
+        ? wizardFromFundingSuccess(storedSuccess)
+        : null;
+
+  if (doneState) {
+    return {
+      kind: "done",
+      account,
+      state: doneState,
+      onGoToDashboard: dismissDoneScreen,
+    };
+  }
+
   if (inWizard) {
-    if (wizard.done && wizard.flow === "wallet") {
-      return {
-        kind: "done",
-        account,
-        state: wizard,
-        onGoToDashboard: () => setInWizard(false),
-      };
-    }
     return {
       kind: "wizard",
       account,
@@ -86,7 +106,7 @@ export function useWalletsController(): WalletsScreen {
       dispatch,
       onExit: () => setInWizard(false),
       onFinished: () => {
-        /* wallet create — done screen renders via wizard.done */
+        /* wallet create — done screen renders via wizard.done / session snapshot */
       },
     };
   }

@@ -28,6 +28,7 @@ import {
   walletContactFieldsValid,
   type WalletContactFieldErrors,
 } from "../walletContactFields";
+import { persistFundingSuccess } from "../fundingSuccess";
 import { useCreateRazorpayOrder, useCreateWallet, useSyncOrgWizard, useVerifyRazorpayPayment } from "../model";
 import { Step1Wallet } from "./steps/Step1Wallet";
 import { Step2Departments } from "./steps/Step2Departments";
@@ -128,6 +129,11 @@ export function OrgWizard({
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             });
+            persistFundingSuccess({
+              amount: state.wallet.amount,
+              name: state.wallet.name,
+              walletId,
+            });
             dispatch({ type: "finished", walletId, invites: [] });
             toast.success("Payment received — submitted for review", {
               description: `${inr(state.wallet.amount)} will be added to ${state.wallet.name} once finance approves.`,
@@ -203,6 +209,11 @@ export function OrgWizard({
     try {
       if (isWalletFlow) {
         const result = await createWallet.mutateAsync(state);
+        persistFundingSuccess({
+          amount: state.wallet.amount,
+          name: state.wallet.name,
+          walletId: result.walletId,
+        });
         dispatch({ type: "finished", walletId: result.walletId, invites: [] });
         toast.success("Budget submitted — finance will review your funding request");
         onFinished();
