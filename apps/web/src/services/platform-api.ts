@@ -397,6 +397,13 @@ export function uploadKitImages(id: string, files: File[]) {
   return apiFetch<{ imageUrls: string[] }>(`/platform/kits/${id}/images`, { method: "POST", body: form });
 }
 
+export function removeKitImage(id: string, imageUrl: string) {
+  return apiFetch<PlatformKit>(`/platform/kits/${id}/images`, {
+    method: "DELETE",
+    body: JSON.stringify({ imageUrl }),
+  });
+}
+
 export function publishKit(id: string) {
   return apiFetch<PlatformKit>(`/platform/kits/${id}/publish`, { method: "POST" });
 }

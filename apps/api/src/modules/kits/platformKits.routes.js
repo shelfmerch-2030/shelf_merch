@@ -145,6 +145,39 @@ async function getKitDoc(id) {
   return kit;
 }
 
+function kitImageUrlsMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const norm = (u) =>
+    String(u)
+      .trim()
+      .replace(/\\/g, '/')
+      .replace(/^https?:\/\/[^/]+/i, '')
+      .split('?')[0]
+      .replace(/\/+$/, '');
+  const na = norm(a);
+  return Boolean(na) && na === norm(b);
+}
+
+function stripImageFromKit(kit, imageUrl) {
+  const keep = (u) => !kitImageUrlsMatch(u, imageUrl);
+  const beforeCount = kit.imageUrls?.length ?? 0;
+  kit.imageUrls = (kit.imageUrls || []).filter(keep);
+  if (kit.imageUrls.length === beforeCount) {
+    throw new NotFoundError('Kit image not found');
+  }
+  kit.galleryImages = (kit.galleryImages || []).filter(keep);
+  kit.itemImages = (kit.itemImages || []).filter((it) => keep(it.imageUrl));
+  kit.variantImages = (kit.variantImages || []).filter((it) => keep(it.imageUrl));
+  if (kitImageUrlsMatch(kit.heroImage, imageUrl)) {
+    kit.heroImage = kit.imageUrls[0] || '';
+  }
+  kit.markModified('imageUrls');
+  kit.markModified('galleryImages');
+  kit.markModified('itemImages');
+  kit.markModified('variantImages');
+}
+
 function serializeKit(kit) {
   const obj = kit?.toObject ? kit.toObject() : kit;
   return withNormalizedVariantImages(obj);
@@ -294,6 +327,26 @@ platformKitsRouter.post(
     await kit.save();
     writeAudit({ req, action: 'kit.images_add', entityType: 'PlatformKit', entityId: kit._id, after: { urls } });
     res.status(201).json({ imageUrls: kit.imageUrls });
+  }),
+);
+
+platformKitsRouter.delete(
+  '/:id/images',
+  kitsWrite,
+  validate({ params: idParam, body: z.object({ imageUrl: z.string().min(1) }) }),
+  asyncHandler(async (req, res) => {
+    const kit = await getKitDoc(req.params.id);
+    const imageUrl = String(req.body.imageUrl).trim();
+    stripImageFromKit(kit, imageUrl);
+    await kit.save();
+    writeAudit({
+      req,
+      action: 'kit.images_remove',
+      entityType: 'PlatformKit',
+      entityId: kit._id,
+      after: { imageUrl },
+    });
+    res.json(serializeKit(kit));
   }),
 );
 

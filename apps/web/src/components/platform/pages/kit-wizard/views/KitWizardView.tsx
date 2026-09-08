@@ -80,6 +80,7 @@ export function KitWizardView({
   onPickQty,
   onAddItem,
   onDropItem,
+  onRemoveImage,
   onUploadImages,
   onUploadImagesForRole,
   onSelectHero,
@@ -361,18 +362,48 @@ export function KitWizardView({
               </div>
               <div className="row" style={{ flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
                 {(kit?.imageUrls ?? []).map((url) => (
-                  <img
+                  <div
                     key={url}
-                    src={kitImageSrc(url)}
-                    alt=""
-                    style={{
-                      width: 90,
-                      height: 90,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      border: "1px solid var(--line)",
-                    }}
-                  />
+                    style={{ position: "relative", width: 90, height: 90, flex: "0 0 auto" }}
+                  >
+                    <img
+                      src={kitImageSrc(url)}
+                      alt=""
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        border: "1px solid var(--line)",
+                        display: "block",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove image from kit"
+                      disabled={busy}
+                      onClick={() => onRemoveImage(url)}
+                      style={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        border: "none",
+                        background: "rgba(15, 23, 42, 0.78)",
+                        color: "#fff",
+                        cursor: busy ? "not-allowed" : "pointer",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: 14,
+                        lineHeight: 1,
+                        padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
                 {!kit?.imageUrls?.length && <p className="muted">No images uploaded yet.</p>}
               </div>

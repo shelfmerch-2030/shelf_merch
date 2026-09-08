@@ -157,7 +157,7 @@ export function CreateShopView(vm: CreateShopVm) {
                     })}
                   </div>
                 </div>
-                <div className="field" style={{ marginTop: 18 }}>
+                {/* <div className="field" style={{ marginTop: 18 }}>
                   <label className="lbl" htmlFor="sh-domain">
                     Company email domain
                   </label>
@@ -178,7 +178,7 @@ export function CreateShopView(vm: CreateShopVm) {
                     Platform allowlisted emails can still join any store. You can change this later in
                     settings.
                   </p>
-                </div>
+                </div> */}
                 <p
                   className="mut3"
                   style={{ fontSize: 11.5, margin: "6px 0 16px", lineHeight: 1.5 }}

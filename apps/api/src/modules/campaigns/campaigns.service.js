@@ -14,6 +14,7 @@ import { Tenant } from '../tenants/tenant.model.js';
 import * as ledger from '../../services/ledger.service.js';
 import { transitionState, validNextStatuses, canTransition } from '../../services/stateMachine.service.js';
 import { notify } from '../notifications/notifications.service.js';
+import { enqueueScheduledCampaignDelivery } from '../../jobs/queues.js';
 import { recordUsage } from '../../services/usage.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { assertEntityAccess } from '../../middleware/abac.middleware.js';
@@ -781,6 +782,14 @@ export async function launchCampaign({
 
   await campaign.save();
   recordUsage(tenantId, 'campaigns.launched');
+
+  if (isScheduled && campaign.schedule?.sendAt) {
+    await enqueueScheduledCampaignDelivery({
+      tenantId,
+      campaignId: campaign._id,
+      sendAt: campaign.schedule.sendAt,
+    });
+  }
 
   if (sendInvitesNow) {
     try {
