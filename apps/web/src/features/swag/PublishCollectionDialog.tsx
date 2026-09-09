@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { UiCollection, UiShop } from "@/services/mappers";
 import { ShopPickerList } from "./wizard/ShopPickerList";
 import { useSyncCollectionPublish } from "./model";
+import { acquirePublishLock, releasePublishLock } from "./controllers/publishLock";
 
 export function PublishCollectionDialog({
   collection,
@@ -18,6 +19,8 @@ export function PublishCollectionDialog({
 }) {
   const syncPublish = useSyncCollectionPublish();
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const publishingRef = useRef(false);
 
   useEffect(() => {
     if (open && collection) {
@@ -41,9 +44,10 @@ export function PublishCollectionDialog({
   }
 
   async function save() {
-    if (!collection) return;
+    if (!collection || !acquirePublishLock(publishingRef)) return;
     const available = new Set(shops.map((s) => s.id));
     const shopIds = [...picked].filter((id) => available.has(id));
+    setSaving(true);
     try {
       await syncPublish.mutateAsync({
         collectionId: collection.id,
@@ -57,6 +61,9 @@ export function PublishCollectionDialog({
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to publish collection");
+    } finally {
+      releasePublishLock(publishingRef);
+      setSaving(false);
     }
   }
 
@@ -83,10 +90,10 @@ export function PublishCollectionDialog({
           <button
             type="button"
             className="btn btn-brand"
-            disabled={syncPublish.isPending || shops.length === 0}
+            disabled={saving || syncPublish.isPending || shops.length === 0}
             onClick={save}
           >
-            {syncPublish.isPending ? "Publishing…" : "Publish"}
+            {saving || syncPublish.isPending ? "Publishing…" : "Publish"}
           </button>
         </div>
       </DialogContent>

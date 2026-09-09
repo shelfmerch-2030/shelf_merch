@@ -66,3 +66,20 @@ export function messageFromUnknownError(error: unknown, fallback = "Request fail
   const message = formatErrorDetail(error);
   return message === "Request failed" ? fallback : message;
 }
+
+const HTMLISH = /<\/?[a-z][\s\S]*>/i;
+const ENTITY_TOO_LARGE = /413\s+request entity too large|payload too large/i;
+
+export const PAYLOAD_TOO_LARGE_MESSAGE =
+  "These product designs are too large to upload. Please use a smaller artwork file and try again.";
+
+/** Map proxy/HTML error pages (nginx 413, etc.) to a user-facing message. */
+export function messageFromGatewayResponse(status: number, body: unknown): string | null {
+  const text = typeof body === "string" ? body : "";
+  const looksTooLarge = status === 413 || ENTITY_TOO_LARGE.test(text);
+  if (looksTooLarge) return PAYLOAD_TOO_LARGE_MESSAGE;
+  if (status >= 400 && HTMLISH.test(text)) {
+    return "The server rejected this request. Please try again.";
+  }
+  return null;
+}

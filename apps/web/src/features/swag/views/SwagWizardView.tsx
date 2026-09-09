@@ -17,7 +17,7 @@ export function SwagWizardView(vm: SwagWizardVm) {
     return <LoadingState message="Loading catalog…" fullScreen={false} />;
   }
   if (vm.isWorking) {
-    return <LoadingState message="Generating and publishing…" fullScreen={false} />;
+    return <LoadingState message={vm.workingLabel} fullScreen={false} />;
   }
 
   const backLink = (label: string, step: SwagDraft["step"]) => (

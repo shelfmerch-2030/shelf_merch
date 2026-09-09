@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { syncCollectionPublishTargets } from '../src/modules/shops/shopCatalogSync.js';
 import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
@@ -208,6 +209,23 @@ describe('collection shop links', () => {
     expect(shopBRecord.selectedCatalogProductIds.map(String)).toContain(String(product._id));
   });
 
+  it('publishes one collection to multiple shops via shopIds', async () => {
+    const shopA = await Shop.create({ tenantId: tenant._id, name: 'Google Shop', status: 'live' });
+    const shopB = await Shop.create({ tenantId: tenant._id, name: 'Amazon Shop', status: 'live' });
+    const res = await request(app)
+      .post(`/api/v1/collections/${collection._id}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ shopIds: [String(shopA._id), String(shopB._id)] });
+    expect(res.status).toBe(200);
+    expect(res.body.shopIds.map(String)).toEqual(
+      expect.arrayContaining([String(shopA._id), String(shopB._id)]),
+    );
+    const shopARecord = await Shop.findOne({ _id: shopA._id, tenantId: tenant._id });
+    const shopBRecord = await Shop.findOne({ _id: shopB._id, tenantId: tenant._id });
+    expect(shopARecord.activeListingKeys.length).toBeGreaterThan(0);
+    expect(shopBRecord.activeListingKeys.length).toBeGreaterThan(0);
+  });
+
   it('adds catalog products to the shop when creating a shop-linked collection', async () => {
     const shop = await Shop.create({ tenantId: tenant._id, name: 'New Shop', status: 'live' });
     const res = await request(app)
@@ -280,5 +298,162 @@ describe('collection mockup uploads', () => {
     );
     const storefront = await request(app).get(`/api/v1/storefront/${shop._id}`);
     expect(storefront.body.products[0].placement).toMatchObject(placement);
+  });
+
+  it('merges mockups from sequential per-product uploads', async () => {
+    const productB = await CatalogProduct.create({
+      sku: `SM-MUG-${Date.now()}`,
+      name: 'Bliss Mug',
+      category: 'Drinkware',
+      basePriceInr: 299,
+    });
+    collection.productRefs.push({
+      catalogProductId: productB._id,
+      brand: 'Rubix',
+      name: 'Bliss Mug',
+      group: 'mug',
+    });
+    await collection.save();
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const first = await request(app)
+      .post(`/api/v1/collections/${collection._id}/mockups`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('meta', JSON.stringify([{ catalogProductId: String(product._id) }]))
+      .attach('mockups', png, { filename: 'mockup-a.png', contentType: 'image/png' });
+    expect(first.status).toBe(200);
+    expect(first.body.productRefs[0].mockupUrl).toBeTruthy();
+    expect(first.body.productRefs[1].mockupUrl).toBeFalsy();
+
+    const second = await request(app)
+      .post(`/api/v1/collections/${collection._id}/mockups`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('meta', JSON.stringify([{ catalogProductId: String(productB._id) }]))
+      .attach('mockups', png, { filename: 'mockup-b.png', contentType: 'image/png' });
+    expect(second.status).toBe(200);
+    expect(second.body.productRefs[0].mockupUrl).toBe(first.body.productRefs[0].mockupUrl);
+    expect(second.body.productRefs[1].mockupUrl).toBeTruthy();
+  });
+
+  it('stores mockups for multiple products in one request', async () => {
+    const productB = await CatalogProduct.create({
+      sku: `SM-CAP-${Date.now()}`,
+      name: 'Custom Cap',
+      category: 'Apparel',
+      basePriceInr: 399,
+    });
+    collection.productRefs.push({
+      catalogProductId: productB._id,
+      brand: 'Rubix',
+      name: 'Custom Cap',
+      group: 'cap',
+    });
+    await collection.save();
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const res = await request(app)
+      .post(`/api/v1/collections/${collection._id}/mockups`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field(
+        'meta',
+        JSON.stringify([
+          { catalogProductId: String(product._id) },
+          { catalogProductId: String(productB._id) },
+        ]),
+      )
+      .attach('mockups', png, { filename: 'mockup-a.png', contentType: 'image/png' })
+      .attach('mockups', png, { filename: 'mockup-b.png', contentType: 'image/png' });
+    expect(res.status).toBe(200);
+    expect(res.body.productRefs[0].mockupUrl).toBeTruthy();
+    expect(res.body.productRefs[1].mockupUrl).toBeTruthy();
+  });
+
+  it('merges sequential mockup batches for 13 products', async () => {
+    const extras = [];
+    for (let i = 0; i < 12; i += 1) {
+      extras.push(
+        await CatalogProduct.create({
+          sku: `SM-SWAG-${Date.now()}-${i}`,
+          name: `Swag Item ${i + 2}`,
+          category: 'Apparel',
+          basePriceInr: 299 + i,
+        }),
+      );
+    }
+    collection.productRefs.push(
+      ...extras.map((p) => ({
+        catalogProductId: p._id,
+        brand: 'Rubix',
+        name: p.name,
+        group: 'tee',
+      })),
+    );
+    await collection.save();
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const ids = collection.productRefs.map((ref) => String(ref.catalogProductId));
+    let last;
+    for (let i = 0; i < ids.length; i += 1) {
+      last = await request(app)
+        .post(`/api/v1/collections/${collection._id}/mockups`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .field('meta', JSON.stringify([{ catalogProductId: ids[i] }]))
+        .attach('mockups', png, { filename: `mockup-${i}.png`, contentType: 'image/png' });
+      expect(last.status).toBe(200);
+    }
+    expect(last.body.productRefs).toHaveLength(13);
+    expect(last.body.productRefs.every((ref) => ref.mockupUrl)).toBe(true);
+  });
+});
+
+describe('collection re-publish and shop rollback', () => {
+  it('re-publishes an existing collection without duplicating shop links', async () => {
+    const shop = await Shop.create({ tenantId: tenant._id, name: 'Salesforce Shop', status: 'live' });
+    const first = await request(app)
+      .post(`/api/v1/collections/${collection._id}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ shopIds: [String(shop._id)] });
+    expect(first.status).toBe(200);
+    const second = await request(app)
+      .post(`/api/v1/collections/${collection._id}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ shopIds: [String(shop._id)] });
+    expect(second.status).toBe(200);
+    expect(second.body.shopIds.map(String)).toEqual([String(shop._id)]);
+    const shopRecord = await Shop.findOne({ _id: shop._id, tenantId: tenant._id });
+    const keys = shopRecord.activeListingKeys.map(String);
+    expect(keys).toEqual([...new Set(keys)]);
+  });
+
+  it('rolls back shops added in this call if a later shop publish fails', async () => {
+    const shopA = await Shop.create({ tenantId: tenant._id, name: 'Google Shop', status: 'live' });
+    const shopB = await Shop.create({ tenantId: tenant._id, name: 'Amazon Shop', status: 'live' });
+    const originalFindOne = Shop.findOne.bind(Shop);
+    const spy = vi.spyOn(Shop, 'findOne').mockImplementation(function findOneMock(filter, ...rest) {
+      if (filter && String(filter._id) === String(shopB._id)) {
+        return Promise.reject(new Error('simulated shop publish failure'));
+      }
+      return originalFindOne(filter, ...rest);
+    });
+
+    try {
+      await expect(
+        syncCollectionPublishTargets(collection._id, tenant._id, [shopA._id, shopB._id]),
+      ).rejects.toThrow('simulated shop publish failure');
+    } finally {
+      spy.mockRestore();
+    }
+
+    const refreshed = await Collection.findOne({ _id: collection._id, tenantId: tenant._id });
+    expect((refreshed.shopIds || []).map(String)).not.toContain(String(shopA._id));
+    expect((refreshed.shopIds || []).map(String)).not.toContain(String(shopB._id));
+    const shopARecord = await Shop.findOne({ _id: shopA._id, tenantId: tenant._id });
+    expect(shopARecord.activeListingKeys || []).toEqual([]);
   });
 });

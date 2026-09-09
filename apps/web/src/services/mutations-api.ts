@@ -1,4 +1,5 @@
 import { normalizeMongoId } from "@/lib/mongoId";
+import { chunkBySize } from "@/lib/uploadBatches";
 import { ApiError, apiFetch } from "./api";
 import { getStoredUser } from "./auth-store";
 import { mediaUrlForCanvas, resolveMediaUrl } from "@/lib/mediaUrl";
@@ -597,47 +598,59 @@ type MockupUploadItem = {
   };
 };
 
-export async function uploadCollectionMockupsApi(
-  collectionId: string,
-  items: MockupUploadItem[],
-  catalogById?: Map<string, UiProduct>,
-) {
-  const meta: Array<{
-    catalogProductId: string;
-    placement?: MockupPlacement;
-    placements?: Array<{ key: string; hasArtwork?: boolean } & MockupPlacement>;
-    printSpec?: MockupUploadItem["printSpec"];
-    hasDesignOnly?: boolean;
-    hasMockupBack?: boolean;
-  }> = [];
-  const form = new FormData();
-  let areaArtCount = 0;
-  let backCount = 0;
+type MockupMetaItem = {
+  catalogProductId: string;
+  placement?: MockupPlacement;
+  placements?: Array<{ key: string; hasArtwork?: boolean; artworkUrl?: string } & MockupPlacement>;
+  printSpec?: MockupUploadItem["printSpec"];
+  hasDesignOnly?: boolean;
+  hasMockupBack?: boolean;
+};
+
+type PreparedCollectionMockup = {
+  mockup: File;
+  mockupBack?: File;
+  designOnly?: File;
+  areaArts: File[];
+  meta: MockupMetaItem;
+  byteSize: number;
+};
+
+async function blobFile(dataUrl: string, name: string): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type || "image/png" });
+}
+
+async function prepareCollectionMockups(items: MockupUploadItem[]): Promise<PreparedCollectionMockup[]> {
+  const prepared: PreparedCollectionMockup[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (!item.dataUrl?.startsWith("data:")) continue;
-    const res = await fetch(item.dataUrl);
-    const blob = await res.blob();
-    form.append("mockups", new File([blob], `mockup-${i}.png`, { type: blob.type || "image/png" }));
-    const hasMockupBack = Boolean(item.backDataUrl?.startsWith("data:"));
-    if (hasMockupBack && item.backDataUrl) {
-      const bRes = await fetch(item.backDataUrl);
-      const bBlob = await bRes.blob();
-      form.append(
-        "mockupsBack",
-        new File([bBlob], `mockup-back-${backCount}.png`, { type: bBlob.type || "image/png" }),
-      );
-      backCount += 1;
+    const mockup = await blobFile(item.dataUrl, `mockup-${i}.png`);
+    let byteSize = mockup.size;
+    const row: PreparedCollectionMockup = {
+      mockup,
+      areaArts: [],
+      meta: { catalogProductId: item.catalogProductId },
+      byteSize,
+    };
+    if (item.backDataUrl?.startsWith("data:")) {
+      row.mockupBack = await blobFile(item.backDataUrl, `mockup-back-${i}.png`);
+      row.byteSize += row.mockupBack.size;
+      row.meta.hasMockupBack = true;
     }
-    const hasDesignOnly = Boolean(item.designOnlyDataUrl?.startsWith("data:"));
-    if (hasDesignOnly && item.designOnlyDataUrl) {
-      const dRes = await fetch(item.designOnlyDataUrl);
-      const dBlob = await dRes.blob();
-      form.append("designOnly", new File([dBlob], `design-${i}.png`, { type: dBlob.type || "image/png" }));
+    if (item.designOnlyDataUrl?.startsWith("data:")) {
+      row.designOnly = await blobFile(item.designOnlyDataUrl, `design-${i}.png`);
+      row.byteSize += row.designOnly.size;
+      row.meta.hasDesignOnly = true;
     }
-    const placementsMeta: Array<{ key: string; hasArtwork?: boolean } & MockupPlacement> = [];
-    for (const row of item.placements || []) {
-      const { artworkDataUrl, ...rest } = row;
+    if (item.placement) row.meta.placement = item.placement;
+    if (item.printSpec) row.meta.printSpec = item.printSpec;
+
+    const placementsMeta: NonNullable<MockupMetaItem["placements"]> = [];
+    for (const placement of item.placements || []) {
+      const { artworkDataUrl, ...rest } = placement;
       const hasArtwork = Boolean(
         artworkDataUrl &&
           (artworkDataUrl.startsWith("data:") || artworkDataUrl.startsWith("blob:")),
@@ -646,35 +659,67 @@ export async function uploadCollectionMockupsApi(
         const aRes = await fetch(artworkDataUrl);
         const aBlob = await aRes.blob();
         const ext = (aBlob.type || "image/png").includes("jpeg") ? "jpg" : "png";
-        form.append(
-          "areaArts",
-          new File([aBlob], `area-art-${areaArtCount}.${ext}`, { type: aBlob.type || "image/png" }),
-        );
-        areaArtCount += 1;
+        const named = new File([aBlob], `area-art-${i}-${placementsMeta.length}.${ext}`, {
+          type: aBlob.type || "image/png",
+        });
+        row.areaArts.push(named);
+        row.byteSize += named.size;
         placementsMeta.push({ ...rest, hasArtwork: true });
       } else if (artworkDataUrl && !artworkDataUrl.startsWith("data:") && !artworkDataUrl.startsWith("blob:")) {
-        // Already-hosted URL (edit flow) — persist as-is.
         placementsMeta.push({ ...rest, artworkUrl: resolveMediaUrl(artworkDataUrl) || artworkDataUrl });
       } else {
         placementsMeta.push(rest);
       }
     }
-    meta.push({
-      catalogProductId: item.catalogProductId,
-      ...(item.placement ? { placement: item.placement } : {}),
-      ...(placementsMeta.length ? { placements: placementsMeta } : {}),
-      ...(item.printSpec ? { printSpec: item.printSpec } : {}),
-      ...(hasDesignOnly ? { hasDesignOnly: true } : {}),
-      ...(hasMockupBack ? { hasMockupBack: true } : {}),
-    });
+    if (placementsMeta.length) row.meta.placements = placementsMeta;
+    prepared.push(row);
   }
-  if (!meta.length) return null;
+  return prepared;
+}
+
+function formFromPreparedMockups(batch: PreparedCollectionMockup[]): FormData {
+  const form = new FormData();
+  const meta: MockupMetaItem[] = [];
+  let backCount = 0;
+  for (const row of batch) {
+    form.append("mockups", row.mockup);
+    if (row.mockupBack) {
+      form.append(
+        "mockupsBack",
+        new File([row.mockupBack], `mockup-back-${backCount}.png`, { type: row.mockupBack.type }),
+      );
+      backCount += 1;
+    }
+    if (row.designOnly) form.append("designOnly", row.designOnly);
+    for (const art of row.areaArts) {
+      form.append("areaArts", art);
+    }
+    meta.push(row.meta);
+  }
   form.append("meta", JSON.stringify(meta));
-  const col = await apiFetch<Record<string, unknown>>(`/collections/${collectionId}/mockups`, {
-    method: "POST",
-    body: form,
-  });
-  return mapCollection(col, "", catalogById);
+  return form;
+}
+
+export async function uploadCollectionMockupsApi(
+  collectionId: string,
+  items: MockupUploadItem[],
+  catalogById?: Map<string, UiProduct>,
+  options?: { budgetBytes?: number },
+) {
+  const prepared = await prepareCollectionMockups(items);
+  if (!prepared.length) return null;
+
+  // Backend merges each POST into productRefs, so batches stay additive.
+  const batches = chunkBySize(prepared, (row) => row.byteSize, options?.budgetBytes);
+  let mapped: ReturnType<typeof mapCollection> | null = null;
+  for (const batch of batches) {
+    const col = await apiFetch<Record<string, unknown>>(`/collections/${collectionId}/mockups`, {
+      method: "POST",
+      body: formFromPreparedMockups(batch),
+    });
+    mapped = mapCollection(col, "", catalogById);
+  }
+  return mapped;
 }
 
 export async function linkCollectionToShopApi(collectionId: string, shopId: string) {
@@ -820,6 +865,7 @@ export async function addProductToShopApi(payload: {
 
 export async function createCollectionApi(payload: {
   shopId?: string;
+  shopIds?: string[];
   name: string;
   pickedIndices: number[];
   catalog: UiProduct[];
@@ -866,9 +912,16 @@ export async function createCollectionApi(payload: {
       }
       result = withMockups;
     }
+    const shopIds = [...new Set((payload.shopIds || []).filter(Boolean))];
+    if (shopIds.length) {
+      await apiFetch(`/collections/${result.id}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ shopIds }),
+      });
+    }
     return result;
   } catch (err) {
-    // Create runs before artwork/mockup uploads — remove the orphan so a failed
+    // Create runs before artwork/mockup/publish — remove the orphan so a failed
     // design never shows up in Branded Swag / shop UI.
     if (createdId) await rollbackFailedCollection(createdId);
     throw err;

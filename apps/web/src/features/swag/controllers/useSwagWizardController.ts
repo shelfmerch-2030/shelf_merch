@@ -22,10 +22,12 @@ import {
   type SwagAction,
   type SwagDraft,
 } from "../swagDraft";
+import { acquirePublishLock, releasePublishLock } from "./publishLock";
 
 export type SwagWizardVm = {
   isLoading: boolean;
   isWorking: boolean;
+  workingLabel: string;
   isEditing: boolean;
   draft: SwagDraft;
   dispatch: Dispatch<SwagAction>;
@@ -53,6 +55,8 @@ export function useSwagWizardController(): SwagWizardVm {
   const updateCollection = useUpdateCollection();
   const syncPublish = useSyncCollectionPublish();
   const [working, setWorking] = useState(false);
+  const [workingLabel, setWorkingLabel] = useState("Publishing…");
+  const publishingRef = useRef(false);
   const [pickedShops, setPickedShops] = useState<Set<string>>(() =>
     shopId ? new Set([shopId]) : new Set(),
   );
@@ -123,11 +127,14 @@ export function useSwagWizardController(): SwagWizardVm {
   }
 
   async function onPublish() {
+    if (!acquirePublishLock(publishingRef)) return;
     if (!pickedShops.size) {
+      releasePublishLock(publishingRef);
       toast.error("Select at least one shop");
       return;
     }
 
+    setWorkingLabel("Generating product designs…");
     setWorking(true);
     try {
       const fallbackArt = draft.art?.preview || "";
@@ -194,6 +201,11 @@ export function useSwagWizardController(): SwagWizardVm {
         throw new Error("Failed to generate designs for all products — try again");
       }
 
+      const shopIds = [...pickedShops].filter((id) => shops.some((s) => s.id === id));
+      if (!shopIds.length) {
+        throw new Error("Select at least one shop");
+      }
+
       const payload = {
         name: draft.name || "New collection",
         pickedIndices: draft.picked,
@@ -204,16 +216,23 @@ export function useSwagWizardController(): SwagWizardVm {
         mockups,
       };
 
+      setWorkingLabel(
+        mockups.length > 1 ? "Saving product designs…" : "Saving product design…",
+      );
+
       const col = editCollectionId
         ? await updateCollection.mutateAsync({ collectionId: editCollectionId, ...payload })
-        : await createCollection.mutateAsync(payload);
+        : await createCollection.mutateAsync({ ...payload, shopIds });
 
-      await syncPublish.mutateAsync({
-        collectionId: col.id,
-        shopIds: [...pickedShops].filter((id) => shops.some((s) => s.id === id)),
-      });
+      if (editCollectionId) {
+        setWorkingLabel("Publishing to shop…");
+        await syncPublish.mutateAsync({
+          collectionId: col.id,
+          shopIds,
+        });
+      }
 
-      const publishedCount = [...pickedShops].filter((id) => shops.some((s) => s.id === id)).length;
+      const publishedCount = shopIds.length;
       toast.success(
         `Published "${col.name}" to ${publishedCount} ${publishedCount === 1 ? "shop" : "shops"}`,
       );
@@ -221,6 +240,7 @@ export function useSwagWizardController(): SwagWizardVm {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to generate and publish");
     } finally {
+      releasePublishLock(publishingRef);
       setWorking(false);
     }
   }
@@ -231,6 +251,7 @@ export function useSwagWizardController(): SwagWizardVm {
       (isRefreshingCatalog && catalog.length === 0) ||
       (Boolean(editCollectionId) && !hydratedEditId.current && Boolean(editCollection)),
     isWorking: working,
+    workingLabel,
     isEditing: Boolean(editCollectionId),
     draft,
     dispatch,

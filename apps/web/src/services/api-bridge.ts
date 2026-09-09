@@ -522,6 +522,7 @@ export async function uploadKitArtworkFlow(
 
 export async function createCollectionFlow(payload: {
   shopId?: string;
+  shopIds?: string[];
   name: string;
   pickedIndices: number[];
   catalog: UiProduct[];

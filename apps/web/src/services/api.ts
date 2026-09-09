@@ -1,4 +1,4 @@
-import { formatErrorDetails } from "@/lib/errorMessage";
+import { formatErrorDetails, messageFromGatewayResponse } from "@/lib/errorMessage";
 import { API_BASE } from "./config";
 import {
   clearSession,
@@ -39,7 +39,7 @@ async function parseBody(res: Response): Promise<unknown> {
   }
 }
 
-function errorFromResponse(status: number, body: unknown): ApiError {
+export function errorFromResponse(status: number, body: unknown): ApiError {
   const apiError =
     body && typeof body === "object" && "error" in body
       ? (
@@ -72,6 +72,17 @@ function errorFromResponse(status: number, body: unknown): ApiError {
     }
     return new ApiError(status, message, apiError.code || "API_ERROR", body);
   }
+
+  const gatewayMessage = messageFromGatewayResponse(status, body);
+  if (gatewayMessage) {
+    return new ApiError(
+      status,
+      gatewayMessage,
+      status === 413 ? "PAYLOAD_TOO_LARGE" : "GATEWAY_ERROR",
+      body,
+    );
+  }
+
   return new ApiError(status, typeof body === "string" && body.trim() ? body : "Request failed");
 }
 

@@ -202,16 +202,30 @@ export async function syncCollectionPublishTargets(collectionId, tenantId, targe
     return ids.map(String);
   };
 
+  const added = [];
+  try {
+    for (const shopId of target) {
+      if (!linkedShopIds().includes(shopId)) {
+        await publishCollectionToShop(shopId, tenantId, collection);
+        collection = await Collection.findOne({ _id: collectionId, tenantId });
+        added.push(shopId);
+      }
+    }
+  } catch (err) {
+    for (const shopId of added) {
+      try {
+        collection = await Collection.findOne({ _id: collectionId, tenantId });
+        if (collection) await unpublishCollectionFromShop(shopId, tenantId, collection);
+      } catch {
+        // Best-effort rollback of shops added in this call.
+      }
+    }
+    throw err;
+  }
+
   for (const shopId of linkedShopIds()) {
     if (!target.has(shopId)) {
       await unpublishCollectionFromShop(shopId, tenantId, collection);
-      collection = await Collection.findOne({ _id: collectionId, tenantId });
-    }
-  }
-
-  for (const shopId of target) {
-    if (!linkedShopIds().includes(shopId)) {
-      await publishCollectionToShop(shopId, tenantId, collection);
       collection = await Collection.findOne({ _id: collectionId, tenantId });
     }
   }

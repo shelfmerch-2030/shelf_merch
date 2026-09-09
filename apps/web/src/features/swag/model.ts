@@ -18,6 +18,7 @@ export type { UiCollection, UiProduct, UiShop } from "@/services/mappers";
 
 export type CreateCollectionInput = {
   shopId?: string;
+  shopIds?: string[];
   name: string;
   pickedIndices: number[];
   catalog: UiProduct[];
