@@ -8,6 +8,7 @@ import { Flexibility } from "./landing/Flexibility";
 import { Footer } from "./landing/Footer";
 import { Header } from "./landing/Header";
 import { Hero } from "./landing/Hero";
+import { MerchPlan } from "./landing/MerchPlan";
 import { Occasions } from "./landing/Occasions";
 import { Offerings } from "./landing/Offerings";
 import { Production } from "./landing/Production";
@@ -35,6 +36,7 @@ export default function LandingPage() {
         <FestiveBanner />
         <Occasions />
         <Flexibility />
+        <MerchPlan />
         <Testimonials />
         <FinalCTA />
         <Footer />

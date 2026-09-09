@@ -3,7 +3,7 @@ import { Link } from "react-router";
 
 export function FinalCTA() {
   return (
-    <section className="final-cta" id="contact">
+    <section className="final-cta" id="final-cta">
       <div className="cta-shape cta-shape-one" />
       <div className="cta-shape cta-shape-two" />
       <span className="kicker light">READY WHEN YOU ARE</span>

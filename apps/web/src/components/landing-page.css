@@ -790,3 +790,297 @@
   }
 }
 
+.shelf-landing .landing-plan {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 0.9fr) minmax(420px, 1fr);
+  gap: clamp(28px, 3.8vw, 68px);
+  align-items: center;
+  min-height: 680px;
+  padding: 74px 4.25vw;
+  overflow: hidden;
+  background: var(--blue);
+  color: #fff;
+}
+
+.shelf-landing .landing-plan::before,
+.shelf-landing .landing-plan::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.shelf-landing .landing-plan::before {
+  width: 250px;
+  height: 250px;
+  left: -54px;
+  top: 36px;
+  background: var(--coral);
+}
+
+.shelf-landing .landing-plan::after {
+  width: 280px;
+  height: 280px;
+  left: 14vw;
+  bottom: -112px;
+  background: var(--lilac);
+}
+
+.shelf-landing .landing-plan__image {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  min-height: 520px;
+  margin-left: -4.25vw;
+  overflow: hidden;
+  border-radius: 0 34px 34px 0;
+}
+
+.shelf-landing .landing-plan__image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 57% center;
+}
+
+.shelf-landing .landing-plan__copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.shelf-landing .landing-plan__copy h2 {
+  margin: 0;
+  font-size: clamp(52px, 5vw, 86px);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  font-weight: 850;
+}
+
+.shelf-landing .landing-plan__copy h2 em {
+  display: block;
+  margin-top: 10px;
+  color: var(--yellow);
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 0.76em;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.shelf-landing .landing-plan__highlights {
+  display: grid;
+  gap: 22px;
+  margin: 42px 0 30px;
+  padding: 0;
+  list-style: none;
+}
+
+.shelf-landing .landing-plan__highlights li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.shelf-landing .landing-plan__highlights span {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  color: var(--yellow);
+}
+
+.shelf-landing .landing-plan__email {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.78);
+  padding-bottom: 8px;
+}
+
+.shelf-landing .landing-plan__email:hover {
+  color: var(--yellow);
+  border-color: var(--yellow);
+}
+
+.shelf-landing .landing-plan__form-card {
+  position: relative;
+  z-index: 2;
+  padding: clamp(26px, 3vw, 36px);
+  border-radius: 24px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__field label {
+  color: #050505;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__field input,
+.shelf-landing .landing-plan__form-card .request-demo__field select {
+  height: 60px;
+  border-color: #d4dae5;
+  border-radius: 8px;
+  background: #fff;
+  color: #141414;
+  font-size: 18px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__submit {
+  min-height: 63px;
+  margin-top: 2px;
+  padding: 0 28px;
+  justify-content: center;
+  gap: 18px;
+  background: #151515;
+  font-size: 18px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__submit > span {
+  width: auto;
+  height: auto;
+  background: transparent;
+  color: #fff;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__consent {
+  margin-top: -4px;
+  text-align: left;
+  color: #666;
+  font-size: 13px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__whatsapp-button {
+  min-height: 63px;
+  font-size: 18px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__commitment {
+  display: none;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success {
+  min-height: 0;
+}
+
+.shelf-landing .landing-plan__floating-whatsapp {
+  position: absolute;
+  right: -8px;
+  bottom: 26px;
+  z-index: 4;
+  min-height: 66px;
+  padding: 0 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px solid #fff;
+  border-radius: 999px 0 0 999px;
+  background: #25ad63;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 850;
+  text-decoration: none;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.2);
+}
+
+.shelf-landing .landing-plan__floating-whatsapp:hover {
+  background: #20a15b;
+}
+
+@media (max-width: 1180px) {
+  .shelf-landing .landing-plan {
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1fr);
+  }
+
+  .shelf-landing .landing-plan__image {
+    grid-row: span 2;
+  }
+
+  .shelf-landing .landing-plan__copy h2 {
+    font-size: clamp(48px, 7vw, 76px);
+  }
+
+  .shelf-landing .landing-plan__form-card {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 860px) {
+  .shelf-landing .landing-plan {
+    grid-template-columns: 1fr;
+    padding: 52px 5vw 82px;
+  }
+
+  .shelf-landing .landing-plan::before {
+    width: 170px;
+    height: 170px;
+    top: 22px;
+  }
+
+  .shelf-landing .landing-plan::after {
+    left: auto;
+    right: -90px;
+    bottom: 38%;
+  }
+
+  .shelf-landing .landing-plan__image {
+    grid-row: auto;
+    min-height: 360px;
+    margin: 0 -5vw;
+    border-radius: 0;
+  }
+
+  .shelf-landing .landing-plan__form-card {
+    grid-column: auto;
+  }
+
+  .shelf-landing .landing-plan__floating-whatsapp {
+    right: 16px;
+    bottom: 16px;
+    min-height: 52px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 560px) {
+  .shelf-landing .landing-plan__copy h2 {
+    font-size: clamp(42px, 14vw, 58px);
+  }
+
+  .shelf-landing .landing-plan__copy h2 em {
+    font-size: 0.72em;
+  }
+
+  .shelf-landing .landing-plan__highlights li,
+  .shelf-landing .landing-plan__email {
+    font-size: 16px;
+  }
+
+  .shelf-landing .landing-plan__form-card {
+    padding: 22px 16px;
+  }
+
+  .shelf-landing .landing-plan__form-card .request-demo__field input,
+  .shelf-landing .landing-plan__form-card .request-demo__field select {
+    font-size: 16px;
+  }
+}
+
