@@ -22,7 +22,7 @@ describe("request demo form model", () => {
 
     const href = buildRequestDemoWhatsAppHref(message);
 
-    expect(decodeURIComponent(href)).toContain("https://wa.me/917801087402?text=");
+    expect(decodeURIComponent(href)).toContain("https://wa.me/917337221188?text=");
     expect(decodeURIComponent(href)).toContain("Full name: Priya Shah");
     expect(decodeURIComponent(href)).toContain("Requirement: Employee Onboarding Kits");
   });

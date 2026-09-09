@@ -32,7 +32,7 @@ export const requestDemoNextSteps = [
   "We schedule a personalised platform demo",
 ];
 
-const REQUEST_DEMO_WHATSAPP_PHONE = "917801087402";
+const REQUEST_DEMO_WHATSAPP_PHONE = "917337221188";
 
 export function getRequestDemoFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] || "there";
