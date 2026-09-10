@@ -3231,6 +3231,7 @@ button.thumb{font:inherit;color:inherit}
   padding:36px 40px;
 }
 .kt-pkg-options{display:flex;flex-direction:column;gap:14px}
+.kt-pkg-options-embed{margin-top:8px}
 .kt-pkg-option{
   display:flex;gap:16px;padding:18px 20px;border:1.5px solid var(--line);border-radius:var(--r);
   cursor:pointer;transition:.18s;background:#fff;align-items:center;font:inherit;text-align:left;width:100%

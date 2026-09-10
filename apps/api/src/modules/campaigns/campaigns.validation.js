@@ -23,6 +23,8 @@ export const createCampaignSchema = z.object({
   selectedProductIds: z.array(objectId).optional().default([]),
   kitId: objectId.nullable().optional().default(null),
   shopId: objectId.nullable().optional().default(null),
+  isSample: z.boolean().optional().default(false),
+  brandingEnabled: z.boolean().optional().default(false),
   pointsScope: z.enum(['stadium', 'shop']).optional().default('shop'),
   message: z
     .object({
@@ -66,7 +68,7 @@ export const importRecipientsSchema = z.object({
   /** Checkout total in INR — required for kit/items wallet debit on launch. */
   totalBudget: z.number().positive().optional(),
   /** Packaging choice for kit sends — used to recompute server-side totals. */
-  packaging: z.enum(['none', 'box']).optional(),
+  packaging: z.enum(['none', 'box', 'wrap']).optional(),
 });
 
 export const allocateCreditsSchema = z.object({

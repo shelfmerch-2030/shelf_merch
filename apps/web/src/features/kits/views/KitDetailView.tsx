@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ArrowLeft, Box, CheckCircle2, Pencil, Send } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
@@ -8,6 +8,7 @@ import type { KitDetailVm } from "../controllers/useKitDetailController";
 
 /** Kit detail page: header, artwork/status summary, included products grid. */
 export function KitDetailView(vm: KitDetailVm) {
+  const navigate = useNavigate();
   if (vm.isLoading) {
     return <LoadingState message="Loading kit..." fullScreen={false} />;
   }
@@ -54,6 +55,15 @@ export function KitDetailView(vm: KitDetailVm) {
               <Link to={`/app/kits/${kit.id}/edit`} className="btn btn-ghost">
                 <Pencil size={15} /> Edit kit
               </Link>
+            ) : null}
+            {vm.canSendKit ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => navigate(`/app/kits/${kit.id}/sample`)}
+              >
+                Request a Sample
+              </button>
             ) : null}
             {vm.canSendKit ? (
               <Link to={`/app/kits/${kit.id}/send`} className="btn btn-brand">

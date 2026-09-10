@@ -7,7 +7,8 @@ import { Contact } from '../contacts/contact.model.js';
 import { Shop } from '../shops/shop.model.js';
 import { Kit } from '../kits/kit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
-import { customisedKitSendTotals, curatedKitSendTotals, kitSendTotals, sumKitProductPrices } from '../kits/kitPricing.js';
+import { customisedKitSendTotals, curatedKitSendTotals, kitSendTotals, sampleKitSendTotals, sumKitProductPrices } from '../kits/kitPricing.js';
+import { Order } from '../orders/order.model.js';
 import { resolveCuratedApproxValueInr, parseCuratedKitMeta, isCuratedKitMeta } from '../kits/curatedKitMeta.js';
 import { Wallet } from '../wallets/wallet.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
@@ -154,6 +155,8 @@ export async function createCampaign({ tenantId, userId, user, data }) {
     selectedProductIds: data.selectedProductIds ?? [],
     kitId: data.kitId ?? null,
     shopId: data.shopId ?? null,
+    isSample: Boolean(data.isSample),
+    brandingEnabled: Boolean(data.brandingEnabled),
     pointsScope: data.pointsScope ?? 'shop',
     message: data.message ?? {},
     schedule: data.schedule ?? { mode: 'now' },
@@ -354,7 +357,15 @@ export async function importRecipients({
         }
 
         const pkg =
-          packaging === 'none' ? 'none' : packaging === 'box' ? 'box' : kit.packaging === 'none' ? 'none' : 'box';
+          packaging === 'none'
+            ? 'none'
+            : packaging === 'wrap'
+              ? 'wrap'
+              : packaging === 'box'
+                ? 'box'
+                : kit.packaging === 'none'
+                  ? 'none'
+                  : 'box';
         campaign.packaging = pkg;
 
         let computed;
@@ -364,7 +375,18 @@ export async function importRecipients({
           })
             .select('basePriceInr category')
             .lean();
-          computed = customisedKitSendTotals(campaign.recipientCount, pkg, products);
+          computed = campaign.isSample
+            ? sampleKitSendTotals({
+                kind: 'customised',
+                packaging: pkg,
+                products,
+                recipientCount: campaign.recipientCount,
+              })
+            : customisedKitSendTotals(
+                campaign.recipientCount,
+                pkg === 'box' ? 'box' : 'none',
+                products,
+              );
         } else {
           const meta = parseCuratedKitMeta(kit.designNotes);
           let pricePerKit = isCuratedKitMeta(meta)
@@ -378,13 +400,24 @@ export async function importRecipients({
               .lean();
             pricePerKit = sumKitProductPrices(products);
           }
-          computed = curatedKitSendTotals(campaign.recipientCount, pricePerKit, pkg);
+          computed = campaign.isSample
+            ? sampleKitSendTotals({
+                kind: 'pre-designed',
+                packaging: pkg,
+                pricePerKitInr: pricePerKit,
+                recipientCount: campaign.recipientCount,
+              })
+            : curatedKitSendTotals(
+                campaign.recipientCount,
+                pricePerKit,
+                pkg === 'box' ? 'box' : 'none',
+              );
         }
         // Checkout Grand Total is the source of truth when the client sends it;
         // otherwise recompute with the shared formula.
         budget = Math.round(totalBudget ?? 0) > 0 ? Math.round(totalBudget) : Math.round(computed.total);
       }
-    } else if (packaging === 'none' || packaging === 'box') {
+    } else if (packaging === 'none' || packaging === 'box' || packaging === 'wrap') {
       campaign.packaging = packaging;
     }
 
@@ -532,6 +565,7 @@ async function buildInviteContext(campaign, tenantId) {
 /** Deliver invite emails (and mark recipients invited). Safe to call once per campaign. */
 async function sendCampaignInvites(campaign, tenantId) {
   const ctx = await buildInviteContext(campaign, tenantId);
+  if (campaign.isSample) return ctx;
   if (ctx.isSingle) {
     await notify({
       type: 'single_location_gift',
@@ -871,7 +905,17 @@ export async function launchCampaign({
 
   evaluateEntityLowBudgetAlert({ tenantId, entityId: entityFresh._id }).catch(() => {});
 
-  return withCampaignMeta(campaign);
+  const meta = withCampaignMeta(campaign);
+  if (campaign.fulfillmentMode === 'single') {
+    const order = await Order.findOne({ tenantId, campaignId: campaign._id }).select(
+      'orderNumber _id',
+    );
+    if (order) {
+      meta.orderNumber = order.orderNumber;
+      meta.orderId = String(order._id);
+    }
+  }
+  return meta;
 }
 
 export async function closeCampaign({ tenantId, campaignId, user }) {

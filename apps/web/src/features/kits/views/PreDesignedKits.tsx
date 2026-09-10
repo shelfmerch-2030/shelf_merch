@@ -1,7 +1,8 @@
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { PlatformKitTemplate } from "../model";
 import type { PreDesignedKitsVm } from "../controllers/usePreDesignedKitsController";
-import { curatedPreviewBtnStyle, curatedSendBtnStyle } from "../curatedKitCardStyles";
+import { curatedKitPriceStyle, curatedPreviewBtnStyle, curatedSampleBtnStyle, curatedSendBtnStyle } from "../curatedKitCardStyles";
+import { inr } from "@/components/platform/platform-ui";
 import noKitsYetImg from "../../../../assets/no-kits-yet.png";
 
 function templateImage(kit: PlatformKitTemplate): string {
@@ -23,7 +24,9 @@ export function PreDesignedKitsView({
   canSendKits,
   onPreview,
   onSend,
+  onRequestSample,
   sendPending,
+  samplePending,
 }: PreDesignedKitsVm) {
   if (isLoading) {
     return (
@@ -90,21 +93,40 @@ export function PreDesignedKitsView({
           <div className="muted" style={{ fontSize: 11.5, marginBottom: 10, textAlign: "center" }}>
             {templateItemLabel(kit)}
           </div>
-          <div style={{ display: "flex", gap: 8, width: "100%" }}>
+          {Math.round(Number(kit.approxValueInr) || 0) > 0 ? (
+            <div
+              style={{ ...curatedKitPriceStyle, width: "100%", marginBottom: 8 }}
+              aria-label={`Price per kit ${inr(Math.round(Number(kit.approxValueInr) || 0))}`}
+            >
+              {inr(Math.round(Number(kit.approxValueInr) || 0))}
+            </div>
+          ) : null}
+          <div style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
               onClick={() => onPreview(kit)}
-              style={curatedPreviewBtnStyle}
+              style={{ ...curatedPreviewBtnStyle, flex: "1 1 30%" }}
             >
               Preview
             </button>
             {canSendKits ? (
               <button
                 type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => void onRequestSample(kit)}
+                style={{ ...curatedSampleBtnStyle, flex: "1 1 38%" }}
+                disabled={samplePending}
+              >
+                Request a Sample
+              </button>
+            ) : null}
+            {canSendKits ? (
+              <button
+                type="button"
                 className="btn btn-brand btn-sm"
                 onClick={() => void onSend(kit)}
-                style={curatedSendBtnStyle}
+                style={{ ...curatedSendBtnStyle, flex: "1 1 22%" }}
                 disabled={sendPending}
               >
                 Send

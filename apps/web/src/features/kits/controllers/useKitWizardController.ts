@@ -36,6 +36,7 @@ export type KitWizardVm = {
   onStep: (step: KitWizardStep) => void;
   onPublish: () => void;
   onSendPublishedKit: () => void;
+  onRequestSamplePublished: () => void;
   onGoToKits: () => void;
 };
 
@@ -159,6 +160,9 @@ export function useKitWizardController(): KitWizardVm {
     onPublish,
     onSendPublishedKit: () => {
       if (publishedKit) navigate(`/app/kits/${publishedKit.id}/send`);
+    },
+    onRequestSamplePublished: () => {
+      if (publishedKit) navigate(`/app/kits/${publishedKit.id}/sample`);
     },
     onGoToKits: () => navigate("/app/kits"),
   };

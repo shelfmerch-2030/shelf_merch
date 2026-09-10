@@ -1,5 +1,13 @@
 /** Premium packaging charge per recipient (INR). */
 export const PREMIUM_BOX_PER_RECIP = 49;
+/** Sample / curated wrapping charge per kit (INR). */
+export const SAMPLE_WRAP_PER_KIT = 35;
+/** @deprecated Prefer SAMPLE_WRAP_PER_KIT — curated sample wrapping. */
+export const SAMPLE_PRECURATED_BOX_PER_KIT = SAMPLE_WRAP_PER_KIT;
+/** Sample shipping charged per kit (INR). */
+export const SAMPLE_SHIP_PER_KIT = 50;
+/** Sample branding is always free. */
+export const SAMPLE_BRANDING_PER_KIT = 0;
 const SERVICE_FEE_RATE = 0.12;
 const SHIP_PER_RECIP = 120;
 const GST_RATE = 0.18;
@@ -183,6 +191,90 @@ export function customisedKitSendTotals(
     itemsSubtotal,
     kitGstRate,
     taxablePerKit,
+  };
+}
+
+export type SampleKitKind = "pre-designed" | "customised";
+
+export type SampleKitSendTotals = KitSendTotals & {
+  branding: number;
+};
+
+export type SamplePackaging = "none" | "box" | "wrap";
+
+function normalizeSamplePackaging(packaging: string | undefined): SamplePackaging {
+  if (packaging === "wrap" || packaging === "box") return packaging;
+  return "none";
+}
+
+/**
+ * Sample-order totals: reuse kit GST math, then add ₹50 shipping.
+ * Wrapping is ₹35; customised packaging (box) reuses ₹49.
+ * Branding is always ₹0 and is not taxed.
+ */
+export function sampleKitSendTotals(opts: {
+  kind: SampleKitKind;
+  packaging: SamplePackaging;
+  pricePerKitInr?: number;
+  products?: PricedCatalogProduct[];
+  recipientCount?: number;
+}): SampleKitSendTotals {
+  const qty = Math.max(1, Math.round(Number(opts.recipientCount) || 1));
+  const pkg = normalizeSamplePackaging(opts.packaging);
+
+  let totals: KitSendTotals;
+  if (opts.kind === "customised") {
+    if (pkg === "wrap") {
+      const base = customisedKitSendTotals(qty, "none", opts.products || []);
+      const pkgPerKit = SAMPLE_WRAP_PER_KIT;
+      const taxablePerKit = (base.itemsSubtotal ?? base.unitPrice) + pkgPerKit;
+      const kitGstRate = base.kitGstRate ?? GST_RATE;
+      const taxPerKit = Math.ceil(taxablePerKit * kitGstRate);
+      const costPerKit = taxablePerKit + taxPerKit;
+      totals = {
+        ...base,
+        pkgPerKit,
+        costPerKit,
+        sub: taxablePerKit * qty,
+        pkgCost: pkgPerKit * qty,
+        tax: taxPerKit * qty,
+        total: costPerKit * qty,
+        taxablePerKit,
+      };
+    } else {
+      totals = customisedKitSendTotals(qty, pkg === "box" ? "box" : "none", opts.products || []);
+    }
+  } else {
+    const kitIncl = Math.max(0, Math.round(Number(opts.pricePerKitInr) || 0));
+    const kitBase = kitIncl > 0 ? Math.round(kitIncl / (1 + GST_RATE)) : 0;
+    // Curated samples use wrapping (₹35). Legacy "box" maps to the same charge.
+    const pkgPerKit = pkg === "wrap" || pkg === "box" ? SAMPLE_WRAP_PER_KIT : 0;
+    const taxablePerKit = kitBase + pkgPerKit;
+    const taxPerKit = Math.ceil(taxablePerKit * GST_RATE);
+    const costPerKit = taxablePerKit + taxPerKit;
+    totals = {
+      qty,
+      unitPrice: kitBase,
+      pkgPerKit,
+      costPerKit,
+      sub: taxablePerKit * qty,
+      pkgCost: pkgPerKit * qty,
+      fee: 0,
+      ship: 0,
+      tax: taxPerKit * qty,
+      total: costPerKit * qty,
+      kitGstRate: GST_RATE,
+      itemsSubtotal: kitBase,
+      taxablePerKit,
+    };
+  }
+
+  const ship = SAMPLE_SHIP_PER_KIT * qty;
+  return {
+    ...totals,
+    ship,
+    branding: SAMPLE_BRANDING_PER_KIT * qty,
+    total: totals.total + ship,
   };
 }
 

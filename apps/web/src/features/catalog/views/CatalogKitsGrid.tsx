@@ -3,6 +3,7 @@ import { inr } from "@/components/platform/platform-ui";
 import {
   curatedKitPriceStyle,
   curatedPreviewBtnStyle,
+  curatedSampleBtnStyle,
   curatedSendBtnStyle,
 } from "@/features/kits/curatedKitCardStyles";
 import type { CatalogKitsVm } from "../controllers/useCatalogKitsController";
@@ -98,26 +99,40 @@ export function CatalogKitsGrid(vm: CatalogKitsVm) {
               <div className="muted" style={{ fontSize: 11.5, marginBottom: 10, textAlign: "center" }}>
                 {kit.subtitle}
               </div>
-              <div style={{ display: "flex", gap: 8, width: "100%", alignItems: "center" }}>
+              {kit.pricePerKitInr != null && kit.pricePerKitInr > 0 ? (
+                <div
+                  style={{ ...curatedKitPriceStyle, width: "100%", marginBottom: 8 }}
+                  aria-label={`Price per kit ${inr(kit.pricePerKitInr)}`}
+                >
+                  {inr(kit.pricePerKitInr)}
+                </div>
+              ) : null}
+              <div style={{ display: "flex", gap: 8, width: "100%", alignItems: "center", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => vm.onPreview(kit)}
-                  style={curatedPreviewBtnStyle}
+                  style={{ ...curatedPreviewBtnStyle, flex: "1 1 30%" }}
                 >
                   Preview
                 </button>
-                {kit.pricePerKitInr != null && kit.pricePerKitInr > 0 ? (
-                  <div style={curatedKitPriceStyle} aria-label={`Price per kit ${inr(kit.pricePerKitInr)}`}>
-                    {inr(kit.pricePerKitInr)}
-                  </div>
+                {vm.canSendKits ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => void vm.onRequestSample(kit)}
+                    style={{ ...curatedSampleBtnStyle, flex: "1 1 38%" }}
+                    disabled={vm.samplePending}
+                  >
+                    Request a Sample
+                  </button>
                 ) : null}
                 {vm.canSendKits ? (
                   <button
                     type="button"
                     className="btn btn-brand btn-sm"
                     onClick={() => void vm.onSend(kit)}
-                    style={curatedSendBtnStyle}
+                    style={{ ...curatedSendBtnStyle, flex: "1 1 22%" }}
                     disabled={vm.sendPending}
                   >
                     Send

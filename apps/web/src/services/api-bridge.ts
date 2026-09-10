@@ -651,7 +651,7 @@ export async function launchKitCampaignFlow(payload: {
   kitId: string;
   name: string;
   totalBudget?: number;
-  packaging?: "none" | "box";
+  packaging?: "none" | "box" | "wrap";
   fulfillmentMode?: "redeem" | "surprise" | "single";
   singleLocation?: {
     name: string;
@@ -669,14 +669,18 @@ export async function launchKitCampaignFlow(payload: {
   contactIds: string[];
   contacts: Array<{ id: string; name: string; email: string; phone?: string }>;
   recipVariants?: Record<string, Record<string, { size?: string; color?: string; variantImage?: string }>>;
+  isSample?: boolean;
+  brandingEnabled?: boolean;
 }) {
   const recipients = payload.contactIds
     .map((id) => {
       if (id.startsWith("email:")) {
         const email = id.slice("email:".length);
+        const extra = payload.contacts.find((c) => c.id === id || c.email === email);
         return {
-          name: email.split("@")[0] || email,
+          name: extra?.name || email.split("@")[0] || email,
           email,
+          phone: extra?.phone,
           variants: payload.recipVariants?.[id],
         };
       }
@@ -704,6 +708,8 @@ export async function launchKitCampaignFlow(payload: {
     message: payload.message,
     schedule: payload.schedule,
     recipients,
+    isSample: payload.isSample,
+    brandingEnabled: payload.brandingEnabled,
   });
 }
 

@@ -28,6 +28,7 @@ import {
 } from "../KitPreviewDialog";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { KitsVm } from "../controllers/useKitsController";
+import { useStartSampleOrder } from "../sample/useStartSampleOrder";
 import { KitsEmptyState } from "./KitsEmptyState";
 import kitPreviewImg from "../../../../assets/kit-preview.png";
 import noKitsYetImg from "../../../../assets/no-kits-yet.png";
@@ -314,6 +315,7 @@ export function KitsView(vm: KitsVm) {
   const updateKit = useUpdateKit();
   const createKit = useCreateKit();
   const ensureCuratedKit = useEnsureCuratedKit();
+  const sampleOrder = useStartSampleOrder();
   const { data: platformKits } = usePlatformKits();
   const catalog = workspace?.catalogProducts ?? [];
 
@@ -987,6 +989,23 @@ export function KitsView(vm: KitsVm) {
                       >
                         Preview
                       </button>
+
+                      {canSendKits && (
+                        <button
+                          type="button"
+                          className="kits-row-btn"
+                          onClick={() => {
+                            if (row.platformKit) {
+                              void sampleOrder.startFromPlatformKit(row.platformKit, row.kit);
+                            } else {
+                              sampleOrder.startFromWorkspaceKit(row.kit);
+                            }
+                          }}
+                          disabled={sampleOrder.pending}
+                        >
+                          Request a Sample
+                        </button>
+                      )}
 
                       {canSendKits && (
                         <button

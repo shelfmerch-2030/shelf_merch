@@ -219,6 +219,8 @@ export type UiCampaign = {
   creditsPerRecipient: number;
   pointsScope?: "stadium" | "shop";
   messageBody?: string;
+  orderNumber?: string;
+  orderId?: string;
   draftState?: {
     step?: 0 | 1 | 2 | 3;
     selectedWalletId?: string;
@@ -760,6 +762,13 @@ export function mapCampaign(c: ApiProduct): UiCampaign {
       typeof (c as { message?: { body?: unknown } }).message?.body === "string"
         ? String((c as { message?: { body?: string } }).message?.body || "")
         : undefined,
+    orderNumber:
+      typeof (c as { orderNumber?: unknown }).orderNumber === "string"
+        ? String((c as { orderNumber?: string }).orderNumber)
+        : undefined,
+    orderId: (c as { orderId?: unknown }).orderId
+      ? String((c as { orderId?: string }).orderId)
+      : undefined,
     draftState,
   };
 }

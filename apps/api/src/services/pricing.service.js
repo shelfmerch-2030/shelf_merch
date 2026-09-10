@@ -6,6 +6,7 @@ import {
   curatedKitSendTotals,
   customisedKitSendTotals,
   kitSendTotals,
+  sampleKitSendTotals,
 } from '../modules/kits/kitPricing.js';
 
 export const SERVICE_FEE_RATE = 0.12;
@@ -74,16 +75,29 @@ export function amountBreakdownForKitCampaign(campaign, opts = {}) {
   const campaignRecipients = Math.max(1, Number(campaign?.recipientCount) || 1);
   const orderKitCount = Math.max(1, Number(opts.orderKitCount) || 1);
   const pkg =
-    opts.packaging === 'box' || opts.packaging === 'none'
+    opts.packaging === 'box' || opts.packaging === 'none' || opts.packaging === 'wrap'
       ? opts.packaging
-      : campaign?.packaging === 'box'
-        ? 'box'
+      : campaign?.packaging === 'box' || campaign?.packaging === 'wrap'
+        ? campaign.packaging
         : 'none';
   const unitPrice = Math.round(Number(opts.kitUnitPriceInr) || 0);
 
   let breakdown;
-  if (Array.isArray(opts.products) && opts.products.length) {
-    breakdown = breakdownFromTotals(customisedKitSendTotals(orderKitCount, pkg, opts.products));
+  if (campaign?.isSample) {
+    const kind = Array.isArray(opts.products) && opts.products.length ? 'customised' : 'pre-designed';
+    breakdown = breakdownFromTotals(
+      sampleKitSendTotals({
+        kind,
+        packaging: pkg,
+        pricePerKitInr: unitPrice,
+        products: opts.products,
+        recipientCount: orderKitCount,
+      }),
+    );
+  } else if (Array.isArray(opts.products) && opts.products.length) {
+    breakdown = breakdownFromTotals(
+      customisedKitSendTotals(orderKitCount, pkg === 'box' ? 'box' : 'none', opts.products),
+    );
   } else if (opts.gstInclusive === false) {
     breakdown = breakdownFromTotals(
       kitSendTotals(orderKitCount, pkg === 'box' ? 'box' : 'none', unitPrice),

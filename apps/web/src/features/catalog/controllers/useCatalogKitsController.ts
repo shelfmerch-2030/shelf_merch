@@ -16,6 +16,7 @@ import {
   gateWalletForCuratedKitSend,
   insufficientFundsMessage,
 } from "@/features/kits/curatedKitWalletGate";
+import { useStartSampleOrder } from "@/features/kits/sample/useStartSampleOrder";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiKit } from "@/services/mappers";
 import {
@@ -48,7 +49,9 @@ export type CatalogKitsVm = {
   onPreviewOpenChange: (open: boolean) => void;
   onPreview: (kit: CatalogKitCard) => void;
   onSend: (kit: CatalogKitCard) => void;
+  onRequestSample: (kit: CatalogKitCard) => void;
   sendPending: boolean;
+  samplePending: boolean;
   suppressEmptyState?: boolean;
 };
 
@@ -132,6 +135,7 @@ export function useCatalogKitsController(
   const { canSendKits } = useTenantAccess();
   const { data: workspace } = useWorkspace();
   const ensureCuratedKit = useEnsureCuratedKit();
+  const sampleOrder = useStartSampleOrder();
   const [kitPreview, setKitPreview] = useState<KitPreviewData | null>(null);
 
   const catalog = workspace?.catalogProducts ?? [];
@@ -243,6 +247,19 @@ export function useCatalogKitsController(
     [workspace, catalog, ensureCuratedKit, navigate],
   );
 
+  const onRequestSample = useCallback(
+    async (kit: CatalogKitCard) => {
+      if (kit.workspaceKit) {
+        sampleOrder.startFromWorkspaceKit(kit.workspaceKit);
+        return;
+      }
+      if (kit.platformKit) {
+        await sampleOrder.startFromPlatformKit(kit.platformKit);
+      }
+    },
+    [sampleOrder],
+  );
+
   return {
     isLoading,
     errorMessage: isError
@@ -260,6 +277,8 @@ export function useCatalogKitsController(
     },
     onPreview,
     onSend,
+    onRequestSample,
     sendPending: ensureCuratedKit.isPending,
+    samplePending: sampleOrder.pending,
   };
 }
