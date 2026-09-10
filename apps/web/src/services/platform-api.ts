@@ -431,6 +431,9 @@ export type DemoLeadRow = {
   requirement?: string | null;
   status: string;
   source?: string;
+  confirmationEmailSentAt?: string | null;
+  signupInviteSentAt?: string | null;
+  signupInviteCount?: number;
   createdAt: string;
   updatedAt?: string;
 };
@@ -446,6 +449,39 @@ export async function fetchPlatformDemoLeads(limit = 100) {
     page: res.pagination?.page ?? 1,
     limit: res.pagination?.limit ?? limit,
   };
+}
+
+export type SignupInviteResult = {
+  email: string;
+  allowlisted: boolean;
+  inviteSent: boolean;
+  signupUrl: string;
+  lead: {
+    id: string;
+    status: string;
+    signupInviteSentAt?: string | null;
+    signupInviteCount?: number;
+  } | null;
+};
+
+/** Allowlist a lead email and send the /signup invite email. */
+export async function inviteDemoLeadSignup(leadId: string) {
+  return apiFetch<SignupInviteResult>(`/platform/demo-leads/${leadId}/invite-signup`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/** Allowlist any email and send the /signup invite email. */
+export async function inviteSignupByEmail(payload: {
+  email: string;
+  fullName?: string;
+  companyName?: string;
+}) {
+  return apiFetch<SignupInviteResult>(`/platform/demo-leads/invite-signup`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function fetchProductionBoard() {

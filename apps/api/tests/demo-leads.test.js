@@ -100,4 +100,63 @@ describe('demo leads', () => {
 
     expect(res.status).toBe(403);
   });
+
+  it('lets sales whitelist a lead email and send a signup invite', async () => {
+    const lead = await DemoLead.create({
+      fullName: 'Asha Sharma',
+      companyName: 'Acme India',
+      workEmail: 'asha@acme.in',
+      mobileNumber: '+91 98765 43210',
+      requirement: 'Employee Onboarding Kits',
+    });
+    const sales = await makeUser(null, 'platform_sales_manager', 'platform');
+
+    const res = await request(app)
+      .post(`/api/v1/platform/demo-leads/${lead._id}/invite-signup`)
+      .set(auth(sales.token));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      email: 'asha@acme.in',
+      allowlisted: true,
+      inviteSent: true,
+    });
+    expect(res.body.signupUrl).toContain('/signup?');
+    expect(res.body.signupUrl).toContain('email=asha%40acme.in');
+    expect(res.body.lead.status).toBe('contacted');
+
+    const { getEmailAllowlist } = await import('../src/modules/auth/workEmail.js');
+    expect(await getEmailAllowlist()).toContain('asha@acme.in');
+
+    const refreshed = await DemoLead.findById(lead._id).lean();
+    expect(refreshed.status).toBe('contacted');
+    expect(refreshed.signupInviteSentAt).toBeTruthy();
+    expect(refreshed.signupInviteCount).toBe(1);
+  });
+
+  it('lets super admin invite an ad-hoc email and blocks ops from writing sales', async () => {
+    const ops = await makeUser(null, 'platform_ops_admin', 'platform');
+    const denied = await request(app)
+      .post('/api/v1/platform/demo-leads/invite-signup')
+      .set(auth(ops.token))
+      .send({ email: 'ops-blocked@acme.in', fullName: 'Ops', companyName: 'Acme' });
+    expect(denied.status).toBe(403);
+
+    const superAdmin = await makeUser(null, 'platform_super_admin', 'platform');
+    const res = await request(app)
+      .post('/api/v1/platform/demo-leads/invite-signup')
+      .set(auth(superAdmin.token))
+      .send({
+        email: 'New.Client@Nova.in',
+        fullName: 'New Client',
+        companyName: 'Nova',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.email).toBe('new.client@nova.in');
+    expect(res.body.signupUrl).toContain('company=Nova');
+
+    const { getEmailAllowlist } = await import('../src/modules/auth/workEmail.js');
+    expect(await getEmailAllowlist()).toContain('new.client@nova.in');
+  });
 });

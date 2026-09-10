@@ -12,6 +12,7 @@ import {
   buildManagerInviteEmail,
 } from './email-templates/managerEmails.template.js';
 import { buildDemoRequestConfirmationEmail } from './email-templates/demoRequestConfirmation.template.js';
+import { buildSignupInviteEmail } from './email-templates/signupInvite.template.js';
 import { buildBudgetAllocatedEmail } from './email-templates/budgetAllocated.template.js';
 import {
   buildNotificationEmail,
@@ -329,6 +330,30 @@ export async function sendDemoRequestConfirmationEmail({
     return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.warn({ err, to, subject }, 'Demo request confirmation email send failed');
+    return { success: false, provider: 'smtp' };
+  }
+}
+
+/**
+ * Sales/platform invite: allowlisted email gets a CTA to /signup (with query prefill).
+ */
+export async function sendSignupInviteEmail({
+  to,
+  fullName = '',
+  companyName = '',
+  link = '',
+}) {
+  const { subject, text, html } = buildSignupInviteEmail({
+    fullName,
+    companyName,
+    email: to,
+    link,
+  });
+
+  try {
+    return await sendEmail({ to, subject, text, html });
+  } catch (err) {
+    logger.warn({ err, to, subject }, 'Signup invite email send failed');
     return { success: false, provider: 'smtp' };
   }
 }

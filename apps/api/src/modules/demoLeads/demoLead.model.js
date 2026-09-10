@@ -26,6 +26,9 @@ const demoLeadSchema = new mongoose.Schema(
     },
     source: { type: String, default: 'request-demo-page' },
     confirmationEmailSentAt: { type: Date, default: null },
+    /** When sales last emailed a /signup invite after allowlisting the lead. */
+    signupInviteSentAt: { type: Date, default: null },
+    signupInviteCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

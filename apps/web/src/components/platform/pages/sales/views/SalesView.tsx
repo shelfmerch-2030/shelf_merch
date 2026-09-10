@@ -21,12 +21,27 @@ function latestLeadDate(leads: DemoLeadRow[]) {
   return formatDate(leads[0]?.createdAt);
 }
 
-/** Marketing lead desk for public demo requests. */
-export function SalesView({ leads }: SalesVm) {
+/** Marketing lead desk: list demo requests and send allowlisted signup invites. */
+export function SalesView({
+  leads,
+  canWrite,
+  invitingLeadId,
+  draftEmail,
+  draftName,
+  draftCompany,
+  draftBusy,
+  draftErr,
+  onDraftEmail,
+  onDraftName,
+  onDraftCompany,
+  onInviteLead,
+  onInviteDraft,
+}: SalesVm) {
   const items = leads.data?.items ?? [];
   const total = leads.data?.total ?? items.length;
   const uniqueCompanies = new Set(items.map((lead) => lead.companyName).filter(Boolean)).size;
   const withRequirement = items.filter((lead) => Boolean(lead.requirement)).length;
+  const invited = items.filter((lead) => Boolean(lead.signupInviteSentAt)).length;
 
   const columns: {
     key: string;
@@ -74,20 +89,130 @@ export function SalesView({ leads }: SalesVm) {
       render: (r) => <StatusTag status={String(r.status ?? "new")} />,
     },
     {
+      key: "signupInviteSentAt",
+      label: "Signup invite",
+      render: (r) => {
+        const sentAt = r.signupInviteSentAt;
+        if (!sentAt) return <span className="muted">Not sent</span>;
+        const count = Number(r.signupInviteCount ?? 1);
+        return (
+          <span>
+            {formatDate(sentAt)}
+            {count > 1 ? <span className="muted"> · ×{count}</span> : null}
+          </span>
+        );
+      },
+    },
+    {
       key: "createdAt",
       label: "Received",
       render: (r) => formatDate(r.createdAt),
     },
   ];
 
+  if (canWrite) {
+    columns.push({
+      key: "actions",
+      label: "Actions",
+      render: (r) => {
+        const lead = r as unknown as DemoLeadRow;
+        const busy = invitingLeadId === lead._id;
+        const resent = Boolean(lead.signupInviteSentAt);
+        return (
+          <button
+            type="button"
+            className="btn btn-brand btn-sm"
+            disabled={Boolean(invitingLeadId)}
+            onClick={() => onInviteLead(lead)}
+          >
+            {busy ? "Sending…" : resent ? "Resend signup" : "Whitelist & invite"}
+          </button>
+        );
+      },
+    });
+  }
+
   return (
     <>
       <PlatformPageHeader
         title="Sales"
-        subtitle="Interested-client demo leads captured from the public request-demo page."
+        subtitle="Demo leads from the public request-demo page. Whitelist emails and send signup links so clients can create accounts."
       />
       {leads.loading ? <PlatformLoading message="Loading sales leads..." /> : null}
       {leads.error ? <PlatformError message={leads.error} /> : null}
+
+      {canWrite ? (
+        <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Invite signup access</h3>
+          <p className="muted" style={{ fontSize: 13, margin: "0 0 12px" }}>
+            Adds the email to the login allowlist and emails a Create account button linking to
+            signup.
+          </p>
+          {draftErr ? <PlatformError message={draftErr} /> : null}
+          <div
+            className="row"
+            style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}
+          >
+            <div className="field" style={{ flex: "1 1 180px", margin: 0, minWidth: 160 }}>
+              <label className="lbl" htmlFor="sales-invite-email">
+                Email
+              </label>
+              <input
+                id="sales-invite-email"
+                className="inp"
+                type="email"
+                placeholder="client@company.com"
+                value={draftEmail}
+                disabled={draftBusy}
+                onChange={(e) => onDraftEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    onInviteDraft();
+                  }
+                }}
+              />
+            </div>
+            <div className="field" style={{ flex: "1 1 140px", margin: 0, minWidth: 120 }}>
+              <label className="lbl" htmlFor="sales-invite-name">
+                Name
+              </label>
+              <input
+                id="sales-invite-name"
+                className="inp"
+                type="text"
+                placeholder="Optional"
+                value={draftName}
+                disabled={draftBusy}
+                onChange={(e) => onDraftName(e.target.value)}
+              />
+            </div>
+            <div className="field" style={{ flex: "1 1 140px", margin: 0, minWidth: 120 }}>
+              <label className="lbl" htmlFor="sales-invite-company">
+                Company
+              </label>
+              <input
+                id="sales-invite-company"
+                className="inp"
+                type="text"
+                placeholder="Optional"
+                value={draftCompany}
+                disabled={draftBusy}
+                onChange={(e) => onDraftCompany(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-brand btn-sm"
+              disabled={draftBusy}
+              onClick={onInviteDraft}
+            >
+              {draftBusy ? "Sending…" : "Whitelist & send signup"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {leads.data ? (
         <>
           <MetricGrid
@@ -95,6 +220,7 @@ export function SalesView({ leads }: SalesVm) {
               ["Total leads", total],
               ["Companies", uniqueCompanies],
               ["With requirement", withRequirement],
+              ["Signup invited", invited],
               ["Latest lead", latestLeadDate(items)],
             ]}
           />

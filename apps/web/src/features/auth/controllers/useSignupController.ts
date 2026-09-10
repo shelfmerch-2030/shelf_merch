@@ -69,13 +69,26 @@ export function useSignupController(): SignupVm {
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = (location.state as { draft?: SignupDraft } | null)?.draft;
+  const query = new URLSearchParams(location.search);
+  const queryEmail = query.get("email")?.trim() ?? "";
+  const queryFirst = query.get("firstName")?.trim() ?? "";
+  const queryLast = query.get("lastName")?.trim() ?? "";
+  const queryCompany = query.get("company")?.trim() ?? "";
 
-  const [email, setEmail] = useState(() => prefill?.email ?? readSignupDraft()?.email ?? "");
+  const [email, setEmail] = useState(
+    () => prefill?.email || queryEmail || readSignupDraft()?.email || "",
+  );
   const [password, setPassword] = useState(() => prefill?.password ?? readSignupDraft()?.password ?? "");
   const [confirmPassword, setConfirmPassword] = useState(() => prefill?.password ?? readSignupDraft()?.password ?? "");
-  const [firstName, setFirstName] = useState(() => prefill?.firstName ?? readSignupDraft()?.firstName ?? "");
-  const [lastName, setLastName] = useState(() => prefill?.lastName ?? readSignupDraft()?.lastName ?? "");
-  const [company, setCompany] = useState(() => prefill?.company ?? readSignupDraft()?.company ?? "");
+  const [firstName, setFirstName] = useState(
+    () => prefill?.firstName || queryFirst || readSignupDraft()?.firstName || "",
+  );
+  const [lastName, setLastName] = useState(
+    () => prefill?.lastName || queryLast || readSignupDraft()?.lastName || "",
+  );
+  const [company, setCompany] = useState(
+    () => prefill?.company || queryCompany || readSignupDraft()?.company || "",
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [busy, setBusy] = useState(false);

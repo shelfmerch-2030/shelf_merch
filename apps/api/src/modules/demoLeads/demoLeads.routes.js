@@ -9,6 +9,7 @@ import { validate } from '../../middleware/validate.middleware.js';
 import { logger } from '../../config/logger.js';
 import { sendDemoRequestConfirmationEmail } from '../../services/email.service.js';
 import { DEMO_LEAD_REQUIREMENTS, DEMO_LEAD_STATUSES, DemoLead } from './demoLead.model.js';
+import { inviteSignupAccess } from './demoLeads.service.js';
 
 const router = Router();
 
@@ -36,6 +37,18 @@ const listDemoLeadsQuery = z.object({
   status: z.enum(DEMO_LEAD_STATUSES).optional(),
   requirement: z.enum(DEMO_LEAD_REQUIREMENTS).optional(),
   search: z.string().trim().max(120).optional(),
+});
+
+const inviteSignupSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+    fullName: z.string().trim().max(120).optional(),
+    companyName: z.string().trim().max(160).optional(),
+  })
+  .refine((body) => Boolean(body.email), { message: 'email is required', path: ['email'] });
+
+const objectIdParam = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid lead id'),
 });
 
 async function sendConfirmationOnce(lead) {
@@ -120,6 +133,36 @@ platformDemoLeadsRouter.get(
     ]);
 
     res.json(paginatedResponse(items, total, { page, limit }));
+  }),
+);
+
+/** Allowlist + email a /signup invite (ad-hoc email). */
+platformDemoLeadsRouter.post(
+  '/invite-signup',
+  platformArea('sales', 'write'),
+  validate({ body: inviteSignupSchema }),
+  asyncHandler(async (req, res) => {
+    const result = await inviteSignupAccess({
+      req,
+      email: req.body.email,
+      fullName: req.body.fullName || '',
+      companyName: req.body.companyName || '',
+    });
+    res.status(200).json(result);
+  }),
+);
+
+/** Allowlist the lead's work email and email a /signup invite. */
+platformDemoLeadsRouter.post(
+  '/:id/invite-signup',
+  platformArea('sales', 'write'),
+  validate({ params: objectIdParam }),
+  asyncHandler(async (req, res) => {
+    const result = await inviteSignupAccess({
+      req,
+      leadId: req.params.id,
+    });
+    res.status(200).json(result);
   }),
 );
 
