@@ -337,14 +337,16 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
 
   .intro#connects {
     background: #f7f3ea !important;
-    padding: 48px 5vw 56px !important;
-    grid-template-columns: 1fr 0.9fr !important;
-    gap: 28px 48px !important;
+    padding: 56px 5vw 64px !important;
+    grid-template-columns: 1fr 0.92fr !important;
+    gap: 28px 56px !important;
+    overflow: visible !important;
   }
 
   .intro#connects .headline .kicker {
     color: #ff6d55 !important;
     letter-spacing: 0.18em !important;
+    font-size: 11px !important;
   }
 
   .intro#connects .headline h2 {
@@ -356,133 +358,31 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
   }
 
   .intro#connects .headline h2::after {
-    content: "";
-    display: block;
-    width: 104px;
-    height: 3px;
-    margin-top: 18px;
-    border-radius: 999px;
-    background: #ff6d55;
-    transform: rotate(-2deg);
+    display: none !important;
   }
 
   .intro#connects > p {
-    align-self: start !important;
-    max-width: 620px !important;
+    align-self: center !important;
+    max-width: 560px !important;
     margin-top: 28px !important;
     color: #5f5b55 !important;
-    font-size: 18px !important;
-    line-height: 1.5 !important;
+    font-size: 17px !important;
+    line-height: 1.65 !important;
   }
 
-  .intro#connects .flow {
-    grid-column: 1 / 3 !important;
-    margin-top: 18px !important;
-    padding: 24px 30px !important;
-    min-height: 285px !important;
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 0 !important;
-    border: 1px solid rgba(18,18,18,.12) !important;
-    border-radius: 18px !important;
-    background: rgba(255,255,255,.74) !important;
-    box-shadow: 0 20px 55px rgba(18,18,18,.08) !important;
-    overflow: visible !important;
-  }
-
-  .intro#connects .flow > i {
-    position: absolute !important;
-    top: 50% !important;
-    z-index: 2 !important;
-    width: 38px !important;
-    height: 38px !important;
-    margin: 0 !important;
-    border-radius: 50% !important;
-    background: #fff !important;
-    color: #d65a34 !important;
-    box-shadow: 0 10px 24px rgba(18,18,18,.08) !important;
-    display: grid !important;
-    place-items: center !important;
-    font-size: 23px !important;
-    transform: translate(-50%, -50%) !important;
-  }
-
-  .intro#connects .flow > i:nth-of-type(1) { left: 25% !important; }
-  .intro#connects .flow > i:nth-of-type(2) { left: 50% !important; }
-  .intro#connects .flow > i:nth-of-type(3) { left: 75% !important; }
-  .intro#connects .flow article:nth-of-type(1) { grid-column: 1 !important; }
-  .intro#connects .flow article:nth-of-type(2) { grid-column: 2 !important; }
-  .intro#connects .flow article:nth-of-type(3) { grid-column: 3 !important; }
-  .intro#connects .flow article:nth-of-type(4) { grid-column: 4 !important; }
-
-  .intro#connects .flow article {
-    position: relative !important;
-    min-height: 235px !important;
-    padding: 0 22px !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-    border-right: 1px solid rgba(214,90,52,.16) !important;
-  }
-
-  .intro#connects .flow article:last-of-type {
-    border-right: 0 !important;
-  }
-
-  .intro#connects .flow article > span {
-    position: absolute !important;
-    top: 6px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    padding: 5px 12px !important;
-    border-radius: 999px !important;
-    background: #fff3ec !important;
-    color: #ff6d55 !important;
-    font-size: 13px !important;
-    font-weight: 800 !important;
-    letter-spacing: 0.04em !important;
-  }
-
-  .intro#connects .flow .ico {
-    width: 82px !important;
-    height: 82px !important;
-    margin: 32px auto 20px !important;
-    border-radius: 50% !important;
-    border: 2px solid #eadcc7 !important;
-    background: radial-gradient(circle, #fff 0 42%, #f7efe6 43% 100%) !important;
-    display: grid !important;
-    place-items: center !important;
-    color: #121212 !important;
-    font-size: 31px !important;
-    line-height: 1 !important;
-  }
-
-  .intro#connects .flow b {
+  .intro#connects .flow-art {
+    grid-column: 1 / -1 !important;
+    margin-top: 4px !important;
+    width: 100% !important;
     display: block !important;
-    font-size: 20px !important;
-    line-height: 1.15 !important;
-    letter-spacing: -0.04em !important;
-    margin-bottom: 18px !important;
   }
 
-  .intro#connects .flow b::after {
-    content: "";
-    display: block;
-    width: 48px;
-    height: 3px;
-    margin: 14px auto 0;
-    border-radius: 999px;
-    background: #d65a34;
-  }
-
-  .intro#connects .flow small {
+  .intro#connects .flow-art img {
+    width: 100% !important;
+    height: auto !important;
     display: block !important;
-    color: #6b6660 !important;
-    font-size: 16px !important;
-    line-height: 1.35 !important;
-    max-width: 210px !important;
-    margin: 0 auto !important;
   }
+
   .dashboard p,
   .dashboard small,
   .dashboard b,
@@ -542,7 +442,8 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     .intro#connects {
       grid-template-columns: 1fr !important;
       gap: 22px !important;
-      padding: 56px 5vw !important;
+      padding: 48px 5vw 56px !important;
+      overflow: visible !important;
     }
 
     .intro#connects > p {
@@ -550,49 +451,8 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
       font-size: 16px !important;
     }
 
-    .intro#connects .flow {
+    .intro#connects .flow-art {
       grid-column: 1 !important;
-      grid-template-columns: 1fr !important;
-      padding: 24px !important;
-      min-height: 0 !important;
-      gap: 12px !important;
-    }
-
-    .intro#connects .flow > i {
-      position: static !important;
-      transform: rotate(90deg) !important;
-      margin: 0 auto !important;
-    }
-
-    .intro#connects .flow article,
-    .intro#connects .flow article:nth-of-type(1),
-    .intro#connects .flow article:nth-of-type(2),
-    .intro#connects .flow article:nth-of-type(3),
-    .intro#connects .flow article:nth-of-type(4) {
-      grid-column: 1 !important;
-      min-height: 240px !important;
-      border-right: 0 !important;
-      border-bottom: 1px solid rgba(214,90,52,.16) !important;
-    }
-
-    .intro#connects .flow article:last-of-type {
-      border-bottom: 0 !important;
-    }
-
-    .intro#connects .flow .ico {
-      width: 86px !important;
-      height: 86px !important;
-      margin: 44px auto 24px !important;
-      font-size: 34px !important;
-    }
-
-    .intro#connects .flow b {
-      font-size: 23px !important;
-      margin-bottom: 18px !important;
-    }
-
-    .intro#connects .flow small {
-      font-size: 16px !important;
     }
     .section,
     .manifesto,
@@ -634,6 +494,10 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
       overflow-x: hidden !important;
     }
 
+    .intro#connects {
+      overflow: visible !important;
+    }
+
     .hero,
     .story,
     .made,
@@ -655,8 +519,8 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     }
 
     .section-head > .kicker,
-    .intro#connects .flow {
-      grid-column: auto !important;
+    .intro#connects .flow-art {
+      grid-column: 1 / -1 !important;
     }
 
     .model-grid,

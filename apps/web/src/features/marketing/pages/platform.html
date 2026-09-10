@@ -86,18 +86,30 @@
     .float-card.kudos{left:1%;top:12%;transform:rotate(-3deg)}
     .float-card.order{right:3%;bottom:10%;transform:rotate(3deg)}
     .float-card.order>span{background:var(--yellow)}
-    .cap-nav{background:var(--ink);color:#fff;display:grid;grid-template-columns:repeat(7,1fr);padding:0 4vw}
-    .cap-nav a{min-height:96px;padding:20px 14px;border-right:1px solid #333;text-decoration:none;display:flex;flex-direction:column;justify-content:center;gap:10px;transition:background 0.15s ease}
-    .cap-nav a:hover{background:rgba(255,255,255,0.05)}
-    .cap-nav a:first-child{border-left:1px solid #333}
-    .cap-nav span{font-size:8px;color:var(--mint)}
-    .cap-nav b{font-size:11px}
+    .cap-nav{background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 5vw;overflow-x:auto}
+    .cap-nav a{min-height:0;padding:11px 16px;border:1px solid rgba(255,255,255,.1);border-radius:999px;background:rgba(255,255,255,.035);text-decoration:none;display:flex;align-items:center;gap:9px;white-space:nowrap;transition:background .15s ease,border-color .15s ease,color .15s ease}
+    .cap-nav a:hover{background:#fff;color:var(--ink);border-color:#fff}
+    .cap-nav span{font-size:9px;color:var(--mint);font-weight:900;letter-spacing:.08em}
+    .cap-nav a:hover span{color:var(--blue)}
+    .cap-nav b{font-size:12px;line-height:1;font-weight:800}
     .section{padding:115px 7vw}
-    .intro{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+    .intro{display:grid;grid-template-columns:1fr .92fr;gap:28px 56px;align-items:start;overflow:visible}
     .headline h2,.control h2{font-size:clamp(50px,5.5vw,82px);line-height:.92;letter-spacing:-.065em;margin:25px 0 0}
-    .intro>p,.section-head>p{align-self:end;max-width:560px;font-size:16px;line-height:1.75;color:#68645e}
-
-    .flow{position:relative}
+    .headline h2 .from-mark{position:relative;display:inline-block}
+    .headline h2 .from-mark:after{content:"";position:absolute;left:0;right:4%;bottom:-7px;height:7px;border-radius:99px;background:var(--coral);transform:rotate(-2.4deg)}
+    .intro>p,.section-head>p{align-self:center;max-width:560px;font-size:16px;line-height:1.75;color:#68645e}
+    .operating-flow{grid-column:1/-1;margin-top:22px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px;position:relative;max-width:1320px;width:100%;justify-self:center}
+    .flow-step{min-height:320px;border:1px solid #d8d8d8;border-radius:8px;background:#f7f7f7;position:relative;overflow:hidden;color:#222;text-align:center;display:flex;flex-direction:column;box-shadow:none}
+    .flow-step:before{content:"";height:136px;background:var(--coral);display:block;flex:0 0 auto}
+    .flow-step:nth-child(2):before{background:var(--yellow)}
+    .flow-step:nth-child(3):before{background:var(--mint)}
+    .flow-step:nth-child(4):before{background:var(--blue)}
+    .flow-step .flow-no,.flow-arrow{display:none}
+    .flow-step .flow-icon{position:absolute;left:50%;top:34px;transform:translateX(-50%);width:92px;height:92px;border:0;border-radius:50%;background:#fbf7ee;color:#1e1e1e;display:grid;place-items:center}
+    .flow-step h3{font-size:24px;line-height:1.32;letter-spacing:0;margin:20px 18px 12px;font-weight:500}
+    .flow-step p{font-size:17px;line-height:1.45;max-width:210px;margin:0 auto;color:#666}
+    .flow-details{display:none}
+    .flow-badge{display:inline-flex;align-items:center;justify-content:center;align-self:center;margin-top:14px;padding:5px 12px;border-radius:999px;background:#8052c8;color:#fff;font-size:15px;font-weight:700;line-height:1}
     
     /* Kudos & Milestones Mockup Styles */
     .mock{position:absolute;left:40px;right:40px;bottom:-18px;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 18px 35px rgba(0,0,0,.13);padding:22px}
@@ -123,15 +135,33 @@
     .section-head .kicker{grid-column:1/3;color:var(--blue)}
     .section-head h2{font-size:clamp(50px,5.5vw,82px);line-height:.92;letter-spacing:-.065em;margin:0}
     .section-head h2 em{font-family:Georgia,serif;font-weight:400}
-    .recognition{background:#f0ebff}
+    .recognition{background:#f0ebff;padding-bottom:0}
     .feature-grid,.swag-grid,.gifting-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-    .feature{min-height:680px;border-radius:26px;padding:40px;position:relative;overflow:hidden;display:flex;flex-direction:column}
-    .feature.coral{background:var(--coral)}
-    .feature.yellow{background:var(--yellow)}
+    .feature-grid{display:grid;grid-template-columns:1fr;gap:28px}
+    .feature{min-height:0;border-radius:0;padding:0;position:relative;overflow:visible;display:grid;grid-template-columns:minmax(0,1.12fr) minmax(360px,.88fr);gap:5vw;align-items:start;background:transparent}
+    .feature.yellow{grid-template-columns:minmax(360px,.88fr) minmax(0,1.12fr);margin-top:-220px;margin-bottom:-120px}
+    .feature.coral,.feature.yellow{background:transparent}
     .number{font-size:9px;letter-spacing:.12em;margin-bottom:12px;display:block}
-    .icon-circle{width:56px;height:56px;border:1px solid rgba(18,18,18,.27);border-radius:50%;display:grid;place-items:center;margin:12px 0 26px;font-size:24px}
-    .feature h3,.swag-card h3,.gift-card h3{font-size:44px;line-height:.96;letter-spacing:-.055em;margin-bottom:17px}
-    .feature>p,.swag-card>p,.gift-card>p{font-size:14px;line-height:1.7;color:rgba(18,18,18,.7)}
+    .icon-circle{width:46px;height:46px;border:1px solid rgba(18,18,18,.18);border-radius:50%;display:grid;place-items:center;margin:0 0 28px;font-size:20px}
+    .feature-copy{position:relative;z-index:3;padding:0;display:flex;flex-direction:column;justify-content:center;min-height:auto;border-radius:0}
+    .feature.coral .feature-copy,.feature.yellow .feature-copy{background:transparent}
+    .feature.yellow .feature-copy{order:1}
+    .feature h3,.swag-card h3,.gift-card h3{font-size:clamp(40px,3.7vw,62px);line-height:1.02;letter-spacing:-.055em;margin:0 0 22px}
+    .feature p,.swag-card>p,.gift-card>p{font-size:20px;line-height:1.65;color:rgba(18,18,18,.78);max-width:650px}
+    .feature-points{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:18px}
+    .feature-points li{display:flex;align-items:flex-start;gap:13px;font-size:18px;line-height:1.45;color:var(--ink)}
+    .feature-points li:before{content:"✓";width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:900;flex:0 0 auto;margin-top:1px}
+    .feature-media{position:relative;min-height:0;margin:0;border-radius:0;overflow:visible;box-shadow:none}
+    .feature.coral .feature-media{margin-left:0}
+    .feature.yellow .feature-media{margin-right:0;order:2}
+    .feature-media:before{content:"";position:absolute;z-index:0;border-radius:50%;opacity:.9}
+    .feature.coral .feature-media:before{width:310px;height:310px;background:var(--blue);left:-42px;top:-22px}
+    .feature.yellow .feature-media:before{width:340px;height:340px;background:var(--yellow);right:-18px;bottom:-18px;clip-path:polygon(0 0,100% 0,100% 72%,70% 72%,72% 100%,44% 72%,0 72%)}
+    .feature-media:after{content:"";position:absolute;z-index:1;inset:auto 20px 0 auto;width:245px;height:170px;background:var(--lilac);pointer-events:none}
+    .feature.yellow .feature-media:after{left:8px;right:auto;bottom:8px;background:var(--coral);width:190px;height:210px;clip-path:polygon(0 0,100% 18%,78% 100%,0 82%)}
+    .feature-visual-img{position:relative;z-index:2;width:94%;height:390px;object-fit:cover;object-position:center;display:block;border-radius:0 34px 0 34px;box-shadow:0 24px 52px rgba(18,18,18,.12);margin:0 auto}
+    .feature.yellow .feature-visual-img{border-radius:34px 0 34px 0;margin:0 auto}
+    .feature-cta{width:max-content;margin-top:30px;background:var(--ink);color:#fff;text-decoration:none;border-radius:12px;padding:14px 18px;font-weight:900;font-size:14px}
     .clean-list{list-style:none;padding:0;margin:20px 0 30px}
     .clean-list li{padding:10px 0;border-top:1px solid rgba(18,18,18,.18);font-size:11px}
     .clean-list li:last-child{border-bottom:1px solid rgba(18,18,18,.18)}
@@ -207,6 +237,12 @@
       .cap-nav{grid-template-columns:repeat(4,1fr)}
       .section-head,.control-head{grid-template-columns:1fr}
       .section-head .kicker,.control-head .kicker{grid-column:auto}
+      .operating-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .feature,.feature.yellow{grid-template-columns:1fr}
+      .feature.yellow{margin-top:0;margin-bottom:0}
+      .feature.yellow .feature-copy,.feature.yellow .feature-media{order:initial}
+      .feature.coral .feature-media,.feature.yellow .feature-media{margin:0;border-radius:0 0 26px 26px}
+      .feature-copy{border-radius:26px 26px 0 0;min-height:auto}
       .feature-grid,.swag-grid,.gifting-grid{grid-template-columns:1fr}
       .stores{grid-template-columns:1fr}
       .control-grid{grid-template-columns:1fr 1fr}
@@ -234,11 +270,15 @@
       .intro{grid-template-columns:1fr}
       .headline h2,.section-head h2,.control h2{font-size:46px}
       .intro>p{margin:0}
-      .flow{grid-column:auto;grid-template-columns:1fr}
-      .flow>i{text-align:center;transform:rotate(90deg)}
-      .flow article{min-height:145px}
-      .feature,.swag-card,.gift-card{padding:28px;min-height:auto}
+      .operating-flow{grid-template-columns:1fr;gap:16px}
+      .flow-step{min-height:260px}
+      .flow-step h3{font-size:18px;margin-top:14px}
+      .flow-step p{max-width:190px}
+      .feature,.swag-card,.gift-card{min-height:auto}
+      .feature-copy{padding:28px}
       .feature h3,.swag-card h3,.gift-card h3{font-size:38px}
+      .feature-media{min-height:280px}
+      .feature-visual-img{height:280px;min-height:280px}
       .stores h2{font-size:56px}
       .control-grid{grid-template-columns:1fr}
       .control-grid article{min-height:235px}
@@ -253,26 +293,47 @@
 <body>
   <header class="header"><a class="brand" href="/"><span class="brand-mark">S</span><span>SHELF<br>MERCH</span></a><nav class="main-nav" id="nav"><a href="#platform">Platform</a><a href="#recognition">Recognition</a><a href="#swag">Swag</a><a href="#stores">Stores</a><a href="#gifting">Gifting</a></nav><a class="header-cta" href="/request-demo">Book a demo →</a><button class="menu" aria-label="Toggle menu" onclick="document.getElementById('nav').classList.toggle('open')">☰</button></header>
   <main id="platform">
-    <section class="hero"><div class="hero-copy"><span class="kicker"><i></i> THE SHELF MERCH PLATFORM</span><h1>One platform.<br><em>Every branded moment.</em></h1><p>Run recognition, milestones, company stores and every kind of swag or gifting program from one place. Your teams stay in control. We make and deliver the rest.</p><div class="actions"><a class="button" href="#connects">Explore the platform →</a><a class="text-link" href="#connects">See how it connects ↓</a></div><div class="team-note"><div class="avatars"><span>HR</span><span>MK</span><span>SL</span><span>AD</span></div><p><b>Built for every team</b><br>One dashboard. One budget. One partner.</p></div></div>
+    <section class="hero"><div class="hero-copy"><span class="kicker"><i></i> THE SHELF MERCH PLATFORM</span><h1>One platform.<br><em>Every branded moment.</em></h1><p>Run recognition, milestones, company stores and every kind of swag or gifting program from one place. Your teams stay in control. We make and deliver the rest.</p><div class="actions"><a class="button" href="#connects">Explore the platform →</a></div><div class="team-note"><div class="avatars"><span>HR</span><span>MK</span><span>SL</span><span>AD</span></div><p><b>Built for every team</b><br>One dashboard. One budget. One partner.</p></div></div>
       <div class="hero-ui"><i class="orbit one"></i><i class="orbit two"></i><div class="dashboard"><div class="dash-side"><b>S</b><i></i><i></i><i></i><i></i><i></i></div><div class="dash-main"><div class="dash-top"><div><small>GOOD MORNING, MAYA</small><b>Your company shelf</b></div><span>Aug 2026⌄</span></div><div class="stats"><article><small>AVAILABLE BUDGET</small><b>₹8.4L</b><em>68% remaining</em></article><article><small>ACTIVE PROGRAMS</small><b>12</b><em>Across 6 teams</em></article><article><small>REDEMPTION</small><b>87%</b><em>+14% this month</em></article></div><div class="dash-grid"><article class="programs"><div class="widget-title"><b>Live programs</b><span>View all</span></div><div class="program-row"><i>♥</i><p><b>Peer kudos</b><small>Always on</small></p><strong>126</strong></div><div class="program-row"><i>◫</i><p><b>Work anniversaries</b><small>Automated</small></p><strong>18</strong></div><div class="program-row"><i>⌂</i><p><b>Annual swag store</b><small>Live now</small></p><strong>384</strong></div></article><article class="fulfil"><div class="widget-title"><b>Fulfilment</b><span>Live</span></div><div class="ring"><b>92%</b><small>on time</small></div><div class="bars"><i></i><i></i><i></i><i></i><i></i></div></article></div></div></div><div class="float-card kudos"><span>👏</span><p><b>Kudos sent</b><small>Riya → Sameer · +250</small></p></div><div class="float-card order"><span>↗</span><p><b>Order dispatched</b><small>Hyderabad · arrives tomorrow</small></p></div></div>
     </section>
     <nav class="cap-nav"><a href="#kudos"><span>01</span><b>Kudos programs</b></a><a href="#milestones"><span>02</span><b>Milestones</b></a><a href="#on-demand"><span>03</span><b>On-demand swag</b></a><a href="#bulk"><span>04</span><b>Bulk swag</b></a><a href="#stores"><span>05</span><b>Stores</b></a><a href="#prospect"><span>06</span><b>Prospect gifting</b></a><a href="#client"><span>07</span><b>Client gifting</b></a></nav>
 
-    <section class="section intro" id="connects"><div class="headline"><span class="kicker"><i></i> ONE OPERATING SYSTEM</span><h2>From the idea<br>to the doorstep.</h2></div><p>Shelf Merch connects the moments you want to create with the operational control your business needs. Employees choose. You stay in control. We handle the rest.</p>
-      <div class="flow">
-        <article><span>01</span><div class="ico">✦</div><b>Create a program</b><small>Kudos, milestone, store or campaign</small></article>
-        <i>→</i>
-        <article><span>02</span><div class="ico">◎</div><b>Add your audience</b><small>Employees, prospects or clients</small></article>
-        <i>→</i>
-        <article><span>03</span><div class="ico">▣</div><b>Set the budget</b><small>Credits, limits and approvals</small></article>
-        <i>→</i>
-        <article><span>04</span><div class="ico">→</div><b>We fulfil</b><small>Make, pack, ship and track</small></article>
+    <section class="section intro" id="connects"><div class="headline"><span class="kicker"><i></i> ONE OPERATING SYSTEM</span><h2><span class="from-mark">From</span> the idea<br>to the doorstep.</h2></div><p>Shelf Merch connects the moments you want to create with the operational control your business needs. Employees choose. You stay in control. We handle the rest.</p>
+      <div class="operating-flow" aria-label="Shelf Merch operating system flow">
+        <article class="flow-step">
+          <span class="flow-no">01</span>
+          <span class="flow-icon" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6v9h7v2H2v-2h7V3zm-3 13h2v5H6v-5zm5 0h2v5h-2v-5zm5 0h2v5h-2v-5z"></path></svg></span>
+          <h3>Create a program</h3>
+          <p>Kudos, milestones, store or campaign.</p>
+          <span class="flow-arrow" aria-hidden="true">&rarr;</span>
+        </article>
+        <article class="flow-step">
+          <span class="flow-no">02</span>
+          <span class="flow-icon" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M3 21V3h8v4h10v14H3zm3-3h2v-2H6v2zm0-4h2v-2H6v2zm0-4h2V8H6v2zm7 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V8h-2v2zm4 8h2v-2h-2v2zm0-4h2v-2h-2v2zm0-4h2V8h-2v2z"></path></svg></span>
+          <h3>Add your audience</h3>
+          <p>Employees, prospects or clients.</p>
+          <span class="flow-badge">New</span>
+          <span class="flow-arrow" aria-hidden="true">&rarr;</span>
+        </article>
+        <article class="flow-step">
+          <span class="flow-no">03</span>
+          <span class="flow-icon" aria-hidden="true"><svg width="42" height="42" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h14v18H5V3zm4 5h7V6H9v2zm0 5h7v-2H9v2zm0 5h5v-2H9v2z"></path></svg></span>
+          <h3>Set the budget</h3>
+          <p>Credits, limits and approvals.</p>
+          <span class="flow-arrow" aria-hidden="true">&rarr;</span>
+        </article>
+        <article class="flow-step">
+          <span class="flow-no">04</span>
+          <span class="flow-icon" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 4v6c0 5-3.4 8.8-8 10-4.6-1.2-8-5-8-10V6l8-4zm-1 13h2v-3h3v-2h-3V7h-2v3H8v2h3v3z"></path></svg></span>
+          <h3>We fulfil</h3>
+          <p>We make, pack, ship and track every order from our in-house operation.</p>
+        </article>
       </div>
     </section>
 
-    <section class="section recognition" id="recognition"><div class="section-head"><span class="kicker"><i></i> RECOGNITION &amp; MILESTONES</span><h2>Make appreciation<br><em>part of the everyday.</em></h2><p>Celebrate great work in the moment and automate the dates that should never be missed.</p></div><div class="feature-grid"><article class="feature coral" id="kudos"><span class="number">01</span><div class="icon-circle">♥</div><h3>Kudos programs</h3><p>Give every employee a simple way to recognize peers, managers and cross-functional partners—with or without points attached.</p><ul class="clean-list"><li>✓ Peer-to-peer and manager recognition</li><li>✓ Values-based badges and messages</li><li>✓ Points redeemable for approved rewards</li><li>✓ Engagement and participation reporting</li></ul><div class="mock"><div class="kudos-post"><header><span class="avatar">RS</span><p><b>Riya recognized Sameer</b><small>Customer First · 2 min ago</small></p><span class="points">+250</span></header><p>“For stepping in and making the launch feel effortless. Brilliant work!”</p><div class="reactions"><span>👏 18</span> <span>🔥 8</span> <span>💙 12</span></div></div></div></article><article class="feature yellow" id="milestones"><span class="number">02</span><div class="icon-circle">◫</div><h3>Milestones</h3><p>Set the rules once. Shelf Merch automatically triggers the right gift for birthdays, anniversaries and employee achievements.</p><ul class="clean-list"><li>✓ HRMS-triggered employee occasions</li><li>✓ Different gifts by tenure or milestone</li><li>✓ Recipient choice or sender choice</li><li>✓ Scheduled dispatch and reminders</li></ul><div class="mock"><div class="calendar-top"><b>August milestones</b><span>18 upcoming</span></div><div class="dates"><span>11</span><span>12</span><span class="active">13</span><span>14</span><span>15</span></div><div class="milestone"><i>5Y</i><p><b>Meera’s work anniversary</b><small>Premium choice collection</small></p></div><div class="milestone"><i>BD</i><p><b>Four birthdays</b><small>Gift links scheduled</small></p></div></div></article></div></section>
+    <section class="section recognition" id="recognition"><div class="section-head"><span class="kicker"><i></i> RECOGNITION &amp; MILESTONES</span><h2>Make appreciation</h2></div><div class="feature-grid"><article class="feature coral" id="kudos"><div class="feature-media"><img class="feature-visual-img" src="/images/platform/kudos-programs-visual.png" alt="Employee recognition collage with floating kudos cards and team avatars"></div><div class="feature-copy"><h3>Kudos programs</h3><p>Give every employee a simple way to recognize peers, managers and cross-functional partners, with or without points attached.</p><ul class="feature-points"><li>Run peer, manager and team-wide recognition in one place</li><li>Connect values-based appreciation to approved rewards</li><li>Keep engagement visible without turning it into admin work</li></ul><a class="feature-cta" href="/request-demo">Book a demo →</a></div></article><article class="feature yellow" id="milestones"><div class="feature-copy"><h3>Milestones</h3><p>Set the rules once. Shelf Merch automatically triggers the right gift for birthdays, anniversaries and employee achievements.</p><ul class="feature-points"><li>Automate birthdays, work anniversaries and key occasions</li><li>Match gifts by tenure, team, budget or recipient choice</li><li>Schedule dispatch, reminders and tracking from one flow</li></ul><a class="feature-cta" href="/request-demo">Automate milestones →</a></div><div class="feature-media"><img class="feature-visual-img" src="/images/platform/milestones-visual.png" alt="Employee milestone celebration collage with calendar, gift and recognition cards"></div></article></div></section>
 
-    <section class="section swag" id="swag"><div class="section-head"><span class="kicker"><i></i> SWAG, YOUR WAY</span><h2>One piece or<br><em>ten thousand.</em></h2><p>Choose the production model that fits the moment—without adding another vendor.</p></div><div class="swag-grid"><img class="swag-card-img" id="on-demand" src="/images/platform/on-demand-swag.jpg" alt="On-demand swag card"><img class="swag-card-img" id="bulk" src="/images/platform/bulk-swag.jpg" alt="Bulk swag card"></div></section>
+    <section class="section swag" id="swag"><div class="section-head"><span class="kicker"><i></i> SWAG, YOUR WAY</span><h2>One piece or<br><em>ten thousand.</em></h2></div><div class="swag-grid"><img class="swag-card-img" id="on-demand" src="/images/platform/on-demand-swag.jpg" alt="On-demand swag card"><img class="swag-card-img" id="bulk" src="/images/platform/bulk-swag.jpg" alt="Bulk swag card"></div></section>
 
     <section class="section stores" id="stores"><div class="stores-copy"><span class="number">05</span><span class="kicker"><i></i> BRANDED STORES</span><h2>Your brand.<br><em>Its own shelf.</em></h2><p>Launch a private company store for employees, new hires, distributors or partners. You choose the products and access rules; recipients choose what fits.</p><ul class="clean-list"><li>✓ Your domain, brand and approved catalogue</li><li>✓ Employee credits and department budgets</li><li>✓ Collections, kits and size selection</li><li>✓ Orders, delivery tracking and reports</li></ul><a class="button light" href="/request-demo">Launch your store →</a></div><div><img class="store-mock-img" src="/images/platform/branded-stores.png" alt="Branded store mockup"></div></section>
 
@@ -280,7 +341,7 @@
 
     <section class="section control"><div class="control-head"><span class="kicker"><i></i> CONTROL WITHOUT THE CHAOS</span><h2>Your teams move fast.<br><em>Your rules move with them.</em></h2><p>Keep every program on-brand and on-budget without becoming the bottleneck.</p></div><div class="control-grid"><article><div class="icon-circle">▣</div><h3>Budgets &amp; credits</h3><p>Fund once, allocate by department or cost centre, and track every rupee.</p></article><article><div class="icon-circle">✓</div><h3>Approvals</h3><p>Set catalogue, campaign and spend controls for each team or manager.</p></article><article><div class="icon-circle">▥</div><h3>Reporting</h3><p>See spend, redemption, engagement, orders and delivery in one view.</p></article><article><div class="icon-circle">⌁</div><h3>Integrations</h3><p>Connect SSO, HRMS, rewards, Slack, Teams and CRM workflows.</p></article></div></section>
 
-    <section class="final"><span class="kicker" style="justify-content:center;color:var(--mint)"><i></i> ONE PLATFORM. EVERY MOMENT.</span><h2>Put every program<br><em>on one shelf.</em></h2><p>See how Shelf Merch can simplify recognition, swag and gifting across your company.</p><div class="final-actions"><a class="button light" href="/request-demo">Book a platform demo →</a><a href="/request-demo">our contact form</a></div></section>
+    <section class="final"><span class="kicker" style="justify-content:center;color:var(--mint)"><i></i> ONE PLATFORM. EVERY MOMENT.</span><h2>Put every program<br><em>on one shelf.</em></h2><p>See how Shelf Merch can simplify recognition, swag and gifting across your company.</p><div class="final-actions"><a class="button light" href="/request-demo">Book a platform demo →</a></div></section>
   </main>
   <footer class="footer"><a class="brand" href="#platform"><span class="brand-mark">S</span><span>SHELF<br>MERCH</span></a><p>Merch. Gifting. Recognition.<br>Made and delivered across India.</p><nav><a href="#recognition">Recognition</a><a href="#swag">Swag</a><a href="#stores">Stores</a><a href="#gifting">Gifting</a><a href="/terms">Terms</a></nav><small>© 2026 Chitlu Innovations Private Limited</small></footer>
 </body>

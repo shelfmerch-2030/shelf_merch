@@ -514,6 +514,47 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(3);
   });
 
+  it('prunes leftover Merge employee UUIDs after a later snapshot sync', async () => {
+    const conn = await seedConnection();
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'emp-stale-uuid',
+      remoteEmployeeId: 'E1',
+      displayName: 'Ada Lovelace',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      workEmail: 'ada@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: new Date('2026-08-14T07:47:42.499Z'),
+      source: 'merge',
+    });
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Ada Lovelace',
+      email: 'ada@rubix.net',
+      source: 'hris',
+    });
+    mockSyncPages();
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+
+    const ada = await MergeHrisEmployee.find({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      workEmail: 'ada@rubix.net',
+    });
+    expect(ada).toHaveLength(1);
+    expect(ada[0].mergeEmployeeId).toBe('emp-1');
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-stale-uuid' })).toBe(0);
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(1);
+  });
+
   it('lists HRIS employees from MergeHrisEmployee with tenant isolation', async () => {
     const conn = await seedConnection();
     await MergeHrisLocation.create({
@@ -566,6 +607,108 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(res.body.employees[0].locationName).toBe('Hyderabad Hub');
     expect(JSON.stringify(res.body)).not.toContain('sync-account-token');
     expect(JSON.stringify(res.body)).not.toContain('encrypted');
+  });
+
+  it('hides stale Merge UUID rows from a prior relink on the same connection', async () => {
+    const lastSyncAt = new Date('2026-09-09T11:49:13.794Z');
+    const conn = await MergeConnection.create({
+      tenantId: tenant._id,
+      connectedByUserId: admin._id,
+      provider: 'workday',
+      encryptedAccountToken: encryptToken('list-stale-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncAt,
+      lastSyncStatus: 'success',
+    });
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'stale-id',
+      remoteEmployeeId: '3658',
+      displayName: 'Anjali Raj',
+      workEmail: 'anjali@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: new Date('2026-08-14T07:47:42.499Z'),
+      source: 'merge',
+    });
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'current-id',
+      remoteEmployeeId: '3658',
+      displayName: 'Anjali Raj',
+      workEmail: 'anjali@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: lastSyncAt,
+      source: 'merge',
+    });
+
+    const res = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const anjali = res.body.employees.filter((e) => e.workEmail === 'anjali@rubix.net');
+    expect(anjali).toHaveLength(1);
+    expect(anjali[0].mergeEmployeeId).toBe('current-id');
+  });
+
+  it('still lists the same email once per provider when both connections are current', async () => {
+    const lastSyncAt = new Date('2026-09-09T11:49:13.794Z');
+    const deel = await MergeConnection.create({
+      tenantId: tenant._id,
+      connectedByUserId: admin._id,
+      provider: 'deel',
+      encryptedAccountToken: encryptToken('deel-list-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncAt,
+      lastSyncStatus: 'success',
+    });
+    const gw = await MergeConnection.create({
+      tenantId: tenant._id,
+      connectedByUserId: admin._id,
+      provider: 'google-workspace',
+      encryptedAccountToken: encryptToken('gw-list-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncAt,
+      lastSyncStatus: 'success',
+    });
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: deel._id,
+      provider: 'deel',
+      mergeEmployeeId: 'deel-1',
+      displayName: 'Same Person Deel',
+      workEmail: 'same@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: lastSyncAt,
+      source: 'merge',
+    });
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: gw._id,
+      provider: 'google-workspace',
+      mergeEmployeeId: 'gw-1',
+      displayName: 'Same Person GW',
+      workEmail: 'same@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: lastSyncAt,
+      source: 'merge',
+    });
+
+    const res = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const rows = res.body.employees.filter((e) => e.workEmail === 'same@rubix.net');
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((e) => e.provider))).toEqual(new Set(['deel', 'google-workspace']));
   });
 
   it('records failure status when Merge sync fails', async () => {

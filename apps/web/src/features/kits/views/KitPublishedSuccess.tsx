@@ -1,90 +1,89 @@
-import { useEffect } from "react";
-import confetti from "canvas-confetti";
-import { Gift, Send } from "lucide-react";
+import { Check, Gift, Send } from "lucide-react";
 import kitPublishedImg from "../../../../assets/kit-published.png";
 import "./kit-published-success.css";
-
-const CONFETTI_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#fbbf24", "#93c5fd"];
 
 export function KitPublishedSuccess({
   kitName,
   onSendKit,
-  onRequestSample,
   onGoToKits,
 }: {
   kitName: string;
   onSendKit: () => void;
-  onRequestSample?: () => void;
   onGoToKits: () => void;
 }) {
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const end = Date.now() + 1_800;
-    const timer = window.setInterval(() => {
-      const remaining = end - Date.now();
-      if (remaining <= 0) {
-        window.clearInterval(timer);
-        return;
-      }
-
-      confetti({
-        particleCount: 10,
-        angle: 60,
-        spread: 70,
-        startVelocity: 34,
-        origin: { x: 0, y: 0.55 },
-        colors: CONFETTI_COLORS,
-        scalar: 0.9,
-      });
-      confetti({
-        particleCount: 10,
-        angle: 120,
-        spread: 70,
-        startVelocity: 34,
-        origin: { x: 1, y: 0.55 },
-        colors: CONFETTI_COLORS,
-        scalar: 0.9,
-      });
-    }, 180);
-
-    return () => window.clearInterval(timer);
-  }, []);
-
   return (
-    <main className="kit-published-page">
-      <section className="kit-published-card" aria-labelledby="kit-published-title">
-        <div className="kit-published-art" aria-hidden="true">
-          <div className="kit-published-glow" />
-          <img src={kitPublishedImg} alt="" />
-        </div>
+    <div className="kit-published fade-in">
+      <div className="kit-published__layout">
+        <div className="kit-published__copy">
+          <div className="kit-published__icon" aria-hidden="true">
+            <Check strokeWidth={2.6} />
+          </div>
+          <p className="kit-published__eyebrow">
+            <span className="kit-published__eyebrow-dot" aria-hidden="true" />
+            Ready to send
+          </p>
+          <h1 className="kit-published__title" id="kit-published-title">
+            Your kit is <em>published.</em>
+          </h1>
+          <p className="kit-published__lead">
+            <strong>{kitName}</strong> is live in your catalog. Send it to colleagues now, or come
+            back to it anytime from Kits.
+          </p>
 
-        <div className="kit-published-copy">
-          <span className="kit-published-eyebrow">
-            <span className="kit-published-eyebrow-dot" aria-hidden="true" />
-            Ready to share
-          </span>
-          <h1 id="kit-published-title">Your kit has been published!</h1>
-          <p className="kit-published-name">{kitName}</p>
-          <p className="kit-published-lead">Now send this kit to your colleagues.</p>
-        </div>
+          <div className="kit-published__status">
+            <span className="kit-published__status-icon" aria-hidden="true">
+              <Gift size={17} strokeWidth={2} />
+            </span>
+            <span>
+              <strong>{kitName}</strong> ready to send
+            </span>
+          </div>
 
-        <div className="kit-published-actions">
-          {onRequestSample ? (
-            <button type="button" className="kit-published-kits" onClick={onRequestSample}>
-              Request a Sample
+          <div className="kit-published__actions">
+            <button type="button" className="btn btn-brand btn-lg" onClick={onSendKit}>
+              Send kit <Send size={15} />
             </button>
-          ) : null}
-          <button type="button" className="kit-published-send" onClick={onSendKit}>
-            <Send size={18} aria-hidden="true" />
-            Send Kit
-          </button>
-          <button type="button" className="kit-published-kits" onClick={onGoToKits}>
-            <Gift size={18} aria-hidden="true" />
-            Go to Kits
-          </button>
+            <button type="button" className="btn btn-ghost btn-lg" onClick={onGoToKits}>
+              Go to kits
+            </button>
+          </div>
+
+          <div className="kit-published__note">
+            <strong>What happens next</strong>
+            <p>
+              Start a send with this kit, or keep designing more boxes. Recipients get a branded
+              experience — you can reuse this kit across campaigns.
+            </p>
+          </div>
         </div>
-      </section>
-    </main>
+
+        <div className="kit-published__visual" aria-hidden="true">
+          <div className="kit-published__shape kit-published__shape--yellow" />
+          <div className="kit-published__shape kit-published__shape--coral" />
+          <div className="kit-published__shape kit-published__shape--blue" />
+          <article className="kit-published__card">
+            <span className="kit-published__card-label">Branded kit</span>
+            <h3>
+              Ready
+              <br />
+              to send
+            </h3>
+            <div className="kit-published__card-art">
+              <img src={kitPublishedImg} alt="" />
+            </div>
+            <div className="kit-published__meter">
+              <div>
+                <b>{kitName}</b>
+                <small>Kit name</small>
+              </div>
+              <div>
+                <b>Live</b>
+                <small>Ready to share</small>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
   );
 }
