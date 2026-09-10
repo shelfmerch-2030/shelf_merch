@@ -305,7 +305,7 @@ export function RequestSampleView(vm: RequestSampleVm) {
             onChange={vm.onAddress}
             heading="Delivery Address"
             supportingText="Enter the address where you'd like to receive your sample."
-            error={vm.addressError}
+            showFieldErrors={vm.showAddressErrors}
           />
         ) : null}
         {vm.step === 3 ? <ReviewStep vm={vm} /> : null}

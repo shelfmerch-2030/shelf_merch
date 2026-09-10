@@ -76,11 +76,10 @@ export function swagDraftReducer(state: SwagDraft, action: SwagAction): SwagDraf
     case "clearAreaArt": {
       const next = { ...state.areaArts };
       delete next[action.key];
-      const stillHas = Object.keys(next).length > 0;
       return {
         ...state,
         areaArts: next,
-        art: stillHas ? state.art : null,
+        // Keep staged library `art` — clearing one placeholder must not wipe the upload panel.
         placementEpoch: (state.placementEpoch ?? 0) + 1,
       };
     }

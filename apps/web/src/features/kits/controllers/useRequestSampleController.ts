@@ -83,6 +83,7 @@ export type RequestSampleVm = {
   address: ShippingAddress;
   onAddress: (next: ShippingAddress) => void;
   addressError: string;
+  showAddressErrors: boolean;
   totals: SampleKitSendTotals;
   success: SampleSuccess | null;
   onExit: () => void;
@@ -130,6 +131,7 @@ export function useRequestSampleController(): RequestSampleVm {
   const [curatedVariantImage, setCuratedVariantImage] = useState("");
   const [address, setAddress] = useState<ShippingAddress>({ ...EMPTY_KIT_REDEEM_ADDRESS });
   const [addressError, setAddressError] = useState("");
+  const [showAddressErrors, setShowAddressErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<SampleSuccess | null>(null);
   const logoObjectUrlRef = useRef<string | null>(null);
@@ -310,9 +312,11 @@ export function useRequestSampleController(): RequestSampleVm {
       const error = validateKitRedeemAddress(address);
       if (error) {
         setAddressError(error);
+        setShowAddressErrors(true);
         return;
       }
       setAddressError("");
+      setShowAddressErrors(false);
       setStep(3);
     }
   }
@@ -329,9 +333,11 @@ export function useRequestSampleController(): RequestSampleVm {
     const error = validateKitRedeemAddress(address);
     if (error) {
       setAddressError(error);
+      setShowAddressErrors(true);
       setStep(2);
       return;
     }
+    setShowAddressErrors(false);
     const user = getStoredUser();
     const email = user?.email?.trim();
     if (!email) {
@@ -522,6 +528,7 @@ export function useRequestSampleController(): RequestSampleVm {
       setAddress(next);
     },
     addressError,
+    showAddressErrors,
     totals,
     success,
     onExit,

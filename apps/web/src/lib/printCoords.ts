@@ -77,12 +77,14 @@ export type CanvasOpts = {
   canvasWidth?: number;
   canvasHeight?: number;
   padding?: number;
-  /** When set, inches map onto the object-fit:contain rect of this image. */
+  /** When set, inches map onto the object-fit rect of this image. */
   imageNaturalWidth?: number;
   imageNaturalHeight?: number;
+  /** How the mockup image fills the padded canvas. Default contain. */
+  imageFit?: "contain" | "cover";
 };
 
-/** object-fit: contain rect for a mockup inside the padded canvas. */
+/** object-fit: contain/cover rect for a mockup inside the padded canvas. */
 export function imageContainRect(
   imageNaturalWidth: number,
   imageNaturalHeight: number,
@@ -95,7 +97,8 @@ export function imageContainRect(
   const effH = canvasHeight - 2 * padding;
   const iw = Math.max(imageNaturalWidth, 1);
   const ih = Math.max(imageNaturalHeight, 1);
-  const scale = Math.min(effW / iw, effH / ih);
+  const scale =
+    opts.imageFit === "cover" ? Math.max(effW / iw, effH / ih) : Math.min(effW / iw, effH / ih);
   const w = iw * scale;
   const h = ih * scale;
   return {
@@ -174,7 +177,7 @@ export function editorToPrintDrawScale(dpi: number, pxPerInch: number): number {
 
 /**
  * Displayed mockup bounds on the stage. The product image keeps its natural
- * contain size; physical inches map onto that rect (widthIn/physW of image width).
+ * contain/cover size; physical inches map onto that rect (widthIn/physW of image width).
  */
 export function physicalFrameStageRect(
   phys: Partial<PhysicalDimensions> | null | undefined,

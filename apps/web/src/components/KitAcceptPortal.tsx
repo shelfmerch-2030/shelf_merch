@@ -215,6 +215,7 @@ export default function KitAcceptPortal({
   );
   const [address, setAddress] = useState<ShippingAddress>({ ...EMPTY_ADDRESS, name: recipientName });
   const [error, setError] = useState("");
+  const [showAddressErrors, setShowAddressErrors] = useState(false);
   const [placing, setPlacing] = useState(false);
 
   const missingSizes = useMemo(
@@ -238,6 +239,7 @@ export default function KitAcceptPortal({
 
   async function acceptOrder() {
     setError("");
+    setShowAddressErrors(false);
     if (!isCuratedAccept && missingSizes.length) {
       setError(`Please choose a size for: ${missingSizes.map((i) => i.name).join(", ")}`);
       return;
@@ -252,7 +254,7 @@ export default function KitAcceptPortal({
     }
     const addressError = validateKitRedeemAddress(address);
     if (addressError) {
-      setError(addressError);
+      setShowAddressErrors(true);
       return;
     }
 
@@ -409,14 +411,14 @@ export default function KitAcceptPortal({
           address={address}
           onChange={setAddress}
           heading="Shipping address"
-          error={error && error === "Please complete your shipping address." ? error : undefined}
+          showFieldErrors={showAddressErrors}
         />
 
-        {error && error !== "Please complete your shipping address." && (
+        {error ? (
           <div className="card" style={{ padding: 12, marginBottom: 16, color: "var(--danger)" }}>
             {error}
           </div>
-        )}
+        ) : null}
 
         <button
           type="button"

@@ -68,6 +68,7 @@ export function useContactFormController({
     // inferred output; the resolver runs identically, so assert the form type.
     resolver: zodResolver(contactSchema) as Resolver<ContactFormValues>,
     defaultValues: EMPTY_CONTACT,
+    mode: "onTouched",
   });
 
   const watchedRole = watch("role");
