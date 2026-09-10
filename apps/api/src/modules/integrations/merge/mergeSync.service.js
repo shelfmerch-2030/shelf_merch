@@ -12,6 +12,7 @@ import { MergeHrisDepartment } from './models/mergeHrisDepartment.model.js';
 import { MergeHrisLocation } from './models/mergeHrisLocation.model.js';
 import { MergeHrisEmployee } from './models/mergeHrisEmployee.model.js';
 import { MergeHrisEmployment } from './models/mergeHrisEmployment.model.js';
+import { MergeConnection } from './mergeConnection.model.js';
 import { mergePaginateAll, requireMergeConfigured } from './mergeHttp.js';
 import { getOwnedMergeConnection } from './merge.service.js';
 
@@ -316,9 +317,11 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
     },
   });
 
+  const seenMergeEmployeeIds = [];
   for (const row of rows) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
+    seenMergeEmployeeIds.push(mergeId);
 
     const groupIds = Array.isArray(row.groups)
       ? row.groups.map((g) => (typeof g === 'object' && g ? asString(g.id) : asString(g))).filter(Boolean)
@@ -389,6 +392,17 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
       },
     });
   }
+
+  // Canonical snapshot for this Linked Account. Relink issues new Merge UUIDs
+  // while remote_id stays stable; without this prune the directory lists both.
+  const staleFilter = {
+    tenantId,
+    connectionId: connection._id,
+  };
+  if (seenMergeEmployeeIds.length) {
+    staleFilter.mergeEmployeeId = { $nin: seenMergeEmployeeIds };
+  }
+  await MergeHrisEmployee.deleteMany(staleFilter);
 
   return counts;
 }
@@ -693,8 +707,33 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
 
 /** List synced HRIS employees for the tenant (safe fields only). */
 export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 100 }) {
-  const filter = { tenantId };
-  if (connectionId) filter.connectionId = connectionId;
+  const connFilter = { tenantId };
+  if (connectionId) connFilter._id = connectionId;
+
+  const connections = await MergeConnection.find(connFilter)
+    .select('_id lastSyncAt')
+    .lean();
+
+  if (!connections.length) {
+    return { employees: [] };
+  }
+
+  const filter = {
+    tenantId,
+    $or: connections.map((c) => {
+      const clause = { connectionId: c._id };
+      if (c.lastSyncAt) {
+        // Drop leftover rows from a prior Linked Account / Merge UUID rotation.
+        // Rows with no lastSyncedAt are kept (tests and pre-timestamp imports).
+        clause.$or = [
+          { lastSyncedAt: { $exists: false } },
+          { lastSyncedAt: null },
+          { lastSyncedAt: { $gte: c.lastSyncAt } },
+        ];
+      }
+      return clause;
+    }),
+  };
 
   const rows = await MergeHrisEmployee.find(filter)
     .sort({ updatedAt: -1 })
