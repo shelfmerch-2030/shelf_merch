@@ -10,6 +10,7 @@ import {
   gateWalletForCuratedKitSend,
   insufficientFundsMessage,
 } from "../curatedKitWalletGate";
+import { useStartSampleOrder } from "../sample/useStartSampleOrder";
 import noKitsYetImg from "../../../../assets/no-kits-yet.png";
 
 export type PreDesignedKitsVm = {
@@ -20,7 +21,9 @@ export type PreDesignedKitsVm = {
   onPreviewOpenChange: (open: boolean) => void;
   onPreview: (kit: PlatformKitTemplate) => void;
   onSend: (kit: PlatformKitTemplate) => void;
+  onRequestSample: (kit: PlatformKitTemplate) => void;
   sendPending: boolean;
+  samplePending: boolean;
 };
 
 function templateImage(kit: PlatformKitTemplate): string {
@@ -76,6 +79,7 @@ export function usePreDesignedKitsController(): PreDesignedKitsVm {
   const { canSendKits } = useTenantAccess();
   const { data: workspace } = useWorkspace();
   const ensureCuratedKit = useEnsureCuratedKit();
+  const sampleOrder = useStartSampleOrder();
   const [kitPreview, setKitPreview] = useState<KitPreviewData | null>(null);
 
   const catalog = workspace?.catalogProducts ?? [];
@@ -124,6 +128,13 @@ export function usePreDesignedKitsController(): PreDesignedKitsVm {
     [workspace, catalog, ensureCuratedKit, navigate],
   );
 
+  const onRequestSample = useCallback(
+    (kit: PlatformKitTemplate) => {
+      void sampleOrder.startFromPlatformKit(kit);
+    },
+    [sampleOrder],
+  );
+
   return {
     isLoading,
     kits,
@@ -134,6 +145,8 @@ export function usePreDesignedKitsController(): PreDesignedKitsVm {
     },
     onPreview,
     onSend,
+    onRequestSample,
     sendPending: ensureCuratedKit.isPending,
+    samplePending: sampleOrder.pending,
   };
 }

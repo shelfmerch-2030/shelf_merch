@@ -9,6 +9,11 @@ import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
 import { mapPlacement, type UiProduct } from "@/services/mappers";
+import {
+  EMPTY_KIT_REDEEM_ADDRESS,
+  KitRedeemAddressForm,
+  validateKitRedeemAddress,
+} from "@/components/kit-redeem/KitRedeemAddressForm";
 import type { ShippingAddress } from "./store/StoreShell";
 
 type Selection = { size?: string; color?: string };
@@ -170,16 +175,7 @@ function KitItemCard({
   );
 }
 
-const EMPTY_ADDRESS: ShippingAddress = {
-  name: "",
-  phone: "",
-  line1: "",
-  line2: "",
-  city: "",
-  state: "",
-  pincode: "",
-  country: "IN",
-};
+const EMPTY_ADDRESS = EMPTY_KIT_REDEEM_ADDRESS;
 
 export default function KitAcceptPortal({
   token,
@@ -254,11 +250,9 @@ export default function KitAcceptPortal({
       setError("Please choose a kit variant.");
       return;
     }
-    const missing = (["name", "phone", "line1", "city", "state", "pincode"] as const).filter(
-      (k) => !address[k].trim(),
-    );
-    if (missing.length) {
-      setError("Please complete your shipping address.");
+    const addressError = validateKitRedeemAddress(address);
+    if (addressError) {
+      setError(addressError);
       return;
     }
 
@@ -411,70 +405,14 @@ export default function KitAcceptPortal({
           </>
         )}
 
-        <h2 style={{ fontSize: 17, marginBottom: 14 }}>Shipping address</h2>
-        <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div className="field">
-              <label className="lbl">Full name</label>
-              <input
-                className="inp"
-                value={address.name}
-                onChange={(e) => setAddress((a) => ({ ...a, name: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label className="lbl">Phone</label>
-              <input
-                className="inp"
-                value={address.phone}
-                onChange={(e) => setAddress((a) => ({ ...a, phone: e.target.value }))}
-                placeholder="+91…"
-              />
-            </div>
-            <div className="field" style={{ gridColumn: "1 / -1" }}>
-              <label className="lbl">Address line 1</label>
-              <input
-                className="inp"
-                value={address.line1}
-                onChange={(e) => setAddress((a) => ({ ...a, line1: e.target.value }))}
-              />
-            </div>
-            <div className="field" style={{ gridColumn: "1 / -1" }}>
-              <label className="lbl">Address line 2 (optional)</label>
-              <input
-                className="inp"
-                value={address.line2}
-                onChange={(e) => setAddress((a) => ({ ...a, line2: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label className="lbl">City</label>
-              <input
-                className="inp"
-                value={address.city}
-                onChange={(e) => setAddress((a) => ({ ...a, city: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label className="lbl">State</label>
-              <input
-                className="inp"
-                value={address.state}
-                onChange={(e) => setAddress((a) => ({ ...a, state: e.target.value }))}
-              />
-            </div>
-            <div className="field">
-              <label className="lbl">PIN code</label>
-              <input
-                className="inp"
-                value={address.pincode}
-                onChange={(e) => setAddress((a) => ({ ...a, pincode: e.target.value }))}
-              />
-            </div>
-          </div>
-        </div>
+        <KitRedeemAddressForm
+          address={address}
+          onChange={setAddress}
+          heading="Shipping address"
+          error={error && error === "Please complete your shipping address." ? error : undefined}
+        />
 
-        {error && (
+        {error && error !== "Please complete your shipping address." && (
           <div className="card" style={{ padding: 12, marginBottom: 16, color: "var(--danger)" }}>
             {error}
           </div>

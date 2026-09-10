@@ -98,6 +98,14 @@ const tenantChildren: RouteObject[] = [
             loader: () => (requireTenantArea("campaignOps", "write"), null),
             lazy: page(() => import("@/features/kits/send/SendKitWizard"), "SendKitWizard"),
           },
+          {
+            path: "sample",
+            loader: () => (requireTenantArea("campaignOps", "write"), null),
+            lazy: page(
+              () => import("@/features/kits/sample/RequestSampleWizard"),
+              "RequestSampleWizard",
+            ),
+          },
         ],
       },
     ],

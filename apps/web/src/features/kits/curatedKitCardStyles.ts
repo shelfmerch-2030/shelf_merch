@@ -27,6 +27,21 @@ export const curatedSendBtnStyle: CSSProperties = {
   borderRadius: 6,
 };
 
+export const curatedSampleBtnStyle: CSSProperties = {
+  flex: "1 1 100%",
+  border: "1px solid var(--brand, #3152ff)",
+  height: 32,
+  fontSize: 12,
+  fontWeight: 700,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 6,
+  color: "var(--brand, #3152ff)",
+  background: "transparent",
+  cursor: "pointer",
+};
+
 /** Plain price label beside kit card actions (no border/background). */
 export const curatedKitPriceStyle: CSSProperties = {
   flex: 1,

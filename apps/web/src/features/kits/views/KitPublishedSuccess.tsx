@@ -9,10 +9,12 @@ const CONFETTI_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#fbbf24", "#93c5fd"];
 export function KitPublishedSuccess({
   kitName,
   onSendKit,
+  onRequestSample,
   onGoToKits,
 }: {
   kitName: string;
   onSendKit: () => void;
+  onRequestSample?: () => void;
   onGoToKits: () => void;
 }) {
   useEffect(() => {
@@ -68,6 +70,11 @@ export function KitPublishedSuccess({
         </div>
 
         <div className="kit-published-actions">
+          {onRequestSample ? (
+            <button type="button" className="kit-published-kits" onClick={onRequestSample}>
+              Request a Sample
+            </button>
+          ) : null}
           <button type="button" className="kit-published-send" onClick={onSendKit}>
             <Send size={18} aria-hidden="true" />
             Send Kit

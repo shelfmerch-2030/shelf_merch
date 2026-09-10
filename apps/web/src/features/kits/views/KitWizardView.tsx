@@ -25,6 +25,7 @@ export function KitWizardView(vm: KitWizardVm) {
       <KitPublishedSuccess
         kitName={vm.publishedKit.name}
         onSendKit={vm.onSendPublishedKit}
+        onRequestSample={vm.onRequestSamplePublished}
         onGoToKits={vm.onGoToKits}
       />
     );

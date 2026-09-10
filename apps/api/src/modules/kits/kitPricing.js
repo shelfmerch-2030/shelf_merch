@@ -3,6 +3,11 @@
  * apps/web/src/features/send/money.ts.
  */
 export const PREMIUM_BOX_PER_RECIP = 49;
+export const SAMPLE_WRAP_PER_KIT = 35;
+/** @deprecated Prefer SAMPLE_WRAP_PER_KIT */
+export const SAMPLE_PRECURATED_BOX_PER_KIT = SAMPLE_WRAP_PER_KIT;
+export const SAMPLE_SHIP_PER_KIT = 50;
+export const SAMPLE_BRANDING_PER_KIT = 0;
 const SERVICE_FEE_RATE = 0.12;
 const SHIP_PER_RECIP = 120;
 const GST_RATE = 0.18;
@@ -130,5 +135,79 @@ export function customisedKitSendTotals(recipientCount, packaging, products = []
     itemsSubtotal,
     kitGstRate,
     taxablePerKit,
+  };
+}
+
+function normalizeSamplePackaging(packaging) {
+  if (packaging === 'wrap' || packaging === 'box') return packaging;
+  return 'none';
+}
+
+/**
+ * Sample-order totals — must stay in sync with money.ts sampleKitSendTotals().
+ * Wrapping ₹35; customised box ₹49; shipping ₹50. Branding is always ₹0.
+ */
+export function sampleKitSendTotals({
+  kind,
+  packaging,
+  pricePerKitInr = 0,
+  products = [],
+  recipientCount = 1,
+} = {}) {
+  const qty = Math.max(1, Math.round(Number(recipientCount) || 1));
+  const pkg = normalizeSamplePackaging(packaging);
+
+  let totals;
+  if (kind === 'customised') {
+    if (pkg === 'wrap') {
+      const base = customisedKitSendTotals(qty, 'none', products);
+      const pkgPerKit = SAMPLE_WRAP_PER_KIT;
+      const taxablePerKit = (base.itemsSubtotal ?? base.unitPrice) + pkgPerKit;
+      const kitGstRate = base.kitGstRate ?? GST_RATE;
+      const taxPerKit = Math.ceil(taxablePerKit * kitGstRate);
+      const costPerKit = taxablePerKit + taxPerKit;
+      totals = {
+        ...base,
+        pkgPerKit,
+        costPerKit,
+        sub: taxablePerKit * qty,
+        pkgCost: pkgPerKit * qty,
+        tax: taxPerKit * qty,
+        total: costPerKit * qty,
+        taxablePerKit,
+      };
+    } else {
+      totals = customisedKitSendTotals(qty, pkg === 'box' ? 'box' : 'none', products);
+    }
+  } else {
+    const kitIncl = Math.max(0, Math.round(Number(pricePerKitInr) || 0));
+    const kitBase = kitIncl > 0 ? Math.round(kitIncl / (1 + GST_RATE)) : 0;
+    const pkgPerKit = pkg === 'wrap' || pkg === 'box' ? SAMPLE_WRAP_PER_KIT : 0;
+    const taxablePerKit = kitBase + pkgPerKit;
+    const taxPerKit = Math.ceil(taxablePerKit * GST_RATE);
+    const costPerKit = taxablePerKit + taxPerKit;
+    totals = {
+      qty,
+      unitPrice: kitBase,
+      pkgPerKit,
+      costPerKit,
+      sub: taxablePerKit * qty,
+      pkgCost: pkgPerKit * qty,
+      fee: 0,
+      ship: 0,
+      tax: taxPerKit * qty,
+      total: costPerKit * qty,
+      kitGstRate: GST_RATE,
+      itemsSubtotal: kitBase,
+      taxablePerKit,
+    };
+  }
+
+  const ship = SAMPLE_SHIP_PER_KIT * qty;
+  return {
+    ...totals,
+    ship,
+    branding: SAMPLE_BRANDING_PER_KIT * qty,
+    total: totals.total + ship,
   };
 }

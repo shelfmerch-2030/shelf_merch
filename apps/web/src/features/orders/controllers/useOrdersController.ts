@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
@@ -62,8 +63,20 @@ function downloadInvoice(url: string, filename: string) {
 /** Controller for the orders screen: workspace slice, search filter, detail dialog. */
 export function useOrdersController(): OrdersVm {
   const { data: workspace, isLoading, isError, error } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<UiOrder | null>(null);
+
+  const orders = workspace?.orders ?? [];
+  const openOrderKey = searchParams.get("order")?.trim() || "";
+
+  useEffect(() => {
+    if (!openOrderKey || !orders.length) return;
+    const match = orders.find(
+      (o) => o.id === openOrderKey || o.orderNumber === openOrderKey,
+    );
+    if (match) setSelected(match);
+  }, [openOrderKey, orders]);
 
   const filtered = useMemo(() => {
     const list = workspace?.orders ?? [];
@@ -115,7 +128,14 @@ export function useOrdersController(): OrdersVm {
     onQuery: setQuery,
     onSelect: setSelected,
     onDialogOpenChange: (open) => {
-      if (!open) setSelected(null);
+      if (!open) {
+        setSelected(null);
+        if (openOrderKey) {
+          const next = new URLSearchParams(searchParams);
+          next.delete("order");
+          setSearchParams(next, { replace: true });
+        }
+      }
     },
     onViewInvoice: (order) => {
       void onViewInvoice(order);

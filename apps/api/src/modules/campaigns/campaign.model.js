@@ -42,7 +42,11 @@ const campaignSchema = new mongoose.Schema(
     paymentMode: { type: String, enum: ['wallet', 'upi', 'card'], default: 'wallet' },
     razorpayPaymentId: { type: String, default: '' },
     /** Kit packaging chosen at send checkout — drives order amount breakdown. */
-    packaging: { type: String, enum: ['none', 'box'], default: 'none' },
+    packaging: { type: String, enum: ['none', 'box', 'wrap'], default: 'none' },
+    /** Qty-1 sample order to a single address (distinct pricing: shipping ₹50, curated box ₹35). */
+    isSample: { type: Boolean, default: false },
+    /** Sample branding choice — logo is free; stored for fulfillment notes. */
+    brandingEnabled: { type: Boolean, default: false },
     message: {
       from: { type: String, default: '' },
       body: { type: String, default: '' },

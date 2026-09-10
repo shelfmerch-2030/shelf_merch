@@ -1059,7 +1059,7 @@ export async function launchKitCampaignApi(payload: {
   kitId: string;
   name: string;
   totalBudget?: number;
-  packaging?: "none" | "box";
+  packaging?: "none" | "box" | "wrap";
   fulfillmentMode?: "redeem" | "surprise" | "single";
   singleLocation?: {
     name: string;
@@ -1079,8 +1079,10 @@ export async function launchKitCampaignApi(payload: {
     name: string;
     email: string;
     phone?: string;
-    variants?: Record<string, { size?: string; color?: string }>;
+    variants?: Record<string, { size?: string; color?: string; variantImage?: string }>;
   }>;
+  isSample?: boolean;
+  brandingEnabled?: boolean;
 }) {
   const campaign = await apiFetch<Record<string, unknown>>("/campaigns", {
     method: "POST",
@@ -1091,6 +1093,8 @@ export async function launchKitCampaignApi(payload: {
       fulfillmentMode: payload.fulfillmentMode ?? "redeem",
       singleLocation: payload.singleLocation,
       kitId: payload.kitId,
+      isSample: payload.isSample === true,
+      brandingEnabled: payload.brandingEnabled === true,
       message: payload.message,
       schedule: payload.schedule ?? { mode: "now" },
     }),
@@ -1108,7 +1112,7 @@ export async function launchKitCampaignApi(payload: {
         variants: r.variants,
       })),
       ...(payload.totalBudget != null ? { totalBudget: payload.totalBudget } : {}),
-      ...(payload.packaging === "none" || payload.packaging === "box"
+      ...(payload.packaging === "none" || payload.packaging === "box" || payload.packaging === "wrap"
         ? { packaging: payload.packaging }
         : {}),
     }),
