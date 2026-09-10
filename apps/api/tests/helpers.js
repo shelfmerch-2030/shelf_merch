@@ -23,6 +23,12 @@ export async function makeTenant(overrides = {}) {
   });
 }
 
+/** Permit emails through the allowlist-only auth gate (login / register / invite). */
+export async function allowlistAuthEmails(...emails) {
+  const { appendEmailAllowlist } = await import('../src/modules/auth/workEmail.js');
+  return appendEmailAllowlist(emails.flat());
+}
+
 export async function makeUser(tenant, role, scopeType = 'tenant', extra = {}) {
   const email =
     extra.email ??
@@ -34,6 +40,7 @@ export async function makeUser(tenant, role, scopeType = 'tenant', extra = {}) {
     passwordHash: extra.password ? await hashPassword(extra.password) : undefined,
     status: extra.status ?? 'active',
   });
+  await allowlistAuthEmails(email);
   const assignment = await RoleAssignment.create({
     tenantId: tenant?._id ?? null,
     userId: user._id,

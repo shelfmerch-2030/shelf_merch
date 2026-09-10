@@ -19,6 +19,7 @@ import { Order } from '../src/modules/orders/order.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Invoice } from '../src/modules/invoices/invoice.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
+import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
 
 let app;
 let tenant;
@@ -27,10 +28,11 @@ let adminToken;
 let tokens; // per platform role
 
 async function makeUser(tenantDoc, role, scopeType, extra = {}) {
+  const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`;
   const user = await User.create({
     tenantId: tenantDoc?._id ?? null,
     name: `${role} user`,
-    email: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`,
+    email,
     status: 'active',
   });
   const assignment = await RoleAssignment.create({
@@ -324,6 +326,7 @@ describe('tenants (§3.4)', () => {
       passwordHash,
       status: 'active',
     });
+    await appendEmailAllowlist(['locked@rubix.net']);
     await RoleAssignment.create({
       tenantId: tenant._id,
       userId: archUser._id,
@@ -650,6 +653,7 @@ describe('support (§3.9)', () => {
 
 describe('platform team (§5)', () => {
   it('invites, re-roles, deactivates and audits platform users — super admin only', async () => {
+    await appendEmailAllowlist(['newsales@shelfmerch.io']);
     const invited = await request(app)
       .post('/api/v1/platform/team')
       .set(auth(tokens.platform_super_admin))
@@ -683,6 +687,25 @@ describe('platform team (§5)', () => {
 
 describe('settings & signup gating (§3.4, §6)', () => {
   it('signup.mode=closed refuses registration; open activates immediately', async () => {
+    // defaults visible; non-super cannot write
+    const all = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_readonly_auditor));
+    expect(all.body['gst.defaultRate']).toBe(18);
+    expect(all.body['auth.emailAllowlist']).toEqual([]);
+    expect(
+      (
+        await request(app)
+          .put('/api/v1/platform/settings/signup.mode')
+          .set(auth(tokens.platform_finance_admin))
+          .send({ value: 'open' })
+      ).status,
+    ).toBe(403);
+
+    await request(app)
+      .put('/api/v1/platform/settings/auth.emailAllowlist')
+      .set(auth(tokens.platform_super_admin))
+      .send({ value: ['eve@corp.io'] })
+      .expect(200);
+
     await request(app)
       .put('/api/v1/platform/settings/signup.mode')
       .set(auth(tokens.platform_super_admin))
@@ -707,30 +730,24 @@ describe('settings & signup gating (§3.4, §6)', () => {
     expect(open.status).toBe(201);
     const newTenant = await Tenant.findOne({ _id: open.body.user.tenantId });
     expect(newTenant.status).toBe('active');
-
-    // defaults visible; non-super cannot write
-    const all = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_readonly_auditor));
-    expect(all.body['gst.defaultRate']).toBe(18);
-    expect(all.body['auth.emailAllowlist']).toEqual([]);
-    expect(
-      (
-        await request(app)
-          .put('/api/v1/platform/settings/signup.mode')
-          .set(auth(tokens.platform_finance_admin))
-          .send({ value: 'open' })
-      ).status,
-    ).toBe(403);
   });
 
-  it('auth.emailAllowlist lets specific Gmail addresses past the work-email gate', async () => {
+  it('auth.emailAllowlist is required for work and personal emails', async () => {
+    const work = `worker-${Date.now()}@corp.io`;
     const gmail = `tester-${Date.now()}@gmail.com`;
     const password = 'securepass1';
 
-    const blocked = await request(app)
+    const blockedWork = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ name: 'Work Tester', email: work, password, companyName: 'Test Co' });
+    expect(blockedWork.status).toBe(400);
+    expect(blockedWork.body.error.code).toBe('EMAIL_NOT_ALLOWLISTED');
+
+    const blockedGmail = await request(app)
       .post('/api/v1/auth/register')
       .send({ name: 'Gmail Tester', email: gmail, password, companyName: 'Test Co' });
-    expect(blocked.status).toBe(400);
-    expect(blocked.body.error.code).toBe('WORK_EMAIL_REQUIRED');
+    expect(blockedGmail.status).toBe(400);
+    expect(blockedGmail.body.error.code).toBe('EMAIL_NOT_ALLOWLISTED');
 
     const saved = await request(app)
       .put('/api/v1/platform/settings/auth.emailAllowlist')
@@ -742,11 +759,11 @@ describe('settings & signup gating (§3.4, §6)', () => {
     await request(app)
       .put('/api/v1/platform/settings/auth.emailAllowlist')
       .set(auth(tokens.platform_super_admin))
-      .send({ value: [gmail.toUpperCase()] })
+      .send({ value: [gmail.toUpperCase(), work.toUpperCase()] })
       .expect(200);
 
     const settings = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_super_admin));
-    expect(settings.body['auth.emailAllowlist']).toEqual([gmail]);
+    expect(settings.body['auth.emailAllowlist']).toEqual([gmail, work]);
 
     await request(app)
       .put('/api/v1/platform/settings/signup.mode')

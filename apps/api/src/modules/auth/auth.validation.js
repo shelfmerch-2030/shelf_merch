@@ -26,7 +26,7 @@ export const resetPasswordPolicy = z
     message: 'Password must include a special character',
   });
 
-/** Format-only — personal-domain policy is enforced in auth.service via allowlist. */
+/** Format-only — allowlist policy is enforced in auth.service. */
 const authEmail = z.string().email();
 
 export const loginSchema = z.object({

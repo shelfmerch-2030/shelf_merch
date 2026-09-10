@@ -8,6 +8,7 @@ import {
   makeFundedWallet,
   makeEntity,
   authHeader,
+  allowlistAuthEmails,
 } from './helpers.js';
 import { createApp } from '../src/app.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
@@ -89,6 +90,7 @@ describe('entities API', () => {
   });
 
   it('assigns a manager and patches entity metadata', async () => {
+    await allowlistAuthEmails('mgr-new@entity-suite.io');
     const assign = await request(app)
       .post(`/api/v1/entities/${entity._id}/assign-manager`)
       .set(authHeader(adminToken))

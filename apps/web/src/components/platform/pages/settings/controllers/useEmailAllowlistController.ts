@@ -19,7 +19,7 @@ export type EmailAllowlistVm = {
   onRemove: (email: string) => void;
 };
 
-/** Manages the platform `auth.emailAllowlist` setting for test personal emails. */
+/** Manages the platform `auth.emailAllowlist` setting (only these emails may auth). */
 export function useEmailAllowlistController(
   initial: unknown,
   canWrite: boolean,

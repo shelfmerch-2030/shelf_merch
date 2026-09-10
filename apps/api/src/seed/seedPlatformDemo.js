@@ -11,6 +11,8 @@ import { Notification } from '../modules/notifications/notification.model.js';
 import { Category } from '../modules/catalog/category.model.js';
 import { InventoryTransaction } from '../modules/catalog/inventoryTransaction.model.js';
 import { CatalogProduct } from '../modules/catalog/catalogProduct.model.js';
+import { PLATFORM_LOGINS, TENANT_LOGINS } from './demoReference.js';
+import { normalizeEmail } from '../modules/auth/workEmail.js';
 
 /** Platform control-plane demo records for every ops area. */
 export async function seedPlatformDemo({
@@ -189,8 +191,11 @@ export async function seedPlatformDemo({
     issuedByUserId: finance._id,
   });
 
+  const demoAllowlist = [...PLATFORM_LOGINS, ...TENANT_LOGINS].map((u) => normalizeEmail(u.email));
+
   for (const [key, value] of Object.entries(PLATFORM_SETTING_DEFAULTS)) {
-    await PlatformSetting.create({ key, value, updatedByUserId: superAdmin._id });
+    const nextValue = key === 'auth.emailAllowlist' ? demoAllowlist : value;
+    await PlatformSetting.create({ key, value: nextValue, updatedByUserId: superAdmin._id });
   }
 
   await AuditLog.insertMany([

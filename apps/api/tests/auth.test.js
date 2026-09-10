@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
-import { makeTenant, makeUser, authHeader } from './helpers.js';
+import { makeTenant, makeUser, authHeader, allowlistAuthEmails } from './helpers.js';
 import { createApp } from '../src/app.js';
 import { JWT_ACCESS_AUDIENCE, JWT_ISSUER } from '../src/config/jwt.js';
 import { User } from '../src/modules/users/user.model.js';

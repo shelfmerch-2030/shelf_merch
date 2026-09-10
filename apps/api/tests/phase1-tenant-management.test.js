@@ -12,6 +12,7 @@ import { RoleAssignment } from '../src/modules/roles/roleAssignment.model.js';
 import { Wallet } from '../src/modules/wallets/wallet.model.js';
 import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
+import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
 
 let app;
 let tenant;
@@ -20,13 +21,17 @@ let superToken;
 let financeToken;
 
 async function makeUser(tenantDoc, role, scopeType, extra = {}) {
+  const email =
+    extra.email ?? `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`;
   const user = await User.create({
     tenantId: tenantDoc?._id ?? null,
     name: `${role} user`,
-    email: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`,
+    email,
     status: 'active',
     ...extra,
+    email,
   });
+  await appendEmailAllowlist([email]);
   const assignment = await RoleAssignment.create({
     tenantId: tenantDoc?._id ?? null,
     userId: user._id,
@@ -167,6 +172,7 @@ describe('Phase 1 status transitions', () => {
       passwordHash,
       status: 'active',
     });
+    await appendEmailAllowlist(['locked@dell.test']);
     await RoleAssignment.create({
       tenantId: tenant._id,
       userId: user._id,

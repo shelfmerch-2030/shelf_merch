@@ -1,7 +1,7 @@
 import { PlatformError } from "../../../platform-ui";
 import type { EmailAllowlistVm } from "../controllers/useEmailAllowlistController";
 
-/** Super-admin UI for allowlisting personal emails (e.g. Gmail) for testing. */
+/** Super-admin UI for allowlisting emails that may sign up or log in. */
 export function EmailAllowlistCard({
   emails,
   draft,
@@ -15,10 +15,10 @@ export function EmailAllowlistCard({
   return (
     <div className="card" style={{ padding: 16, marginBottom: 16 }}>
       <div style={{ marginBottom: 12 }}>
-        <h3 style={{ fontSize: 16, marginBottom: 4 }}>Test email allowlist</h3>
+        <h3 style={{ fontSize: 16, marginBottom: 4 }}>Login email allowlist</h3>
         <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-          Auth requires a work email. Add specific personal addresses (Gmail, etc.) here so they can
-          sign up or log in for testing.
+          Only addresses on this list can sign up or log in (work and personal). Seeded demo accounts
+          use password <code>demo1234</code>.
         </p>
       </div>
 
@@ -26,7 +26,7 @@ export function EmailAllowlistCard({
 
       {emails.length === 0 ? (
         <p className="muted" style={{ fontSize: 13, marginBottom: canWrite ? 12 : 0 }}>
-          No personal emails allowlisted.
+          No emails allowlisted — nobody can sign in until you add addresses.
         </p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0, margin: "0 0 12px", display: "grid", gap: 8 }}>
@@ -62,7 +62,7 @@ export function EmailAllowlistCard({
               id="allowlist-email"
               className="inp"
               type="email"
-              placeholder="tester@gmail.com"
+              placeholder="user@company.com"
               value={draft}
               disabled={busy}
               onChange={(e) => onDraft(e.target.value)}

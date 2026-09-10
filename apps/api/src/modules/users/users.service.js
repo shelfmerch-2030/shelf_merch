@@ -49,6 +49,9 @@ export async function inviteUser(
   },
   session = null,
 ) {
+  const { assertAllowedAuthEmail } = await import('../auth/workEmail.js');
+  await assertAllowedAuthEmail(email);
+
   const normalizedEmail = email.toLowerCase().trim();
   let user = await User.findOne({ email: normalizedEmail }).session(session);
 

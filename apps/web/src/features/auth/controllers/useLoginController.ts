@@ -22,8 +22,8 @@ export type LoginVm = {
 export function useLoginController(): LoginVm {
   const navigate = useNavigate();
   const submitInFlight = useRef(false);
-  const [email, setEmail] = useState("hr@rubix.net");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

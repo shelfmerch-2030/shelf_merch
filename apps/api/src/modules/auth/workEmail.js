@@ -1,6 +1,6 @@
 import { ApiError } from '../../utils/errors.js';
 
-/** Personal / consumer inbox domains — work emails only for auth. */
+/** Personal / consumer inbox domains — kept for docs / callers that still classify domains. */
 export const PERSONAL_EMAIL_DOMAINS = new Set([
   'gmail.com',
   'googlemail.com',
@@ -21,8 +21,11 @@ export const PERSONAL_EMAIL_DOMAINS = new Set([
   'yandex.com',
 ]);
 
-export const WORK_EMAIL_ERROR =
-  'Use a work email address. Personal emails like Gmail are not allowed.';
+export const ALLOWLIST_EMAIL_ERROR =
+  'This email is not authorized to sign in. Ask a Shelf Merch admin to allowlist it.';
+
+/** @deprecated Use ALLOWLIST_EMAIL_ERROR — same gate now covers work and personal emails. */
+export const WORK_EMAIL_ERROR = ALLOWLIST_EMAIL_ERROR;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -64,17 +67,29 @@ export async function getEmailAllowlist() {
   return value.map((e) => normalizeEmail(e)).filter(Boolean);
 }
 
+/** Append emails to `auth.emailAllowlist` (deduped). Used by seed and tests. */
+export async function appendEmailAllowlist(emails, userId = null) {
+  const { getSetting, setSetting } = await import('../platform/platformSettings.service.js');
+  const current = await getSetting('auth.emailAllowlist');
+  const next = normalizeEmailAllowlist([
+    ...(Array.isArray(current) ? current : []),
+    ...emails,
+  ]);
+  await setSetting('auth.emailAllowlist', next, userId);
+  return next;
+}
+
+/** Only emails on `auth.emailAllowlist` may register or log in (work or personal). */
 export async function isAllowedAuthEmail(email) {
   const normalized = normalizeEmail(email);
   if (!EMAIL_RE.test(normalized)) return false;
-  if (!isPersonalEmailDomain(normalized)) return true;
   const allowlist = await getEmailAllowlist();
   return allowlist.includes(normalized);
 }
 
-/** Reject personal-domain emails unless present on `auth.emailAllowlist`. */
+/** Reject any email not present on `auth.emailAllowlist`. */
 export async function assertAllowedAuthEmail(email) {
   if (!(await isAllowedAuthEmail(email))) {
-    throw new ApiError(400, WORK_EMAIL_ERROR, 'WORK_EMAIL_REQUIRED');
+    throw new ApiError(400, ALLOWLIST_EMAIL_ERROR, 'EMAIL_NOT_ALLOWLISTED');
   }
 }

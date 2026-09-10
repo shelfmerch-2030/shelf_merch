@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { User } from '../src/modules/users/user.model.js';
 import { RoleAssignment } from '../src/modules/roles/roleAssignment.model.js';
 import { hashPassword } from '../src/modules/auth/auth.service.js';
+import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
 
 let app;
 
@@ -23,6 +24,7 @@ async function makeLoginUser() {
     passwordHash: await hashPassword('correct-horse-1'),
     status: 'active',
   });
+  await appendEmailAllowlist(['lockme@test.io']);
   await RoleAssignment.create({
     tenantId: null,
     userId: user._id,

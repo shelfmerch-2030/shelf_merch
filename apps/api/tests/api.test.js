@@ -10,6 +10,7 @@ import { Entity } from '../src/modules/entities/entity.model.js';
 import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
 import { signAccessToken } from '../src/modules/auth/auth.service.js';
+import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
 import * as ledger from '../src/services/ledger.service.js';
 
 let app;
@@ -22,12 +23,14 @@ let tokenB;
 let walletA;
 
 async function makeUser(tenant, role, scopeType, extra = {}) {
+  const email = `${role}-${tenant?.slug ?? 'platform'}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`;
   const user = await User.create({
     tenantId: tenant?._id ?? null,
     name: `${role} user`,
-    email: `${role}-${tenant?.slug ?? 'platform'}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`,
+    email,
     status: 'active',
   });
+  await appendEmailAllowlist([email]);
   const assignment = await RoleAssignment.create({
     tenantId: tenant?._id ?? null,
     userId: user._id,
@@ -315,6 +318,7 @@ describe('wallet setup wizard + state machine', () => {
       .send({ allocations: [{ entityId: entityRes.body._id, amount: 900_000 }] });
     expect(tooMuch.status).toBe(422);
 
+    await appendEmailAllowlist(['priya@rubix.net']);
     const mgr = await request(app)
       .post(`/api/v1/entities/${entityRes.body._id}/assign-manager`)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -386,6 +390,7 @@ describe('wallet setup wizard + state machine', () => {
 describe('auth flow', () => {
   it('register creates tenant + company_admin and returns tokens', async () => {
     const email = `signup-${Date.now()}@test.io`;
+    await appendEmailAllowlist([email]);
     const res = await request(app)
       .post('/api/v1/auth/register')
       .send({
@@ -446,6 +451,7 @@ describe('auth flow', () => {
   });
 
   it('login returns NO_ACCOUNT when the email is unknown', async () => {
+    await appendEmailAllowlist(['missing-user@test.io']);
     const res = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: 'missing-user@test.io', password: 'demo1234' });
@@ -458,6 +464,7 @@ describe('auth flow', () => {
 describe('user invite', () => {
   it('accept-invite activates invited user and allows login', async () => {
     const email = `invite-${Date.now()}@test.io`;
+    await appendEmailAllowlist([email]);
     const { inviteUser } = await import('../src/modules/users/users.service.js');
     const entity = await Entity.create({
       tenantId: tenantA._id,
@@ -533,13 +540,15 @@ describe('user invite', () => {
       walletId: walletA._id,
       name: 'Marketing',
     });
+    const email = `new-mgr-${Date.now()}@test.io`;
+    await appendEmailAllowlist([email]);
 
     const assign = await request(app)
       .post(`/api/v1/entities/${entity._id}/assign-manager`)
       .set('Authorization', `Bearer ${tokenA}`)
       .send({
         name: 'New Manager',
-        email: `new-mgr-${Date.now()}@test.io`,
+        email,
         role: 'Marketing Manager',
         sendInvite: false,
       });

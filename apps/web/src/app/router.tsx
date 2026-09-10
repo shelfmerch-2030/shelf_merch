@@ -244,9 +244,9 @@ export const appRouter = createBrowserRouter([
         path: "request-demo",
         lazy: page(() => import("@/features/request-demo/RequestDemoPage"), "RequestDemoPage"),
       },
-      { path: "contacts", lazy: page(() => import("@/components/ContactsPage")) },
-      { path: "contact", loader: () => redirect("/contacts") },
-      { path: "contact-us", loader: () => redirect("/contacts") },
+      { path: "contact-us", lazy: page(() => import("@/components/ContactsPage")) },
+      { path: "contact", loader: () => redirect("/contact-us") },
+      { path: "contacts", loader: () => redirect("/contact-us") },
       {
         path: "apps/catalog",
         lazy: page(() => import("@/features/catalog/PublicCatalogPage"), "PublicCatalogLayout"),
