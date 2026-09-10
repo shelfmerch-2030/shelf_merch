@@ -5,10 +5,12 @@ import "./kit-published-success.css";
 export function KitPublishedSuccess({
   kitName,
   onSendKit,
+  onRequestSample,
   onGoToKits,
 }: {
   kitName: string;
   onSendKit: () => void;
+  onRequestSample?: () => void;
   onGoToKits: () => void;
 }) {
   return (
