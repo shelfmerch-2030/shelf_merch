@@ -3,8 +3,14 @@ import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { sumKitProductPrices } from "@/features/send/money";
-import { bakeMockupsForProducts } from "@/features/swag/mockup-bake";
-import { kitPreferredPrintAreaKey } from "../kitPrintArea";
+import {
+  bakeMockupLayers,
+  collectAreaPlacements,
+  collectBakeLayers,
+  exportDesignOnly,
+  primaryAreaKey,
+  type MockupUploadItem,
+} from "@/features/swag/mockup-bake";
 import { usePlatformKits, useCreateKit } from "../model";
 import type { UiProduct } from "../model";
 import { kitReducer, type KitAction, type KitDraft } from "../wizard/kitDraft";
@@ -16,6 +22,7 @@ const INITIAL: KitDraft = {
   desc: "",
   picked: [],
   art: null,
+  areaArts: {},
   placements: {},
   placementEpoch: 0,
   notes: "",
@@ -108,16 +115,78 @@ export function useKitWizardController(): KitWizardVm {
     setPublishing(true);
     try {
       const kitPrice = sumKitProductPrices(pickedProducts);
-      let mockups: Awaited<ReturnType<typeof bakeMockupsForProducts>> | undefined;
+      let mockups: MockupUploadItem[] | undefined;
 
-      if (draft.art?.preview) {
-        mockups = await bakeMockupsForProducts(
-          draft.picked,
-          catalog,
-          draft.art.preview,
-          draft.placements,
-          { resolveAreaKey: kitPreferredPrintAreaKey },
+      const fallbackArt = draft.art?.preview || "";
+      const hasAreaArt = Object.keys(draft.areaArts || {}).length > 0;
+      if (fallbackArt || hasAreaArt) {
+        const baked = await Promise.all(
+          draft.picked.map(async (i, idx) => {
+            const cp = catalog[i];
+            const layers = collectBakeLayers(
+              cp,
+              draft.placements,
+              draft.areaArts || {},
+              idx,
+              fallbackArt,
+            );
+            if (!layers.length) return null;
+            const areaKey = primaryAreaKey(cp);
+            const primaryLayer = layers.find((l) => l.areaKey === areaKey) || layers[0];
+            const areaPlacements = collectAreaPlacements(
+              cp,
+              draft.placements,
+              idx,
+              draft.areaArts || {},
+            );
+            const [frontDataUrl, backDataUrl, design] = await Promise.all([
+              bakeMockupLayers(cp, layers, 1000, false, "front"),
+              bakeMockupLayers(cp, layers, 1000, false, "back"),
+              exportDesignOnly(
+                cp,
+                primaryLayer.artUrl,
+                primaryLayer.placement,
+                primaryLayer.areaKey,
+              ),
+            ]);
+            const dataUrl = frontDataUrl || backDataUrl;
+            if (!dataUrl) return null;
+            return {
+              dataUrl,
+              backDataUrl: frontDataUrl && backDataUrl ? backDataUrl : undefined,
+              design,
+              placement: primaryLayer.placement,
+              placements: areaPlacements,
+            };
+          }),
         );
+        mockups = draft.picked
+          .map((i, idx): MockupUploadItem | null => {
+            const cp = catalog[i];
+            const row = baked[idx];
+            if (!cp?.id || !row?.dataUrl) return null;
+            return {
+              catalogProductId: cp.id,
+              dataUrl: row.dataUrl,
+              ...(row.backDataUrl ? { backDataUrl: row.backDataUrl } : {}),
+              placement: row.placement,
+              ...(row.placements?.length ? { placements: row.placements } : {}),
+              ...(row.design.dataUrl
+                ? {
+                    designOnlyDataUrl: row.design.dataUrl,
+                    printSpec: {
+                      widthIn: row.design.widthIn,
+                      heightIn: row.design.heightIn,
+                      dpi: row.design.dpi,
+                      widthPx: row.design.widthPx,
+                      heightPx: row.design.heightPx,
+                    },
+                  }
+                : {}),
+            };
+          })
+          .filter((m): m is MockupUploadItem => m != null);
+
         if (mockups.length < draft.picked.length) {
           throw new Error("Failed to generate mockups for all kit products — try again");
         }

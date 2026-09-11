@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { UiProduct } from "@/services/mappers";
 import { customisedKitSendTotals, netPriceExGst } from "@/features/send/money";
 import {
+  areaPlacementKey,
   defaultPlacement,
   placementKey,
   type Placement,
@@ -74,7 +75,9 @@ export function KitReviewPricingStep({
             {products.map((p, idx) => {
               const netPrice = netPriceExGst(Number(p.basePriceInr) || 0, p.category);
               const areaKey = kitPreferredPrintAreaKey(p);
-              const draftPlacement = placements[placementKey(p, idx)];
+              const draftPlacement =
+                placements[areaPlacementKey(p, idx, areaKey)] ??
+                placements[placementKey(p, idx)];
               const placement = draftPlacement ?? defaultPlacement(p, 1, areaKey);
               return (
                 <li

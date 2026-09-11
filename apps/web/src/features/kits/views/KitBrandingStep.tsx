@@ -1,27 +1,25 @@
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Check, CircleHelp, Eye, Info, MoreHorizontal, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mediaUrlForCanvas } from "@/lib/mediaUrl";
+import { mediaUrlForCanvas, resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { ProductThumb } from "@/features/shops/ProductThumb";
-import { MockupCanvas } from "@/features/swag/MockupCanvas";
+import { MockupCanvas, buildMockupLayers } from "@/features/swag/MockupCanvas";
 import { MockupViewGallery } from "@/features/swag/MockupViewGallery";
 import {
+  areaPlacementKey,
   designImgUrlForView,
   listPrintAreas,
-  listPrintAreasForView,
   listProductViews,
   placementKey,
   printAreaKey,
-  printAreaViewKey,
   type Placement,
   type ProductViewKey,
 } from "@/features/swag/mockup-bake";
@@ -37,7 +35,18 @@ import {
   rememberArtwork,
   type PreviousArtwork,
 } from "@/features/swag/wizard/artworkHistory";
-import { kitPreferredPrintAreaKey } from "../kitPrintArea";
+import {
+  areaKeysForProduct,
+  areaLabelForKey,
+  areasForMockupView,
+  editorViewForArea,
+  frontAreaKeysForProduct,
+  productArtworkCommitPlan,
+  productHasArtwork,
+  sliceProductAreaArts,
+  sliceProductPlacements,
+} from "@/features/swag/wizard/artworkStepModel";
+import { kitDefaultSeedKeysForProducts, kitPreferredPrintAreaKey } from "../kitPrintArea";
 import type { KitArtFile } from "../wizard/kitDraft";
 
 const ART_ACCEPT = /\.(svg|png|jpe?g|ai)$/i;
@@ -46,15 +55,24 @@ const ART_MAX = 5 * 1024 * 1024;
 type ArtTab = "upload" | "previous";
 type PrintQuality = "good" | "poor";
 
-/** Kit branding step — upload on the left; per-product editing opens in a modal. */
+/**
+ * Kit branding step (parity with Design Swag artwork step):
+ * - Left panel upload + Add artwork seeds one default placeholder per product.
+ * - Click a product to edit placement / add or remove logos on other placeholders.
+ * - Per-product edits never rewrite other products.
+ */
 export function KitBrandingStep({
   products,
   art,
+  areaArts,
   placements,
   placementEpoch,
   notes,
   onSetArt,
   onClearArt,
+  onSetAreaArt,
+  onSetAreaArts,
+  onClearAreaArt,
   onResetPlacements,
   onPlacementChange,
   onNotes,
@@ -62,11 +80,15 @@ export function KitBrandingStep({
   stepBadge?: string;
   products: UiProduct[];
   art: KitArtFile | null;
+  areaArts: Record<string, KitArtFile>;
   placements: Record<string, Placement>;
   placementEpoch: number;
   notes: string;
   onSetArt: (art: KitArtFile) => void;
   onClearArt: () => void;
+  onSetAreaArt: (key: string, art: KitArtFile) => void;
+  onSetAreaArts: (keys: string[], art: KitArtFile) => void;
+  onClearAreaArt: (key: string) => void;
   onResetPlacements: () => void;
   onPlacementChange: (key: string, placement: Placement) => void;
   onNotes: (notes: string) => void;
@@ -80,27 +102,18 @@ export function KitBrandingStep({
     loadArtworkHistory(),
   );
   const [editIdx, setEditIdx] = useState<number | null>(null);
-  /** Products the user has saved from the branding modal (custom placement). */
-  const [customizedKeys, setCustomizedKeys] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (art) setStaging(art);
   }, [art]);
 
-  useEffect(() => {
-    setCustomizedKeys((prev) => {
-      const next = new Set<string>();
-      for (const key of prev) {
-        if (placements[key]) next.add(key);
-      }
-      return next.size === prev.size ? prev : next;
-    });
-  }, [placements]);
+  const designedCount = products.reduce(
+    (n, p, idx) => n + (productHasArtwork(p, idx, areaArts) ? 1 : 0),
+    0,
+  );
 
   function clearStaging() {
     setStaging(null);
-    if (art) onClearArt();
-    setCustomizedKeys(new Set());
   }
 
   function onPick(file: File) {
@@ -126,34 +139,39 @@ export function KitBrandingStep({
     if (file) onPick(file);
   }
 
-  function applyArtwork() {
+  /** Apply library artwork to each product's default kit placeholder (polo → left). */
+  function confirmLibraryArt() {
     if (!staging) return;
+    const keys = kitDefaultSeedKeysForProducts(products);
     onSetArt(staging);
-    setCustomizedKeys(new Set());
+    if (keys.length) onSetAreaArts(keys, staging);
     rememberArtwork({
       id: staging.preview,
       name: staging.name,
       preview: staging.preview,
       fileType: fileTypeFromName(staging.name),
     });
-    setPreviousUploads(loadArtworkHistory());
+    setPreviousUploads((prev) => [
+      {
+        id: staging.preview,
+        name: staging.name,
+        preview: staging.preview,
+        fileType: fileTypeFromName(staging.name),
+      },
+      ...prev.filter((h) => h.preview !== staging.preview),
+    ]);
+    toast.success(`Artwork applied to ${products.length} product${products.length === 1 ? "" : "s"}`);
   }
 
   function selectPrevious(item: PreviousArtwork) {
     if (staging?.preview === item.preview) {
       setStaging(null);
-      if (art?.preview === item.preview) onClearArt();
       return;
     }
-    setStaging({
-      name: item.name,
-      preview: item.preview,
-    });
+    setStaging({ name: item.name, preview: item.preview });
   }
 
   const editingProduct = editIdx != null ? products[editIdx] : null;
-  const editingKey =
-    editingProduct && editIdx != null ? placementKey(editingProduct, editIdx) : "";
 
   return (
     <div className="sw-art-studio">
@@ -169,7 +187,7 @@ export function KitBrandingStep({
           </p>
         </header>
 
-        {!art && !bannerDismissed ? (
+        {!designedCount && !bannerDismissed ? (
           <div className="sw-art-alert">
             <span>
               Add your artwork on the left to preview it on every product — all colour variants are
@@ -290,7 +308,7 @@ export function KitBrandingStep({
             type="button"
             className="btn btn-block sw-art-add-btn"
             disabled={!staging}
-            onClick={applyArtwork}
+            onClick={confirmLibraryArt}
           >
             Add artwork
           </button>
@@ -322,85 +340,91 @@ export function KitBrandingStep({
             />
           </div>
 
-          {art ? (
+          {Object.keys(areaArts).length > 0 || art ? (
             <button
               type="button"
               className="btn btn-ghost btn-block btn-sm sw-art-reset"
               onClick={() => {
+                onClearArt();
                 onResetPlacements();
-                setCustomizedKeys(new Set());
-                toast.success("Artwork placement reset on all products");
+                setStaging(null);
+                toast.success("Cleared library artwork and all product logos");
               }}
             >
-              Reset placement on all products
+              Clear all artwork
             </button>
           ) : null}
         </aside>
 
         <div className="sw-art-preview-stage">
-          {art ? (
-            <div className="sw-art-preview-head">
-              <div>
-                <div className="sw-art-preview-title">Your mockups</div>
-                <div className="mut3 sw-art-preview-hint">
-                  Click a product to adjust logo placement, size, and colour preview
-                </div>
+          <div className="sw-art-preview-head">
+            <div>
+              <div className="sw-art-preview-title">Your products</div>
+              <div className="mut3 sw-art-preview-hint">
+                Click a product to edit logo placement, size, and extra placeholders
               </div>
+            </div>
+            {designedCount > 0 ? (
               <span className="sw-art-applied-badge">
                 <Check size={13} strokeWidth={2.5} />
-                Applied to all {products.length} products
+                {designedCount} designed
               </span>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <div className="sw-art-preview-scroll">
             <div className="sw-mockups">
               {products.map((p, idx) => {
-                const key = placementKey(p, idx);
-                const areaKey = kitPreferredPrintAreaKey(p);
-                const customized = customizedKeys.has(key);
+                const productKey = placementKey(p, idx);
+                const designed = productHasArtwork(p, idx, areaArts);
+                const frontKeys = new Set(frontAreaKeysForProduct(p));
+                const layers = buildMockupLayers(p, {
+                  idx,
+                  areaArts,
+                  placements,
+                }).filter((layer) => frontKeys.has(layer.areaKey));
+                // Production mask/stage only — skip marketing photos with baked placeholders.
+                const maskThumb =
+                  resolveMediaUrl(p.maskImageUrl) ||
+                  resolveMediaUrl(p.baseImageUrl) ||
+                  "";
                 return (
                   <div
-                    key={key}
-                    className={`pcard mockup-card sw-mockup-card${art ? " sw-mockup-card--editable" : ""}`}
+                    key={productKey}
+                    className="pcard mockup-card sw-mockup-card sw-mockup-card--editable"
                   >
-                    {art ? (
-                      <button
-                        type="button"
-                        className="sw-mockup-menu"
-                        aria-label={`Edit branding for ${p.nm}`}
-                        onClick={() => setEditIdx(idx)}
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-                    ) : null}
-                    {art?.preview ? (
-                      <button
-                        type="button"
-                        className="sw-mockup-card-hit"
-                        onClick={() => setEditIdx(idx)}
-                        aria-label={`Edit branding for ${p.nm}`}
-                      >
-                        <MockupCanvas
-                          product={p}
-                          artUrl={art.preview}
-                          printAreaKey={areaKey}
-                          placement={placements[key]}
-                          resetEpoch={placementEpoch}
-                          previewMode
-                        />
-                      </button>
-                    ) : (
-                      <ProductThumb product={p} branded />
-                    )}
+                    <button
+                      type="button"
+                      className="sw-mockup-menu"
+                      aria-label={`Edit branding for ${p.nm}`}
+                      onClick={() => setEditIdx(idx)}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="sw-mockup-card-hit"
+                      onClick={() => setEditIdx(idx)}
+                      aria-label={`Edit branding for ${p.nm}`}
+                    >
+                      {designed ? (
+                        <MockupCanvas product={p} layers={layers} previewMode view="front" />
+                      ) : (
+                        <div className="sw-mockup-card-empty">
+                          {maskThumb ? (
+                            <img src={maskThumb} alt="" className="sw-mockup-card-empty-img" />
+                          ) : (
+                            <ProductThumb product={p} />
+                          )}
+                        </div>
+                      )}
+                    </button>
                     <div className="meta">
                       {p.brand ? <div className="brand">{p.brand}</div> : null}
                       <div className="nm">{p.nm}</div>
-                      {art ? (
-                        <div className={`sw-mockup-card-status${customized ? " is-custom" : ""}`}>
-                          {customized ? "Customized" : "Default branding"}
-                        </div>
-                      ) : null}
+                      <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
+                        {designed ? "Designed" : "Not Designed"}
+                      </div>
                     </div>
                   </div>
                 );
@@ -410,20 +434,23 @@ export function KitBrandingStep({
         </div>
       </div>
 
-      {editingProduct && art?.preview && editIdx != null ? (
-        <ProductBrandingModal
+      {editingProduct && editIdx != null ? (
+        <KitProductBrandingModal
           product={editingProduct}
           productIdx={editIdx}
-          artUrl={art.preview}
-          placement={placements[editingKey]}
+          libraryArt={art || staging}
+          areaArts={areaArts}
+          placements={placements}
           placementEpoch={placementEpoch}
+          previousUploads={previousUploads}
           open
           onOpenChange={(open) => {
             if (!open) setEditIdx(null);
           }}
-          onSave={(next) => {
-            onPlacementChange(editingKey, next);
-            setCustomizedKeys((prev) => new Set(prev).add(editingKey));
+          onSave={({ setArts, clearKeys, setPlacements }) => {
+            for (const row of setArts) onSetAreaArt(row.key, row.art);
+            for (const key of clearKeys) onClearAreaArt(key);
+            for (const row of setPlacements) onPlacementChange(row.key, row.placement);
             toast.success(`Saved branding for ${editingProduct.nm}`);
             setEditIdx(null);
           }}
@@ -433,271 +460,564 @@ export function KitBrandingStep({
   );
 }
 
-function ProductBrandingModal({
+function KitProductBrandingModal({
   product,
   productIdx,
-  artUrl,
-  placement,
+  libraryArt,
+  areaArts,
+  placements,
   placementEpoch,
+  previousUploads,
   open,
   onOpenChange,
   onSave,
 }: {
   product: UiProduct;
   productIdx: number;
-  artUrl: string;
-  placement?: Placement;
+  libraryArt: KitArtFile | null;
+  areaArts: Record<string, KitArtFile>;
+  placements: Record<string, Placement>;
   placementEpoch: number;
+  previousUploads: PreviousArtwork[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (placement: Placement) => void;
+  onSave: (plan: ReturnType<typeof productArtworkCommitPlan>) => void;
 }) {
-  const preferredAreaKey = kitPreferredPrintAreaKey(product);
-  const preferredArea = listPrintAreas(product).find(
-    (a, i) => printAreaKey(product, a, i) === preferredAreaKey,
-  );
-  const preferredView = printAreaViewKey(product, preferredArea);
   const views = listProductViews(product);
   const colorNames = productColorNames(product);
   const colorNamesKey = colorNames.join("|");
+  const productKeys = useMemo(
+    () => areaKeysForProduct(product, productIdx),
+    [product, productIdx],
+  );
+  const preferredKey = kitPreferredPrintAreaKey(product);
 
-  const [draftPlacement, setDraftPlacement] = useState<Placement | undefined>(placement);
+  const [draftArts, setDraftArts] = useState<Record<string, KitArtFile>>({});
+  const [draftPlacements, setDraftPlacements] = useState<Record<string, Placement>>({});
   const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [view, setView] = useState<ProductViewKey>(preferredView);
+  const [view, setView] = useState<ProductViewKey>("front");
   const [colorIdx, setColorIdx] = useState(() => defaultWhiteColorIndex(colorNames));
   const [hasPickedColor, setHasPickedColor] = useState(false);
-  const [activeAreaKey, setActiveAreaKey] = useState(preferredAreaKey);
+  const [activeAreaKey, setActiveAreaKey] = useState(preferredKey);
+  const modalFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setDraftPlacement(placement);
+    setDraftArts(sliceProductAreaArts(areaArts, product, productIdx));
+    setDraftPlacements(sliceProductPlacements(placements, product, productIdx));
     setMode("edit");
-    setView(preferredView);
-    setActiveAreaKey(preferredAreaKey);
+    setView("front");
+    setActiveAreaKey(kitPreferredPrintAreaKey(product));
     setColorIdx(defaultWhiteColorIndex(colorNamesKey ? colorNamesKey.split("|") : []));
     setHasPickedColor(false);
-  }, [open, productIdx, placement, preferredView, preferredAreaKey, colorNamesKey]);
+  }, [open, product, productIdx, areaArts, placements, colorNamesKey]);
 
   const title = product.brand ? `${product.brand} ${product.nm}` : product.nm;
   const tintHex = getMockupTintHex(
     colorNames[colorIdx] ? productColorHex(product, colorNames[colorIdx]) : undefined,
     hasPickedColor,
   );
-  const areasForView = listPrintAreasForView(product, view);
   const allAreas = listPrintAreas(product);
-  const areaKeysForView = areasForView.map((a) =>
-    printAreaKey(product, a, Math.max(0, allAreas.indexOf(a))),
-  );
-  const editableOnView = areaKeysForView.includes(activeAreaKey);
+  const areasForView = areasForMockupView(product, view);
   const backMaskMissing = view === "back" && !designImgUrlForView(product, "back");
+  const activeDraftKey = areaPlacementKey(product, productIdx, activeAreaKey);
+  const activeArt = draftArts[activeDraftKey];
+  const activeLabel = areaLabelForKey(product, activeAreaKey);
+  const activeArea = allAreas.find((a, i) => printAreaKey(product, a, i) === activeAreaKey);
+  const activeAreaDims =
+    activeArea?.widthIn && activeArea?.heightIn
+      ? `${Number(activeArea.widthIn).toFixed(2)}" × ${Number(activeArea.heightIn).toFixed(2)}" · 300 DPI`
+      : null;
+
+  const layers = buildMockupLayers(product, {
+    idx: productIdx,
+    areaArts: draftArts,
+    placements: draftPlacements,
+    activeAreaKey,
+  }).filter((layer) => areasForView.some((a) => {
+    const key = printAreaKey(product, a, Math.max(0, allAreas.indexOf(a)));
+    return key === layer.areaKey;
+  }));
+
+  function layersForView(v: ProductViewKey) {
+    const areas = areasForMockupView(product, v);
+    return buildMockupLayers(product, {
+      idx: productIdx,
+      areaArts: draftArts,
+      placements: draftPlacements,
+    }).filter((layer) =>
+      areas.some(
+        (a) => printAreaKey(product, a, Math.max(0, allAreas.indexOf(a))) === layer.areaKey,
+      ),
+    );
+  }
 
   const previewProduct: UiProduct = {
     ...product,
-    placement: draftPlacement,
-    areaPlacements: draftPlacement
-      ? {
-          ...(product.areaPlacements || {}),
-          [preferredAreaKey]: { ...draftPlacement, artworkUrl: artUrl },
-        }
-      : product.areaPlacements,
-    // Prefer live overlay of the uploaded art over any stale baked mockup.
+    areaPlacements: Object.fromEntries(
+      productKeys.map((draftKey) => {
+        const areaKey = draftKey.includes("::")
+          ? draftKey.slice(draftKey.indexOf("::") + 2)
+          : preferredKey;
+        const art = draftArts[draftKey];
+        const pl = draftPlacements[draftKey];
+        return [
+          areaKey,
+          {
+            xPct: pl?.xPct ?? 50,
+            yPct: pl?.yPct ?? 40,
+            wPct: pl?.wPct ?? 28,
+            rot: pl?.rot ?? 0,
+            printCxPct: pl?.printCxPct,
+            printCyPct: pl?.printCyPct,
+            printWPct: pl?.printWPct,
+            ...(art?.preview ? { artworkUrl: art.preview } : {}),
+          },
+        ];
+      }),
+    ),
     mockupUrl: undefined,
     mockupBackUrl: undefined,
   };
 
   function selectView(next: ProductViewKey) {
     setView(next);
-    const keys = listPrintAreasForView(product, next).map((a) =>
+    const keys = areasForMockupView(product, next).map((a) =>
       printAreaKey(product, a, Math.max(0, allAreas.indexOf(a))),
     );
-    if (keys.includes(preferredAreaKey)) {
-      setActiveAreaKey(preferredAreaKey);
-    } else if (keys[0]) {
-      setActiveAreaKey(keys[0]);
+    if (!keys.includes(activeAreaKey)) {
+      setActiveAreaKey(keys[0] || kitPreferredPrintAreaKey(product));
     }
+  }
+
+  function assignArtToActive(file: KitArtFile) {
+    if (!activeAreaKey) {
+      toast.error("Select a placeholder first");
+      return;
+    }
+    setDraftArts((prev) => ({ ...prev, [activeDraftKey]: file }));
+    toast.success(`Artwork added to ${activeLabel}`);
+  }
+
+  function removeActiveArt() {
+    setDraftArts((prev) => {
+      const next = { ...prev };
+      delete next[activeDraftKey];
+      return next;
+    });
+    setDraftPlacements((prev) => {
+      const next = { ...prev };
+      delete next[activeDraftKey];
+      return next;
+    });
+    toast.success(`Removed artwork from ${activeLabel}`);
+  }
+
+  function addLibraryToPreferred() {
+    if (!libraryArt) {
+      toast.error("Upload artwork on the left first, or upload here");
+      return;
+    }
+    const key = kitPreferredPrintAreaKey(product);
+    const draftKey = areaPlacementKey(product, productIdx, key);
+    setActiveAreaKey(key);
+    setView("front");
+    setDraftArts((prev) => ({ ...prev, [draftKey]: libraryArt }));
+    toast.success(`Artwork added to ${areaLabelForKey(product, key)}`);
+  }
+
+  function onModalPick(file: File) {
+    if (!ART_ACCEPT.test(file.name)) {
+      toast.error("Accepted formats: SVG, PNG, JPG, AI");
+      return;
+    }
+    if (file.size > ART_MAX) {
+      toast.error("File must be 5 MB or smaller");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      assignArtToActive({ name: file.name, preview: String(reader.result), file });
+    };
+    reader.readAsDataURL(file);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm-modal sw-brand-modal" style={{ maxWidth: "min(720px,96vw)", width: "100%" }}>
-        <div className="modal-pad sw-brand-modal__body">
+      <DialogContent className="sm-modal sw-brand-modal">
+        <div className="sw-brand-modal__body">
           <DialogHeader className="sw-brand-modal__head">
             <DialogTitle style={{ fontSize: 18 }}>{title}</DialogTitle>
             <DialogDescription className="sr-only">
               Edit logo placement for {title}
             </DialogDescription>
-            <p className="mut3 sw-brand-modal__hint">
-              {mode === "preview"
-                ? "Final preview — no guides or handles"
-                : "Select a placeholder · drag to move · corners to scale · top handle to rotate"}
-            </p>
           </DialogHeader>
 
-          <div className="sw-brand-modal__stage">
-            {mode === "preview" ? (
-              <div className="sw-brand-modal__preview">
-                {tintHex ? (
-                  <DesignedProductThumb
-                    product={previewProduct}
-                    artworkUrl={artUrl}
-                    tintHex={tintHex}
-                    preferBakedMockup={false}
-                    view={view}
-                    onViewChange={setView}
-                    viewTogglePlacement="below"
-                  />
+          <div className={`sw-brand-modal__main sw-brand-modal__main--${mode}`}>
+            <div className="sw-brand-modal__stage">
+              {mode === "edit" ? (
+                <p className="mut3 sw-brand-modal__hint">
+                  Click a placeholder · drag to move · corners to scale
+                </p>
+              ) : (
+                <p className="mut3 sw-brand-modal__hint">Final preview — no guides or handles</p>
+              )}
+              <div className="sw-brand-modal__stage-inner">
+                {mode === "preview" ? (
+                  tintHex ? (
+                    <div className="sw-brand-modal__canvas-wrap sw-brand-modal__canvas-wrap--preview">
+                      <DesignedProductThumb
+                        product={previewProduct}
+                        artworkUrl={Object.values(draftArts)[0]?.preview}
+                        tintHex={tintHex}
+                        preferBakedMockup={false}
+                        view={view}
+                        onViewChange={setView}
+                        viewTogglePlacement="below"
+                      />
+                    </div>
+                  ) : (
+                    <MockupViewGallery
+                      views={views}
+                      activeView={view}
+                      onChange={selectView}
+                      labeledViews
+                      style={{ width: "100%", height: "100%" }}
+                      mediaClassName="sw-brand-modal__canvas-wrap"
+                      renderThumb={(v) => (
+                        <MockupCanvas
+                          product={product}
+                          layers={layersForView(v)}
+                          view={v}
+                          previewMode
+                        />
+                      )}
+                    >
+                      <MockupCanvas
+                        product={product}
+                        layers={layersForView(view)}
+                        view={view}
+                        previewMode
+                        fillContainer
+                      />
+                    </MockupViewGallery>
+                  )
                 ) : (
                   <MockupViewGallery
                     views={views}
                     activeView={view}
                     onChange={selectView}
-                    style={{ width: "100%" }}
+                    labeledViews
+                    style={{ width: "100%", height: "100%" }}
                     mediaClassName="sw-brand-modal__canvas-wrap"
                     renderThumb={(v) => (
                       <MockupCanvas
                         product={product}
-                        artUrl={artUrl}
-                        printAreaKey={preferredAreaKey}
-                        placement={draftPlacement}
+                        layers={layersForView(v)}
                         view={v}
                         previewMode
                       />
                     )}
                   >
-                    <MockupCanvas
-                      product={product}
-                      artUrl={artUrl}
-                      printAreaKey={preferredAreaKey}
-                      placement={draftPlacement}
-                      view={view}
-                      previewMode
-                      fillContainer
-                    />
+                    {backMaskMissing ? (
+                      <div className="sw-brand-modal__empty mut3">
+                        No back production mask on this catalog product yet.
+                      </div>
+                    ) : (
+                      <MockupCanvas
+                        product={product}
+                        layers={layers}
+                        activeAreaKey={activeAreaKey}
+                        view={view}
+                        resetEpoch={placementEpoch}
+                        fillContainer
+                        onSelectArea={(areaKey) => {
+                          const area = allAreas.find(
+                            (a, i) => printAreaKey(product, a, i) === areaKey,
+                          );
+                          setActiveAreaKey(areaKey);
+                          setView(editorViewForArea(product, area));
+                        }}
+                        onChange={(next, areaKey) => {
+                          const draftKey = areaPlacementKey(product, productIdx, areaKey);
+                          if (!draftArts[draftKey]) return;
+                          setDraftPlacements((prev) => ({ ...prev, [draftKey]: next }));
+                        }}
+                      />
+                    )}
                   </MockupViewGallery>
                 )}
               </div>
-            ) : (
-              <MockupViewGallery
-                views={views}
-                activeView={view}
-                onChange={selectView}
-                style={{ width: "100%" }}
-                mediaClassName="sw-brand-modal__canvas-wrap"
-                renderThumb={(v) => (
-                  <MockupCanvas
-                    product={product}
-                    artUrl={artUrl}
-                    printAreaKey={preferredAreaKey}
-                    placement={draftPlacement}
-                    view={v}
-                    previewMode
-                  />
-                )}
-              >
-                {backMaskMissing ? (
-                  <div className="sw-brand-modal__empty mut3">
-                    No back production mask on this catalog product yet.
-                  </div>
-                ) : editableOnView ? (
-                  <MockupCanvas
-                    product={product}
-                    artUrl={artUrl}
-                    printAreaKey={activeAreaKey}
-                    activeAreaKey={activeAreaKey}
-                    placement={draftPlacement}
-                    view={view}
-                    resetEpoch={placementEpoch}
-                    fillContainer
-                    onSelectArea={setActiveAreaKey}
-                    onChange={(next) => setDraftPlacement(next)}
-                  />
-                ) : (
-                  <MockupCanvas
-                    product={product}
-                    artUrl={artUrl}
-                    printAreaKey={preferredAreaKey}
-                    placement={draftPlacement}
-                    view={view}
-                    previewMode
-                    fillContainer
-                  />
-                )}
-              </MockupViewGallery>
-            )}
-          </div>
-
-          {colorNames.length > 0 ? (
-            <div className="sw-brand-modal__colors">
-              <div className="lbl" style={{ marginBottom: 6 }}>
-                Colour variants
-              </div>
-              <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                {colorNames.map((c, i) => (
-                  <button
-                    key={c}
-                    type="button"
-                    title={c}
-                    aria-label={c}
-                    aria-pressed={colorIdx === i}
-                    onClick={() => {
-                      setHasPickedColor(true);
-                      setColorIdx(i);
-                    }}
-                    className="sw"
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      background: productColorHex(product, c),
-                      outline: colorIdx === i ? "2px solid var(--brand)" : "1px solid var(--line)",
-                      outlineOffset: 1,
-                      cursor: "pointer",
-                    }}
-                  />
-                ))}
-              </div>
               {mode === "edit" ? (
-                <p className="mut3" style={{ marginTop: 8, fontSize: 12 }}>
-                  Colour applies in Preview — click Preview to see branding on this variant.
-                </p>
-              ) : null}
+                <button
+                  type="button"
+                  className="sw-brand-modal__preview-fab"
+                  onClick={() => setMode("preview")}
+                >
+                  <Eye size={15} strokeWidth={2.25} aria-hidden />
+                  Preview
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="sw-brand-modal__preview-fab"
+                  onClick={() => setMode("edit")}
+                >
+                  Back to edit
+                </button>
+              )}
             </div>
-          ) : null}
 
-          <DialogFooter className="sw-brand-modal__footer">
-            {mode === "preview" ? (
-              <button type="button" className="btn btn-ghost" onClick={() => setMode("edit")}>
-                Back to edit
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-soft"
-                onClick={() => setMode("preview")}
-              >
-                <Eye size={15} strokeWidth={2.25} aria-hidden />
-                Preview
-              </button>
-            )}
-            <div className="sw-brand-modal__footer-right">
-              <button type="button" className="btn btn-ghost" onClick={() => onOpenChange(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-brand"
-                onClick={() => {
-                  if (!draftPlacement) {
-                    toast.error("Adjust the logo placement before saving");
-                    return;
-                  }
-                  onSave(draftPlacement);
-                }}
-              >
-                Save Changes
-              </button>
-            </div>
-          </DialogFooter>
+            <aside className="sw-brand-modal__side">
+              {mode === "edit" ? (
+                <div className="sw-art-panel sw-art-panel--side">
+                  <h2 className="sw-art-panel-title">Artwork</h2>
+
+                  <div className={`sw-art-selected-box${activeArt ? " is-ready" : ""}`}>
+                    <div className="mut3 sw-art-selected-label">Selected placeholder</div>
+                    <div className="sw-art-selected-title">{activeLabel || "None"}</div>
+                    {activeAreaDims ? (
+                      <div className="mut3 sw-art-selected-dims">{activeAreaDims}</div>
+                    ) : null}
+                    {areasForView.length > 1 ? (
+                      <div className="row" style={{ gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                        {areasForView.map((a) => {
+                          const key = printAreaKey(product, a, Math.max(0, allAreas.indexOf(a)));
+                          const filled = Boolean(
+                            draftArts[areaPlacementKey(product, productIdx, key)],
+                          );
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              className={`btn btn-sm${activeAreaKey === key ? " btn-soft" : " btn-ghost"}`}
+                              onClick={() => setActiveAreaKey(key)}
+                            >
+                              {a.label || key}
+                              {filled ? " ·" : ""}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {activeArt ? (
+                    <div className="sw-brand-modal__art-row">
+                      <ArtworkPickRow
+                        preview={activeArt.preview}
+                        name={activeArt.name}
+                        fileType={fileTypeFromName(activeArt.name)}
+                        selected
+                        displayOnly
+                        onRemove={removeActiveArt}
+                      />
+                      <p className="mut3" style={{ fontSize: 12, marginTop: 8 }}>
+                        Drag the logo on the mockup to reposition. Remove to clear this placeholder
+                        only.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {libraryArt ? (
+                        <button
+                          type="button"
+                          className="btn btn-brand btn-block"
+                          onClick={() => assignArtToActive(libraryArt)}
+                        >
+                          Use uploaded artwork
+                        </button>
+                      ) : null}
+                      {!activeArt && libraryArt && activeAreaKey !== preferredKey ? (
+                        <button
+                          type="button"
+                          className="btn btn-soft btn-block btn-sm"
+                          onClick={addLibraryToPreferred}
+                        >
+                          Add to {areaLabelForKey(product, preferredKey)} instead
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="sw-art-upload-area"
+                        onClick={() => modalFileRef.current?.click()}
+                      >
+                        <Upload size={18} />
+                        <span>Upload artwork for {activeLabel || "placeholder"}</span>
+                      </button>
+                    </>
+                  )}
+
+                  {previousUploads.length > 0 ? (
+                    <div className="sw-art-prev-block">
+                      <div className="mut3 sw-art-prev-heading">PREVIOUS UPLOADS</div>
+                      <div className="sw-art-prev-scroll">
+                        <div className="sw-art-tab-body sw-art-prev-list">
+                          {previousUploads.map((item) => (
+                            <ArtworkPickRow
+                              key={item.id}
+                              preview={item.preview}
+                              name={item.name}
+                              fileType={item.fileType}
+                              selected={activeArt?.preview === item.preview}
+                              onSelect={() =>
+                                assignArtToActive({ name: item.name, preview: item.preview })
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <input
+                    ref={modalFileRef}
+                    type="file"
+                    accept=".svg,.png,.jpg,.jpeg,.ai,image/svg+xml,image/png,image/jpeg"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onModalPick(f);
+                      e.target.value = "";
+                    }}
+                  />
+
+                  <div className="sw-brand-modal__side-foot">
+                    {colorNames.length > 0 ? (
+                      <div className="sw-brand-modal__colors">
+                        <div className="lbl" style={{ marginBottom: 6 }}>
+                          Colour variants
+                        </div>
+                        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                          {colorNames.map((c, i) => (
+                            <button
+                              key={c}
+                              type="button"
+                              title={c}
+                              aria-label={c}
+                              aria-pressed={colorIdx === i}
+                              onClick={() => {
+                                setHasPickedColor(true);
+                                setColorIdx(i);
+                              }}
+                              className="sw"
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: "50%",
+                                background: productColorHex(product, c),
+                                outline:
+                                  colorIdx === i
+                                    ? "2px solid var(--brand)"
+                                    : "1px solid var(--line)",
+                                outlineOffset: 1,
+                                cursor: "pointer",
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="sw-brand-modal__side-actions">
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => onOpenChange(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-brand"
+                        onClick={() =>
+                          onSave(
+                            productArtworkCommitPlan(
+                              product,
+                              productIdx,
+                              sliceProductAreaArts(areaArts, product, productIdx),
+                              draftArts,
+                              draftPlacements,
+                            ),
+                          )
+                        }
+                      >
+                        Save changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="sw-art-panel sw-art-panel--side">
+                  <h2 className="sw-art-panel-title">Preview</h2>
+                  <p className="mut3" style={{ fontSize: 13 }}>
+                    Clean product view with logos applied. Return to edit to adjust placement or
+                    placeholders.
+                  </p>
+                  {colorNames.length > 0 ? (
+                    <div className="sw-brand-modal__colors">
+                      <div className="lbl" style={{ marginBottom: 6 }}>
+                        Colour variants
+                      </div>
+                      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                        {colorNames.map((c, i) => (
+                          <button
+                            key={c}
+                            type="button"
+                            title={c}
+                            aria-label={c}
+                            aria-pressed={colorIdx === i}
+                            onClick={() => {
+                              setHasPickedColor(true);
+                              setColorIdx(i);
+                            }}
+                            className="sw"
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "50%",
+                              background: productColorHex(product, c),
+                              outline:
+                                colorIdx === i ? "2px solid var(--brand)" : "1px solid var(--line)",
+                              outlineOffset: 1,
+                              cursor: "pointer",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="sw-brand-modal__side-foot">
+                    <div className="sw-brand-modal__side-actions">
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => onOpenChange(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-brand"
+                        onClick={() =>
+                          onSave(
+                            productArtworkCommitPlan(
+                              product,
+                              productIdx,
+                              sliceProductAreaArts(areaArts, product, productIdx),
+                              draftArts,
+                              draftPlacements,
+                            ),
+                          )
+                        }
+                      >
+                        Save changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </aside>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -765,8 +1085,8 @@ function ArtworkPickRow({
           <button
             type="button"
             className="sw-art-pick-remove"
-            aria-label="Delete artwork"
-            title="Delete"
+            aria-label="Remove artwork from placeholder"
+            title="Remove"
             onClick={(e) => {
               e.stopPropagation();
               onRemove();

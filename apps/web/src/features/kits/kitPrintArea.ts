@@ -1,5 +1,6 @@
 import type { UiProduct } from "@/services/mappers";
 import {
+  areaPlacementKey,
   listPrintAreas,
   primaryAreaKey,
   printAreaKey,
@@ -34,4 +35,9 @@ export function kitPreferredPrintAreaKey(p: UiProduct): string {
     if (left) return left.key;
   }
   return primaryAreaKey(p);
+}
+
+/** One default draft key per product for bulk "Add artwork" (kit polo → left). */
+export function kitDefaultSeedKeysForProducts(products: UiProduct[]): string[] {
+  return products.map((p, idx) => areaPlacementKey(p, idx, kitPreferredPrintAreaKey(p)));
 }
