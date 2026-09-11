@@ -1,9 +1,12 @@
 import { useMemo, useReducer, useState, type Dispatch } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useUpdateKit } from "../model";
 import type { UiKit, UiProduct } from "../model";
+import { areaPlacementKey } from "@/features/swag/mockup-bake";
+import { kitPreferredPrintAreaKey } from "../kitPrintArea";
 import { kitReducer, kitPickedIndices, type KitAction, type KitDraft } from "../wizard/kitDraft";
 
 export type EditKitStep = 0 | 1;
@@ -28,6 +31,7 @@ const EMPTY_DRAFT: KitDraft = {
   desc: "",
   picked: [],
   art: null,
+  areaArts: {},
   placements: {},
   placementEpoch: 0,
   notes: "",
@@ -48,11 +52,28 @@ export function useEditKitController(): EditKitVm {
 
   const initial = useMemo<KitDraft>(() => {
     if (!kit) return EMPTY_DRAFT;
+    const picked = kitPickedIndices(kit, catalog);
+    const artPreview = kit.artworkUrl
+      ? resolveMediaUrl(kit.artworkUrl) || kit.artworkUrl
+      : "";
+    const art = artPreview
+      ? { name: "Kit artwork", preview: artPreview, existing: true as const }
+      : null;
+    const areaArts: KitDraft["areaArts"] = {};
+    if (art) {
+      for (let idx = 0; idx < picked.length; idx++) {
+        const p = catalog[picked[idx]];
+        if (!p) continue;
+        const key = areaPlacementKey(p, idx, kitPreferredPrintAreaKey(p));
+        areaArts[key] = art;
+      }
+    }
     return {
       name: kit.name,
       desc: "",
-      picked: kitPickedIndices(kit, catalog),
-      art: kit.artworkUrl ? { name: "Kit artwork", preview: kit.artworkUrl, existing: true } : null,
+      picked,
+      art,
+      areaArts,
       placements: {},
       placementEpoch: 0,
       notes: kit.designNotes || "",

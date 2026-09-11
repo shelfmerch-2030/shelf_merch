@@ -7,7 +7,10 @@ export type KitDraft = {
   name: string;
   desc: string;
   picked: number[];
+  /** Library / collection-level artwork (also used as kit artworkUrl). */
   art: KitArtFile | null;
+  /** Artwork assigned per product print area — key = `productId::areaKey`. */
+  areaArts: Record<string, KitArtFile>;
   placements: Record<string, Placement>;
   placementEpoch: number;
   notes: string;
@@ -21,6 +24,9 @@ export type KitAction =
   | { type: "removePick"; index: number }
   | { type: "setArt"; art: KitArtFile }
   | { type: "clearArt" }
+  | { type: "setAreaArt"; key: string; art: KitArtFile }
+  | { type: "setAreaArts"; keys: string[]; art: KitArtFile }
+  | { type: "clearAreaArt"; key: string }
   | { type: "setPlacement"; key: string; placement: Placement }
   | { type: "resetPlacements" }
   | { type: "setNotes"; notes: string }
@@ -49,9 +55,30 @@ export function kitReducer(state: KitDraft, action: KitAction): KitDraft {
       return {
         ...state,
         art: null,
+        areaArts: {},
         placements: {},
         placementEpoch: (state.placementEpoch ?? 0) + 1,
       };
+    case "setAreaArt":
+      return {
+        ...state,
+        art: action.art,
+        areaArts: { ...state.areaArts, [action.key]: action.art },
+      };
+    case "setAreaArts": {
+      const next = { ...state.areaArts };
+      for (const key of action.keys) next[key] = action.art;
+      return { ...state, art: action.art, areaArts: next };
+    }
+    case "clearAreaArt": {
+      const next = { ...state.areaArts };
+      delete next[action.key];
+      return {
+        ...state,
+        areaArts: next,
+        placementEpoch: (state.placementEpoch ?? 0) + 1,
+      };
+    }
     case "setPlacement":
       return { ...state, placements: { ...state.placements, [action.key]: action.placement } };
     case "resetPlacements":

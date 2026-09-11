@@ -154,11 +154,15 @@ export function KitWizardView(vm: KitWizardVm) {
           stepBadge="Step 3 of 4 · Branding"
           products={vm.pickedProducts}
           art={draft.art}
+          areaArts={draft.areaArts}
           placements={draft.placements}
           placementEpoch={draft.placementEpoch}
           notes={draft.notes}
           onSetArt={(art) => dispatch({ type: "setArt", art })}
           onClearArt={() => dispatch({ type: "clearArt" })}
+          onSetAreaArt={(key, art) => dispatch({ type: "setAreaArt", key, art })}
+          onSetAreaArts={(keys, art) => dispatch({ type: "setAreaArts", keys, art })}
+          onClearAreaArt={(key) => dispatch({ type: "clearAreaArt", key })}
           onResetPlacements={() => dispatch({ type: "resetPlacements" })}
           onPlacementChange={(key, placement) => dispatch({ type: "setPlacement", key, placement })}
           onNotes={(notes) => dispatch({ type: "setNotes", notes })}
