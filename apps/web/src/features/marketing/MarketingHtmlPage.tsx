@@ -60,6 +60,12 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     margin: 22px 0 20px !important;
   }
 
+  .hero:has(.hero-collage) h1 {
+    font-size: clamp(56px, 6.2vw, 96px) !important;
+    line-height: 0.88 !important;
+    margin: 20px 0 16px !important;
+  }
+
   h2,
   .headline h2,
   .section-head h2,
@@ -157,12 +163,48 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     padding-top: 0 !important;
   }
 
+  .hero:has(.hero-collage) {
+    height: calc(100svh - var(--marketing-header-offset)) !important;
+    min-height: calc(100svh - var(--marketing-header-offset)) !important;
+    max-height: calc(100svh - var(--marketing-header-offset)) !important;
+    align-items: center !important;
+    overflow: hidden !important;
+  }
+
   .hero-copy,
   .final,
   .cta,
   .help {
     padding-top: clamp(44px, 5vw, 68px) !important;
     padding-bottom: clamp(44px, 5vw, 68px) !important;
+  }
+
+  .hero:has(.hero-collage) .hero-copy {
+    padding-top: clamp(24px, 4vh, 48px) !important;
+    padding-bottom: clamp(24px, 4vh, 48px) !important;
+    padding-left: 4.5vw !important;
+    padding-right: 1.5vw !important;
+    justify-content: center !important;
+  }
+
+  .hero:has(.hero-collage) .hero-copy > p {
+    font-size: 17.5px !important;
+    line-height: 1.6 !important;
+    max-width: 580px !important;
+  }
+
+  .hero:has(.hero-collage) .team-note {
+    margin-top: clamp(20px, 3.5vh, 36px) !important;
+  }
+
+  .hero:has(.hero-collage) .actions {
+    margin-top: 24px !important;
+  }
+
+  .hero-collage {
+    width: min(100%, 680px) !important;
+    max-height: min(82vh, calc(100svh - var(--marketing-header-offset) - 36px)) !important;
+    object-fit: contain !important;
   }
 
   .section,
@@ -213,15 +255,54 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
   .gift-card,
   .model-grid article,
   .brief-grid article,
-  .why-grid article,
-  .control-grid article {
+  .why-grid article {
     padding: 22px !important;
   }
 
+  .control-grid article.control-card,
+  .control-grid .control-card {
+    padding: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .control-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 18px !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .collage,
-  .hero-ui,
   .hero-art {
     min-height: 560px !important;
+  }
+
+  .hero-ui {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding-top: clamp(56px, 7vh, 76px) !important;
+    padding-bottom: clamp(16px, 2.5vh, 28px) !important;
+    padding-right: 3vw !important;
+    place-items: center end !important;
+  }
+
+  @media (min-width: 1051px) and (max-height: 760px) {
+    .hero:has(.hero-collage) h1 {
+      font-size: clamp(48px, 5.4vw, 78px) !important;
+      margin: 14px 0 12px !important;
+    }
+
+    .hero:has(.hero-collage) .hero-copy > p {
+      font-size: 16px !important;
+      line-height: 1.5 !important;
+    }
+
+    .hero-collage {
+      max-height: min(74vh, calc(100svh - var(--marketing-header-offset) - 28px)) !important;
+      width: min(100%, 600px) !important;
+    }
   }
 
   .dashboard {
@@ -381,6 +462,146 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     width: 100% !important;
     height: auto !important;
     display: block !important;
+  }
+
+  .stores.section,
+  .section.stores {
+    background: #fff !important;
+    padding-top: 90px !important;
+    padding-bottom: 90px !important;
+  }
+
+  @media (max-width: 730px) {
+    .stores.section,
+    .section.stores {
+      padding-top: 56px !important;
+      padding-bottom: 56px !important;
+    }
+  }
+
+  .store-showcase {
+    max-width: 1120px !important;
+    height: 520px !important;
+    min-height: 520px !important;
+    margin: 0 auto !important;
+    position: relative !important;
+  }
+
+  .store-stage {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 170px 0 0 !important;
+    background: #8e68cf !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .store-panel {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+  }
+
+  .store-mock-img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center left !important;
+    filter: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .store-hero-img,
+  .store-cta-hit,
+  .store-sr-only,
+  .store-proof,
+  .store-float {
+    display: none !important;
+  }
+
+  .stores-copy {
+    display: flex !important;
+    position: absolute !important;
+    z-index: 3 !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 360px !important;
+    max-width: 360px !important;
+    background: #fff !important;
+    padding: 54px 44px !important;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12) !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  .stores h2 {
+    font-size: 42px !important;
+    line-height: 1.08 !important;
+    text-align: center !important;
+    margin: 0 0 20px !important;
+    font-weight: 800 !important;
+    color: #222 !important;
+  }
+
+  .stores h2 em {
+    color: #e9599d !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-style: normal !important;
+    font-weight: 800 !important;
+  }
+
+  .stores-copy > p {
+    font-size: 15px !important;
+    line-height: 1.65 !important;
+    color: #777 !important;
+    max-width: 270px !important;
+    margin: 0 0 30px !important;
+    text-align: center !important;
+  }
+
+  .stores .button.light {
+    background: #e9599d !important;
+    color: #fff !important;
+    width: 150px !important;
+    max-width: 150px !important;
+    height: 46px !important;
+    border-radius: 0 !important;
+  }
+
+  @media (max-width: 1050px) {
+    .store-showcase {
+      height: auto !important;
+      min-height: 0 !important;
+    }
+
+    .store-stage {
+      position: relative !important;
+      inset: auto !important;
+      min-height: 380px !important;
+    }
+
+    .store-mock-img {
+      height: 380px !important;
+    }
+
+    .stores-copy {
+      position: relative !important;
+      right: auto !important;
+      top: auto !important;
+      transform: none !important;
+      width: min(88%, 400px) !important;
+      max-width: 400px !important;
+      margin: -70px auto 0 !important;
+    }
   }
 
   .dashboard p,
@@ -546,12 +767,29 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     }
 
     .collage,
-    .hero-ui,
     .hero-art,
     .made,
     .made-image,
     .production-image {
       min-height: 460px !important;
+    }
+
+    .hero:has(.hero-collage) {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+    }
+
+    .hero-ui {
+      height: auto !important;
+      min-height: 0 !important;
+      padding-top: 12px !important;
+      padding-bottom: 40px !important;
+    }
+
+    .hero-collage {
+      max-height: min(48vh, 400px) !important;
+      width: min(100%, 460px) !important;
     }
   }
 
@@ -649,12 +887,19 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     }
 
     .collage,
-    .hero-ui,
     .hero-art,
     .made,
     .made-image,
     .production-image {
       min-height: 380px !important;
+    }
+
+    .hero-ui {
+      min-height: 0 !important;
+    }
+
+    .hero-collage {
+      max-height: min(42vh, 320px) !important;
     }
 
     .main-photo {
@@ -738,9 +983,13 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     .gift-card,
     .model-grid article,
     .brief-grid article,
-    .why-grid article,
-    .control-grid article {
+    .why-grid article {
       padding: 18px !important;
+    }
+
+    .control-grid article.control-card,
+    .control-grid .control-card {
+      padding: 0 !important;
     }
   }
 `;

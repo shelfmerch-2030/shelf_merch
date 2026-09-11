@@ -1,1 +1,0 @@
-var e=`/assets/zoho-people-BFtDcftt.png`;export{e as t};

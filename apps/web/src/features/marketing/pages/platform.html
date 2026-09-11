@@ -17,81 +17,39 @@
     .header-cta:hover,.button:hover{opacity:0.95;transform:translateY(-1px)}
     .header-cta{height:44px;padding:0 20px;background:#fff;color:var(--ink)}
     .menu{display:none;border:0;background:none;color:#fff;font-size:25px;cursor:pointer}
-    .hero{min-height:850px;background:var(--blue);color:#fff;display:grid;grid-template-columns:47% 53%;overflow:hidden}
-    .hero-copy{padding:160px 4vw 95px 7vw;position:relative;z-index:2}
+    .hero{height:calc(100svh - 70px);min-height:calc(100svh - 70px);max-height:calc(100svh - 70px);background:var(--blue);color:#fff;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.15fr);overflow:hidden;align-items:center}
+    .hero-copy{padding:clamp(28px,5vh,56px) 2vw clamp(28px,5vh,56px) 4.5vw;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;min-height:0}
     .kicker{font-size:11px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;display:flex;align-items:center;gap:9px}
     .kicker i{width:8px;height:8px;border-radius:50%;background:var(--coral)}
-    .hero h1{font-size:clamp(65px,7vw,112px);line-height:.82;letter-spacing:-.075em;margin:44px 0 34px}
+    .hero h1{font-size:clamp(58px,6.4vw,98px);line-height:.86;letter-spacing:-.075em;margin:22px 0 18px}
     .hero h1 em,.headline em,.stores h2 em,.final h2 em{font-family:Georgia,serif;font-weight:400}
     .hero h1 em{color:var(--yellow)}
-    .hero-copy>p{font-size:18px;line-height:1.65;max-width:620px;color:rgba(255,255,255,.82)}
-    .actions{display:flex;align-items:center;gap:25px;margin-top:32px}
-    .button{min-height:52px;padding:0 23px;background:var(--ink);color:#fff}
+    .hero-copy>p{font-size:18px;line-height:1.6;max-width:580px;color:rgba(255,255,255,.82)}
+    .actions{display:flex;align-items:center;gap:25px;margin-top:26px}
+    .button{min-height:52px;padding:0 24px;background:var(--ink);color:#fff}
     .button.light{background:#fff;color:var(--ink)}
     .text-link{font-size:13px;font-weight:700;text-decoration:none}
-    .team-note{display:flex;align-items:center;gap:14px;margin-top:70px}
+    .team-note{display:flex;align-items:center;gap:14px;margin-top:clamp(22px,4vh,40px)}
     .avatars{display:flex}
     .avatars span{width:38px;height:38px;margin-left:-7px;border:2px solid var(--blue);border-radius:50%;display:grid;place-items:center;background:var(--mint);color:var(--ink);font-size:9px;font-weight:900}
     .avatars span:first-child{margin-left:0;background:var(--coral)}
     .avatars span:nth-child(3){background:var(--yellow)}
     .avatars span:nth-child(4){background:var(--lilac)}
-    .team-note p{margin:0;font-size:11px;line-height:1.45;color:rgba(255,255,255,.7)}
+    .team-note p{margin:0;font-size:12px;line-height:1.45;color:rgba(255,255,255,.7)}
     .team-note b{color:#fff}
-    .hero-ui{position:relative;min-height:850px;overflow:hidden}
-    .orbit{position:absolute;border:1px solid rgba(255,255,255,.24);border-radius:50%}
+    .hero-ui{position:relative;min-height:0;height:100%;overflow:hidden;display:grid;place-items:center end;padding:clamp(64px,9vh,88px) 3vw clamp(20px,3vh,32px) 0}
+    .hero-collage{width:min(100%,680px);height:auto;max-height:min(82vh,calc(100svh - 110px));object-fit:contain;display:block;filter:drop-shadow(0 22px 40px rgba(0,0,0,.24))}
+    .orbit{position:absolute;border:1px solid rgba(255,255,255,.24);border-radius:50%;pointer-events:none}
     .orbit.one{width:650px;height:650px;right:-110px;top:40px}
     .orbit.two{width:420px;height:420px;left:20px;bottom:-80px}
-    .dashboard{position:absolute;z-index:3;left:6%;right:-5%;top:17%;height:590px;border-radius:22px 0 0 22px;background:#f5f1e8;color:var(--ink);box-shadow:-25px 35px 60px rgba(0,0,0,.23);transform:rotate(1.5deg);display:grid;grid-template-columns:64px 1fr;overflow:hidden}
-    .dash-side{background:#171717;color:#fff;display:flex;flex-direction:column;align-items:center;gap:27px;padding:22px 0}
-    .dash-side b{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--coral)}
-    .dash-side i{width:20px;height:5px;border-radius:8px;background:#555}
-    .dash-main{padding:34px}
-    .dash-top{display:flex;justify-content:space-between;align-items:center}
-    .dash-top small,.dash-top b{display:block}
-    .dash-top small{font-size:7px;color:#999}
-    .dash-top b{font-size:17px;margin-top:4px}
-    .dash-top span{font-size:8px;border:1px solid #ddd;border-radius:20px;padding:8px 11px}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:30px 0 18px}
-    .stats article,.programs,.fulfil{background:#fff;border:1px solid #e4e1da;border-radius:13px;padding:18px}
-    .stats small,.stats b,.stats em{display:block}
-    .stats small{font-size:7px;color:#888}
-    .stats b{font-size:25px;margin:14px 0 6px}
-    .stats em{font-style:normal;font-size:7px;color:#4d9a72}
-    .dash-grid{display:grid;grid-template-columns:1.45fr .55fr;gap:10px}
-    .widget-title{display:flex;justify-content:space-between;font-size:9px}
-    .widget-title span{color:var(--blue)}
-    .program-row{display:flex;align-items:center;gap:9px;padding:15px 0;border-bottom:1px solid #eee}
-    .program-row i{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-style:normal}
-    .program-row:nth-child(2) i{background:#ffe0da}
-    .program-row:nth-child(3) i{background:#fff0ad}
-    .program-row:nth-child(4) i{background:#d8f5e8}
-    .program-row p{margin:0;flex:1}
-    .program-row b,.program-row small{display:block;font-size:9px}
-    .program-row small{font-size:7px;color:#888;margin-top:3px}
-    .program-row strong{font-size:10px;text-align:right}
-    .ring{width:102px;height:102px;margin:36px auto 25px;border:12px solid #e8e5df;border-top-color:var(--mint);border-right-color:var(--mint);border-radius:50%;display:grid;place-content:center;text-align:center}
-    .ring b{font-size:21px}
-    .ring small{font-size:7px;color:#888}
-    .bars{height:80px;display:flex;align-items:end;gap:5px}
-    .bars i{flex:1;background:var(--blue);height:38%;border-radius:4px 4px 0 0}
-    .bars i:nth-child(2){height:62%;background:var(--coral)}
-    .bars i:nth-child(3){height:48%}
-    .bars i:nth-child(4){height:86%;background:var(--mint)}
-    .bars i:nth-child(5){height:72%;background:var(--yellow)}
-    .float-card{position:absolute;z-index:4;background:#fff;color:var(--ink);border-radius:14px;padding:13px 15px;box-shadow:0 17px 35px rgba(0,0,0,.22);display:flex;align-items:center;gap:10px}
-    .float-card>span{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--coral)}
-    .float-card p{margin:0}
-    .float-card b,.float-card small{display:block;font-size:10px}
-    .float-card small{font-size:8px;color:#777;margin-top:3px}
-    .float-card.kudos{left:1%;top:12%;transform:rotate(-3deg)}
-    .float-card.order{right:3%;bottom:10%;transform:rotate(3deg)}
-    .float-card.order>span{background:var(--yellow)}
     .cap-nav{background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 5vw;overflow-x:auto}
     .cap-nav a{min-height:0;padding:11px 16px;border:1px solid rgba(255,255,255,.1);border-radius:999px;background:rgba(255,255,255,.035);text-decoration:none;display:flex;align-items:center;gap:9px;white-space:nowrap;transition:background .15s ease,border-color .15s ease,color .15s ease}
     .cap-nav a:hover{background:#fff;color:var(--ink);border-color:#fff}
     .cap-nav span{font-size:9px;color:var(--mint);font-weight:900;letter-spacing:.08em}
     .cap-nav a:hover span{color:var(--blue)}
     .cap-nav b{font-size:12px;line-height:1;font-weight:800}
+    .flatlay-showcase{background:#fff;padding:0}
+    .flatlay-showcase img{width:100%;height:clamp(360px,46vw,760px);display:block;border-radius:0;object-fit:cover;box-shadow:none}
     .section{padding:115px 7vw}
     .intro{display:grid;grid-template-columns:1fr .92fr;gap:28px 56px;align-items:start;overflow:visible}
     .headline h2,.control h2{font-size:clamp(50px,5.5vw,82px);line-height:.92;letter-spacing:-.065em;margin:25px 0 0}
@@ -170,28 +128,63 @@
     .mock-card-container{width:100%;margin-top:auto;padding-top:20px;display:flex;justify-content:center}
     .mock-card-container img{width:100%;max-width:380px;height:auto;display:block;border-radius:14px;box-shadow:0 18px 35px rgba(0,0,0,.15)}
 
-    .swag{background:var(--ink);color:#fff}
-    .swag .section-head>p{color:#aaa}
-    .swag .section-head .kicker{color:var(--mint)}
+    .swag{background:#12b8e8;color:var(--ink);position:relative;overflow:hidden;padding:104px 0 78px}
+    .swag:after{content:"";position:absolute;left:0;right:0;bottom:0;height:51%;background:#f7f7f7;clip-path:polygon(0 19%,100% 0,100% 100%,0 100%);z-index:0}
+    .swag-panel{position:relative;z-index:1;background:#fff;border:2px dashed #19baf2;width:min(70.5vw,1316px);min-height:650px;margin:0 auto;padding:126px 7vw 68px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+    .swag .section-head{display:block;margin:0 0 74px;padding:0;max-width:650px;text-align:center}
+    .swag .section-head .kicker{display:block;color:#a9aeb5;letter-spacing:.19em;margin-bottom:40px}
+    .swag .section-head .kicker i{display:none}
+    .swag .section-head .kicker:after{content:"";display:block;width:62px;height:3px;background:#ededed;margin:48px auto 0}
+    .swag .section-head h2{display:none}
+    .swag .section-head p{display:none}
+    .swag-options{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:56px;text-align:center}
+    .swag-option{background:transparent;color:var(--ink);border:0;border-radius:0;box-shadow:none}
+    .swag-mark{height:48px;margin:0 auto 26px;display:grid;place-items:center;color:#c9c9c9;font-size:38px;font-weight:900;letter-spacing:-.05em;text-transform:uppercase}
+    .swag-option:nth-child(2) .swag-mark{font-size:34px;font-weight:900;font-style:normal}
+    .swag-option:nth-child(3) .swag-mark{font-size:32px;letter-spacing:.04em}
+    .swag-copy{padding:0;display:flex;flex-direction:column;align-items:center}
+    .swag-label{display:none}
+    .swag-copy h3{font-size:19px;line-height:1.1;letter-spacing:-.025em;margin:0 0 20px}
+    .swag-copy p{font-size:15px;line-height:1.75;color:#8a8a93;max-width:315px;margin:0 auto}
+    .swag-cta{grid-column:1/-1;justify-self:center;margin-top:46px;min-width:360px;height:64px;border-radius:0;background:#12b8e8;color:#fff;text-decoration:none;font-size:14px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}
+
+    /* Reference-style gifting section */
+    .gifting{background:#fff;padding-bottom:105px}
+    .gifting .section-head{max-width:920px;margin-bottom:40px}
+    .gifting-stack{display:grid;gap:24px}
+    .gift-story{display:grid;grid-template-columns:.86fr 1.14fr;gap:24px;align-items:stretch}
+    .gift-story.client{grid-template-columns:1.14fr .86fr}
+    .gift-copy{background:#eee6dc;border-radius:18px;padding:64px 58px;display:flex;flex-direction:column;justify-content:center;min-height:440px}
+    .gift-story.client .gift-copy{background:#111;color:#fff}
+    .gift-copy h3{font-size:clamp(34px,3.1vw,52px);line-height:1.02;letter-spacing:-.045em;margin:0 0 22px;max-width:420px}
+    .gift-copy p{font-size:18px;line-height:1.68;color:#25211d;max-width:520px;margin:0}
+    .gift-story.client .gift-copy p{color:rgba(255,255,255,.74)}
+    .gift-points{list-style:none;margin:30px 0 0;padding:0;display:grid;gap:14px}
+    .gift-points li{display:flex;align-items:flex-start;gap:12px;font-size:16px;line-height:1.42;font-weight:750;color:currentColor}
+    .gift-points li:before{content:"✓";width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:900;flex:0 0 auto;margin-top:1px}
+    .gift-story.client .gift-points li:before{background:var(--mint);color:var(--ink)}
+    .gift-visual{position:relative;min-height:440px;border-radius:18px;overflow:hidden;background:#a98af4}
+    .gift-story.prospect .gift-visual{background:linear-gradient(135deg,#ffd84a 0%,#ff6655 100%)}
+    .gift-story.client .gift-visual{background:linear-gradient(135deg,#68dcb4 0%,#3155ff 100%);order:-1}
+    .gift-visual:before{content:"";position:absolute;inset:-20% -12% auto auto;width:72%;aspect-ratio:1;border-radius:999px;background:rgba(255,255,255,.22);z-index:0}
+    .gift-visual:after{content:"";position:absolute;left:-8%;bottom:-20%;width:72%;height:78%;border-radius:999px;background:rgba(255,255,255,.16);z-index:0}
+    .gift-visual img{position:relative;z-index:1;width:100%;height:100%;min-height:440px;object-fit:cover;display:block}
+    .gift-story.prospect .gift-visual img{object-position:center right}
+    .gift-story.client .gift-visual img{object-position:center right}
+
+    .stores{background:#fff;color:var(--ink);padding:90px 6vw;display:block}
+    .store-showcase{position:relative;max-width:1120px;height:520px;margin:0 auto}
+    .store-stage{position:absolute;inset:0 170px 0 0;background:#8e68cf;overflow:hidden}
+    .store-panel{width:100%;height:100%}
+    .store-mock-img{width:100%;height:100%;object-fit:cover;object-position:center left;display:block}
+    .store-hero-img,.store-cta-hit,.store-sr-only,.store-proof,.store-float,.stores .number,.stores .kicker{display:none!important}
+    .stores-copy{position:absolute;z-index:3;right:0;top:50%;transform:translateY(-50%);width:360px;background:#fff;padding:54px 44px;box-shadow:0 18px 50px rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;text-align:center}
+    .stores h2{font-size:42px;line-height:1.08;letter-spacing:-.03em;margin:0 0 20px;font-weight:800;text-align:center;color:#222}
+    .stores h2 em{color:#e9599d;font-family:Arial,Helvetica,sans-serif;font-style:normal;font-weight:800}
+    .stores-copy>p{font-size:15px;line-height:1.65;color:#777;max-width:270px;margin:0 0 30px;text-align:center}
+    .stores .button.light{background:#e9599d;color:#fff;width:150px;height:46px;border-radius:0;font-size:15px;font-weight:700}
+
     
-    /* Image-based swag cards */
-    .swag-grid{display:grid !important;grid-template-columns:1fr 1fr !important;gap:18px !important}
-    .swag-card-img{width:100% !important;height:auto !important;object-fit:contain !important;border-radius:26px !important;display:block !important}
-
-    /* Image-based gifting cards */
-    .gifting-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-    .gift-card-img{width:100%;height:auto;object-fit:contain;border-radius:26px;display:block}
-
-    .stores{background:var(--blue);color:#fff;display:grid;grid-template-columns:.75fr 1.25fr;gap:5vw;align-items:center}
-    .stores h2{font-size:clamp(58px,6vw,92px);line-height:.88;letter-spacing:-.07em;margin:25px 0 28px}
-    .stores h2 em{color:var(--yellow)}
-    .stores-copy>p{font-size:15px;line-height:1.75;color:rgba(255,255,255,.75)}
-    .stores .clean-list li{border-color:rgba(255,255,255,.2)}
-    
-    /* Image-based store mock */
-    .store-mock-img{width:100%;height:auto;max-width:760px;border-radius:20px;display:block;box-shadow:0 28px 60px rgba(0,0,0,.25)}
-
-    .gifting{background:var(--cream)}
     .gift-card{min-height:625px;padding:40px;border-radius:26px;position:relative;overflow:hidden}
     .gift-card:first-child{background:var(--yellow)}
     .gift-card:last-child{background:var(--plum);color:#fff}
@@ -208,18 +201,33 @@
     .gift-products i{width:70px;height:80px;background:var(--yellow);border-radius:99px}
     .gift-products i:nth-child(2){background:var(--mint);height:100px;border-radius:40px}
     .gift-products i:nth-child(3){background:#fff}
-    .control{background:var(--ink);color:#fff}
-    .control-head{display:grid;grid-template-columns:1fr .5fr;gap:45px;align-items:end}
-    .control-head .kicker{grid-column:1/3;color:var(--mint)}
-    .control-head p{color:#aaa;line-height:1.7}
-    .control-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:55px}
-    .control-grid article{min-height:280px;border-radius:19px;padding:26px;background:#1d1d1d;border:1px solid #333}
-    .control-grid article:nth-child(2){background:var(--coral);color:var(--ink);border:0}
-    .control-grid article:nth-child(3){background:var(--mint);color:var(--ink);border:0}
-    .control-grid article:nth-child(4){background:var(--lilac);color:var(--ink);border:0}
-    .control-grid .icon-circle{margin:0}
-    .control-grid h3{font-size:23px;letter-spacing:-.04em;margin:65px 0 12px}
-    .control-grid p{font-size:11px;line-height:1.6;opacity:.72}
+    .control{background:#fff;color:var(--ink)}
+    .control-head{max-width:920px}
+    .control-head .kicker{color:var(--blue)}
+    .control h2{max-width:930px}
+    .control h2 em{font-family:Georgia,serif;font-weight:400}
+    .control-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:46px;overflow-x:visible;padding-bottom:0}
+    .control-card{background:#fff;border:1px solid #dedbd4;border-radius:8px;overflow:hidden;min-height:380px;height:auto;display:flex;flex-direction:column;padding:0;width:100%;min-width:0}
+    .control-art{height:190px;position:relative;overflow:hidden;display:grid;place-items:center;flex:0 0 auto}
+    .control-art-img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+    .control-card:nth-child(1) .control-art{background:#ffe27a}
+    .control-card:nth-child(2) .control-art{background:#b7dcff}
+    .control-card:nth-child(3) .control-art{background:#ffe58f}
+    .control-card:nth-child(4) .control-art{background:#b89df5}
+    .control-art:before{content:"";position:absolute;width:76%;aspect-ratio:1;border-radius:999px;background:rgba(255,255,255,.25);right:-22%;top:-38%}
+    .control-art:after{content:"";position:absolute;inset:auto -8% -28% auto;width:62%;height:70%;background:rgba(255,255,255,.18);transform:rotate(-18deg);border-radius:42px}
+    .control-art:has(.control-art-img):before,
+    .control-art:has(.control-art-img):after{content:none;display:none}
+    .control-visual{position:relative;z-index:1;width:100%;height:100%}
+    .budget-folder{position:absolute;left:31%;bottom:25px;width:122px;height:70px;background:#bfe4ff;border:4px solid #005bc6;border-radius:8px 8px 15px 15px;box-shadow:0 14px 0 rgba(0,88,200,.18)}
+    .budget-folder:before{content:"";position:absolute;left:13px;top:-22px;width:62px;height:25px;background:#005bc6;border-radius:8px 8px 0 0}
+    .budget-folder:after{content:"";position:absolute;left:-22px;right:-20px;bottom:-15px;height:15px;background:#005bc6;border-radius:50%;opacity:.95}
+    .coin{position:absolute;width:42px;height:42px;border-radius:50%;background:#eaf6ff;border:4px solid #005bc6;color:#005bc6;display:grid;place-items:center;font-size:20px;font-weight:900;box-shadow:0 8px 14px rgba(0,0,0,.14)}
+    .coin.c1{left:18%;top:34%}.coin.c2{right:20%;top:18%;font-size:19px}.coin.c3{right:22%;bottom:33%;font-size:18px}
+    .report-panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:13px}.report-card{background:#fff;border-radius:14px;padding:15px 17px;box-shadow:0 14px 24px rgba(0,0,0,.12);min-width:142px}.report-card b{font-size:15px}.report-card:before{content:"";display:block;width:70px;height:22px;margin:10px 0 9px;background:radial-gradient(circle at 9px 50%,#ff6655 0 9px,transparent 10px),radial-gradient(circle at 27px 50%,#68dcb4 0 9px,transparent 10px),radial-gradient(circle at 45px 50%,#b89df5 0 9px,transparent 10px),radial-gradient(circle at 63px 50%,#ffd84a 0 9px,transparent 10px)}.report-bar{width:130px;height:10px;border-radius:99px;background:#d6ecff;position:relative}.report-bar:before{content:"";position:absolute;inset:0 33% 0 0;background:#5ca0e6;border-radius:99px}.report-ring{width:92px;height:92px;border-radius:50%;background:conic-gradient(#51b86a 0 35%,#ffd84a 0 66%,#ff6655 0 82%,#e8e6df 0);display:grid;place-items:center;font-size:0;box-shadow:0 14px 24px rgba(0,0,0,.1)}    .report-ring:before{content:"160";width:62px;height:62px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:24px;font-weight:900}
+    .control-body{padding:20px 24px 22px;display:flex;flex-direction:column;gap:10px;flex:1}
+    .control-body h3{font-size:22px;line-height:1.08;letter-spacing:-.035em;margin:0}
+    .control-body p{font-size:14px;line-height:1.48;color:#39352f;margin:0}
     .final{background:var(--blue);color:#fff;text-align:center;padding:125px 6vw;position:relative;overflow:hidden}
     .final h2{font-size:clamp(66px,8vw,122px);line-height:.87;letter-spacing:-.07em;margin:28px 0}
     .final h2 em{color:var(--yellow)}
@@ -232,8 +240,9 @@
     .footer nav a{font-size:11px;text-decoration:none}
     .footer small{color:#777}
     @media(max-width:1050px){
-      .hero{grid-template-columns:1fr}
-      .hero-ui{min-height:700px}
+      .hero{grid-template-columns:1fr;height:auto;min-height:0;max-height:none;align-items:stretch}
+      .hero-ui{min-height:0;height:auto;padding:10px 6vw 48px}
+      .hero-collage{max-height:min(52vh,420px);width:min(100%,480px);transform:none}
       .cap-nav{grid-template-columns:repeat(4,1fr)}
       .section-head,.control-head{grid-template-columns:1fr}
       .section-head .kicker,.control-head .kicker{grid-column:auto}
@@ -243,9 +252,20 @@
       .feature.yellow .feature-copy,.feature.yellow .feature-media{order:initial}
       .feature.coral .feature-media,.feature.yellow .feature-media{margin:0;border-radius:0 0 26px 26px}
       .feature-copy{border-radius:26px 26px 0 0;min-height:auto}
+      .swag-panel{width:min(86vw,900px);padding:92px 7vw 62px;min-height:auto}
+      .swag-options{grid-template-columns:1fr;gap:44px}
+      .swag-copy{min-height:auto}
+      .gifting-stack{gap:24px}
+      .gift-story,.gift-story.client{grid-template-columns:1fr;gap:18px}
+      .gift-story.client .gift-visual{order:initial}
+      .gift-copy,.gift-visual{min-height:380px}
+      .gift-visual img{min-height:380px}
       .feature-grid,.swag-grid,.gifting-grid{grid-template-columns:1fr}
-      .stores{grid-template-columns:1fr}
-      .control-grid{grid-template-columns:1fr 1fr}
+      .store-showcase{height:auto;min-height:0;display:grid;gap:0}
+      .store-stage{position:relative;inset:auto;min-height:380px}
+      .stores-copy{position:relative;right:auto;top:auto;transform:none;width:min(88%,400px);justify-self:center;margin-top:-70px}
+      .store-mock-img{height:380px;object-fit:cover}
+      .control-grid{grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}
     }
     @media(max-width:730px){
       .header{padding:0 6vw}
@@ -254,18 +274,16 @@
       .main-nav a{padding:12px;border-bottom:1px solid #eee}
       .header-cta{display:none}
       .menu{display:block}
-      .hero-copy{padding:125px 6vw 65px}
-      .hero h1{font-size:58px}
-      .hero-copy>p{font-size:16px}
+      .hero-copy{padding:88px 6vw 36px}
+      .hero h1{font-size:42px}
+      .hero-copy>p{font-size:15px}
       .actions{align-items:flex-start;flex-direction:column}
-      .team-note{margin-top:48px}
-      .hero-ui{min-height:570px}
-      .dashboard{left:4%;right:-55%;top:14%;height:450px;grid-template-columns:48px 1fr}
-      .dash-main{padding:22px}
-      .stats article:nth-child(3),.fulfil{display:none}
-      .stats{grid-template-columns:1fr 1fr}
-      .float-card.order{transform:scale(.82);right:1%}
+      .team-note{margin-top:24px}
+      .hero-ui{min-height:0;padding:12px 6vw 40px}
+      .hero-collage{width:100%;max-height:min(46vh,360px);transform:none}
       .cap-nav{grid-template-columns:1fr 1fr;padding:0}
+      .flatlay-showcase{padding:0}
+      .flatlay-showcase img{height:300px;min-height:0;border-radius:0}
       .section{padding:80px 5vw}
       .intro{grid-template-columns:1fr}
       .headline h2,.section-head h2,.control h2{font-size:46px}
@@ -277,12 +295,37 @@
       .feature,.swag-card,.gift-card{min-height:auto}
       .feature-copy{padding:28px}
       .feature h3,.swag-card h3,.gift-card h3{font-size:38px}
+      .swag{padding-bottom:72px}
+      .swag{padding:74px 0 48px}
+      .swag:after{height:58%}
+      .swag-panel{width:86vw;padding:74px 7vw 48px}
+      .swag .section-head{margin-bottom:46px}
+      .swag .section-head .kicker:after{margin-top:34px}
+      .swag-options{gap:38px}
+      .swag-copy{padding:0}
+      .swag-copy h3{font-size:20px}
+      .swag-copy p{font-size:15px}
+      .swag-cta{width:100%;min-width:0}
+      .gift-copy{padding:34px;min-height:auto}
+      .gift-copy h3{font-size:38px}
+      .gift-copy p{font-size:16px}
+      .gift-points li{font-size:15px}
+      .gift-points{gap:13px;margin-top:22px}
+      .gift-points li:before{width:18px;height:18px;font-size:11px}
+      .gift-visual{min-height:300px;border-radius:16px}
+      .gift-visual img{min-height:300px}
+      .gifting-stack{gap:18px}
       .feature-media{min-height:280px}
       .feature-visual-img{height:280px;min-height:280px}
-      .stores h2{font-size:56px}
+      .stores{padding:56px 5vw;background:#fff}
+      .store-stage{min-height:300px}
+      .store-mock-img{height:300px}
+      .stores-copy{padding:36px 24px;width:90%;margin-top:-48px}
+      .stores h2{font-size:34px}
       .control-grid{grid-template-columns:1fr}
-      .control-grid article{min-height:235px}
-      .control-grid h3{margin-top:42px}
+      .control-card{min-height:auto}
+      .control-art{height:190px}
+      .control-grid h3{margin-top:0}
       .final{padding:95px 5vw}
       .final h2{font-size:60px}
       .final-actions{flex-direction:column}
@@ -294,7 +337,9 @@
   <header class="header"><a class="brand" href="/"><span class="brand-mark">S</span><span>SHELF<br>MERCH</span></a><nav class="main-nav" id="nav"><a href="#platform">Platform</a><a href="#recognition">Recognition</a><a href="#swag">Swag</a><a href="#stores">Stores</a><a href="#gifting">Gifting</a></nav><a class="header-cta" href="/request-demo">Book a demo →</a><button class="menu" aria-label="Toggle menu" onclick="document.getElementById('nav').classList.toggle('open')">☰</button></header>
   <main id="platform">
     <section class="hero"><div class="hero-copy"><span class="kicker"><i></i> THE SHELF MERCH PLATFORM</span><h1>One platform.<br><em>Every branded moment.</em></h1><p>Run recognition, milestones, company stores and every kind of swag or gifting program from one place. Your teams stay in control. We make and deliver the rest.</p><div class="actions"><a class="button" href="#connects">Explore the platform →</a></div><div class="team-note"><div class="avatars"><span>HR</span><span>MK</span><span>SL</span><span>AD</span></div><p><b>Built for every team</b><br>One dashboard. One budget. One partner.</p></div></div>
-      <div class="hero-ui"><i class="orbit one"></i><i class="orbit two"></i><div class="dashboard"><div class="dash-side"><b>S</b><i></i><i></i><i></i><i></i><i></i></div><div class="dash-main"><div class="dash-top"><div><small>GOOD MORNING, MAYA</small><b>Your company shelf</b></div><span>Aug 2026⌄</span></div><div class="stats"><article><small>AVAILABLE BUDGET</small><b>₹8.4L</b><em>68% remaining</em></article><article><small>ACTIVE PROGRAMS</small><b>12</b><em>Across 6 teams</em></article><article><small>REDEMPTION</small><b>87%</b><em>+14% this month</em></article></div><div class="dash-grid"><article class="programs"><div class="widget-title"><b>Live programs</b><span>View all</span></div><div class="program-row"><i>♥</i><p><b>Peer kudos</b><small>Always on</small></p><strong>126</strong></div><div class="program-row"><i>◫</i><p><b>Work anniversaries</b><small>Automated</small></p><strong>18</strong></div><div class="program-row"><i>⌂</i><p><b>Annual swag store</b><small>Live now</small></p><strong>384</strong></div></article><article class="fulfil"><div class="widget-title"><b>Fulfilment</b><span>Live</span></div><div class="ring"><b>92%</b><small>on time</small></div><div class="bars"><i></i><i></i><i></i><i></i><i></i></div></article></div></div></div><div class="float-card kudos"><span>👏</span><p><b>Kudos sent</b><small>Riya → Sameer · +250</small></p></div><div class="float-card order"><span>↗</span><p><b>Order dispatched</b><small>Hyderabad · arrives tomorrow</small></p></div></div>
+      <div class="hero-ui">
+        <img class="hero-collage" src="/images/platform/platform-hero-collage.png?v=4" alt="Shelf Merch platform — recognition, company stores and gifting in one place">
+      </div>
     </section>
     <nav class="cap-nav"><a href="#kudos"><span>01</span><b>Kudos programs</b></a><a href="#milestones"><span>02</span><b>Milestones</b></a><a href="#on-demand"><span>03</span><b>On-demand swag</b></a><a href="#bulk"><span>04</span><b>Bulk swag</b></a><a href="#stores"><span>05</span><b>Stores</b></a><a href="#prospect"><span>06</span><b>Prospect gifting</b></a><a href="#client"><span>07</span><b>Client gifting</b></a></nav>
 
@@ -333,17 +378,17 @@
 
     <section class="section recognition" id="recognition"><div class="section-head"><span class="kicker"><i></i> RECOGNITION &amp; MILESTONES</span><h2>Make appreciation</h2></div><div class="feature-grid"><article class="feature coral" id="kudos"><div class="feature-media"><img class="feature-visual-img" src="/images/platform/kudos-programs-visual.png" alt="Employee recognition collage with floating kudos cards and team avatars"></div><div class="feature-copy"><h3>Kudos programs</h3><p>Give every employee a simple way to recognize peers, managers and cross-functional partners, with or without points attached.</p><ul class="feature-points"><li>Run peer, manager and team-wide recognition in one place</li><li>Connect values-based appreciation to approved rewards</li><li>Keep engagement visible without turning it into admin work</li></ul><a class="feature-cta" href="/request-demo">Book a demo →</a></div></article><article class="feature yellow" id="milestones"><div class="feature-copy"><h3>Milestones</h3><p>Set the rules once. Shelf Merch automatically triggers the right gift for birthdays, anniversaries and employee achievements.</p><ul class="feature-points"><li>Automate birthdays, work anniversaries and key occasions</li><li>Match gifts by tenure, team, budget or recipient choice</li><li>Schedule dispatch, reminders and tracking from one flow</li></ul><a class="feature-cta" href="/request-demo">Automate milestones →</a></div><div class="feature-media"><img class="feature-visual-img" src="/images/platform/milestones-visual.png" alt="Employee milestone celebration collage with calendar, gift and recognition cards"></div></article></div></section>
 
-    <section class="section swag" id="swag"><div class="section-head"><span class="kicker"><i></i> SWAG, YOUR WAY</span><h2>One piece or<br><em>ten thousand.</em></h2></div><div class="swag-grid"><img class="swag-card-img" id="on-demand" src="/images/platform/on-demand-swag.jpg" alt="On-demand swag card"><img class="swag-card-img" id="bulk" src="/images/platform/bulk-swag.jpg" alt="Bulk swag card"></div></section>
+    <section class="section swag" id="swag"><div class="swag-panel"><div class="section-head"><span class="kicker"><i></i> SWAG, YOUR WAY</span><h2>One piece or<br><em>ten thousand.</em></h2><p>Launch small, scale big and keep every order moving without guessing inventory or chasing vendors.</p></div><div class="swag-options"><article class="swag-option" id="on-demand"><div class="swag-mark">01</div><div class="swag-copy"><span class="swag-label">On demand</span><h3>On-demand swag</h3><p>Make only what gets ordered. Perfect for stores, distributed teams and always-on programs.</p></div></article><article class="swag-option"><div class="swag-mark">SM</div><div class="swag-copy"><span class="swag-label">One partner</span><h3>One fulfilment partner</h3><p>We source, produce, pack, dispatch and track every order so your team stays focused.</p></div></article><article class="swag-option" id="bulk"><div class="swag-mark">10K</div><div class="swag-copy"><span class="swag-label">Bulk ready</span><h3>Bulk swag</h3><p>Plan campaign merchandise for events, offices and large cohorts with clean timelines.</p></div></article><a class="swag-cta" href="/request-demo">See More</a></div></div></section>
+    <section class="section stores" id="stores"><div class="store-showcase"><div class="store-stage"><div class="store-panel"><img class="store-mock-img" src="/images/platform/branded-store-packaging.png" alt="Branded welcome kits on lavender backdrop"></div></div><div class="stores-copy"><h2><em>Open up</em><br>a store they will love.</h2><p>Create a private branded store for employees, new hires, partners and distributors, with products, budgets and access rules already built in.</p><a class="button light" href="/request-demo">Let's go!</a></div></div></section>
 
-    <section class="section stores" id="stores"><div class="stores-copy"><span class="number">05</span><span class="kicker"><i></i> BRANDED STORES</span><h2>Your brand.<br><em>Its own shelf.</em></h2><p>Launch a private company store for employees, new hires, distributors or partners. You choose the products and access rules; recipients choose what fits.</p><ul class="clean-list"><li>✓ Your domain, brand and approved catalogue</li><li>✓ Employee credits and department budgets</li><li>✓ Collections, kits and size selection</li><li>✓ Orders, delivery tracking and reports</li></ul><a class="button light" href="/request-demo">Launch your store →</a></div><div><img class="store-mock-img" src="/images/platform/branded-stores.png" alt="Branded store mockup"></div></section>
+    <section class="section gifting" id="gifting"><div class="section-head"><span class="kicker"><i></i> PROSPECT &amp; CLIENT GIFTING</span><h2>Open the door.<br><em>Keep the relationship.</em></h2></div><div class="gifting-stack"><article class="gift-story prospect" id="prospect"><div class="gift-copy"><h3>Prospect gifting</h3><p>Send a memorable first touch before a meeting, demo or account-based campaign.</p><ul class="gift-points"><li>Gift links without address chasing</li><li>Recipient choice within budget</li><li>Delivery and redemption tracking</li></ul></div><div class="gift-visual"><img src="/images/platform/prospect-gifting-workflow.png" alt="Prospect gifting workflow with laptop, gift link and recipient choice phone"></div></article><article class="gift-story client" id="client"><div class="gift-copy"><h3>Client gifting</h3><p>Celebrate renewals, project wins and important relationships with premium on-brand gifts.</p><ul class="gift-points"><li>Collections by client tier</li><li>Recurring gifting moments</li><li>Personal notes and packaging</li></ul></div><div class="gift-visual"><img src="/images/platform/client-gifting-premium.png" alt="Premium client appreciation gift set with branded merch on a bright studio table"></div></article></div></section>
 
-    <section class="section gifting" id="gifting"><div class="section-head"><span class="kicker"><i></i> PROSPECT &amp; CLIENT GIFTING</span><h2>Open the door.<br><em>Keep the relationship.</em></h2></div><div class="gifting-grid"><img class="gift-card-img" id="prospect" src="/images/platform/prospect-gifting.jpg" alt="Prospect gifting"><img class="gift-card-img" id="client" src="/images/platform/client-gifting.jpg" alt="Client gifting"></div></section>
+    <section class="section control"><div class="control-head"><span class="kicker"><i></i> CONTROL WITHOUT THE CHAOS</span><h2>Your teams move fast.<br><em>Your rules move with them.</em></h2></div><div class="control-grid"><article class="control-card"><div class="control-art"><div class="control-visual"><div class="budget-folder"></div><span class="coin c1">₹</span><span class="coin c2">%</span><span class="coin c3">●</span></div></div><div class="control-body"><h3>Budgets &amp; credits</h3><p>Fund once, allocate by department or cost centre, and track every rupee.</p></div></article><article class="control-card"><div class="control-art"><img class="control-art-img" src="/images/platform/control-approvals.png" alt="Manager catalogue, campaign and spend approval controls"></div><div class="control-body"><h3>Approvals</h3><p>Set catalogue, campaign and spend controls for each team or manager.</p></div></article><article class="control-card"><div class="control-art"><div class="control-visual"><div class="report-panel"><div class="report-card"><b>Spend &amp; orders</b><div class="report-bar"></div></div><div class="report-ring"></div></div></div></div><div class="control-body"><h3>Reporting</h3><p>See spend, redemption, engagement, orders and delivery in one view.</p></div></article><article class="control-card"><div class="control-art"><img class="control-art-img" src="/images/platform/control-integrations.png" alt="SSO, HRMS, Rewards, Slack and Google Workspace connected to Shelf Merch"></div><div class="control-body"><h3>Integrations</h3><p>Connect SSO, HRMS, rewards, Slack and Google Workspace workflows.</p></div></article></div></section>
 
-    <section class="section control"><div class="control-head"><span class="kicker"><i></i> CONTROL WITHOUT THE CHAOS</span><h2>Your teams move fast.<br><em>Your rules move with them.</em></h2></div><div class="control-grid"><article><div class="icon-circle">▣</div><h3>Budgets &amp; credits</h3><p>Fund once, allocate by department or cost centre, and track every rupee.</p></article><article><div class="icon-circle">✓</div><h3>Approvals</h3><p>Set catalogue, campaign and spend controls for each team or manager.</p></article><article><div class="icon-circle">▥</div><h3>Reporting</h3><p>See spend, redemption, engagement, orders and delivery in one view.</p></article><article><div class="icon-circle">⌁</div><h3>Integrations</h3><p>Connect SSO, HRMS, rewards, Slack, Teams and CRM workflows.</p></article></div></section>
+    <!-- <section class="flatlay-showcase" aria-label="Shelf Merch branded merch flat lay"><img src="/images/platform/shelfmerch-flatlay-banner.png" alt="Shelf Merch branded merchandise flat lay with tote, cap, bottle, mug, notebook, apparel and gift box"></section> -->
 
     <section class="final"><span class="kicker" style="justify-content:center;color:var(--mint)"><i></i> ONE PLATFORM. EVERY MOMENT.</span><h2>Put every program<br><em>on one shelf.</em></h2><p>See how Shelf Merch can simplify recognition, swag and gifting across your company.</p><div class="final-actions"><a class="button light" href="/request-demo">Book a platform demo →</a></div></section>
   </main>
   <footer class="footer"><a class="brand" href="#platform"><span class="brand-mark">S</span><span>SHELF<br>MERCH</span></a><p>Merch. Gifting. Recognition.<br>Made and delivered across India.</p><nav><a href="#recognition">Recognition</a><a href="#swag">Swag</a><a href="#stores">Stores</a><a href="#gifting">Gifting</a><a href="/terms">Terms</a></nav><small>© 2026 Chitlu Innovations Private Limited</small></footer>
 </body>
 </html>
-
