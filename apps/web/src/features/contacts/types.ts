@@ -11,18 +11,89 @@ export const COUNTRIES = [
   { value: "US", label: "USA" },
 ] as const;
 
+const PERSON_NAME_RE = /^[a-zA-Z\s'.-]+$/;
+const CITY_STATE_RE = /^[a-zA-Z\s.-]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export type ContactFieldKind =
+  | "personName"
+  | "email"
+  | "phone"
+  | "city"
+  | "state"
+  | "postal"
+  | "text";
+
+/** Sanitize contact field input so only appropriate characters are kept. */
+export function sanitizeContactField(kind: ContactFieldKind, value: string): string {
+  switch (kind) {
+    case "personName":
+      return value.replace(/[^a-zA-Z\s'.-]/g, "");
+    case "email":
+      return value.replace(/\s/g, "");
+    case "phone":
+      return value.replace(/\D/g, "").slice(0, 10);
+    case "city":
+    case "state":
+      return value.replace(/[^a-zA-Z\s.-]/g, "");
+    case "postal":
+      return value.replace(/\D/g, "").slice(0, 10);
+    case "text":
+    default:
+      return value;
+  }
+}
+
+const optionalPersonName = z
+  .string()
+  .trim()
+  .default("")
+  .refine((v) => !v || PERSON_NAME_RE.test(v), {
+    message: "Should contain letters only",
+  });
+
+const optionalCityState = z
+  .string()
+  .trim()
+  .default("")
+  .refine((v) => !v || CITY_STATE_RE.test(v), {
+    message: "Should contain letters only",
+  });
+
 export const contactSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required"),
-  lastName: z.string().trim().default(""),
-  email: z.string().trim().email("Enter a valid email address"),
-  phone: z.string().trim().default(""),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, "First name is required")
+    .refine((v) => PERSON_NAME_RE.test(v), {
+      message: "First name should contain letters only",
+    }),
+  lastName: optionalPersonName,
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .refine((v) => EMAIL_RE.test(v), { message: "Enter a valid email address" }),
+  phone: z
+    .string()
+    .trim()
+    .default("")
+    .refine((v) => !v || /^\d{10}$/.test(v.replace(/\D/g, "")), {
+      message: "Phone number must be exactly 10 digits",
+    }),
   role: z.enum(ROLES),
   department: z.string().trim().default(""),
   employeeCode: z.string().trim().default(""),
   line1: z.string().trim().default(""),
-  city: z.string().trim().default(""),
-  state: z.string().trim().default(""),
-  pincode: z.string().trim().default(""),
+  city: optionalCityState,
+  state: optionalCityState,
+  pincode: z
+    .string()
+    .trim()
+    .default("")
+    .refine((v) => !v || /^\d{4,10}$/.test(v), {
+      message: "PIN code should contain 4–10 digits",
+    }),
   country: z.enum(["IN", "AE", "US"]),
 });
 
@@ -54,7 +125,7 @@ export function contactToForm(c: UiContact): ContactFormValues {
     firstName: parts[0] ?? "",
     lastName: parts.slice(1).join(" "),
     email: c.email ?? "",
-    phone: c.phone ?? "",
+    phone: (c.phone ?? "").replace(/\D/g, "").slice(0, 10),
     role: (ROLES as readonly string[]).includes(c.role)
       ? (c.role as ContactFormValues["role"])
       : "Member",
@@ -63,7 +134,7 @@ export function contactToForm(c: UiContact): ContactFormValues {
     line1: c.address ?? "",
     city: c.city ?? "",
     state: c.state ?? "",
-    pincode: c.pincode ?? "",
+    pincode: (c.pincode ?? "").replace(/\D/g, "").slice(0, 10),
     country: (["IN", "AE", "US"] as const).includes(c.country as "IN") ? (c.country as "IN") : "IN",
   };
 }
