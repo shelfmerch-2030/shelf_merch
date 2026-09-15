@@ -13,6 +13,7 @@ import {
   PRODUCT_WIZARD_STEPS,
   SUBCATEGORIES_BY_CATEGORY,
   publishProduct,
+  pngHasTransparency,
   setPrintAreas,
   setProductRoleImageByUrl,
   type PhysicalDimensions,
@@ -44,6 +45,23 @@ const VIEW_ROLES: Record<ProductImageView, { base: ProductImageRole; mask: Produ
   right: { base: "base_right", mask: "mask_right" },
 };
 
+function urlLooksLikePng(url?: string) {
+  if (!url) return false;
+  try {
+    return /\.png$/i.test(new URL(url, "http://shelfmerch.local").pathname);
+  } catch {
+    return /\.png(?:$|[?#])/i.test(url);
+  }
+}
+
+function fileLooksLikeImage(file: File) {
+  return file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)$/i.test(file.name);
+}
+
+function fileLooksLikePng(file: File) {
+  return file.type === "image/png" || /\.png$/i.test(file.name);
+}
+
 /** Controller for the platform product create/edit wizard. */
 export function useProductWizardController(mode: "create" | "edit", productId?: string) {
   const navigate = useNavigate();
@@ -64,6 +82,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const [previewColor, setPreviewColor] = useState<string>("");
   const [imageView, setImageView] = useState<ProductImageView>("front");
   const [marketingIndex, setMarketingIndex] = useState(0);
+  const [maskTintableByView, setMaskTintableByView] = useState<Partial<Record<ProductImageView, boolean>>>({});
 
   const categoryOptions = useMemo(
     () =>
@@ -234,6 +253,42 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const activeMaskUrl = effectiveMaskByView[imageView];
   const frontMaskIsShopifyFallback = !maskByView.front && Boolean(activeMarketingImageUrl);
   const activeMaskIsShopifyFallback = imageView === "front" && frontMaskIsShopifyFallback;
+  const maskCanTintByView = useMemo(
+    () => ({
+      front: Boolean(maskByView.front && (maskTintableByView.front ?? urlLooksLikePng(maskByView.front))),
+      back: Boolean(maskByView.back && (maskTintableByView.back ?? urlLooksLikePng(maskByView.back))),
+      left: Boolean(maskByView.left && (maskTintableByView.left ?? urlLooksLikePng(maskByView.left))),
+      right: Boolean(maskByView.right && (maskTintableByView.right ?? urlLooksLikePng(maskByView.right))),
+    }),
+    [
+      maskByView.front,
+      maskByView.back,
+      maskByView.left,
+      maskByView.right,
+      maskTintableByView.front,
+      maskTintableByView.back,
+      maskTintableByView.left,
+      maskTintableByView.right,
+    ],
+  );
+  const activeMaskCanTint = Boolean(activeMaskUrl && !activeMaskIsShopifyFallback && maskCanTintByView[imageView]);
+  const untintedMaskImageUrls = useMemo(() => {
+    const urls: string[] = [];
+    for (const view of IMAGE_VIEWS) {
+      const url = effectiveMaskByView[view.key];
+      if (url && !maskCanTintByView[view.key]) urls.push(url);
+    }
+    return urls;
+  }, [
+    effectiveMaskByView.front,
+    effectiveMaskByView.back,
+    effectiveMaskByView.left,
+    effectiveMaskByView.right,
+    maskCanTintByView.front,
+    maskCanTintByView.back,
+    maskCanTintByView.left,
+    maskCanTintByView.right,
+  ]);
   const printAreaImages = useMemo(
     () =>
       [
@@ -329,10 +384,16 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
 
   async function uploadActiveMask(file: File | undefined) {
     if (!id || !file) return;
+    if (!fileLooksLikeImage(file)) {
+      setError("Production mask must be an image file.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
+      const tintableMask = fileLooksLikePng(file) && (await pngHasTransparency(file).catch(() => false));
       await uploadProductImage(id, file, VIEW_ROLES[imageView].mask);
+      setMaskTintableByView((current) => ({ ...current, [imageView]: tintableMask }));
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -480,6 +541,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     activeStageUrl,
     activeMaskUrl,
     activeMaskIsShopifyFallback,
+    activeMaskCanTint,
     frontMaskIsShopifyFallback,
     baseStageImageUrl,
     productionMaskImageUrl,
@@ -491,6 +553,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     productionMaskRightImageUrl,
     printAreaImages,
     printAreaImageViews,
+    untintedMaskImageUrls,
     onBack: () => navigate("/platform/catalog"),
     onStep: goToStep,
     onSet: set,

@@ -34,6 +34,7 @@ export function ProductWizardView({
   activeStageUrl,
   activeMaskUrl,
   activeMaskIsShopifyFallback,
+  activeMaskCanTint,
   frontMaskIsShopifyFallback,
   baseStageImageUrl,
   productionMaskImageUrl,
@@ -45,6 +46,7 @@ export function ProductWizardView({
   productionMaskRightImageUrl,
   printAreaImages,
   printAreaImageViews,
+  untintedMaskImageUrls,
   onBack,
   onStep,
   onSet,
@@ -428,7 +430,7 @@ export function ProductWizardView({
                 }
                 accept="image/*"
                 imageUrl={activeMaskUrl ? resolveMediaUrl(activeMaskUrl) : undefined}
-                tintHex={activeMaskIsShopifyFallback ? undefined : firstHex}
+                tintHex={activeMaskCanTint ? firstHex : undefined}
                 disabled={busy || !id}
                 onFile={onUploadActiveMask}
               />
@@ -440,7 +442,7 @@ export function ProductWizardView({
               </p>
             )}
 
-            {activeMaskUrl && !activeMaskIsShopifyFallback && (
+            {activeMaskUrl && activeMaskCanTint && (
               <div style={{ marginBottom: 22 }}>
                 <h3 style={{ marginBottom: 2 }}>Colour preview</h3>
                 <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
@@ -572,7 +574,7 @@ export function ProductWizardView({
                 productionMaskRightImageUrl
               }
               imageViews={printAreaImageViews}
-              untintedImageUrls={frontMaskIsShopifyFallback && productionMaskImageUrl ? [productionMaskImageUrl] : undefined}
+              untintedImageUrls={untintedMaskImageUrls}
               colors={colorSwatches}
               value={printAreas}
               onChange={onPrintAreas}
