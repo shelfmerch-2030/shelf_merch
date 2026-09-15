@@ -603,12 +603,16 @@ export async function fetchPlatformTeam() {
       email: string;
       role: string;
       status: string;
+      allowlisted?: boolean;
+      protected?: boolean;
     }>
   >("/platform/team");
   // API historically returned `id`; normalize so assign/manage UIs always get userId.
   return rows.map((m) => ({
     ...m,
     userId: String(m.userId ?? m.id ?? ""),
+    allowlisted: Boolean(m.allowlisted),
+    protected: Boolean(m.protected) || isBuiltInPlatformEmail(m.email),
   }));
 }
 
@@ -645,6 +649,24 @@ export const PLATFORM_ROLES = [
   "platform_support_agent",
   "platform_readonly_auditor",
 ] as const;
+
+export const BUILT_IN_PLATFORM_EMAILS = [
+  "admin@shelfmerch.io",
+  "ops@shelfmerch.io",
+  "catalog@shelfmerch.io",
+  "production@shelfmerch.io",
+  "finance@shelfmerch.io",
+  "sales@shelfmerch.io",
+  "support@shelfmerch.io",
+  "logistics@shelfmerch.io",
+  "auditor@shelfmerch.io",
+] as const;
+
+const BUILT_IN_PLATFORM_EMAIL_SET = new Set<string>(BUILT_IN_PLATFORM_EMAILS);
+
+export function isBuiltInPlatformEmail(email: string) {
+  return BUILT_IN_PLATFORM_EMAIL_SET.has(String(email ?? "").trim().toLowerCase());
+}
 
 export function inviteTeamMember(body: { name: string; email: string; role: string }) {
   return apiFetch("/platform/team", { method: "POST", body: JSON.stringify(body) });

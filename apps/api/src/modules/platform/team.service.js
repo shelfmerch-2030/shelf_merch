@@ -2,13 +2,23 @@ import { User } from '../users/user.model.js';
 import { RoleAssignment, PLATFORM_ROLES } from '../roles/roleAssignment.model.js';
 import { AuditLog } from '../auditLogs/auditLog.model.js';
 import { inviteUser } from '../users/users.service.js';
+import {
+  appendEmailAllowlist,
+  getEmailAllowlist,
+  isBuiltInPlatformEmail,
+  normalizeEmail,
+} from '../auth/workEmail.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 
 /** §5 — internal ShelfMerch org: tenantId null, scopeType platform. */
 
 export async function listTeam() {
-  const assignments = await RoleAssignment.find({ tenantId: null, scopeType: 'platform' }).lean();
+  const [assignments, emailAllowlist] = await Promise.all([
+    RoleAssignment.find({ tenantId: null, scopeType: 'platform' }).lean(),
+    getEmailAllowlist(),
+  ]);
+  const allowlist = new Set(emailAllowlist);
   const userIds = assignments.map((a) => a.userId);
   const users = await User.find({ _id: { $in: userIds } }).lean();
   const byId = new Map(users.map((u) => [String(u._id), u]));
@@ -18,13 +28,17 @@ export async function listTeam() {
       const user = byId.get(String(a.userId));
       if (!user) return null;
       const userId = String(user._id);
+      const email = normalizeEmail(user.email);
+      const protectedBuiltIn = isBuiltInPlatformEmail(email);
       return {
         id: userId,
         userId,
         name: user.name,
-        email: user.email,
+        email,
         status: user.status,
         role: a.role,
+        allowlisted: allowlist.has(email),
+        protected: protectedBuiltIn,
         lastLoginAt: user.lastLoginAt,
         createdAt: user.createdAt,
       };
@@ -36,7 +50,16 @@ export async function invitePlatformUser({ name, email, role }) {
   if (!PLATFORM_ROLES.includes(role)) {
     throw new ApiError(422, `Role must be one of: ${PLATFORM_ROLES.join(', ')}`, 'INVALID_ROLE');
   }
-  return inviteUser({ tenantId: null, name, email, role, scopeType: 'platform' });
+  const result = await inviteUser({
+    tenantId: null,
+    name,
+    email,
+    role,
+    scopeType: 'platform',
+    requireAllowlist: false,
+  });
+  await appendEmailAllowlist([email]);
+  return result;
 }
 
 async function getPlatformUser(userId) {
@@ -60,6 +83,13 @@ export async function changePlatformRole({ userId, role }) {
 
 export async function deactivatePlatformUser(userId) {
   const { user } = await getPlatformUser(userId);
+  if (isBuiltInPlatformEmail(user.email)) {
+    throw new ApiError(
+      422,
+      'Built-in ShelfMerch platform users must remain active and allowlisted.',
+      'BUILT_IN_PLATFORM_USER_PROTECTED',
+    );
+  }
   user.status = 'suspended';
   await user.save();
   return user;

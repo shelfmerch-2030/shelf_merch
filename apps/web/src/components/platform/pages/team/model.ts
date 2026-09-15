@@ -4,12 +4,21 @@ import { useLoad } from "../../useLoad";
 export {
   changeTeamRole,
   deactivateTeamMember,
+  isBuiltInPlatformEmail,
   inviteTeamMember,
   PLATFORM_ROLES,
   reactivateTeamMember,
 } from "@/services/platform-api";
 
-export type TeamRow = { userId: string; name: string; email: string; role: string; status: string };
+export type TeamRow = {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  allowlisted?: boolean;
+  protected?: boolean;
+};
 
 /** Format platform role slug for display. */
 export function roleLabel(role: string) {

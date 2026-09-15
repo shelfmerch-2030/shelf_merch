@@ -45,12 +45,15 @@ export async function inviteUser(
     scopeId = null,
     assignedEntityIds = [],
     sendInvite = true,
+    requireAllowlist = true,
     emailContext = {},
   },
   session = null,
 ) {
-  const { assertAllowedAuthEmail } = await import('../auth/workEmail.js');
-  await assertAllowedAuthEmail(email);
+  if (requireAllowlist) {
+    const { assertAllowedAuthEmail } = await import('../auth/workEmail.js');
+    await assertAllowedAuthEmail(email);
+  }
 
   const normalizedEmail = email.toLowerCase().trim();
   let user = await User.findOne({ email: normalizedEmail }).session(session);

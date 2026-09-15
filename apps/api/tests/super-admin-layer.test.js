@@ -19,7 +19,7 @@ import { Order } from '../src/modules/orders/order.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Invoice } from '../src/modules/invoices/invoice.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
-import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
+import { appendEmailAllowlist, BUILT_IN_PLATFORM_ALLOWLIST_EMAILS } from '../src/modules/auth/workEmail.js';
 
 let app;
 let tenant;
@@ -653,6 +653,19 @@ describe('support (§3.9)', () => {
 
 describe('platform team (§5)', () => {
   it('invites, re-roles, deactivates and audits platform users — super admin only', async () => {
+    const builtInSupport = await User.create({
+      tenantId: null,
+      name: 'Support Agent',
+      email: 'support@shelfmerch.io',
+      status: 'active',
+    });
+    await RoleAssignment.create({
+      tenantId: null,
+      userId: builtInSupport._id,
+      role: 'platform_support_agent',
+      scopeType: 'platform',
+    });
+
     await appendEmailAllowlist(['newsales@shelfmerch.io']);
     const invited = await request(app)
       .post('/api/v1/platform/team')
@@ -663,6 +676,10 @@ describe('platform team (§5)', () => {
 
     const list = await request(app).get('/api/v1/platform/team').set(auth(tokens.platform_readonly_auditor));
     expect(list.body.some((m) => m.email === 'newsales@shelfmerch.io')).toBe(true);
+    expect(list.body.find((m) => m.email === 'support@shelfmerch.io')).toMatchObject({
+      allowlisted: true,
+      protected: true,
+    });
 
     const userId = invited.body.user.id;
     const rerole = await request(app)
@@ -675,6 +692,12 @@ describe('platform team (§5)', () => {
       .post(`/api/v1/platform/team/${userId}/deactivate`)
       .set(auth(tokens.platform_super_admin))
       .expect(200);
+
+    const protectedDeactivate = await request(app)
+      .post(`/api/v1/platform/team/${builtInSupport._id}/deactivate`)
+      .set(auth(tokens.platform_super_admin));
+    expect(protectedDeactivate.status).toBe(422);
+    expect(protectedDeactivate.body.error.code).toBe('BUILT_IN_PLATFORM_USER_PROTECTED');
 
     // non-super cannot manage the team
     const denied = await request(app)
@@ -690,7 +713,7 @@ describe('settings & signup gating (§3.4, §6)', () => {
     // defaults visible; non-super cannot write
     const all = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_readonly_auditor));
     expect(all.body['gst.defaultRate']).toBe(18);
-    expect(all.body['auth.emailAllowlist']).toEqual([]);
+    expect(all.body['auth.emailAllowlist']).toEqual(BUILT_IN_PLATFORM_ALLOWLIST_EMAILS);
     expect(
       (
         await request(app)
@@ -763,7 +786,11 @@ describe('settings & signup gating (§3.4, §6)', () => {
       .expect(200);
 
     const settings = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_super_admin));
-    expect(settings.body['auth.emailAllowlist']).toEqual([gmail, work]);
+    expect(settings.body['auth.emailAllowlist']).toEqual([
+      ...BUILT_IN_PLATFORM_ALLOWLIST_EMAILS,
+      gmail,
+      work,
+    ]);
 
     await request(app)
       .put('/api/v1/platform/settings/signup.mode')

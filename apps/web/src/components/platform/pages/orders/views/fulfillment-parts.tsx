@@ -26,6 +26,8 @@ export type OrderItem = {
   artworkUrl?: string;
   /** Saved Konva placement from the design wizard (collection/kit productRef). */
   placement?: Placement | null;
+  /** Per print-area artwork/placements snapshotted from the selected listing. */
+  placements?: Array<{ key?: string; artworkUrl?: string } & Partial<Placement>>;
   variant?: { size?: string; color?: string };
   product?: OrderItemProduct | null;
 };
@@ -192,9 +194,65 @@ function artworkPlacementStyle(pl: Placement, artAspect: number): CSSProperties 
     objectFit: "contain",
     pointerEvents: "none",
     zIndex: 2,
-    opacity: 0.96,
-    mixBlendMode: "multiply",
+    opacity: 1,
   };
+}
+
+function hexToRgbTuple(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const n = parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function artworkFabricFx(tintHex?: string): {
+  opacity: number;
+  mixBlendMode: CSSProperties["mixBlendMode"];
+} {
+  if (!tintHex || !/^#?[0-9a-f]{3}([0-9a-f]{3})?$/i.test(tintHex)) {
+    return { opacity: 1, mixBlendMode: "normal" };
+  }
+  const [r, g, b] = hexToRgbTuple(tintHex);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const warm = (r - b) / 255 > 0.1;
+  if (lum >= 0.62) return { opacity: 0.96, mixBlendMode: "multiply" };
+  if (lum <= 0.32) return { opacity: warm ? 0.94 : 0.9, mixBlendMode: "normal" };
+  return { opacity: warm ? 0.94 : 0.92, mixBlendMode: "multiply" };
+}
+
+function isPlacement(value: Partial<Placement> | null | undefined): value is Placement {
+  return (
+    typeof value?.xPct === "number" &&
+    typeof value.yPct === "number" &&
+    typeof value.wPct === "number"
+  );
+}
+
+function areaArtworkEntries(
+  placements: Array<{ key?: string; artworkUrl?: string } & Partial<Placement>> | undefined,
+  areas: PrintArea[],
+) {
+  if (!Array.isArray(placements)) return [];
+  return placements
+    .map((placement, index) => {
+      const artworkUrl = resolveMediaUrl(placement.artworkUrl);
+      if (!artworkUrl) return null;
+      const key = String(placement.key || areas[index]?.key || `area_${index + 1}`);
+      const area =
+        areas.find((a) => String(a.key || "") === String(placement.key || "")) ?? areas[index];
+      return {
+        key,
+        label: area?.label || key.replace(/_/g, " "),
+        artworkUrl,
+        placement: isPlacement(placement) ? placement : null,
+      };
+    })
+    .filter(Boolean) as Array<{
+      key: string;
+      label: string;
+      artworkUrl: string;
+      placement: Placement | null;
+    }>;
 }
 
 export function PrintAreaPreview({
@@ -203,6 +261,7 @@ export function PrintAreaPreview({
   tintHex,
   artworkUrl,
   placement,
+  placements,
   product,
   onOpen,
   large,
@@ -213,6 +272,7 @@ export function PrintAreaPreview({
   artworkUrl?: string;
   /** Saved wizard placement; falls back to centering in the print-area box. */
   placement?: Placement | null;
+  placements?: Array<{ key?: string; artworkUrl?: string } & Partial<Placement>>;
   product?: OrderItemProduct | null;
   /** When set, the preview is clickable (e.g. open lightbox). */
   onOpen?: () => void;
@@ -225,15 +285,19 @@ export function PrintAreaPreview({
 
   const uiProduct = toUiProduct(product, areas);
   const primaryArea = pickPrintArea(uiProduct);
+  const areaArtwork = areaArtworkEntries(placements, areas);
   const visible = areas.filter((a) => {
     if (!a.mockupImageUrl) return true;
     return resolveMediaUrl(a.mockupImageUrl) === resolvedMockup;
   });
 
   const artPlacement =
+    areaArtwork.find((entry) => entry.placement)?.placement ??
     placement ??
     product?.placement ??
     (resolvedArtwork ? defaultPlacement(uiProduct, artAspect) : null);
+  const primaryArtworkUrl = areaArtwork[0]?.artworkUrl || resolvedArtwork;
+  const artFx = artworkFabricFx(tintHex);
 
   return (
     <div
@@ -275,11 +339,15 @@ export function PrintAreaPreview({
       </div>
 
       {/* Artwork on the square stage (Konva centre + width %), not stretched to the box. */}
-      {resolvedArtwork && artPlacement && (
+      {primaryArtworkUrl && artPlacement && (
         <img
-          src={resolvedArtwork}
+          src={primaryArtworkUrl}
           alt="Artwork"
-          style={artworkPlacementStyle(artPlacement, artAspect)}
+          style={{
+            ...artworkPlacementStyle(artPlacement, artAspect),
+            opacity: artFx.opacity,
+            mixBlendMode: artFx.mixBlendMode,
+          }}
           onLoad={(e) => {
             const img = e.currentTarget;
             const aspect = (img.naturalHeight || 1) / (img.naturalWidth || 1);
@@ -502,6 +570,7 @@ export function FulfillmentAssetStrip({
   mockup,
   printAreas,
   placement,
+  placements,
   product,
   designedMockupUrl,
   referenceArtworkUrl,
@@ -515,6 +584,7 @@ export function FulfillmentAssetStrip({
   mockup: string;
   printAreas: PrintArea[];
   placement?: Placement | null;
+  placements?: Array<{ key?: string; artworkUrl?: string } & Partial<Placement>>;
   product?: OrderItemProduct | null;
   designedMockupUrl?: string;
   referenceArtworkUrl?: string;
@@ -524,8 +594,16 @@ export function FulfillmentAssetStrip({
   const fileBase = sku || "asset";
   const resolvedMask = maskUrl ? resolveMediaUrl(maskUrl) : "";
   const resolvedDesigned = designedMockupUrl ? resolveMediaUrl(designedMockupUrl) : "";
+  const areaArtwork = areaArtworkEntries(placements, printAreas);
+  const primaryArtworkUrl = artworkUrl || areaArtwork[0]?.artworkUrl || "";
   const overlayArtworkUrl = referenceArtworkUrl ?? artworkUrl;
-  const hasReferenceMockup = Boolean(artworkUrl || resolvedDesigned);
+  const hasReferenceMockup = Boolean(primaryArtworkUrl || resolvedDesigned);
+  const referencePlacements = resolvedDesigned ? undefined : placements;
+  const artworkTiles = areaArtwork.length
+    ? areaArtwork
+    : primaryArtworkUrl
+      ? [{ key: "artwork", label: "to print", artworkUrl: primaryArtworkUrl, placement: null }]
+      : [];
 
   return (
     <>
@@ -537,17 +615,18 @@ export function FulfillmentAssetStrip({
           marginBottom: printAreas.length ? 16 : 0,
         }}
       >
-        {artworkUrl && (
+        {artworkTiles.map((entry) => (
           <FulfillmentTile
-            label="Logo / artwork — to print"
+            key={entry.key}
+            label={areaArtwork.length > 1 ? `Logo / artwork - ${entry.label}` : "Logo / artwork - to print"}
             onOpen={() =>
               setPreview({
-                title: "Logo / artwork — to print",
-                downloadUrl: artworkUrl,
-                downloadName: `${fileBase}-logo`,
+                title: areaArtwork.length > 1 ? `Logo / artwork - ${entry.label}` : "Logo / artwork - to print",
+                downloadUrl: entry.artworkUrl,
+                downloadName: `${fileBase}-${entry.key}-logo`,
                 body: (
                   <img
-                    src={artworkUrl}
+                    src={entry.artworkUrl}
                     alt="Artwork"
                     style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain" }}
                   />
@@ -556,20 +635,20 @@ export function FulfillmentAssetStrip({
             }
             footer={
               <DownloadAssetButton
-                url={artworkUrl}
-                filename={`${fileBase}-logo`}
+                url={entry.artworkUrl}
+                filename={`${fileBase}-${entry.key}-logo`}
                 block
                 stopPropagation
               />
             }
           >
             <img
-              src={artworkUrl}
+              src={entry.artworkUrl}
               alt="Artwork"
               style={{ maxWidth: "82%", maxHeight: "82%", objectFit: "contain" }}
             />
           </FulfillmentTile>
-        )}
+        ))}
         {mockup && printAreas.length === 0 && (
           <FulfillmentTile
             label={variantColor ? `Variant — ${variantColor}` : "Variant image"}
@@ -673,12 +752,13 @@ export function FulfillmentAssetStrip({
               areas={printAreas}
               tintHex={tintHex}
               artworkUrl={overlayArtworkUrl || undefined}
+              placements={referencePlacements}
               placement={placement}
               product={product}
               onOpen={() =>
                 setPreview({
                   title: hasReferenceMockup ? "Reference mockup" : "Print areas",
-                  downloadUrl: resolvedDesigned || artworkUrl || mockup,
+                  downloadUrl: resolvedDesigned || primaryArtworkUrl || mockup,
                   downloadName: `${fileBase}-mockup`,
                   body: (
                     <PrintAreaPreview
@@ -686,6 +766,7 @@ export function FulfillmentAssetStrip({
                       areas={printAreas}
                       tintHex={tintHex}
                       artworkUrl={overlayArtworkUrl || undefined}
+                      placements={referencePlacements}
                       placement={placement}
                       product={product}
                       large

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { updateSetting } from "../model";
+import { isBuiltInPlatformEmail, updateSetting } from "../model";
 
 function asEmailList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -17,6 +17,7 @@ export type EmailAllowlistVm = {
   onDraft: (value: string) => void;
   onAdd: () => void;
   onRemove: (email: string) => void;
+  isProtectedEmail: (email: string) => boolean;
 };
 
 /** Manages the platform `auth.emailAllowlist` setting (only these emails may auth). */
@@ -38,8 +39,8 @@ export function useEmailAllowlistController(
     setBusy(true);
     setErr("");
     try {
-      await updateSetting("auth.emailAllowlist", next);
-      setEmails(next);
+      const saved = await updateSetting("auth.emailAllowlist", next);
+      setEmails(asEmailList((saved as { value?: unknown })?.value ?? next));
       onSaved();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not update allowlist");
@@ -64,6 +65,7 @@ export function useEmailAllowlistController(
   }
 
   async function onRemove(email: string) {
+    if (isBuiltInPlatformEmail(email)) return;
     await persist(emails.filter((e) => e !== email));
   }
 
@@ -76,5 +78,6 @@ export function useEmailAllowlistController(
     onDraft: setDraft,
     onAdd,
     onRemove,
+    isProtectedEmail: isBuiltInPlatformEmail,
   };
 }

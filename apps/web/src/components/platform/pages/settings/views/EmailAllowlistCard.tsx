@@ -11,6 +11,7 @@ export function EmailAllowlistCard({
   onDraft,
   onAdd,
   onRemove,
+  isProtectedEmail,
 }: EmailAllowlistVm) {
   return (
     <div className="card" style={{ padding: 16, marginBottom: 16 }}>
@@ -41,10 +42,10 @@ export function EmailAllowlistCard({
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  disabled={busy}
+                  disabled={busy || isProtectedEmail(email)}
                   onClick={() => onRemove(email)}
                 >
-                  Remove
+                  {isProtectedEmail(email) ? "Protected" : "Remove"}
                 </button>
               )}
             </li>

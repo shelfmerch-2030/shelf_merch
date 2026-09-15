@@ -16,9 +16,16 @@ export function TeamManageModalView({
   onDeactivate,
   onReactivate,
 }: TeamManageVm) {
+  const protectedBuiltIn = Boolean(row.protected);
+
   return (
     <PlatformModal title={row.name} subtitle={row.email} onClose={onClose}>
       {err && <PlatformError message={err} />}
+      {protectedBuiltIn && (
+        <div className="card" style={{ padding: 10, marginBottom: 12, fontSize: 13 }}>
+          Built-in platform login; this account stays active and allowlisted.
+        </div>
+      )}
       {note && (
         <div
           className="card"
@@ -51,7 +58,7 @@ export function TeamManageModalView({
           type="button"
           className="btn btn-ghost btn-sm"
           style={{ color: "var(--danger)" }}
-          disabled={busy}
+          disabled={busy || protectedBuiltIn}
           onClick={onDeactivate}
         >
           Deactivate user

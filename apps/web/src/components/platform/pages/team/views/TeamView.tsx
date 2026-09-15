@@ -7,9 +7,18 @@ import {
   StatusTag,
 } from "../../../platform-ui";
 import type { TeamVm } from "../controllers/useTeamController";
-import { roleLabel, type TeamRow } from "../model";
+import { isBuiltInPlatformEmail, roleLabel, type TeamRow } from "../model";
 import { TeamInviteModal } from "./TeamInviteModal";
 import { TeamManageModal } from "./TeamManageModal";
+
+function AllowlistBadge() {
+  return (
+    <span className="tag tag-live">
+      <span className="dot" />
+      Whitelisted
+    </span>
+  );
+}
 
 /** Internal ShelfMerch team and roles. */
 export function TeamView({
@@ -32,7 +41,21 @@ export function TeamView({
     render?: (row: Record<string, unknown>) => ReactNode;
   }[] = [
     { key: "name", label: "Name" },
-    { key: "email", label: "Email" },
+    {
+      key: "email",
+      label: "Email",
+      render: (r) => {
+        const email = String(r.email ?? "");
+        const whitelisted =
+          Boolean(r.allowlisted) || Boolean(r.protected) || isBuiltInPlatformEmail(email);
+        return (
+          <span className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span>{email}</span>
+            {whitelisted ? <AllowlistBadge /> : null}
+          </span>
+        );
+      },
+    },
     { key: "role", label: "Role", render: (r) => roleLabel(String(r.role)) },
     { key: "status", label: "Status", render: (r) => <StatusTag status={String(r.status)} /> },
   ];

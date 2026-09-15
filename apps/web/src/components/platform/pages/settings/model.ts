@@ -1,7 +1,7 @@
 import { fetchPlatformSettings } from "@/services/platform-api";
 import { useLoad } from "../../useLoad";
 
-export { updateSetting } from "@/services/platform-api";
+export { isBuiltInPlatformEmail, updateSetting } from "@/services/platform-api";
 
 /** Platform-wide settings key-value map; bump `reloadKey` to refetch after a mutation. */
 export function usePlatformSettings(reloadKey: number) {

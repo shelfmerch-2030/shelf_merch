@@ -17,6 +17,20 @@ import {
 } from "./fulfillment-parts";
 import { OrderFulfillmentActions } from "./OrderFulfillmentActions";
 
+function mediaAssetKey(url: string) {
+  const resolved = resolveMediaUrl(url);
+  if (!resolved) return "";
+  try {
+    const parsed = new URL(
+      resolved,
+      typeof window === "undefined" ? "https://local.invalid" : window.location.origin,
+    );
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return resolved;
+  }
+}
+
 /** Platform order fulfilment page: summary, production line items, timeline, actions. */
 export function OrderFulfillmentView({
   data,
@@ -177,7 +191,23 @@ export function OrderFulfillmentView({
                 const rawArtworkUrl = item.artworkUrl || product?.artworkUrl || "";
                 const artworkUrl = rawArtworkUrl ? resolveMediaUrl(rawArtworkUrl) : "";
                 const printAreas = product?.printAreas ?? [];
-                const designedMockupUrl = item.imageUrl || product?.designedMockupUrl || "";
+                const rawDesignedMockupUrl = item.imageUrl || product?.designedMockupUrl || "";
+                const productAssetUrls = new Set(
+                  [
+                    product?.baseImageUrl,
+                    product?.maskImageUrl,
+                    product?.primaryImageUrl,
+                    ...(product?.imageUrls ?? []),
+                    ...printAreas.map((area) => area.mockupImageUrl),
+                  ]
+                    .filter(Boolean)
+                    .map((url) => mediaAssetKey(String(url))),
+                );
+                const designedMockupUrl =
+                  rawDesignedMockupUrl &&
+                  !productAssetUrls.has(mediaAssetKey(rawDesignedMockupUrl))
+                    ? rawDesignedMockupUrl
+                    : "";
                 // Prefer the production mask — print-area % coords are authored
                 // against it in the product wizard (same stage as Konva bake).
                 const mockup = resolveMediaUrl(
@@ -188,6 +218,7 @@ export function OrderFulfillmentView({
                     product?.baseImageUrl ||
                     product?.primaryImageUrl ||
                     product?.imageUrls?.[0] ||
+                    rawDesignedMockupUrl ||
                     "",
                 );
                 const placement = item.placement ?? null;
@@ -249,6 +280,7 @@ export function OrderFulfillmentView({
                         mockup={mockup}
                         printAreas={printAreas}
                         placement={placement}
+                        placements={item.placements}
                         product={product}
                         designedMockupUrl={designedMockupUrl}
                         referenceArtworkUrl={designedMockupUrl ? "" : artworkUrl}

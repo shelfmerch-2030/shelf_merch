@@ -6,7 +6,7 @@ import { mediaUrlForCanvas, resolveMediaUrl } from "@/lib/mediaUrl";
  * Transparent background stays clear. Uses canvas (via same-origin / proxied
  * src); falls back to a CSS mask fill when canvas is unavailable.
  */
-const MAX_DIM = 1000;
+const MAX_DIM = 1800;
 const BG_THRESHOLD = 60;
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -83,9 +83,11 @@ function recolorImageData(img: ImageData, target: [number, number, number]) {
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] === 0) continue;
     const luma = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
-    data[i] = target[0] * luma;
-    data[i + 1] = target[1] * luma;
-    data[i + 2] = target[2] * luma;
+    const shade = 0.42 + luma * 0.9;
+    const highlight = Math.max(0, (luma - 0.72) / 0.28) * 46;
+    data[i] = Math.min(255, target[0] * shade + highlight);
+    data[i + 1] = Math.min(255, target[1] * shade + highlight);
+    data[i + 2] = Math.min(255, target[2] * shade + highlight);
   }
 }
 
