@@ -30,9 +30,10 @@ import orderPlacedImg from "../../../assets/order-placed.png";
 import { StoreAccountMenu, type StoreOrderItem, type StoreOrderSummary } from "./StoreAccountMenu";
 import { StoreEmptyState } from "./StoreEmptyState";
 import { StorePageShell } from "./StorePageShell";
-import { HOME_FEATURED_COUNT, StoreHomePage } from "./StoreHomePage";
+import { HOME_RAIL_COUNT, StoreHomePage } from "./StoreHomePage";
 import { SizeGuideTable } from "@/components/SizeGuideTable";
 import { ProductInfoTabs } from "@/features/catalog/views/ProductInfoTabs";
+import { CATALOG_SUBCATEGORIES } from "@/features/catalog/types";
 import { CountrySelect } from "@/features/send/CountrySelect";
 import {
   checkoutFormValid,
@@ -59,6 +60,8 @@ export type StoreProduct = {
   brand?: string;
   group?: string;
   category?: string;
+  /** Admin-assigned catalog subcategory (source of truth for shop PLP filters). */
+  subcategory?: string;
   description?: string;
   keyFeatures?: string;
   sizeGuide?: string;
@@ -257,6 +260,130 @@ type CartLine = {
   variant?: { size?: string; color?: string };
   image?: string;
 };
+
+const HOME_BADGES = ["Best seller", "Popular", "Trending"] as const;
+
+/** Only a few cards get a promo tag — roughly 2 per 5-product rail. */
+function homeBadgeForIndex(index: number): string | undefined {
+  if (index !== 0 && index !== 2) return undefined;
+  return HOME_BADGES[index === 0 ? 0 : 1];
+}
+
+/** Stable shuffle so guest recommendations don't flicker every render. */
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  const out = [...items];
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  for (let i = out.length - 1; i > 0; i--) {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    const j = Math.abs(h) % (i + 1);
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+
+function productMatchesSignal(p: StoreProduct, signalIds: Set<string>): boolean {
+  if (signalIds.has(p._id)) return true;
+  if (p.catalogProductId && signalIds.has(p.catalogProductId)) return true;
+  if (p.collectionId && p.catalogProductId && signalIds.has(`${p.collectionId}:${p.catalogProductId}`)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Recommended rail: cart + purchase signals for returning shoppers;
+ * stable random sample for guests / new users with no history.
+ * Prefers products outside `preferExcludeIds` (New arrivals) so the two
+ * home rails are not identical when the catalog is large enough.
+ */
+function pickRecommendedProducts(
+  products: StoreProduct[],
+  cart: CartLine[],
+  orders: StoreOrderSummary[],
+  seed: string,
+  count = HOME_RAIL_COUNT,
+  preferExcludeIds?: Set<string>,
+): StoreProduct[] {
+  if (!products.length || count <= 0) return [];
+
+  const exclude = preferExcludeIds ?? new Set<string>();
+  const outsideNew = products.filter((p) => !exclude.has(p._id));
+  const insideNew = products.filter((p) => exclude.has(p._id));
+
+  const signalIds = new Set<string>();
+  for (const line of cart) {
+    if (line.productId) signalIds.add(line.productId);
+  }
+  for (const order of orders) {
+    for (const item of order.items || []) {
+      if (item.catalogProductId) signalIds.add(item.catalogProductId);
+      if (item.collectionId && item.catalogProductId) {
+        signalIds.add(`${item.collectionId}:${item.catalogProductId}`);
+      }
+    }
+  }
+
+  let picked: StoreProduct[];
+
+  if (signalIds.size === 0) {
+    // Guests / new users: randomize from non-new-arrivals first, then fill.
+    picked = [
+      ...seededShuffle(outsideNew, `${seed}:rec`),
+      ...seededShuffle(insideNew, `${seed}:rec-fill`),
+    ].slice(0, Math.min(count, products.length));
+  } else {
+    const matched: StoreProduct[] = [];
+    const relatedOut: StoreProduct[] = [];
+    const relatedIn: StoreProduct[] = [];
+    const restOut: StoreProduct[] = [];
+    const restIn: StoreProduct[] = [];
+    const matchedCats = new Set<string>();
+
+    for (const p of products) {
+      if (productMatchesSignal(p, signalIds)) {
+        matched.push(p);
+        if (p.category) matchedCats.add(p.category);
+      }
+    }
+    for (const p of products) {
+      if (productMatchesSignal(p, signalIds)) continue;
+      const inNew = exclude.has(p._id);
+      if (p.category && matchedCats.has(p.category)) {
+        (inNew ? relatedIn : relatedOut).push(p);
+      } else {
+        (inNew ? restIn : restOut).push(p);
+      }
+    }
+
+    picked = [
+      ...matched,
+      ...relatedOut,
+      ...restOut,
+      ...relatedIn,
+      ...restIn,
+    ].slice(0, Math.min(count, products.length));
+  }
+
+  // Tiny catalogs can still force the same items — change order so rails differ.
+  const newArrivalList = insideNew.slice(0, count);
+  const identicalOrder =
+    picked.length === newArrivalList.length &&
+    picked.length > 1 &&
+    picked.every((p, i) => p._id === newArrivalList[i]?._id);
+  if (identicalOrder) {
+    return [...picked].reverse();
+  }
+
+  return picked;
+}
 
 const CART_STORAGE_PREFIX = "shelf-merch:cart:v1:";
 
@@ -1006,6 +1133,14 @@ export default function StoreShell({
     if (page === "orders") void refreshOrders();
   }, [page]);
 
+  // Prefetch order history for personalized home recommendations (signed-in only).
+  useEffect(() => {
+    if (!authenticated || !onFetchOrders) return;
+    if (orders.length > 0) return;
+    void refreshOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot when session becomes available
+  }, [authenticated, onFetchOrders]);
+
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [page]);
@@ -1432,7 +1567,34 @@ export default function StoreShell({
     }
   }
 
-  const homeFeaturedProducts = useMemo(() => products.slice(0, HOME_FEATURED_COUNT), [products]);
+  const homeNewArrivals = useMemo(
+    () => products.slice(0, HOME_RAIL_COUNT),
+    [products],
+  );
+  const homeRecommended = useMemo(() => {
+    const excludeNewArrivalIds = new Set(homeNewArrivals.map((p) => p._id));
+    return pickRecommendedProducts(
+      products,
+      cart,
+      orders,
+      `${cartPersistId || shop.name || "shop"}:${products.map((p) => p._id).join(",")}`,
+      HOME_RAIL_COUNT,
+      excludeNewArrivalIds,
+    );
+  }, [products, cart, orders, cartPersistId, shop.name, homeNewArrivals]);
+
+  function addProductFromHome(p: StoreProduct) {
+    const colors = productColorOptions(p);
+    const sizes = distinct(p.variants?.map((v) => v.size) ?? []);
+    addToCart(
+      p,
+      {
+        ...(sizes.length === 1 ? { size: sizes[0] } : {}),
+        ...(colors.length === 1 ? { color: colors[0]?.name } : {}),
+      },
+      1,
+    );
+  }
 
   const userInitials = recipientName
     ? recipientName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
@@ -1634,14 +1796,34 @@ export default function StoreShell({
           bannerAlt={homeBannerAlt}
           onViewAllProducts={() => browseRewards()}
           onBrowseCategory={(category) => browseRewards(category)}
-          productGrid={
-            homeFeaturedProducts.length > 0 ? (
+          recommendedGrid={
+            homeRecommended.length > 0 ? (
               <StadiumProductGrid
-                products={homeFeaturedProducts}
+                products={homeRecommended}
                 shopBrand={shop.name}
                 onOpen={openProduct}
                 priceLabel={fmtCardPrice}
+                onAddToBag={addProductFromHome}
                 showSwatches
+                showWishlist
+                showBadges
+                addLabel="Add to cart"
+                gridClassName="sf-product-grid--home"
+              />
+            ) : null
+          }
+          newArrivalsGrid={
+            homeNewArrivals.length > 0 ? (
+              <StadiumProductGrid
+                products={homeNewArrivals}
+                shopBrand={shop.name}
+                onOpen={openProduct}
+                priceLabel={fmtCardPrice}
+                onAddToBag={addProductFromHome}
+                showSwatches
+                showWishlist
+                showBadges
+                addLabel="Add to cart"
                 gridClassName="sf-product-grid--home"
               />
             ) : null
@@ -2801,45 +2983,19 @@ export default function StoreShell({
    SUB-COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
 
-const GROUP_LABELS: Record<string, string> = {
-  tee: "T-Shirts",
-  tshirt: "T-Shirts",
-  "t-shirt": "T-Shirts",
-  hoodie: "Hoodies",
-  cap: "Caps",
-  jacket: "Jackets",
-  mug: "Mugs",
-  bottle: "Bottles",
-  tumbler: "Tumblers",
-  bag: "Bags",
-  note: "Notebooks",
-  power: "Power Banks",
-  pillow: "Pillows",
-  pack: "Kits",
-};
-
-const CATEGORY_GROUP_DEFAULTS: Record<string, string[]> = {
-  Apparel: ["T-Shirts", "Hoodies", "Caps", "Jackets"],
-  Drinkware: ["Tumblers", "Bottles", "Mugs"],
-  Accessories: ["Bags", "Caps", "Key Chains"],
-  "Office Supplies": ["Notebooks", "Pens", "Card Holders"],
-  Stationery: ["Notebooks", "Pens"],
-  // Wellness: ["Pillows", "Bottles"],
-  "Work Essentials": ["Notebooks", "Power Banks"],
-  Merch: ["Bags", "Kits"],
-};
-
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL", "4XL", "One Size"];
-
-function productGroupLabel(p: StoreProduct): string {
-  const g = (p.group || "").toLowerCase().trim();
-  if (GROUP_LABELS[g]) return GROUP_LABELS[g];
-  if (g) return g.charAt(0).toUpperCase() + g.slice(1);
-  return "Other";
-}
 
 function productCategoryLabel(p: StoreProduct): string {
   return (p.category || "").trim() || "Other";
+}
+
+/**
+ * Shop PLP subcategory: admin-assigned catalog `subcategory` only.
+ * Products without one are bucketed as "Other" (do not invent from legacy `group`).
+ */
+function productSubcategoryLabel(p: StoreProduct): string {
+  const sub = String(p.subcategory || "").trim();
+  return sub || "Other";
 }
 
 function sortSizes(sizes: string[]): string[] {
@@ -2964,21 +3120,21 @@ function ProductsPageWithFilters({
     const byCat = new Map<string, Map<string, number>>();
     for (const p of products) {
       const cat = productCategoryLabel(p);
-      const group = productGroupLabel(p);
+      const sub = productSubcategoryLabel(p);
       if (!byCat.has(cat)) byCat.set(cat, new Map());
-      const groups = byCat.get(cat)!;
-      groups.set(group, (groups.get(group) || 0) + 1);
+      const subs = byCat.get(cat)!;
+      subs.set(sub, (subs.get(sub) || 0) + 1);
     }
 
     return Array.from(byCat.entries())
-      .map(([category, groups]) => {
-        const defaults = CATEGORY_GROUP_DEFAULTS[category] || [];
-        const present = Array.from(groups.entries()).map(([label, count]) => ({ label, count }));
+      .map(([category, subs]) => {
+        const defaults = [...(CATALOG_SUBCATEGORIES[category] ?? [])];
+        const present = Array.from(subs.entries()).map(([label, count]) => ({ label, count }));
         const presentNames = new Set(present.map((g) => g.label));
         const ordered: Array<{ label: string; count: number }> = [];
         for (const label of defaults) {
           if (presentNames.has(label)) {
-            ordered.push({ label, count: groups.get(label) || 0 });
+            ordered.push({ label, count: subs.get(label) || 0 });
             presentNames.delete(label);
           }
         }
@@ -2998,7 +3154,9 @@ function ProductsPageWithFilters({
   const scopedProducts = useMemo(() => {
     if (selectedGroups.length) {
       const keys = new Set(selectedGroups);
-      return products.filter((p) => keys.has(groupKey(productCategoryLabel(p), productGroupLabel(p))));
+      return products.filter((p) =>
+        keys.has(groupKey(productCategoryLabel(p), productSubcategoryLabel(p))),
+      );
     }
     if (filterCategory) {
       return products.filter((p) => productCategoryLabel(p) === filterCategory);
@@ -3035,7 +3193,7 @@ function ProductsPageWithFilters({
     const q = searchQuery.toLowerCase().trim();
     let list = scopedProducts.filter((p) => {
       if (q) {
-        const hay = `${p.name} ${p.brand || ""} ${p.category || ""} ${p.group || ""}`.toLowerCase();
+        const hay = `${p.name} ${p.brand || ""} ${p.category || ""} ${p.subcategory || ""} ${p.group || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (selectedSizes.length) {
@@ -3046,7 +3204,14 @@ function ProductsPageWithFilters({
         const colors = productColorOptions(p).map((c) => c.name);
         if (!selectedColors.some((c) => colors.includes(c))) return false;
       }
-      if (priceInitialized && (p.basePriceInr < priceMin || p.basePriceInr > priceMax)) return false;
+      if (
+        priceInitialized &&
+        priceMin >= 0 &&
+        priceMax > priceMin &&
+        (p.basePriceInr < priceMin || p.basePriceInr > priceMax)
+      ) {
+        return false;
+      }
       return true;
     });
 
@@ -3067,6 +3232,7 @@ function ProductsPageWithFilters({
   ]);
 
   const rangeLabel = currencyMode === "inr" ? "Credits range" : "Points range";
+  const unitWord = currencyMode === "inr" ? "credits" : "points";
   const hasActiveFilters =
     Boolean(filterCategory) ||
     selectedGroups.length > 0 ||
@@ -3292,7 +3458,7 @@ function ProductsPageWithFilters({
               </div>
             ) : null}
 
-            {priceExtent.max > priceExtent.min ? (
+            {products.length > 0 ? (
               <div className="sf-plp-filter-block">
                 <button
                   type="button"
@@ -3306,22 +3472,64 @@ function ProductsPageWithFilters({
                   </span>
                 </button>
                 {openFilters.range ? (
-                  <div className="sf-plp-range">
-                    <input
-                      type="range"
-                      min={priceExtent.min}
-                      max={priceExtent.max}
-                      value={priceMax}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        setPriceMax(Math.max(next, priceMin));
-                      }}
-                      aria-label={`Maximum ${rangeLabel.toLowerCase()}`}
-                    />
-                    <div className="sf-plp-range-labels">
-                      <span>{priceLabel(priceMin)}</span>
-                      <span>{priceLabel(priceMax)}</span>
-                    </div>
+                  <div className="sf-plp-range sf-plp-range--inputs">
+                    <label className="sf-plp-range-field">
+                      <span className="sf-plp-range-field-label">Min.</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        value={Number.isFinite(priceMin) ? priceMin : 0}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setPriceMin(0);
+                            return;
+                          }
+                          const next = Number(raw);
+                          if (!Number.isFinite(next)) return;
+                          setPriceMin(Math.max(0, Math.floor(next)));
+                        }}
+                        onBlur={() => {
+                          let next = Math.max(0, Math.floor(Number(priceMin) || 0));
+                          if (next >= priceMax) next = Math.max(0, priceMax - 1);
+                          setPriceMin(next);
+                        }}
+                        aria-label={`Minimum ${unitWord}`}
+                      />
+                    </label>
+                    <label className="sf-plp-range-field">
+                      <span className="sf-plp-range-field-label">Max.</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        value={Number.isFinite(priceMax) ? priceMax : 0}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setPriceMax(0);
+                            return;
+                          }
+                          const next = Number(raw);
+                          if (!Number.isFinite(next)) return;
+                          setPriceMax(Math.max(0, Math.floor(next)));
+                        }}
+                        onBlur={() => {
+                          let next = Math.max(0, Math.floor(Number(priceMax) || 0));
+                          if (next <= priceMin) next = priceMin + 1;
+                          setPriceMax(next);
+                        }}
+                        aria-label={`Maximum ${unitWord}`}
+                      />
+                    </label>
+                    {priceMin < 0 || priceMax < 0 || priceMin === priceMax ? (
+                      <p className="sf-plp-range-hint" role="status">
+                        Enter non-negative {unitWord}; min and max must differ.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -3432,6 +3640,9 @@ function StadiumProductGrid({
   priceLabel,
   onAddToBag,
   showSwatches = false,
+  showWishlist = false,
+  showBadges = false,
+  addLabel = "Add to Bag",
   gridClassName,
 }: {
   products: StoreProduct[];
@@ -3440,6 +3651,9 @@ function StadiumProductGrid({
   priceLabel: (inr: number) => string;
   onAddToBag?: (p: StoreProduct) => void;
   showSwatches?: boolean;
+  showWishlist?: boolean;
+  showBadges?: boolean;
+  addLabel?: string;
   gridClassName?: string;
 }) {
   if (products.length === 0) {
@@ -3453,7 +3667,7 @@ function StadiumProductGrid({
   }
   return (
     <div className={`sf-product-grid sf-product-grid--stadium${gridClassName ? ` ${gridClassName}` : ""}`}>
-      {products.map((p) => (
+      {products.map((p, index) => (
         <StadiumProductCard
           key={p._id}
           product={p}
@@ -3462,9 +3676,25 @@ function StadiumProductGrid({
           onOpen={() => onOpen(p._id)}
           onAddToBag={onAddToBag ? () => onAddToBag(p) : undefined}
           showSwatches={showSwatches}
+          showWishlist={showWishlist}
+          badge={showBadges ? homeBadgeForIndex(index) : undefined}
+          addLabel={addLabel}
+          hideBagIcon={addLabel.toLowerCase().includes("cart")}
         />
       ))}
     </div>
+  );
+}
+
+function HeartOutlineIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path
+        d="M20.8 5.6a4.6 4.6 0 0 0-6.5 0L12 7.9l-2.3-2.3a4.6 4.6 0 1 0-6.5 6.5l2.3 2.3L12 21l6.5-6.6 2.3-2.3a4.6 4.6 0 0 0 0-6.5z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -3476,6 +3706,10 @@ function StadiumProductCard({
   onAddToBag,
   listMode = false,
   showSwatches = false,
+  showWishlist = false,
+  badge,
+  addLabel = "Add to Bag",
+  hideBagIcon = false,
 }: {
   product: StoreProduct;
   brandLabel: string;
@@ -3484,18 +3718,46 @@ function StadiumProductCard({
   onAddToBag?: () => void;
   listMode?: boolean;
   showSwatches?: boolean;
+  showWishlist?: boolean;
+  badge?: string;
+  addLabel?: string;
+  hideBagIcon?: boolean;
 }) {
   const colors = showSwatches ? productColorOptions(product) : [];
   const visibleColors = colors.slice(0, 4);
   const extraColors = colors.length - visibleColors.length;
+  const badgeTone =
+    badge === "Best seller"
+      ? "bestseller"
+      : badge === "Popular"
+        ? "popular"
+        : badge === "Trending"
+          ? "trending"
+          : badge === "Eco-friendly"
+            ? "eco"
+            : "new";
 
   return (
     <article className={`sf-pcard sf-pcard--stadium${listMode ? " sf-pcard--list" : ""}`}>
-      <button type="button" className="sf-pcard-media" onClick={onOpen} aria-label={product.name}>
-        <div className="sf-pcard-img sf-pcard-img--stadium">
+      <div className="sf-pcard-img sf-pcard-img--stadium">
+        <button type="button" className="sf-pcard-media" onClick={onOpen} aria-label={product.name}>
           <ArtworkMockup product={product} hoverSwapViews />
-        </div>
-      </button>
+        </button>
+        {badge ? <span className={`sf-pcard-badge sf-pcard-badge--${badgeTone}`}>{badge}</span> : null}
+        {showWishlist ? (
+          <button
+            type="button"
+            className="sf-wishlist sf-wishlist--visible"
+            aria-label="Save for later"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <HeartOutlineIcon />
+          </button>
+        ) : null}
+      </div>
       <div className="sf-pcard-meta sf-pcard-meta--stadium">
         <button type="button" className="sf-pcard-text" onClick={onOpen}>
           <div className="sf-pcard-brand">{brandLabel}</div>
@@ -3525,8 +3787,8 @@ function StadiumProductCard({
               onAddToBag();
             }}
           >
-            <ShoppingBagIcon />
-            Add to Bag
+            {hideBagIcon ? null : <ShoppingBagIcon />}
+            {addLabel}
           </button>
         ) : null}
       </div>

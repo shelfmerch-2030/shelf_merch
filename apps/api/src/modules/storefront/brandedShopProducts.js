@@ -6,7 +6,7 @@ import { bootstrapActiveListingKeys } from '../shops/shopCatalogSync.js';
 import { listingKey } from '../shops/listingKeys.js';
 
 export const CATALOG_SELECT =
-  'name brand group category description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl maskLeftImageUrl baseLeftImageUrl maskRightImageUrl baseRightImageUrl variants printAreas physicalDimensions dpi';
+  'name brand group category subcategory description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl maskLeftImageUrl baseLeftImageUrl maskRightImageUrl baseRightImageUrl variants printAreas physicalDimensions dpi';
 
 /** One storefront row per Branded Swag design (collection × productRef). */
 export function mapBrandedListing(col, ref, base) {
@@ -36,6 +36,9 @@ export function mapBrandedListing(col, ref, base) {
     name: ref.name || base.name,
     brand: ref.brand ?? base.brand,
     group: ref.group ?? base.group,
+    // Admin-assigned catalog taxonomy — never invent from collection ref group.
+    subcategory: base.subcategory || '',
+    category: base.category || '',
     artworkUrl: col.artworkUrl || '',
     mockupUrl: ref.mockupUrl || '',
     mockupBackUrl: ref.mockupBackUrl || '',
