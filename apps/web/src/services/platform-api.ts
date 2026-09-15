@@ -925,6 +925,20 @@ export function archiveProduct(id: string) {
   return apiFetch<PlatformProduct>(`/platform/products/${id}/archive`, { method: "POST" });
 }
 
+export function moveProductToKit(id: string) {
+  return apiFetch<{ product: PlatformProduct; kit: { _id: string } }>(
+    `/platform/products/${id}/move-to-kit`,
+    { method: "POST" },
+  );
+}
+
+export function moveKitToCatalog(id: string) {
+  return apiFetch<{ kit: { _id: string }; product: PlatformProduct }>(
+    `/platform/kits/${id}/move-to-catalog`,
+    { method: "POST" },
+  );
+}
+
 export function listCategories() {
   return apiFetch<{ _id: string; name: string }[]>("/platform/categories");
 }

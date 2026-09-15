@@ -135,6 +135,8 @@ const catalogProductSchema = new mongoose.Schema(
       externalId: { type: String, default: '' }, // Shopify product id (string)
       handle: { type: String, default: '' },
       categoryAssignedByAdmin: { type: Boolean, default: false },
+      // Manual Catalog ↔ Kits choice; import must not reclassify when set.
+      kindOverride: { type: String, enum: ['catalog', 'kit'], default: undefined },
     },
   },
   { timestamps: true },

@@ -10,7 +10,15 @@ import {
 import type { KitsVm } from "../controllers/useKitsController";
 
 /** Platform-curated gift bundles. */
-export function KitsView({ data, error, loading, canWrite }: KitsVm) {
+export function KitsView({
+  data,
+  error,
+  loading,
+  canWrite,
+  movingId,
+  moveError,
+  onAddToCatalog,
+}: KitsVm) {
   return (
     <>
       <PlatformPageHeader
@@ -31,6 +39,7 @@ export function KitsView({ data, error, loading, canWrite }: KitsVm) {
       />
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
+      {moveError && <PlatformError message={moveError} />}
       {data && (
         <DataTable
           empty="No kits yet."
@@ -78,6 +87,28 @@ export function KitsView({ data, error, loading, canWrite }: KitsVm) {
                 );
               },
             },
+            ...(canWrite
+              ? [
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    render: (r: Record<string, unknown>) => {
+                      const id = String(r._id);
+                      const busy = movingId === id;
+                      return (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={busy || Boolean(movingId)}
+                          onClick={() => onAddToCatalog(id)}
+                        >
+                          {busy ? "Moving…" : "Add to Catalog"}
+                        </button>
+                      );
+                    },
+                  },
+                ]
+              : []),
           ]}
         />
       )}

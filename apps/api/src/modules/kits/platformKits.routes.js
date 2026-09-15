@@ -13,6 +13,7 @@ import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { PlatformKit } from './platformKit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { importFromShopify } from '../catalog/shopifyImport.service.js';
+import { moveKitToCatalog } from '../catalog/kindMove.service.js';
 import { normalizeVariantImages, withNormalizedVariantImages } from './kitVariantImages.js';
 
 const upload = uploader({ allow: IMAGE_TYPES, maxSizeMb: 25, files: 6 });
@@ -211,7 +212,8 @@ platformKitsRouter.get(
   '/',
   kitsRead,
   asyncHandler(async (req, res) => {
-    const filter = req.query.status ? { status: req.query.status } : {};
+    // Default list hides archived kits (e.g. moved to catalog); pass ?status= to override.
+    const filter = req.query.status ? { status: req.query.status } : { status: { $ne: 'archived' } };
     const kits = await PlatformKit.find(filter).sort({ createdAt: -1 }).lean();
     res.json(kits.map(withNormalizedVariantImages));
   }),
@@ -384,5 +386,22 @@ platformKitsRouter.post(
     await kit.save();
     writeAudit({ req, action: 'kit.publish', entityType: 'PlatformKit', entityId: kit._id });
     res.json(serializeKit(kit));
+  }),
+);
+
+platformKitsRouter.post(
+  '/:id/move-to-catalog',
+  kitsWrite,
+  validate({ params: idParam }),
+  asyncHandler(async (req, res) => {
+    const result = await moveKitToCatalog(req.params.id);
+    writeAudit({
+      req,
+      action: 'kit.move_to_catalog',
+      entityType: 'PlatformKit',
+      entityId: result.kit._id,
+      after: { productId: result.product._id, kindOverride: 'catalog' },
+    });
+    res.json(result);
   }),
 );

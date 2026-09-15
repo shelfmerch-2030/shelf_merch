@@ -41,6 +41,11 @@ export async function listProducts({ query }) {
     ...categoryFilter(query.category),
     ...(query.search ? { name: { $regex: query.search, $options: 'i' } } : {}),
   };
+  // Products manually moved to Kits stay archived with kindOverride=kit — hide
+  // them from live catalog lists (Archived tab still shows them).
+  if (query.status !== 'archived') {
+    filter['source.kindOverride'] = { $ne: 'kit' };
+  }
   const [items, total] = await Promise.all([
     CatalogProduct.find(filter)
       .select(INTERNAL_PRODUCT_FIELDS)

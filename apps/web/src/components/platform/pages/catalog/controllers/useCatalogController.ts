@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getStoredUser } from "@/services/auth-store";
 import { canAccessArea } from "@/services/platform-access";
+import { moveProductToKit } from "@/services/platform-api";
 import { usePlatformProducts } from "../model";
 
 export type CatalogStatusFilter = "all" | "draft" | "active" | "archived" | "discontinued";
@@ -33,6 +34,9 @@ export type CatalogVm = ReturnType<typeof usePlatformProducts> & {
   sort: CatalogSort;
   onSort: (value: CatalogSort) => void;
   rows: CatalogRow[];
+  movingId: string | null;
+  moveError: string;
+  onAddToKits: (productId: string) => Promise<void>;
 };
 
 function stockOf(row: CatalogRow) {
@@ -47,7 +51,12 @@ function applyCatalogQuery(
 ): CatalogRow[] {
   const q = search.trim().toLowerCase();
   let list = items.filter((row) => {
-    if (statusFilter !== "all" && row.status !== statusFilter) return false;
+    // "All" = live catalog (exclude archived / moved-to-kits rows).
+    if (statusFilter === "all") {
+      if (row.status === "archived") return false;
+    } else if (row.status !== statusFilter) {
+      return false;
+    }
     if (!q) return true;
     return row.name.toLowerCase().includes(q) || row.sku.toLowerCase().includes(q);
   });
@@ -70,15 +79,31 @@ function applyCatalogQuery(
 
 /** Controller for the platform catalog list. */
 export function useCatalogController(): CatalogVm {
-  const load = usePlatformProducts();
+  const [reloadKey, setReloadKey] = useState(0);
+  const load = usePlatformProducts(reloadKey);
   const canWrite = canAccessArea(getStoredUser()?.role, "catalog", "write");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CatalogStatusFilter>("all");
   const [sort, setSort] = useState<CatalogSort>("newest");
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState("");
 
   const rows = load.data
     ? applyCatalogQuery(load.data.items as CatalogRow[], search, statusFilter, sort)
     : [];
+
+  async function onAddToKits(productId: string) {
+    setMoveError("");
+    setMovingId(productId);
+    try {
+      await moveProductToKit(productId);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setMoveError(err instanceof Error ? err.message : "Failed to move product to kits");
+    } finally {
+      setMovingId(null);
+    }
+  }
 
   return {
     ...load,
@@ -90,5 +115,8 @@ export function useCatalogController(): CatalogVm {
     sort,
     onSort: setSort,
     rows,
+    movingId,
+    moveError,
+    onAddToKits,
   };
 }

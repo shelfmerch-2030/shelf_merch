@@ -857,12 +857,45 @@ export function isKitLikeShopifyProduct(p = {}) {
 }
 
 /**
+ * Look up a manual Catalog ↔ Kits classification for a Shopify product id.
+ * Either collection may hold the override after a move.
+ */
+export async function resolveStoredKindOverride(externalId) {
+  if (!externalId) return null;
+  const id = String(externalId);
+  const [prod, kit] = await Promise.all([
+    CatalogProduct.findOne({ 'source.provider': 'shopify', 'source.externalId': id })
+      .select('source.kindOverride')
+      .lean(),
+    PlatformKit.findOne({ 'source.provider': 'shopify', 'source.externalId': id })
+      .select('source.kindOverride')
+      .lean(),
+  ]);
+  const override = prod?.source?.kindOverride || kit?.source?.kindOverride || null;
+  if (override === 'kit' || override === 'catalog') return override;
+  return null;
+}
+
+/** Apply a stored override, else fall back to name/type/tag heuristics. */
+export function effectiveKitLikeFromOverride(override, p = {}) {
+  if (override === 'kit') return true;
+  if (override === 'catalog') return false;
+  return isKitLikeShopifyProduct(p);
+}
+
+/** Effective kit-ness: manual override wins, else name/type/tag heuristics. */
+export async function resolveEffectiveKitLike(p, externalId) {
+  const override = await resolveStoredKindOverride(externalId);
+  return effectiveKitLikeFromOverride(override, p);
+}
+
+/**
  * Map a Shopify product into PlatformKit fields. Shopify bundles are already
  * curated, self-contained products — there are no component products/variants to
  * compose — so they import as `active` with empty `items` and are marked
  * fixed-composition. The Edit-kits item flow does not apply to them.
  */
-export function mapShopifyKit(p, domain, mapped) {
+export function mapShopifyKit(p, domain, mapped, kindOverride = null) {
   return {
     name: mapped.name,
     description: mapped.description || '',
@@ -877,6 +910,7 @@ export function mapShopifyKit(p, domain, mapped) {
       domain,
       externalId: String(p.id),
       handle: p.handle || '',
+      ...(kindOverride ? { kindOverride } : {}),
     },
   };
 }
@@ -900,9 +934,10 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
   for (const p of products) {
     const externalId = String(p.id);
     try {
-      // Classify up front (from the product list alone) so a filtered import
-      // skips the per-product metafield/tab fetches it doesn't need.
-      const kitLike = isKitLikeShopifyProduct(p);
+      // Manual Catalog ↔ Kits override wins; otherwise name/type/tag heuristics.
+      // Classify up front so a filtered import skips metafield fetches it doesn't need.
+      const kindOverride = await resolveStoredKindOverride(externalId);
+      const kitLike = effectiveKitLikeFromOverride(kindOverride, p);
       if (only === 'kits' && !kitLike) continue;
       if (only === 'products' && kitLike) continue;
 
@@ -935,12 +970,17 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
 
       // Bundles/kits belong in the PlatformKit collection, not the catalog.
       if (kitLike) {
-        const kitFields = mapShopifyKit(p, host, mapped);
+        const kitFields = mapShopifyKit(p, host, mapped, kindOverride);
         // A Shopify bundle previously imported as a single catalog product is
         // archived out of the catalog so it is not double-listed.
         await CatalogProduct.updateOne(
           { 'source.provider': 'shopify', 'source.externalId': externalId, status: { $ne: 'archived' } },
-          { $set: { status: 'archived' } },
+          {
+            $set: {
+              status: 'archived',
+              ...(kindOverride ? { 'source.kindOverride': kindOverride } : {}),
+            },
+          },
         );
         const existingKit = await PlatformKit.findOne({
           'source.provider': 'shopify',
@@ -950,12 +990,18 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
           const changed =
             existingKit.name !== kitFields.name
             || String(existingKit.description ?? '') !== String(kitFields.description ?? '')
-            || JSON.stringify(existingKit.imageUrls ?? []) !== JSON.stringify(kitFields.imageUrls ?? []);
+            || JSON.stringify(existingKit.imageUrls ?? []) !== JSON.stringify(kitFields.imageUrls ?? [])
+            || (kindOverride && existingKit.source?.kindOverride !== kindOverride);
           if (changed) {
             existingKit.name = kitFields.name;
             existingKit.description = kitFields.description;
             existingKit.imageUrls = kitFields.imageUrls;
             existingKit.approxValueInr = kitFields.approxValueInr;
+            if (kindOverride) {
+              existingKit.source = existingKit.source || {};
+              existingKit.source.kindOverride = kindOverride;
+              existingKit.markModified('source');
+            }
             await existingKit.save();
             kit.updated += 1;
             items.push({ title: p.title, status: 'updated', kind: 'kit' });
@@ -971,6 +1017,18 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
         continue;
       }
 
+      // Catalog path: archive any kit for this Shopify id so it is not double-listed
+      // (needed when a manual override moved a former kit into catalog).
+      await PlatformKit.updateOne(
+        { 'source.provider': 'shopify', 'source.externalId': externalId, status: { $ne: 'archived' } },
+        {
+          $set: {
+            status: 'archived',
+            ...(kindOverride ? { 'source.kindOverride': kindOverride } : {}),
+          },
+        },
+      );
+
       const exists = await CatalogProduct.findOne({
         'source.provider': 'shopify',
         'source.externalId': externalId,
@@ -985,10 +1043,18 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
           variantsShopifySignature(exists.variants) !== variantsShopifySignature(mapped.variants);
         // Fill HSN from Shopify when the draft still has none; never overwrite a set value.
         const hsnFilled = !String(exists.hsnCode || '').trim() && Boolean(mapped.hsnCode);
-        if (contentChanged || imagesChanged || variantsChanged || hsnFilled) {
+        const overrideNeedsStamp = kindOverride && exists.source?.kindOverride !== kindOverride;
+        const shouldUnarchive = exists.status === 'archived' && kindOverride === 'catalog';
+        if (contentChanged || imagesChanged || variantsChanged || hsnFilled || overrideNeedsStamp || shouldUnarchive) {
           applyShopifyCatalogUpdate(exists, mapped);
 
           if (hsnFilled) exists.hsnCode = mapped.hsnCode;
+          if (kindOverride) {
+            exists.source = exists.source || {};
+            exists.source.kindOverride = kindOverride;
+            exists.markModified('source');
+          }
+          if (shouldUnarchive) exists.status = 'draft';
           await exists.save();
           product.updated += 1;
           items.push({ title: p.title, status: 'updated', kind: 'product' });
@@ -1003,6 +1069,7 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
       );
       // Always land as platform draft — never inherit Shopify "active".
       mapped.status = 'draft';
+      if (kindOverride) mapped.source.kindOverride = kindOverride;
       await CatalogProduct.create(mapped);
       product.imported += 1;
       items.push({ title: p.title, status: 'imported', kind: 'product' });

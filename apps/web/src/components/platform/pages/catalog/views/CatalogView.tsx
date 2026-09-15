@@ -43,6 +43,9 @@ export function CatalogView({
   sort,
   onSort,
   rows,
+  movingId,
+  moveError,
+  onAddToKits,
 }: CatalogVm) {
   const filteredEmpty =
     Boolean(data?.items.length) &&
@@ -69,6 +72,7 @@ export function CatalogView({
       />
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
+      {moveError && <PlatformError message={moveError} />}
       {data && (
         <>
           <div
@@ -156,6 +160,28 @@ export function CatalogView({
                 label: "Available",
                 render: (r) => String((r.inventory as { available?: number })?.available ?? 0),
               },
+              ...(canWrite
+                ? [
+                    {
+                      key: "actions",
+                      label: "Actions",
+                      render: (r: Record<string, unknown>) => {
+                        const id = String(r._id);
+                        const busy = movingId === id;
+                        return (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            disabled={busy || Boolean(movingId)}
+                            onClick={() => onAddToKits(id)}
+                          >
+                            {busy ? "Moving…" : "Add to Kits"}
+                          </button>
+                        );
+                      },
+                    },
+                  ]
+                : []),
             ]}
           />
         </>
