@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseShopifyStorefrontTabs,
   isKitLikeShopifyProduct,
+  effectiveKitLikeFromOverride,
   mapShopifyKit,
 } from '../src/modules/catalog/shopifyImport.service.js';
 
@@ -17,6 +18,16 @@ describe('Shopify kit mapping (curated, self-contained)', () => {
     expect(kit.rules.fixedComposition).toBe(true);
     expect(kit.source).toMatchObject({ provider: 'shopify', externalId: '42' });
     expect(kit.approxValueInr).toBe(1200);
+  });
+
+  it('stamps a manual kindOverride onto the kit source when provided', () => {
+    const kit = mapShopifyKit(
+      { id: 7, handle: 'tee' },
+      'demo.myshopify.com',
+      { name: 'Tee', description: '', basePriceInr: 500, imageUrls: [] },
+      'kit',
+    );
+    expect(kit.source.kindOverride).toBe('kit');
   });
 });
 
@@ -48,6 +59,21 @@ describe('Shopify kit classifier (sort kits from catalog products)', () => {
     // "set" must be a whole word — not a substring (Headset / Sunset / Mindset).
     expect(isKitLikeShopifyProduct({ title: 'Wireless Headset' })).toBe(false);
     expect(isKitLikeShopifyProduct({ title: 'Stainless Bottle', body_html: '<p>Keeps drinks cold.</p>' })).toBe(false);
+  });
+});
+
+describe('Manual kindOverride beats name heuristics', () => {
+  it('forces catalog even when the title looks like a set/kit', () => {
+    expect(effectiveKitLikeFromOverride('catalog', { title: 'Work Smart Set' })).toBe(false);
+    expect(effectiveKitLikeFromOverride('catalog', { title: 'Welcome Kit' })).toBe(false);
+  });
+  it('forces kit even when the title looks like a single product', () => {
+    expect(effectiveKitLikeFromOverride('kit', { title: 'Classic Cotton Tee' })).toBe(true);
+  });
+  it('falls back to name heuristics when no override is stored', () => {
+    expect(effectiveKitLikeFromOverride(null, { title: 'Work Smart Set' })).toBe(true);
+    expect(effectiveKitLikeFromOverride(null, { title: 'Classic Cotton Tee' })).toBe(false);
+    expect(effectiveKitLikeFromOverride(undefined, { title: 'Wooden Set For Employee' })).toBe(true);
   });
 });
 

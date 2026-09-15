@@ -51,6 +51,8 @@ const platformKitSchema = new mongoose.Schema(
       domain: { type: String, default: '' },
       externalId: { type: String, default: '' },
       handle: { type: String, default: '' },
+      // Manual Catalog ↔ Kits choice; import must not reclassify when set.
+      kindOverride: { type: String, enum: ['catalog', 'kit'], default: undefined },
     },
   },
   { timestamps: true },

@@ -14,6 +14,7 @@ import { INVENTORY_TXN_TYPES } from './inventoryTransaction.model.js';
 import * as catalogService from './platformCatalog.service.js';
 import * as inventoryService from './inventory.service.js';
 import { importFromShopify } from './shopifyImport.service.js';
+import { moveProductToKit } from './kindMove.service.js';
 
 const upload = uploader({ allow: IMAGE_TYPES, maxSizeMb: 25, files: 8 });
 
@@ -274,6 +275,23 @@ platformProductsRouter.post(
     const product = await catalogService.archiveProduct(req.params.id);
     writeAudit({ req, action: 'product.archive', entityType: 'CatalogProduct', entityId: product._id });
     res.json(catalogService.platformProductDto(product));
+  }),
+);
+
+platformProductsRouter.post(
+  '/:id/move-to-kit',
+  catalogWrite,
+  validate({ params: idParam }),
+  asyncHandler(async (req, res) => {
+    const result = await moveProductToKit(req.params.id);
+    writeAudit({
+      req,
+      action: 'product.move_to_kit',
+      entityType: 'CatalogProduct',
+      entityId: result.product._id,
+      after: { kitId: result.kit._id, kindOverride: 'kit' },
+    });
+    res.json(result);
   }),
 );
 
