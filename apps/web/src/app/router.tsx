@@ -308,6 +308,17 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/features/auth/VerifyEmailPage"), "VerifyEmailPage"),
       },
       {
+        path: "integrations/slack",
+        lazy: page(
+          () => import("@/features/integrations/slack-landing/SlackIntegrationLandingPage"),
+          "SlackIntegrationLandingPage",
+        ),
+      },
+      {
+        path: "support",
+        lazy: page(() => import("@/features/marketing/PublicSupportPage"), "PublicSupportPage"),
+      },
+      {
         path: "legal/privacy-policy",
         lazy: page(() => import("@/features/legal/PrivacyPolicyPage"), "PrivacyPolicyPage"),
       },

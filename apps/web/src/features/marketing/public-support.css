@@ -1,0 +1,175 @@
+/* Public /support — ShelfMerch marketing design system */
+.public-support {
+  --ink: #121212;
+  --cream: #f7f3ea;
+  --blue: #3155ff;
+  --coral: #ff6d55;
+  --mint: #72e2b8;
+  --line: rgba(18, 18, 18, 0.14);
+  --muted: #5c5868;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.public-support main {
+  overflow-x: clip;
+}
+
+.public-support__hero {
+  padding: calc(69.7px + 64px) 7vw 72px;
+}
+
+.public-support__hero-inner,
+.public-support__inner {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.public-support__kicker {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.public-support__hero h1 {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  max-width: 14ch;
+}
+
+.public-support__lead {
+  margin: 18px 0 0;
+  max-width: 38rem;
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.public-support__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 28px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.public-support__btn:hover {
+  transform: translateY(-1px);
+  background: #000;
+}
+
+.public-support__section {
+  padding: 64px 7vw;
+}
+
+.public-support__section--alt {
+  background: #fff;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.public-support__section h2 {
+  margin: 0 0 32px;
+  font-size: clamp(26px, 3.2vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+
+.public-support__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.public-support__options article {
+  padding: 4px 0;
+}
+
+.public-support__options h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.public-support__options p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.public-support__details {
+  margin: 0;
+  display: grid;
+  gap: 22px;
+}
+
+.public-support__details div {
+  display: grid;
+  gap: 6px;
+}
+
+.public-support__details dt {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.public-support__details dd {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.public-support__details a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.public-support__details a:hover {
+  color: var(--blue);
+}
+
+@media (max-width: 720px) {
+  .public-support__hero {
+    padding-top: calc(69.7px + 40px);
+    padding-bottom: 48px;
+  }
+
+  .public-support__section {
+    padding: 48px 6vw;
+  }
+
+  .public-support__options {
+    grid-template-columns: 1fr;
+  }
+
+  .public-support__hero h1 {
+    max-width: none;
+  }
+
+  .public-support__btn {
+    width: 100%;
+  }
+}
