@@ -1,10 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import nodemailer from 'nodemailer';
 import { env, emailConfigured } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { ApiError } from '../utils/errors.js';
+import {
+  EMAIL_ASSET_CIDS,
+  EMAIL_ASSETS_DIR,
+  useCidEmailAssets,
+} from './email-templates/emailLayout.js';
 import { buildRedemptionInviteEmail } from './email-templates/redemptionInvite.template.js';
 import { buildSurpriseGiftEmail } from './email-templates/surpriseGift.template.js';
 import {
@@ -21,27 +25,6 @@ import {
 } from './email-templates/verification.template.js';
 
 let transporter;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-function heroBannerAttachment() {
-  const filePath = path.resolve(__dirname, 'email-assets/email-hero-banner.png');
-  if (!fs.existsSync(filePath)) return null;
-  return {
-    filename: 'email-hero-banner.png',
-    path: filePath,
-    cid: 'email-hero-banner@shelfmerch',
-  };
-}
-
-function logoAttachment() {
-  const filePath = path.resolve(__dirname, 'email-assets/shelfmerch-logo.png');
-  if (!fs.existsSync(filePath)) return null;
-  return {
-    filename: 'shelfmerch-logo.png',
-    path: filePath,
-    cid: 'shelfmerch-logo@shelfmerch',
-  };
-}
 
 function getTransporter() {
   if (!transporter) {
@@ -76,6 +59,28 @@ function formatFromAddress(raw = '') {
 }
 
 /**
+ * Local/dev only: inline brand images referenced via cid: in HTML.
+ * Production uses HTTPS and never attaches these PNGs.
+ */
+function brandCidAttachments(html) {
+  if (!useCidEmailAssets()) return [];
+  const htmlStr = html ? String(html) : '';
+  const out = [];
+  for (const [filename, cid] of Object.entries(EMAIL_ASSET_CIDS)) {
+    if (!htmlStr.includes(`cid:${cid}`)) continue;
+    const filePath = path.join(EMAIL_ASSETS_DIR, filename);
+    if (!fs.existsSync(filePath)) continue;
+    out.push({
+      filename,
+      path: filePath,
+      cid,
+      contentDisposition: 'inline',
+    });
+  }
+  return out;
+}
+
+/**
  * Send a transactional email via SMTP (Gmail when EMAIL_SERVICE=gmail).
  * Falls back to structured logging when credentials are not set (tests/dev).
  */
@@ -86,14 +91,13 @@ export async function sendEmail({ to, subject, text, html, attachments }) {
   }
 
   const from = formatFromAddress(env.EMAIL_FROM || env.EMAIL_USER);
-  const hero = heroBannerAttachment();
-  const logo = logoAttachment();
-  const htmlStr = html ? String(html) : '';
-  const merged = [
-    ...(Array.isArray(attachments) ? attachments : attachments ? [attachments] : []),
-    ...(logo && htmlStr.includes('shelfmerch-logo@shelfmerch') ? [logo] : []),
-    ...(hero && htmlStr.includes('email-hero-banner@shelfmerch') ? [hero] : []),
-  ];
+  // Real attachments (PDFs, etc.) always pass through. Brand CID images only in local/dev.
+  const normalized = Array.isArray(attachments)
+    ? attachments
+    : attachments
+      ? [attachments]
+      : [];
+  const merged = [...normalized, ...brandCidAttachments(html)];
   const info = await getTransporter().sendMail({
     from,
     to,
@@ -130,7 +134,6 @@ export async function sendSignupVerificationEmail(to, otp) {
       logger.info({ to, subject }, 'EMAIL (stub) — signup verification dispatched (OTP redacted)');
       return { success: true, provider: 'stub' };
     }
-    // Use sendEmail so shared logo / hero-banner CID attachments are included.
     return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.error({ err, to }, 'Signup verification email send failed');

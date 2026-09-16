@@ -145,6 +145,13 @@ const envSchema = z.object({
   EMAIL_USER: z.string().optional().default(''),
   EMAIL_PASSWORD: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default(''),
+  /**
+   * Public base URL for transactional email brand images (no trailing slash).
+   * Production: set https://shelfmerch.io/email-assets (or leave empty — same default).
+   * Local/dev: leave empty → CID inline images for SMTP testing (no data URIs).
+   * Set a public HTTPS URL locally to exercise the production image path.
+   */
+  EMAIL_ASSET_BASE_URL: z.string().optional().default(''),
   APP_URL: z.string().optional().default('http://localhost:8080'),
   CORS_ORIGINS: z.string().optional().default(''),
   CSP_MODE: z.enum(['enforce', 'report-only', 'off']).default('report-only'),

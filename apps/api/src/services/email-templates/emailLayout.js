@@ -1,4 +1,6 @@
 import { env } from '../../config/env.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Production transactional email system - Oracle-style layout for ShelfMerch.
@@ -8,12 +10,72 @@ import { env } from '../../config/env.js';
  *
  * One layout for all viewports: full banner PNG (blue + gift art) with title overlaid
  * on the left blue area. Mobile only scales typography/padding.
+ *
+ * Image delivery:
+ * - Production (or explicit public EMAIL_ASSET_BASE_URL): HTTPS URLs
+ * - Local/dev without a public base: CID references (attachments added by email.service)
+ * Never use data: URIs — Gmail breaks on large base64 in HTML attributes.
  */
 
-export function appUrl(path = '') {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const EMAIL_ASSETS_DIR = path.resolve(__dirname, '../email-assets');
+const PROD_EMAIL_ASSET_BASE = 'https://shelfmerch.io/email-assets';
+
+/** Stable Content-IDs for local CID delivery (must match email.service attachments). */
+export const EMAIL_ASSET_CIDS = Object.freeze({
+  'shelfmerch-logo.png': 'shelfmerch-logo@shelfmerch',
+  'email-hero-banner.png': 'email-hero-banner@shelfmerch',
+});
+
+export function appUrl(pathSuffix = '') {
   const base = (env.APP_URL || '').replace(/\/$/, '');
-  const suffix = path.startsWith('/') ? path : `/${path}`;
+  const suffix = pathSuffix.startsWith('/') ? pathSuffix : `/${pathSuffix}`;
   return `${base}${suffix}`;
+}
+
+function isLoopbackHost(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local');
+}
+
+function isLoopbackAssetBase(baseUrl) {
+  try {
+    return isLoopbackHost(new URL(baseUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Public HTTPS base for brand images. No trailing slash.
+ * Prefer EMAIL_ASSET_BASE_URL; otherwise production CDN.
+ */
+export function emailAssetBaseUrl() {
+  const explicit = String(env.EMAIL_ASSET_BASE_URL || '')
+    .trim()
+    .replace(/\/$/, '');
+  if (explicit) return explicit;
+  return PROD_EMAIL_ASSET_BASE;
+}
+
+/**
+ * Local/dev without a reachable public CDN uses CID + MIME inline parts.
+ * Production always uses HTTPS. Explicit public EMAIL_ASSET_BASE_URL forces HTTPS
+ * even in development (e.g. after CDN is deployed).
+ */
+export function useCidEmailAssets() {
+  if (env.NODE_ENV === 'production') return false;
+  const explicit = String(env.EMAIL_ASSET_BASE_URL || '').trim();
+  if (explicit && !isLoopbackAssetBase(explicit)) return false;
+  return true;
+}
+
+export function emailAssetUrl(filename) {
+  if (useCidEmailAssets()) {
+    const cid = EMAIL_ASSET_CIDS[filename];
+    if (cid) return `cid:${cid}`;
+  }
+  return `${emailAssetBaseUrl()}/${filename}`;
 }
 
 export function escapeHtml(value = '') {
@@ -32,8 +94,8 @@ export const tokens = {
   cardBg: '#FFFFFF',
   heroBg: '#3155FF',
   heroAccent: '#FFD84A',
-  heroImageCid: 'email-hero-banner@shelfmerch',
-  heroArtCid: 'email-hero-art@shelfmerch',
+  heroImageFile: 'email-hero-banner.png',
+  logoFile: 'shelfmerch-logo.png',
   ink: '#1F1F1F',
   body: '#454545',
   muted: '#8A8A8A',
@@ -41,7 +103,6 @@ export const tokens = {
   ctaBg: '#1F1F1F',
   ctaText: '#FFFFFF',
   logoHeader: '#9A9A9A',
-  logoCid: 'shelfmerch-logo@shelfmerch',
   brandAccent: '#C74634',
   link: '#3155FF',
 };
@@ -60,17 +121,17 @@ export function emailShell({
   footerNote = '',
   bannerHtml = '',
   heroBg = T.heroBg,
-  heroImageCid = T.heroImageCid,
+  heroImageUrl = emailAssetUrl(T.heroImageFile),
 }) {
   const year = new Date().getFullYear();
   const privacy = escapeHtml(appUrl('/privacy'));
   const help = escapeHtml(appUrl('/help'));
-  const heroImageUrl = heroImageCid ? `cid:${heroImageCid}` : '';
-  const heroBgStyle = heroImageUrl
-    ? `background-color:${escapeHtml(heroBg)};background-image:url('${escapeHtml(heroImageUrl)}');background-size:cover;background-position:right center;background-repeat:no-repeat;`
+  const resolvedHeroUrl = heroImageUrl || '';
+  const heroBgStyle = resolvedHeroUrl
+    ? `background-color:${escapeHtml(heroBg)};background-image:url('${escapeHtml(resolvedHeroUrl)}');background-size:cover;background-position:right center;background-repeat:no-repeat;`
     : `background-color:${escapeHtml(heroBg)};`;
   const heroBgAttr = escapeHtml(heroBg);
-  const heroBgImageAttr = heroImageUrl ? ` background="${escapeHtml(heroImageUrl)}"` : '';
+  const heroBgImageAttr = resolvedHeroUrl ? ` background="${escapeHtml(resolvedHeroUrl)}"` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -185,11 +246,12 @@ export function emailShell({
 }
 
 function headerLogo() {
+  const logoUrl = escapeHtml(emailAssetUrl(T.logoFile));
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td style="font-size:0;line-height:0;">
         <img
-          src="cid:${T.logoCid}"
+          src="${logoUrl}"
           alt="Shelf Merch"
           width="168"
           height="28"
@@ -223,9 +285,10 @@ function heroBlock(eyebrow, title) {
 }
 
 function footerBrand() {
+  const logoUrl = escapeHtml(emailAssetUrl(T.logoFile));
   return `<div style="font-size:0;line-height:0;margin:0 0 8px 0;">
     <img
-      src="cid:${T.logoCid}"
+      src="${logoUrl}"
       alt="Shelf Merch"
       width="140"
       height="23"

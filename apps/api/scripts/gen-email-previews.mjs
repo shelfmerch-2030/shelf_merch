@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { env } from '../src/config/env.js';
 import { buildSignupVerificationEmail } from '../src/services/email-templates/verification.template.js';
 import { buildPasswordResetEmail } from '../src/services/email-templates/passwordReset.template.js';
 import { buildManagerInviteEmail } from '../src/services/email-templates/managerEmails.template.js';
@@ -9,10 +10,14 @@ import { buildSurpriseGiftEmail } from '../src/services/email-templates/surprise
 import { buildDemoRequestConfirmationEmail } from '../src/services/email-templates/demoRequestConfirmation.template.js';
 import { buildOrderAdminInvoiceEmail } from '../src/services/email-templates/orderAdminInvoice.template.js';
 import { buildBudgetAllocatedEmail } from '../src/services/email-templates/budgetAllocated.template.js';
+import { emailAssetUrl } from '../src/services/email-templates/emailLayout.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const assetsDir = resolve(__dirname, '../src/services/email-assets');
 const outDir = resolve(__dirname, '../email-previews');
+
+// Force public HTTPS URLs for generated HTML, then rewrite to local files for offline viewing.
+env.EMAIL_ASSET_BASE_URL = 'https://shelfmerch.io/email-assets';
 
 mkdirSync(outDir, { recursive: true });
 for (const name of ['email-hero-banner.png', 'shelfmerch-logo.png']) {
@@ -22,6 +27,8 @@ for (const name of ['email-hero-banner.png', 'shelfmerch-logo.png']) {
 
 function forPreview(html) {
   return html
+    .replaceAll(emailAssetUrl('email-hero-banner.png'), './email-hero-banner.png')
+    .replaceAll(emailAssetUrl('shelfmerch-logo.png'), './shelfmerch-logo.png')
     .replaceAll('cid:email-hero-banner@shelfmerch', './email-hero-banner.png')
     .replaceAll('cid:shelfmerch-logo@shelfmerch', './shelfmerch-logo.png');
 }

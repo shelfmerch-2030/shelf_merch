@@ -204,6 +204,23 @@ export function createApp() {
     }),
   );
 
+  // Brand images for transactional emails (also copied to apps/web/public/email-assets).
+  // Served here so production can expose them even before a web rebuild lands in WEB_DIST.
+  const emailAssetsDir = path.resolve(__dirname, 'services/email-assets');
+  if (existsSync(emailAssetsDir)) {
+    app.use(
+      '/email-assets',
+      express.static(emailAssetsDir, {
+        setHeaders(res) {
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          // Allow Gmail / email clients to load images cross-origin.
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
+      }),
+    );
+  }
+
   const api = express.Router();
 
   // Liveness: the process is up and the event loop responds. Used by the
@@ -352,7 +369,7 @@ export function createApp() {
     app.use(express.static(WEB_DIST, { index: false, maxAge: '1d' }));
     app.get('/{*path}', (req, res, next) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-      if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
+      if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/email-assets/')) return next();
       // /zoho/people(*), /legal/*, /docs/*, and /case-studies/* are registered above.
       res.sendFile('index.html', { root: WEB_DIST });
     });
