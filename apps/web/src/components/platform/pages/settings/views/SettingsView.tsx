@@ -1,4 +1,5 @@
 import { PlatformError, PlatformLoading, PlatformPageHeader } from "../../../platform-ui";
+import { DemoLoginPasswordCard } from "./DemoLoginPasswordCard";
 import type { SettingsVm } from "../controllers/useSettingsController";
 import { EmailAllowlistCard } from "./EmailAllowlistCard";
 import { SettingEditModal } from "./SettingEditModal";
@@ -14,6 +15,7 @@ export function SettingsView({
   onSettingSaved,
   generalSettings,
   emailAllowlist,
+  demoLoginPassword,
 }: SettingsVm) {
   return (
     <>
@@ -23,6 +25,7 @@ export function SettingsView({
       {generalSettings && (
         <>
           <EmailAllowlistCard {...emailAllowlist} />
+          <DemoLoginPasswordCard {...demoLoginPassword} />
           <div className="card" style={{ padding: 16 }}>
             <table className="tbl">
               <thead>

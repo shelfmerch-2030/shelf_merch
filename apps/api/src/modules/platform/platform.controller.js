@@ -247,6 +247,38 @@ export async function getSetting(req, res) {
   res.json({ key: req.params.key, value: await settingsService.getSetting(req.params.key) });
 }
 
+export async function getDemoLoginPassword(_req, res) {
+  res.json(await settingsService.getDemoLoginPasswordStatus());
+}
+
+export async function generateDemoLoginPassword(req, res) {
+  const result = await settingsService.generateDemoLoginPassword(req.user.userId);
+  writeAudit({
+    req,
+    action: 'settings.demo_login_password.generate',
+    entityType: 'PlatformSetting',
+    after: {
+      email: result.email,
+      expiresAt: result.expiresAt,
+    },
+  });
+  res.status(201).json(result);
+}
+
+export async function revokeDemoLoginPassword(req, res) {
+  const result = await settingsService.revokeDemoLoginPassword(req.user.userId);
+  writeAudit({
+    req,
+    action: 'settings.demo_login_password.revoke',
+    entityType: 'PlatformSetting',
+    after: {
+      email: result.email,
+      revokedAt: result.revokedAt,
+    },
+  });
+  res.json(result);
+}
+
 export async function putSetting(req, res) {
   const before = await settingsService.getSetting(req.params.key);
   const doc = await settingsService.setSetting(req.params.key, req.body.value, req.user.userId);

@@ -807,6 +807,105 @@ describe('settings & signup gating (§3.4, §6)', () => {
     expect(login.status).toBe(200);
     expect(login.body.user.email).toBe(gmail);
   });
+
+  it('generates and revokes the temporary test login password', async () => {
+    const initial = await request(app)
+      .get('/api/v1/platform/settings/demo-login-password')
+      .set(auth(tokens.platform_super_admin));
+    expect(initial.status).toBe(200);
+    expect(initial.body).toMatchObject({
+      email: 'test@shelfmerch.io',
+      active: false,
+      ttlDays: 5,
+    });
+
+    const generated = await request(app)
+      .post('/api/v1/platform/settings/demo-login-password')
+      .set(auth(tokens.platform_super_admin));
+    expect(generated.status).toBe(201);
+    expect(generated.body.email).toBe('test@shelfmerch.io');
+    expect(generated.body.password).toMatch(/^SM-/);
+    expect(generated.body.active).toBe(true);
+    expect(new Date(generated.body.expiresAt).getTime()).toBeGreaterThan(Date.now() + 4 * 24 * 60 * 60 * 1000);
+
+    const all = await request(app).get('/api/v1/platform/settings').set(auth(tokens.platform_super_admin));
+    expect(all.body['auth.demoLoginPassword']).toBeUndefined();
+
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'test@shelfmerch.io', password: generated.body.password });
+    expect(login.status).toBe(200);
+    expect(login.body.user).toMatchObject({
+      email: 'test@shelfmerch.io',
+      role: 'company_admin',
+      scopeType: 'tenant',
+      tenantId: String(tenant._id),
+    });
+
+    const platformBlocked = await request(app)
+      .get('/api/v1/platform/dashboard')
+      .set(auth(login.body.accessToken));
+    expect(platformBlocked.status).toBe(403);
+
+    const appOk = await request(app)
+      .get('/api/v1/tenants/me')
+      .set(auth(login.body.accessToken));
+    expect(appOk.status).toBe(200);
+
+    const rotated = await request(app)
+      .post('/api/v1/platform/settings/demo-login-password')
+      .set(auth(tokens.platform_super_admin));
+    expect(rotated.status).toBe(201);
+    expect(rotated.body.password).not.toBe(generated.body.password);
+
+    const staleAccess = await request(app)
+      .get('/api/v1/tenants/me')
+      .set(auth(login.body.accessToken));
+    expect(staleAccess.status).toBe(401);
+
+    const staleRefresh = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken });
+    expect(staleRefresh.status).toBe(401);
+
+    const oldPasswordBlocked = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'test@shelfmerch.io', password: generated.body.password });
+    expect(oldPasswordBlocked.status).toBe(401);
+
+    const freshLogin = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'test@shelfmerch.io', password: rotated.body.password });
+    expect(freshLogin.status).toBe(200);
+
+    const freshAccess = await request(app)
+      .get('/api/v1/tenants/me')
+      .set(auth(freshLogin.body.accessToken));
+    expect(freshAccess.status).toBe(200);
+
+    const revoked = await request(app)
+      .delete('/api/v1/platform/settings/demo-login-password')
+      .set(auth(tokens.platform_super_admin));
+    expect(revoked.status).toBe(200);
+    expect(revoked.body.active).toBe(false);
+    expect(revoked.body.revokedAt).toBeTruthy();
+
+    const revokedAccess = await request(app)
+      .get('/api/v1/tenants/me')
+      .set(auth(freshLogin.body.accessToken));
+    expect(revokedAccess.status).toBe(401);
+
+    const refresh = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: freshLogin.body.refreshToken });
+    expect(refresh.status).toBe(401);
+
+    const blocked = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'test@shelfmerch.io', password: rotated.body.password });
+    expect(blocked.status).toBe(401);
+    expect(blocked.body.error.code).toBe('INVALID_CREDENTIALS');
+  });
 });
 
 describe('dashboard (§2)', () => {

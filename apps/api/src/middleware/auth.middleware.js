@@ -20,12 +20,26 @@ export async function authenticate(req, _res, next) {
     const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, accessVerifyOptions());
 
     // Reject tokens for users that were deleted or no longer exist.
-    const existing = await User.findById(payload.sub).select('_id status').lean();
+    const existing = await User.findById(payload.sub).select('_id status email sessionVersion').lean();
     if (!existing) {
       return next(new UnauthorizedError('Account no longer exists. Please sign in again.'));
     }
     if (existing.status === 'suspended') {
       return next(new UnauthorizedError('Account is suspended'));
+    }
+    if ((payload.sv ?? 0) !== (existing.sessionVersion ?? 0)) {
+      return next(new UnauthorizedError('Session expired. Please sign in again.'));
+    }
+
+    // Demo /app login: kill live access tokens when the temporary password is inactive.
+    const { DEMO_LOGIN_EMAIL, getDemoLoginPasswordStatus } = await import(
+      '../modules/platform/platformSettings.service.js'
+    );
+    if (existing.email === DEMO_LOGIN_EMAIL) {
+      const demoStatus = await getDemoLoginPasswordStatus();
+      if (!demoStatus.active) {
+        return next(new UnauthorizedError('Demo login password expired or revoked'));
+      }
     }
 
     const user = {

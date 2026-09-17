@@ -72,7 +72,7 @@ async function seed() {
   });
   platformUsersByRole.platform_super_admin = superAdmin;
 
-  for (const member of PLATFORM_LOGINS.filter((m) => m.role !== 'platform_super_admin')) {
+  for (const member of PLATFORM_LOGINS.filter((m) => m.email !== 'admin@shelfmerch.io')) {
     const user = await User.create({
       tenantId: null,
       name: member.name,
@@ -86,7 +86,7 @@ async function seed() {
       role: member.role,
       scopeType: 'platform',
     });
-    platformUsersByRole[member.role] = user;
+    platformUsersByRole[member.role] ??= user;
   }
 
   const tenant = await Tenant.create({
@@ -97,6 +97,23 @@ async function seed() {
     plan: 'growth',
     gstin: '36AABCR5678B1Z2',
   });
+
+  const demoAppLogin = TENANT_LOGINS.find((m) => m.generatedPasswordOnly);
+  if (demoAppLogin) {
+    const demoUser = await User.create({
+      tenantId: tenant._id,
+      name: demoAppLogin.name,
+      email: demoAppLogin.email,
+      passwordHash: null,
+      status: 'active',
+    });
+    await RoleAssignment.create({
+      tenantId: tenant._id,
+      userId: demoUser._id,
+      role: 'company_admin',
+      scopeType: 'tenant',
+    });
+  }
 
   const [owner, admin] = await User.create([
     { tenantId: tenant._id, name: 'Jonna Madhavi', email: 'jonnaml2015@gmail.com', passwordHash: password, status: 'active' },

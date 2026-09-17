@@ -1,5 +1,6 @@
 /** Shared demo credentials and sample field values — used by seed + README. */
 export const DEMO_PASSWORD = 'demo1234';
+export const DEMO_LOGIN_EMAIL = 'test@shelfmerch.io';
 
 /** Internal Shelf Merch platform team (`tenantId: null`, `/platform/*`). */
 export const PLATFORM_LOGINS = [
@@ -59,8 +60,15 @@ export const PLATFORM_LOGINS = [
   },
 ];
 
-/** Rubix tenant workspace (`localhost:8080`). */
+/** Rubix tenant workspace (`localhost:8080` / `/app`). */
 export const TENANT_LOGINS = [
+  {
+    email: DEMO_LOGIN_EMAIL,
+    role: 'company_admin',
+    name: 'ShelfMerch Test Login',
+    scope: 'Temporary /app demo login — generate a password from Platform Settings',
+    generatedPasswordOnly: true,
+  },
   {
     email: 'hr@rubix.net',
     role: 'company_admin',
@@ -176,7 +184,8 @@ export function formatLoginTable() {
     ...PLATFORM_LOGINS.map((u) => `${u.email} / ${DEMO_PASSWORD} → ${u.role}`),
     ...TENANT_LOGINS.map((u) => {
       const dept = u.department ? ` — ${u.department}` : '';
-      return `${u.email} / ${DEMO_PASSWORD} → ${u.role}${dept}`;
+      const passwordHint = u.generatedPasswordOnly ? 'generate in Platform Settings' : DEMO_PASSWORD;
+      return `${u.email} / ${passwordHint} → ${u.role}${dept}`;
     }),
   ];
   return rows;

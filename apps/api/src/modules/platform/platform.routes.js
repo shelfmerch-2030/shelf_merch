@@ -190,6 +190,23 @@ platformSettingsRouter.use(authenticate, resolveTenant);
 
 platformSettingsRouter.get('/', platformArea('settings', 'read'), asyncHandler(controller.getSettings));
 platformSettingsRouter.get(
+  '/demo-login-password',
+  platformArea('settings', 'read'),
+  asyncHandler(controller.getDemoLoginPassword),
+);
+platformSettingsRouter.post(
+  '/demo-login-password',
+  platformArea('settings', 'write'),
+  blockDuringImpersonation,
+  asyncHandler(controller.generateDemoLoginPassword),
+);
+platformSettingsRouter.delete(
+  '/demo-login-password',
+  platformArea('settings', 'write'),
+  blockDuringImpersonation,
+  asyncHandler(controller.revokeDemoLoginPassword),
+);
+platformSettingsRouter.get(
   '/:key',
   platformArea('settings', 'read'),
   validate({ params: settingKeyParam }),

@@ -7,6 +7,7 @@ export {
   addOrderNote,
   assignOrderVendor,
   createOrderReplacement,
+  createProductionTask,
   fetchPlatformVendors,
   ORDER_STATUSES,
   setOrderStatus,

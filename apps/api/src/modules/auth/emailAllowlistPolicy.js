@@ -2,6 +2,7 @@ import { ApiError } from '../../utils/errors.js';
 
 export const BUILT_IN_PLATFORM_ALLOWLIST_EMAILS = Object.freeze([
   'admin@shelfmerch.io',
+  'test@shelfmerch.io',
   'ops@shelfmerch.io',
   'catalog@shelfmerch.io',
   'production@shelfmerch.io',

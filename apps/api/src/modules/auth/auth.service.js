@@ -40,6 +40,7 @@ export function signAccessToken(user, roleAssignment, impersonation = null, { ex
     scopeType: roleAssignment.scopeType,
     scopeId: roleAssignment.scopeId ? String(roleAssignment.scopeId) : null,
     assignedEntityIds: (roleAssignment.assignedEntityIds ?? []).map(String),
+    sv: user.sessionVersion ?? 0,
     ...(impersonation ? { impersonation } : {}),
   };
   return jwt.sign(
@@ -358,7 +359,11 @@ export async function verifySignupOtp({ pendingId, otp, ip, userAgent }) {
 export async function login({ email, password, ip, userAgent }) {
   await assertAllowedAuthEmail(email);
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
+  const normalizedEmail = email.toLowerCase();
+  const { DEMO_LOGIN_EMAIL, verifyDemoLoginPassword } = await import('../platform/platformSettings.service.js');
+  const isDemoLogin = normalizedEmail === DEMO_LOGIN_EMAIL;
+
+  const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
   if (!user) {
     throw new ApiError(
       401,
@@ -366,7 +371,7 @@ export async function login({ email, password, ip, userAgent }) {
       'NO_ACCOUNT',
     );
   }
-  if (!user.passwordHash) {
+  if (!user.passwordHash && !isDemoLogin) {
     throw new ApiError(401, 'Incorrect password.', 'INVALID_CREDENTIALS');
   }
   if (user.status === 'suspended') {
@@ -400,7 +405,9 @@ export async function login({ email, password, ip, userAgent }) {
     user.failedLoginCount = 0;
   }
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
+  const ok = isDemoLogin
+    ? await verifyDemoLoginPassword({ email: normalizedEmail, password })
+    : await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
     throw new ApiError(401, 'Incorrect password.', 'INVALID_CREDENTIALS');
   }
@@ -449,6 +456,15 @@ export async function refresh({ refreshToken, ip, userAgent }) {
 
   const user = await User.findOne({ _id: userId });
   if (!user || user.status !== 'active') throw new UnauthorizedError('Invalid refresh token');
+
+  const { DEMO_LOGIN_EMAIL, getDemoLoginPasswordStatus } = await import('../platform/platformSettings.service.js');
+  if (user.email === DEMO_LOGIN_EMAIL) {
+    const status = await getDemoLoginPasswordStatus();
+    if (!status.active) {
+      await revokeStoredRefreshToken(tokenHash, userId);
+      throw new UnauthorizedError('Demo login password expired or revoked');
+    }
+  }
 
   if (user.tenantId) {
     const tenant = await Tenant.findOne({ _id: user.tenantId }).select('status');

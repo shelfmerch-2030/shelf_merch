@@ -652,6 +652,7 @@ export const PLATFORM_ROLES = [
 
 export const BUILT_IN_PLATFORM_EMAILS = [
   "admin@shelfmerch.io",
+  "test@shelfmerch.io",
   "ops@shelfmerch.io",
   "catalog@shelfmerch.io",
   "production@shelfmerch.io",
@@ -691,6 +692,35 @@ export function updateSetting(key: string, value: unknown) {
 
 export async function fetchPlatformSettings() {
   return apiFetch<Record<string, unknown>>("/platform/settings");
+}
+
+export type DemoLoginPasswordStatus = {
+  email: string;
+  ttlDays: number;
+  active: boolean;
+  generatedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+};
+
+export type DemoLoginPasswordGenerated = DemoLoginPasswordStatus & {
+  password: string;
+};
+
+export async function fetchDemoLoginPassword() {
+  return apiFetch<DemoLoginPasswordStatus>("/platform/settings/demo-login-password");
+}
+
+export async function generateDemoLoginPassword() {
+  return apiFetch<DemoLoginPasswordGenerated>("/platform/settings/demo-login-password", {
+    method: "POST",
+  });
+}
+
+export async function revokeDemoLoginPassword() {
+  return apiFetch<DemoLoginPasswordStatus>("/platform/settings/demo-login-password", {
+    method: "DELETE",
+  });
 }
 
 export async function fetchAuditLogs(

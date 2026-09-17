@@ -166,7 +166,7 @@ export function Footer() {
           </span>
           <p>
             <small>Call us</small>
-            <a href="tel:+917801087402">78010 87402</a>
+            <a href="tel:+919515888515">9515888515</a>
           </p>
         </div>
         <div className="footer-contact">

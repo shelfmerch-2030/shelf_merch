@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, default: '' },
     status: { type: String, enum: ['invited', 'active', 'suspended'], default: 'invited' },
     lastLoginAt: { type: Date, default: null },
+    // Bumped to invalidate all outstanding access JWTs (e.g. demo password rotate/revoke).
+    sessionVersion: { type: Number, default: 0 },
     // §security hardening B2 — Mongo-backed brute-force lockout (holds even when
     // Redis rate limiting is unavailable).
     failedLoginCount: { type: Number, default: 0 },

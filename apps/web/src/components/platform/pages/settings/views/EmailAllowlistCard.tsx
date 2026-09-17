@@ -18,8 +18,9 @@ export function EmailAllowlistCard({
       <div style={{ marginBottom: 12 }}>
         <h3 style={{ fontSize: 16, marginBottom: 4 }}>Login email allowlist</h3>
         <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-          Only addresses on this list can sign up or log in (work and personal). Seeded demo accounts
-          use password <code>demo1234</code>.
+          Only addresses on this list can sign up or log in (work and personal). Most seeded demo accounts
+          use password <code>demo1234</code>; <code>test@shelfmerch.io</code> is an <code>/app</code>-only
+          login that uses the generated password below.
         </p>
       </div>
 
