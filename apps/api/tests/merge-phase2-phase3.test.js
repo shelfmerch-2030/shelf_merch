@@ -483,7 +483,13 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(adaContact.source).toBe('hris');
     expect(adaContact.name).toBe('Ada Lovelace');
     expect(adaContact.designation).toBe('Engineer');
+    expect(adaContact.mergeEmployeeId).toBe('emp-1');
+    expect(String(adaContact.mergeConnectionId)).toBe(String(conn._id));
     expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'grace@rubix.net' })).toBe(1);
+
+    const graceContact = await Contact.findOne({ tenantId: tenant._id, email: 'grace@rubix.net' });
+    expect(graceContact.mergeEmployeeId).toBe('emp-2');
+    expect(String(graceContact.mergeConnectionId)).toBe(String(conn._id));
 
     const untouched = await Contact.findOne({ _id: manualContact._id, tenantId: tenant._id });
     expect(untouched.name).toBe('Manual Contact');
@@ -1060,5 +1066,426 @@ describe('POST /api/integrations/merge/connections/:connectionId/disconnect', ()
     expect(stored.endUserOriginId).toBe(originId);
     expect(decryptToken(stored.encryptedAccountToken)).toBe('new-bamboo-token');
     expect(stored.lastSyncAt?.toISOString()).toBe('2026-01-10T00:00:00.000Z');
+  });
+});
+
+describe('Merge HRIS → Contact identity upsert', () => {
+  async function seedConnection(forTenant = tenant, provider = 'workday') {
+    return MergeConnection.create({
+      tenantId: forTenant._id,
+      connectedByUserId: admin._id,
+      provider,
+      encryptedAccountToken: encryptToken('sync-account-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncStatus: 'idle',
+    });
+  }
+
+  function mockHrisSnapshot({
+    employees = [
+      {
+        id: 'emp-1',
+        remote_id: 'E1',
+        first_name: 'John',
+        last_name: 'Snow',
+        display_full_name: 'John Snow',
+        work_email: 'johnsnow1@gmail.com',
+        employment_status: 'ACTIVE',
+        groups: ['dept-1'],
+        work_location: 'loc-1',
+        start_date: '2024-01-01T00:00:00Z',
+      },
+    ],
+    jobTitle = 'Ranger',
+  } = {}) {
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
+        return mockJson({
+          next: null,
+          results: [{ id: 'dept-1', name: 'Night Watch', type: 'DEPARTMENT' }],
+        });
+      }
+      if (href.startsWith(MERGE_HRIS_LOCATIONS_URL)) {
+        return mockJson({
+          next: null,
+          results: [
+            {
+              id: 'loc-1',
+              name: 'Winterfell',
+              street_1: 'Castle',
+              city: 'North',
+              state: 'KA',
+              zip_code: '560001',
+              country: 'IN',
+            },
+            {
+              id: 'loc-2',
+              name: 'Castle Black',
+              street_1: 'Wall',
+              city: 'North',
+              state: 'KA',
+              zip_code: '560002',
+              country: 'IN',
+            },
+          ],
+        });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) {
+        return mockJson({ next: null, results: employees });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYMENTS_URL)) {
+        return mockJson({
+          next: null,
+          results: employees.map((emp, i) => ({
+            id: `empl-${i + 1}`,
+            employee: emp.id,
+            job_title: jobTitle,
+            employment_type: 'FULL_TIME',
+            effective_date: '2024-01-01T00:00:00Z',
+          })),
+        });
+      }
+      return mockJson({}, 404);
+    });
+  }
+
+  it('creates a Contact on first HRIS sync and links Merge identity', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(1);
+    expect(res.body.sync.contacts.updated).toBe(0);
+
+    const contact = await Contact.findOne({
+      tenantId: tenant._id,
+      email: 'johnsnow1@gmail.com',
+    });
+    expect(contact).toBeTruthy();
+    expect(contact.mergeEmployeeId).toBe('emp-1');
+    expect(String(contact.mergeConnectionId)).toBe(String(conn._id));
+    expect(contact.source).toBe('hris');
+    expect(contact.name).toBe('John Snow');
+  });
+
+  it('second sync of unchanged employee updates the same Contact (created = 0)', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const before = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: conn._id,
+    });
+
+    mockHrisSnapshot();
+    const second = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(second.status).toBe(200);
+    expect(second.body.sync.contacts.created).toBe(0);
+    expect(second.body.sync.contacts.updated).toBe(1);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    const after = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: conn._id,
+    });
+    expect(String(after._id)).toBe(String(before._id));
+  });
+
+  it('work-email change updates the same Contact and does not create a duplicate', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const before = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: conn._id,
+    });
+    expect(before.email).toBe('johnsnow1@gmail.com');
+
+    mockHrisSnapshot({
+      employees: [
+        {
+          id: 'emp-1',
+          remote_id: 'E1',
+          first_name: 'John',
+          last_name: 'Snow',
+          display_full_name: 'John Snow',
+          work_email: 'johnsnow@shelfmerch.com',
+          employment_status: 'ACTIVE',
+          groups: ['dept-1'],
+          work_location: 'loc-1',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.updated).toBe(1);
+    expect(res.body.sync.contacts.conflicts || 0).toBe(0);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    const after = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(after.email).toBe('johnsnow@shelfmerch.com');
+    expect(after.mergeEmployeeId).toBe('emp-1');
+    expect(String(after.mergeConnectionId)).toBe(String(conn._id));
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'johnsnow1@gmail.com' })).toBe(
+      0,
+    );
+  });
+
+  it('name/title/location changes update the same Contact', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({ jobTitle: 'Ranger' });
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const before = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: conn._id,
+    });
+
+    mockHrisSnapshot({
+      jobTitle: 'Lord Commander',
+      employees: [
+        {
+          id: 'emp-1',
+          remote_id: 'E1',
+          first_name: 'Jon',
+          last_name: 'Snow',
+          display_full_name: 'Jon Snow',
+          work_email: 'johnsnow1@gmail.com',
+          employment_status: 'ACTIVE',
+          groups: ['dept-1'],
+          work_location: 'loc-2',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.updated).toBe(1);
+
+    const after = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(after.name).toBe('Jon Snow');
+    expect(after.firstName).toBe('Jon');
+    expect(after.designation).toBe('Lord Commander');
+    expect(after.workLocation).toBe('Castle Black');
+    expect(after.email).toBe('johnsnow1@gmail.com');
+  });
+
+  it('claims an existing manual Contact with matching email instead of duplicating', async () => {
+    const conn = await seedConnection();
+    const manual = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Manual John',
+      email: 'johnsnow1@gmail.com',
+      role: 'Sender',
+      source: 'manual',
+    });
+
+    mockHrisSnapshot();
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.updated).toBe(1);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    const claimed = await Contact.findOne({ _id: manual._id, tenantId: tenant._id });
+    expect(claimed.mergeEmployeeId).toBe('emp-1');
+    expect(String(claimed.mergeConnectionId)).toBe(String(conn._id));
+    expect(claimed.source).toBe('hris');
+    expect(claimed.name).toBe('John Snow');
+    expect(claimed.role).toBe('Sender');
+  });
+
+  it('does not cross-link the same Merge employee id across tenants', async () => {
+    const connA = await seedConnection(tenant, 'workday');
+    const connB = await seedConnection(otherTenant, 'workday');
+
+    mockHrisSnapshot();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${connA._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    mockHrisSnapshot();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${connB._id}/sync`)
+      .set('Authorization', `Bearer ${otherAdminToken}`);
+
+    const contactA = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: connA._id,
+    });
+    const contactB = await Contact.findOne({
+      tenantId: otherTenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: connB._id,
+    });
+
+    expect(contactA).toBeTruthy();
+    expect(contactB).toBeTruthy();
+    expect(String(contactA._id)).not.toBe(String(contactB._id));
+    expect(String(contactA.tenantId)).toBe(String(tenant._id));
+    expect(String(contactB.tenantId)).toBe(String(otherTenant._id));
+  });
+
+  it('does not cross-link the same Merge employee id across connections in one tenant', async () => {
+    const connWorkday = await seedConnection(tenant, 'workday');
+    const connDeel = await seedConnection(tenant, 'deel');
+
+    mockHrisSnapshot({
+      employees: [
+        {
+          id: 'emp-1',
+          remote_id: 'E1',
+          first_name: 'John',
+          last_name: 'Snow',
+          display_full_name: 'John Snow',
+          work_email: 'john-workday@rubix.net',
+          employment_status: 'ACTIVE',
+          groups: ['dept-1'],
+          work_location: 'loc-1',
+        },
+      ],
+    });
+    await request(app)
+      .post(`/api/integrations/merge/connections/${connWorkday._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    mockHrisSnapshot({
+      employees: [
+        {
+          id: 'emp-1',
+          remote_id: 'E1',
+          first_name: 'John',
+          last_name: 'Snow',
+          display_full_name: 'John Snow',
+          work_email: 'john-deel@rubix.net',
+          employment_status: 'ACTIVE',
+          groups: ['dept-1'],
+          work_location: 'loc-1',
+        },
+      ],
+    });
+    await request(app)
+      .post(`/api/integrations/merge/connections/${connDeel._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const workdayContact = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeConnectionId: connWorkday._id,
+      mergeEmployeeId: 'emp-1',
+    });
+    const deelContact = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeConnectionId: connDeel._id,
+      mergeEmployeeId: 'emp-1',
+    });
+
+    expect(workdayContact).toBeTruthy();
+    expect(deelContact).toBeTruthy();
+    expect(String(workdayContact._id)).not.toBe(String(deelContact._id));
+    expect(workdayContact.email).toBe('john-workday@rubix.net');
+    expect(deelContact.email).toBe('john-deel@rubix.net');
+  });
+
+  it('logs a controlled conflict when new email is already owned by another Contact', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const linked = await Contact.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+      mergeConnectionId: conn._id,
+    });
+    expect(linked.email).toBe('johnsnow1@gmail.com');
+
+    const other = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Other Person',
+      email: 'johnsnow@shelfmerch.com',
+      role: 'Member',
+      source: 'manual',
+    });
+
+    const warnSpy = vi.spyOn(
+      (await import('../src/config/logger.js')).logger,
+      'warn',
+    );
+
+    mockHrisSnapshot({
+      employees: [
+        {
+          id: 'emp-1',
+          remote_id: 'E1',
+          first_name: 'John',
+          last_name: 'Snow',
+          display_full_name: 'John Snow',
+          work_email: 'johnsnow@shelfmerch.com',
+          employment_status: 'ACTIVE',
+          groups: ['dept-1'],
+          work_location: 'loc-1',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.updated).toBe(0);
+    expect(res.body.sync.contacts.conflicts).toBe(1);
+
+    const conflictLogged = warnSpy.mock.calls.some(
+      ([payload, msg]) =>
+        payload?.code === 'MERGE_CONTACT_EMAIL_CONFLICT' &&
+        String(msg).includes('email conflict'),
+    );
+    expect(conflictLogged).toBe(true);
+    warnSpy.mockRestore();
+
+    const stillLinked = await Contact.findOne({ _id: linked._id, tenantId: tenant._id });
+    const stillOther = await Contact.findOne({ _id: other._id, tenantId: tenant._id });
+    expect(stillLinked.email).toBe('johnsnow1@gmail.com');
+    expect(stillLinked.mergeEmployeeId).toBe('emp-1');
+    expect(stillOther.email).toBe('johnsnow@shelfmerch.com');
+    expect(stillOther.mergeEmployeeId || '').toBe('');
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(2);
   });
 });

@@ -23,6 +23,15 @@ const contactSchema = new mongoose.Schema(
     employmentStatus: { type: String, default: '' },
     /** Zoho People form record id — upsert key with tenantId. */
     zohoRecordId: { type: String, default: '', index: true },
+    /** Merge HRIS employee UUID — upsert key with tenantId + mergeConnectionId. */
+    mergeEmployeeId: { type: String, default: '', index: true },
+    /** Merge Linked Account connection that owns mergeEmployeeId. */
+    mergeConnectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'MergeConnection',
+      default: null,
+      index: true,
+    },
     source: { type: String, enum: ['manual', 'csv', 'hris'], default: 'manual' },
     address: {
       line1: { type: String, default: '' },
@@ -42,6 +51,16 @@ contactSchema.index({ tenantId: 1, email: 1 }, { unique: true });
 contactSchema.index(
   { tenantId: 1, zohoRecordId: 1 },
   { unique: true, partialFilterExpression: { zohoRecordId: { $gt: '' } } },
+);
+contactSchema.index(
+  { tenantId: 1, mergeConnectionId: 1, mergeEmployeeId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      mergeEmployeeId: { $gt: '' },
+      mergeConnectionId: { $type: 'objectId' },
+    },
+  },
 );
 
 export const Contact = mongoose.model('Contact', contactSchema);

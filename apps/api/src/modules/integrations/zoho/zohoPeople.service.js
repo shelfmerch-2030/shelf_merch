@@ -359,18 +359,143 @@ function isStructurallyIncompatible(payload, rawCount) {
   return false;
 }
 
+function sanitizeZohoRequestUrl(url) {
+  try {
+    const u = typeof url === 'string' ? new URL(url) : new URL(url.toString());
+    u.username = '';
+    u.password = '';
+    for (const key of [...u.searchParams.keys()]) {
+      const lower = key.toLowerCase();
+      if (
+        lower.includes('token') ||
+        lower.includes('secret') ||
+        lower === 'authorization' ||
+        lower === 'authtoken'
+      ) {
+        u.searchParams.set(key, '[redacted]');
+      }
+    }
+    return u.toString();
+  } catch {
+    return '[unparseable-url]';
+  }
+}
+
+function zohoResponseHeadersToObject(headers) {
+  if (!headers || typeof headers.forEach !== 'function') return null;
+  const out = {};
+  headers.forEach((value, key) => {
+    const lower = String(key).toLowerCase();
+    if (lower === 'authorization' || lower === 'cookie' || lower === 'set-cookie') return;
+    out[key] = value;
+  });
+  return out;
+}
+
+/**
+ * Internal-only debug dump for Zoho employee fetch failures.
+ * Never logs access tokens or Authorization headers.
+ */
+function logZohoEmployeeFetchDebug({
+  phase,
+  requestUrl,
+  httpStatus,
+  responseBody,
+  responseHeaders,
+  error,
+}) {
+  const status = httpStatus ?? error?.response?.status ?? null;
+  const body = responseBody ?? error?.response?.data ?? null;
+  const debugPayload = {
+    phase,
+    requestUrl: requestUrl ? sanitizeZohoRequestUrl(requestUrl) : null,
+    httpStatus: status,
+    responseBody: body,
+    responseHeaders: responseHeaders ?? null,
+  };
+
+  if (error) {
+    debugPayload.errorMessage = error.message ?? String(error);
+    debugPayload.errorCode = error.code ?? null;
+    debugPayload.errorName = error.name ?? null;
+    if (error.response) {
+      debugPayload.errorResponseStatus = error.response.status ?? null;
+      debugPayload.errorResponseData = error.response.data ?? null;
+    }
+    if (error.cause) {
+      debugPayload.errorCause =
+        error.cause?.message ?? (typeof error.cause === 'string' ? error.cause : String(error.cause));
+    }
+  }
+
+  // eslint-disable-next-line no-console -- intentional ops debug for Zoho sync failures
+  console.log('ZOHO EMPLOYEE FETCH DEBUG');
+  // eslint-disable-next-line no-console
+  console.log('Phase:', phase);
+  // eslint-disable-next-line no-console
+  console.log('Request URL:', debugPayload.requestUrl);
+  // eslint-disable-next-line no-console
+  console.log('Status:', status);
+  // eslint-disable-next-line no-console
+  console.log('Response:', JSON.stringify(body, null, 2));
+  // eslint-disable-next-line no-console
+  console.log('Response headers:', JSON.stringify(debugPayload.responseHeaders, null, 2));
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.log('Message:', debugPayload.errorMessage);
+    // eslint-disable-next-line no-console
+    console.log('Error code:', debugPayload.errorCode);
+    if (debugPayload.errorResponseStatus != null) {
+      // eslint-disable-next-line no-console
+      console.log('error.response.status:', debugPayload.errorResponseStatus);
+      // eslint-disable-next-line no-console
+      console.log(
+        'error.response.data:',
+        JSON.stringify(debugPayload.errorResponseData, null, 2),
+      );
+    }
+  }
+
+  logger.error(debugPayload, 'ZOHO EMPLOYEE FETCH DEBUG');
+}
+
 async function fetchEmployeePage({ peopleBaseUrl, path, accessToken, sIndex, limit, useRecLimit }) {
   const url = new URL(`${peopleBaseUrl}${path}`);
   url.searchParams.set('sIndex', String(sIndex));
   if (useRecLimit) url.searchParams.set('rec_limit', String(limit));
   else url.searchParams.set('limit', String(limit));
 
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: zohoAuthHeader(accessToken),
-  });
-  const payload = await res.json().catch(() => ({}));
-  return { res, payload, sanitizedPath: path };
+  const requestUrl = sanitizeZohoRequestUrl(url);
+
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: zohoAuthHeader(accessToken),
+    });
+    const responseHeaders = zohoResponseHeadersToObject(res.headers);
+    let payload = {};
+    if (typeof res.text === 'function') {
+      const rawText = await res.text().catch(() => '');
+      if (rawText) {
+        try {
+          payload = JSON.parse(rawText);
+        } catch (parseError) {
+          payload = {
+            __nonJsonBody: rawText.slice(0, 5000),
+            __parseError: parseError?.message ?? 'JSON parse failed',
+          };
+        }
+      }
+    } else if (typeof res.json === 'function') {
+      payload = await res.json().catch(() => ({}));
+    }
+    return { res, payload, sanitizedPath: path, requestUrl, responseHeaders };
+  } catch (error) {
+    if (error && typeof error === 'object') {
+      error.zohoRequestUrl = requestUrl;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -388,154 +513,215 @@ export async function fetchAllZohoEmployees({ location, apiDomain, accessToken, 
   let firstMeta = { zohoStatus: null, zohoMessage: null, zohoCode: null };
   let firstFieldKeys = [];
 
-  // Probe first page of primary; maybe switch to fallback once (never both on every page).
-  let cachedFirstPayload = null;
-  {
-    const first = await fetchEmployeePage({
-      peopleBaseUrl,
-      path: PRIMARY_PATH,
-      accessToken,
-      sIndex: 1,
-      limit,
-      useRecLimit: false,
-    });
-    firstHttpStatus = first.res.status;
-    firstMeta = zohoEnvelopeMeta(first.payload);
-    const primaryRaw = extractEmployeeRecords(first.payload);
-
-    const primaryFailedHttp = !first.res.ok;
-    const primaryInvalidForm = isInvalidFormError(first.payload, first.res.status);
-    const primaryIncompatible = isStructurallyIncompatible(first.payload, primaryRaw.length);
-    const primaryApiErrorEmpty =
-      firstMeta.zohoStatus !== null &&
-      firstMeta.zohoStatus !== 0 &&
-      firstMeta.zohoStatus !== '0' &&
-      primaryRaw.length === 0;
-
-    const shouldFallback =
-      primaryFailedHttp ||
-      primaryInvalidForm ||
-      (primaryRaw.length === 0 && primaryIncompatible) ||
-      primaryApiErrorEmpty;
-
-    if (shouldFallback) {
-      const fallback = await fetchEmployeePage({
+  try {
+    // Probe first page of primary; maybe switch to fallback once (never both on every page).
+    let cachedFirstPayload = null;
+    let cachedFirstRequestUrl = null;
+    let cachedFirstResponseHeaders = null;
+    {
+      const first = await fetchEmployeePage({
         peopleBaseUrl,
-        path: FALLBACK_PATH,
+        path: PRIMARY_PATH,
         accessToken,
         sIndex: 1,
         limit,
-        useRecLimit: true,
+        useRecLimit: false,
       });
-      path = FALLBACK_PATH;
-      useRecLimit = true;
-      endpointUsed = FALLBACK_PATH;
-      firstHttpStatus = fallback.res.status;
-      firstMeta = zohoEnvelopeMeta(fallback.payload);
-      cachedFirstPayload = fallback.payload;
+      firstHttpStatus = first.res.status;
+      firstMeta = zohoEnvelopeMeta(first.payload);
+      const primaryRaw = extractEmployeeRecords(first.payload);
 
-      if (!fallback.res.ok) {
-        logger.warn(
-          {
-            endpointPath: endpointUsed,
+      const primaryFailedHttp = !first.res.ok;
+      const primaryInvalidForm = isInvalidFormError(first.payload, first.res.status);
+      const primaryIncompatible = isStructurallyIncompatible(first.payload, primaryRaw.length);
+      const primaryApiErrorEmpty =
+        firstMeta.zohoStatus !== null &&
+        firstMeta.zohoStatus !== 0 &&
+        firstMeta.zohoStatus !== '0' &&
+        primaryRaw.length === 0;
+
+      const shouldFallback =
+        primaryFailedHttp ||
+        primaryInvalidForm ||
+        (primaryRaw.length === 0 && primaryIncompatible) ||
+        primaryApiErrorEmpty;
+
+      if (shouldFallback) {
+        logZohoEmployeeFetchDebug({
+          phase: 'primary_probe_before_fallback',
+          requestUrl: first.requestUrl,
+          httpStatus: first.res.status,
+          responseBody: first.payload,
+          responseHeaders: first.responseHeaders,
+        });
+
+        const fallback = await fetchEmployeePage({
+          peopleBaseUrl,
+          path: FALLBACK_PATH,
+          accessToken,
+          sIndex: 1,
+          limit,
+          useRecLimit: true,
+        });
+        path = FALLBACK_PATH;
+        useRecLimit = true;
+        endpointUsed = FALLBACK_PATH;
+        firstHttpStatus = fallback.res.status;
+        firstMeta = zohoEnvelopeMeta(fallback.payload);
+        cachedFirstPayload = fallback.payload;
+        cachedFirstRequestUrl = fallback.requestUrl;
+        cachedFirstResponseHeaders = fallback.responseHeaders;
+
+        if (!fallback.res.ok) {
+          logZohoEmployeeFetchDebug({
+            phase: 'fallback_http_failed',
+            requestUrl: fallback.requestUrl,
             httpStatus: fallback.res.status,
-            zohoStatus: firstMeta.zohoStatus,
-            zohoCode: firstMeta.zohoCode,
-            zohoMessage: firstMeta.zohoMessage,
-          },
-          'Zoho employee fetch failed',
-        );
-        throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+            responseBody: fallback.payload,
+            responseHeaders: fallback.responseHeaders,
+          });
+          logger.warn(
+            {
+              endpointPath: endpointUsed,
+              httpStatus: fallback.res.status,
+              zohoStatus: firstMeta.zohoStatus,
+              zohoCode: firstMeta.zohoCode,
+              zohoMessage: firstMeta.zohoMessage,
+            },
+            'Zoho employee fetch failed',
+          );
+          throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+        }
+      } else {
+        cachedFirstPayload = first.payload;
+        cachedFirstRequestUrl = first.requestUrl;
+        cachedFirstResponseHeaders = first.responseHeaders;
       }
-    } else {
-      cachedFirstPayload = first.payload;
     }
-  }
 
-  const employees = [];
-  let sIndex = 1;
-  let guard = 0;
-  let rawCount = 0;
-  let reuseFirst = Boolean(cachedFirstPayload);
+    const employees = [];
+    let sIndex = 1;
+    let guard = 0;
+    let rawCount = 0;
+    let reuseFirst = Boolean(cachedFirstPayload);
+    let lastRequestUrl = cachedFirstRequestUrl;
+    let lastResponseHeaders = cachedFirstResponseHeaders;
 
-  while (guard < 500) {
-    guard += 1;
-    let pagePayload;
-    let pageHttpStatus = firstHttpStatus;
+    while (guard < 500) {
+      guard += 1;
+      let pagePayload;
+      let pageHttpStatus = firstHttpStatus;
 
-    if (reuseFirst) {
-      pagePayload = cachedFirstPayload;
-      reuseFirst = false;
-    } else {
-      const page = await fetchEmployeePage({
-        peopleBaseUrl,
-        path,
-        accessToken,
-        sIndex,
-        limit,
-        useRecLimit,
-      });
-      pageHttpStatus = page.res.status;
-      if (!page.res.ok) {
-        logger.warn(
-          {
-            endpointPath: endpointUsed,
+      if (reuseFirst) {
+        pagePayload = cachedFirstPayload;
+        reuseFirst = false;
+      } else {
+        const page = await fetchEmployeePage({
+          peopleBaseUrl,
+          path,
+          accessToken,
+          sIndex,
+          limit,
+          useRecLimit,
+        });
+        pageHttpStatus = page.res.status;
+        lastRequestUrl = page.requestUrl;
+        lastResponseHeaders = page.responseHeaders;
+        if (!page.res.ok) {
+          logZohoEmployeeFetchDebug({
+            phase: 'page_http_failed',
+            requestUrl: page.requestUrl,
             httpStatus: page.res.status,
-            ...zohoEnvelopeMeta(page.payload),
-          },
-          'Zoho employee page fetch failed',
-        );
-        throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+            responseBody: page.payload,
+            responseHeaders: page.responseHeaders,
+          });
+          logger.warn(
+            {
+              endpointPath: endpointUsed,
+              httpStatus: page.res.status,
+              ...zohoEnvelopeMeta(page.payload),
+            },
+            'Zoho employee page fetch failed',
+          );
+          throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+        }
+        pagePayload = page.payload;
       }
-      pagePayload = page.payload;
-    }
 
-    const meta = zohoEnvelopeMeta(pagePayload);
-    if (meta.zohoStatus !== null && meta.zohoStatus !== 0 && meta.zohoStatus !== '0') {
-      const batchCheck = extractEmployeeRecords(pagePayload);
-      if (!batchCheck.length) {
-        logger.warn(
-          { endpointPath: endpointUsed, httpStatus: pageHttpStatus, ...meta },
-          'Zoho employee forms API error',
-        );
-        throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+      const meta = zohoEnvelopeMeta(pagePayload);
+      if (meta.zohoStatus !== null && meta.zohoStatus !== 0 && meta.zohoStatus !== '0') {
+        const batchCheck = extractEmployeeRecords(pagePayload);
+        if (!batchCheck.length) {
+          logZohoEmployeeFetchDebug({
+            phase: 'forms_api_error',
+            requestUrl: lastRequestUrl,
+            httpStatus: pageHttpStatus,
+            responseBody: pagePayload,
+            responseHeaders: lastResponseHeaders,
+          });
+          logger.warn(
+            { endpointPath: endpointUsed, httpStatus: pageHttpStatus, ...meta },
+            'Zoho employee forms API error',
+          );
+          throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
+        }
       }
-    }
 
-    const rawBatch = extractEmployeeRecords(pagePayload);
-    rawCount += rawBatch.length;
-    if (!rawBatch.length) break;
+      const rawBatch = extractEmployeeRecords(pagePayload);
+      rawCount += rawBatch.length;
+      if (!rawBatch.length) break;
 
-    if (!firstFieldKeys.length && isPlainObject(rawBatch[0])) {
-      firstFieldKeys = Object.keys(rawBatch[0]).slice(0, 40);
-    }
-
-    for (const raw of rawBatch) {
-      const mapped = mapEmployeeRecord(raw);
-      if (!mapped.ok) {
-        employees.push({ __skipReason: mapped.reason });
-        continue;
+      if (!firstFieldKeys.length && isPlainObject(rawBatch[0])) {
+        firstFieldKeys = Object.keys(rawBatch[0]).slice(0, 40);
       }
-      employees.push(mapped.record);
+
+      for (const raw of rawBatch) {
+        const mapped = mapEmployeeRecord(raw);
+        if (!mapped.ok) {
+          employees.push({ __skipReason: mapped.reason });
+          continue;
+        }
+        employees.push(mapped.record);
+      }
+
+      if (rawBatch.length < limit) break;
+      sIndex += limit;
     }
 
-    if (rawBatch.length < limit) break;
-    sIndex += limit;
+    logger.info(
+      {
+        endpointPath: endpointUsed,
+        httpStatus: firstHttpStatus,
+        zohoStatus: firstMeta.zohoStatus,
+        zohoCode: firstMeta.zohoCode,
+        zohoMessage: firstMeta.zohoMessage,
+        rawRecordCount: rawCount,
+        normalizedCount: employees.filter((e) => !e.__skipReason).length,
+        firstRecordFieldKeys: firstFieldKeys,
+      },
+      'Zoho employee fetch diagnostics',
+    );
+
+    return {
+      employees,
+      diagnostics: {
+        endpointPath: endpointUsed,
+        httpStatus: firstHttpStatus,
+        ...firstMeta,
+        rawRecordCount: rawCount,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'ZOHO_EMPLOYEE_FETCH_FAILED') {
+      throw error;
+    }
+    logZohoEmployeeFetchDebug({
+      phase: 'fetch_exception',
+      requestUrl: error?.zohoRequestUrl || `${peopleBaseUrl}${endpointUsed}`,
+      httpStatus: error?.response?.status,
+      responseBody: error?.response?.data,
+      error,
+    });
+    throw new ApiError(502, 'Failed to fetch Zoho employees', 'ZOHO_EMPLOYEE_FETCH_FAILED');
   }
-
-  logger.info(
-    {
-      endpointPath: endpointUsed,
-      httpStatus: firstHttpStatus,
-      zohoStatus: firstMeta.zohoStatus,
-      zohoCode: firstMeta.zohoCode,
-      zohoMessage: firstMeta.zohoMessage,
-      rawRecordCount: rawCount,
-      normalizedCount: employees.filter((e) => !e.__skipReason).length,
-      firstRecordFieldKeys: firstFieldKeys,
-    },
-    'Zoho employee fetch diagnostics',
-  );
-
-  return { employees, diagnostics: { endpointPath: endpointUsed, httpStatus: firstHttpStatus, ...firstMeta, rawRecordCount: rawCount } };
 }
