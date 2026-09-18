@@ -241,7 +241,7 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
                 ) : (
                   vm.employees.map((e, idx) => {
                     const name = tidyName(e.displayName || `${e.firstName} ${e.lastName}`);
-                    const status = statusMeta(e.employmentStatus);
+                    const status = statusMeta(e.effectiveEmploymentStatus || e.employmentStatus);
                     const location = emptyCell(formatLocationLabel(e.locationName, e.country));
                     const address = emptyCell(e.address);
                     const tone = avatarTone(e.id || name);

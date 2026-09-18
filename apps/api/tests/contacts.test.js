@@ -66,6 +66,8 @@ describe('contacts API', () => {
     expect(created.status).toBe(201);
     expect(created.body.source).toBe('manual');
     expect(created.body.hrisLinkStatus || 'none').toBe('none');
+    expect(created.body.effectiveEmploymentStatus).toBe('');
+    expect(created.body.effectiveStatusSource).toBe('merge_status');
     expect(String(created.body.tenantId)).toBe(String(tenant._id));
 
     const list = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));

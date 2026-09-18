@@ -21,6 +21,8 @@ const contactSchema = new mongoose.Schema(
     workLocation: { type: String, default: '' },
     dateOfJoining: { type: Date, default: null },
     employmentStatus: { type: String, default: '' },
+    /** Mirrored HRIS last-day date; not derived status. Cleared when Merge sends null. */
+    terminationDate: { type: Date, default: null },
     /** Zoho People form record id — upsert key with tenantId. */
     zohoRecordId: { type: String, default: '', index: true },
     /** Merge HRIS employee UUID — upsert key with tenantId + mergeConnectionId. */

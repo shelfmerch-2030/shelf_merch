@@ -90,6 +90,8 @@ export type MergeHrisEmployeePublic = {
   lastName: string;
   workEmail: string;
   employmentStatus: string;
+  effectiveEmploymentStatus?: string;
+  effectiveStatusSource?: "merge_status" | "termination_date" | "rehire" | string;
   jobTitle: string;
   employmentType?: string;
   departmentName?: string;

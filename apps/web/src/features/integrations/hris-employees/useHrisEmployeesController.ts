@@ -55,8 +55,11 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
 
   const activeCount = useMemo(
     () =>
-      allEmployees.filter((e) => String(e.employmentStatus || "").toUpperCase() === "ACTIVE")
-        .length,
+      allEmployees.filter(
+        (e) =>
+          String(e.effectiveEmploymentStatus || e.employmentStatus || "").toUpperCase() ===
+          "ACTIVE",
+      ).length,
     [allEmployees],
   );
 
@@ -80,6 +83,7 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
         e.workEmail,
         e.jobTitle,
         e.employmentStatus,
+        e.effectiveEmploymentStatus,
         e.employmentType,
         e.address,
         e.locationName,

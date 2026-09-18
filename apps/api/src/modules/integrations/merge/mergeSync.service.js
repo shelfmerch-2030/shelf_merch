@@ -15,6 +15,7 @@ import { MergeHrisEmployment } from './models/mergeHrisEmployment.model.js';
 import { MergeConnection } from './mergeConnection.model.js';
 import { mergePaginateAll, requireMergeConfigured } from './mergeHttp.js';
 import { getOwnedMergeConnection } from './merge.service.js';
+import { deriveEffectiveEmploymentStatus } from './effectiveEmploymentStatus.js';
 
 function emptyCounts() {
   return { created: 0, updated: 0, unchanged: 0, pruned: 0 };
@@ -694,6 +695,7 @@ async function syncContactsFromHrisEmployees({
         workLocation,
         dateOfJoining: emp.startDate || null,
         employmentStatus: asString(emp.employmentStatus),
+        terminationDate: emp.terminationDate || null,
         source: 'hris',
         mergeEmployeeId,
         mergeConnectionId,
@@ -1039,6 +1041,11 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
         : null;
       const employment = employmentByEmployee.get(`${connKey}:${r.mergeEmployeeId}`);
       const address = formatHrisLocationAddress(loc);
+      const derived = deriveEffectiveEmploymentStatus({
+        employmentStatus: r.employmentStatus,
+        terminationDate: r.terminationDate,
+        startDate: r.startDate,
+      });
 
       return {
         id: String(r._id),
@@ -1051,6 +1058,8 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
         lastName: r.lastName,
         workEmail: r.workEmail,
         employmentStatus: r.employmentStatus,
+        effectiveEmploymentStatus: derived.effectiveEmploymentStatus,
+        effectiveStatusSource: derived.effectiveStatusSource,
         jobTitle: r.jobTitle || '',
         employmentType: employment?.employmentType || '',
         departmentName: deptName,

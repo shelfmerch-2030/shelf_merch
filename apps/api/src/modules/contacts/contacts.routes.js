@@ -10,6 +10,7 @@ import { objectId } from '../users/users.validation.js';
 import { Contact } from './contact.model.js';
 import {
   assertContactAccess,
+  contactToPublicJSON,
   getContactOrThrow,
   listContactsForUser,
   prepareContactPayloadForUser,
@@ -67,7 +68,7 @@ router.post(
     });
     const contact = await Contact.create({ tenantId: req.tenantId, ...payload, source: 'manual' });
     writeAudit({ req, action: 'contact.create', entityType: 'Contact', entityId: contact._id, after: contact.toObject() });
-    res.status(201).json(contact);
+    res.status(201).json(contactToPublicJSON(contact));
   }),
 );
 
@@ -93,7 +94,7 @@ router.patch(
     Object.assign(contact, payload);
     await contact.save();
     writeAudit({ req, action: 'contact.update', entityType: 'Contact', entityId: contact._id, before, after: contact.toObject() });
-    res.json(contact);
+    res.json(contactToPublicJSON(contact));
   }),
 );
 

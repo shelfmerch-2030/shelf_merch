@@ -1,6 +1,7 @@
 import { Contact } from './contact.model.js';
 import { managedEntityNamesForUser } from '../entities/entities.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
+import { deriveEffectiveEmploymentStatus } from '../integrations/merge/effectiveEmploymentStatus.js';
 
 function normalizeDept(value) {
   return String(value || '')
@@ -31,18 +32,40 @@ function isEntityManager(user) {
   return user?.role === 'entity_manager' || user?.scopeType === 'entity';
 }
 
+/** Read-time effective status; never writes derived values onto the Contact. */
+export function contactToPublicJSON(contact, now) {
+  if (!contact) return contact;
+  const obj =
+    typeof contact.toJSON === 'function'
+      ? contact.toJSON()
+      : { ...contact };
+  const derived = deriveEffectiveEmploymentStatus({
+    employmentStatus: obj.employmentStatus,
+    terminationDate: obj.terminationDate,
+    startDate: obj.dateOfJoining,
+    now,
+  });
+  return {
+    ...obj,
+    effectiveEmploymentStatus: derived.effectiveEmploymentStatus,
+    effectiveStatusSource: derived.effectiveStatusSource,
+  };
+}
+
 /** List contacts visible to the caller — tenant-wide for admins, dept-scoped for EMs. */
 export async function listContactsForUser({ tenantId, user }) {
   const names = await managedEntityNamesForUser({ tenantId, user });
   if (names === null) {
-    return Contact.find({ tenantId }).sort({ name: 1 });
+    const rows = await Contact.find({ tenantId }).sort({ name: 1 });
+    return rows.map((row) => contactToPublicJSON(row));
   }
   if (!names.length) return [];
 
-  return Contact.find({
+  const rows = await Contact.find({
     tenantId,
     ...departmentMatchFilter(names),
   }).sort({ name: 1 });
+  return rows.map((row) => contactToPublicJSON(row));
 }
 
 /**

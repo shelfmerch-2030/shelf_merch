@@ -2472,4 +2472,158 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(stillZoho.zohoRecordId).toBe('z-1');
     expect(stillZoho.mergeEmployeeId || '').toBe('');
   });
+
+  it('exposes derived effective status on Directory and Contacts without changing raw snapshot', async () => {
+    const conn = await seedConnection();
+    const past = '2020-01-15T00:00:00.000Z';
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({
+          employment_status: 'ACTIVE',
+          termination_date: past,
+          start_date: '2020-01-01T00:00:00.000Z',
+        }),
+      ],
+    });
+    const synced = await sync(conn);
+    expect(synced.status).toBe(200);
+
+    const stored = await MergeHrisEmployee.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+    });
+    expect(stored.employmentStatus).toBe('ACTIVE');
+    expect(stored.terminationDate?.toISOString()).toBe(past);
+
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const row = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-1');
+    expect(row.employmentStatus).toBe('ACTIVE');
+    expect(row.effectiveEmploymentStatus).toBe('INACTIVE');
+    expect(row.effectiveStatusSource).toBe('termination_date');
+    expect(row.terminationDate).toBeTruthy();
+
+    const contacts = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const contact = contacts.body.find((c) => c.email === 'ada@rubix.net');
+    expect(contact.employmentStatus).toBe('ACTIVE');
+    expect(contact.effectiveEmploymentStatus).toBe('INACTIVE');
+    expect(contact.effectiveStatusSource).toBe('termination_date');
+    expect(new Date(contact.terminationDate).toISOString()).toBe(past);
+    expect(contact.hrisLinkStatus).toBe('current');
+  });
+
+  it('keeps Directory Active for a future date-only termination and for today date-only', async () => {
+    const conn = await seedConnection();
+    const todayUtc = new Date();
+    const todayStamp = `${todayUtc.toISOString().slice(0, 10)}T00:00:00.000Z`;
+    const futureStamp = '2099-01-01T00:00:00.000Z';
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({
+          id: 'emp-today',
+          work_email: 'today@rubix.net',
+          employment_status: 'ACTIVE',
+          termination_date: todayStamp,
+        }),
+        employeeRow({
+          id: 'emp-future',
+          remote_id: 'F1',
+          first_name: 'Future',
+          work_email: 'future@rubix.net',
+          employment_status: 'ACTIVE',
+          termination_date: futureStamp,
+        }),
+      ],
+    });
+    await sync(conn);
+
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const todayRow = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-today');
+    const futureRow = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-future');
+    expect(todayRow.employmentStatus).toBe('ACTIVE');
+    expect(todayRow.effectiveEmploymentStatus).toBe('ACTIVE');
+    expect(futureRow.employmentStatus).toBe('ACTIVE');
+    expect(futureRow.effectiveEmploymentStatus).toBe('ACTIVE');
+  });
+
+  it('applies explicit INACTIVE immediately even when termination_date is in the future', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({
+          employment_status: 'INACTIVE',
+          termination_date: '2099-06-01T00:00:00.000Z',
+        }),
+      ],
+    });
+    await sync(conn);
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const row = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-1');
+    expect(row.employmentStatus).toBe('INACTIVE');
+    expect(row.effectiveEmploymentStatus).toBe('INACTIVE');
+    expect(row.effectiveStatusSource).toBe('merge_status');
+  });
+
+  it('clears Contact.terminationDate when Merge sends null and restores Active', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [employeeRow({ termination_date: '2020-01-15T00:00:00.000Z' })],
+    });
+    await sync(conn);
+    let contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.terminationDate).toBeTruthy();
+    expect(contact.employmentStatus).toBe('ACTIVE');
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ termination_date: null })],
+    });
+    await sync(conn);
+    contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.terminationDate).toBeNull();
+    expect(contact.employmentStatus).toBe('ACTIVE');
+
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const row = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-1');
+    expect(row.employmentStatus).toBe('ACTIVE');
+    expect(row.effectiveEmploymentStatus).toBe('ACTIVE');
+    expect(row.effectiveStatusSource).toBe('merge_status');
+  });
+
+  it('treats a later start_date after an old termination as rehire (ACTIVE)', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({
+          employment_status: 'ACTIVE',
+          start_date: '2026-03-01T00:00:00.000Z',
+          termination_date: '2026-01-15T00:00:00.000Z',
+        }),
+      ],
+    });
+    await sync(conn);
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const row = listed.body.employees.find((e) => e.mergeEmployeeId === 'emp-1');
+    expect(row.employmentStatus).toBe('ACTIVE');
+    expect(row.effectiveEmploymentStatus).toBe('ACTIVE');
+    expect(row.effectiveStatusSource).toBe('rehire');
+
+    const contacts = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const contact = contacts.body.find((c) => c.email === 'ada@rubix.net');
+    expect(contact.employmentStatus).toBe('ACTIVE');
+    expect(contact.effectiveEmploymentStatus).toBe('ACTIVE');
+    expect(contact.effectiveStatusSource).toBe('rehire');
+  });
 });
