@@ -502,6 +502,7 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
     );
   }
 
+  counts.snapshotComplete = Boolean(snapshot.complete && !counts.pruneSkippedReason);
   return counts;
 }
 
@@ -618,161 +619,204 @@ function mergeIdentityMatches(contact, { mergeEmployeeId, mergeConnectionId }) {
 
 /**
  * Mirror synced Merge HRIS employees into Workspace Contacts (source=hris).
- * Upsert order: Merge identity → claim by email → create.
- * Never creates ShelfMerch Users/logins. Skips rows without a usable email.
- * On email-change collisions, logs a controlled conflict and leaves both Contacts untouched.
+ * Upsert order: Merge identity → claim/reclaim by email → create.
+ * After a complete employee snapshot, Contacts whose Merge IDs are no longer live
+ * on this connection become stale (IDs preserved, records not deleted).
  */
-async function syncContactsFromHrisEmployees({ tenantId, connection }) {
+async function syncContactsFromHrisEmployees({
+  tenantId,
+  connection,
+  employeeSnapshotComplete = false,
+}) {
   const counts = { ...emptyCounts(), conflicts: 0 };
+  const mergeConnectionId = connection._id;
   const employees = await MergeHrisEmployee.find({
     tenantId,
-    connectionId: connection._id,
+    connectionId: mergeConnectionId,
   }).lean();
 
-  if (!employees.length) return counts;
+  const liveIds = employees.map((e) => asString(e.mergeEmployeeId)).filter(Boolean);
 
-  const [departments, locations] = await Promise.all([
-    MergeHrisDepartment.find({ tenantId, connectionId: connection._id })
-      .select('mergeDepartmentId name groupType')
-      .lean(),
-    MergeHrisLocation.find({ tenantId, connectionId: connection._id }).lean(),
-  ]);
+  if (employees.length) {
+    const [departments, locations] = await Promise.all([
+      MergeHrisDepartment.find({ tenantId, connectionId: mergeConnectionId })
+        .select('mergeDepartmentId name groupType')
+        .lean(),
+      MergeHrisLocation.find({ tenantId, connectionId: mergeConnectionId }).lean(),
+    ]);
 
-  const departmentsById = new Map(departments.map((d) => [d.mergeDepartmentId, d]));
-  const locById = new Map(locations.map((l) => [l.mergeLocationId, l]));
-  const mergeConnectionId = connection._id;
+    const departmentsById = new Map(departments.map((d) => [d.mergeDepartmentId, d]));
+    const locById = new Map(locations.map((l) => [l.mergeLocationId, l]));
 
-  for (const emp of employees) {
-    const mergeEmployeeId = asString(emp.mergeEmployeeId);
-    if (!mergeEmployeeId) continue;
+    for (const emp of employees) {
+      const mergeEmployeeId = asString(emp.mergeEmployeeId);
+      if (!mergeEmployeeId) continue;
 
-    const email = asString(emp.workEmail || emp.personalEmail).toLowerCase();
-    if (!isUsableContactEmail(email)) continue;
+      const email = asString(emp.workEmail || emp.personalEmail).toLowerCase();
+      if (!isUsableContactEmail(email)) continue;
 
-    const firstName = asString(emp.firstName);
-    const lastName = asString(emp.lastName);
-    const name =
-      asString(emp.displayName) ||
-      `${firstName} ${lastName}`.trim() ||
-      email;
+      const firstName = asString(emp.firstName);
+      const lastName = asString(emp.lastName);
+      const name =
+        asString(emp.displayName) ||
+        `${firstName} ${lastName}`.trim() ||
+        email;
 
-    const department = resolveOrgUnitName({
-      departmentMergeIds: emp.departmentMergeIds,
-      departmentsById,
-    });
-
-    const loc = emp.locationMergeId ? locById.get(emp.locationMergeId) : null;
-    const workLocation = loc
-      ? asString(loc.name) || formatHrisLocationAddress(loc)
-      : '';
-    const address = loc
-      ? {
-          line1: asString(loc.street1),
-          line2: asString(loc.street2),
-          city: asString(loc.city) || asString(loc.name),
-          state: asString(loc.state),
-          pincode: asString(loc.zipCode),
-          country: asString(loc.country),
-        }
-      : undefined;
-
-    const patch = {
-      name,
-      firstName,
-      lastName,
-      email,
-      phone: asString(emp.mobilePhoneNumber),
-      employeeCode: asString(emp.remoteEmployeeId),
-      department,
-      designation: asString(emp.jobTitle),
-      workLocation,
-      dateOfJoining: emp.startDate || null,
-      employmentStatus: asString(emp.employmentStatus),
-      source: 'hris',
-      mergeEmployeeId,
-      mergeConnectionId,
-      ...(address ? { address } : {}),
-    };
-
-    try {
-      // 1) Stable Merge identity (tenant + connection + employee UUID).
-      let existing = await Contact.findOne({
-        tenantId,
-        mergeConnectionId,
-        mergeEmployeeId,
+      const department = resolveOrgUnitName({
+        departmentMergeIds: emp.departmentMergeIds,
+        departmentsById,
       });
 
-      if (existing) {
-        if (existing.email !== email) {
-          const emailOwner = await Contact.findOne({ tenantId, email });
-          if (emailOwner && String(emailOwner._id) !== String(existing._id)) {
-            logger.warn(
-              {
-                organizationId: String(tenantId),
-                connectionId: String(mergeConnectionId),
-                provider: connection.provider,
-                mergeEmployeeId,
-                code: 'MERGE_CONTACT_EMAIL_CONFLICT',
-                linkedContactId: String(existing._id),
-                conflictingContactId: String(emailOwner._id),
-              },
-              'Merge HRIS contact email conflict — skipped update',
-            );
-            counts.conflicts += 1;
-            continue;
+      const loc = emp.locationMergeId ? locById.get(emp.locationMergeId) : null;
+      const workLocation = loc
+        ? asString(loc.name) || formatHrisLocationAddress(loc)
+        : '';
+      const address = loc
+        ? {
+            line1: asString(loc.street1),
+            line2: asString(loc.street2),
+            city: asString(loc.city) || asString(loc.name),
+            state: asString(loc.state),
+            pincode: asString(loc.zipCode),
+            country: asString(loc.country),
           }
-        }
-        // Preserve workspace role; refresh HRIS profile fields + identity.
-        Object.assign(existing, patch);
-        await existing.save();
-        counts.updated += 1;
-        continue;
-      }
+        : undefined;
 
-      // 2) Claim unlinked Contact with matching email (manual/csv/legacy hris).
-      const byEmail = await Contact.findOne({ tenantId, email });
-      if (byEmail) {
-        if (
-          contactHasMergeIdentity(byEmail) &&
-          !mergeIdentityMatches(byEmail, { mergeEmployeeId, mergeConnectionId })
-        ) {
-          logger.warn(
-            {
-              organizationId: String(tenantId),
-              connectionId: String(mergeConnectionId),
-              provider: connection.provider,
-              mergeEmployeeId,
-              code: 'MERGE_CONTACT_IDENTITY_CONFLICT',
-              existingContactId: String(byEmail._id),
-              existingMergeEmployeeId: byEmail.mergeEmployeeId,
-              existingMergeConnectionId: String(byEmail.mergeConnectionId),
-            },
-            'Merge HRIS contact identity conflict — skipped claim',
-          );
-          counts.conflicts += 1;
+      const patch = {
+        name,
+        firstName,
+        lastName,
+        email,
+        phone: asString(emp.mobilePhoneNumber),
+        employeeCode: asString(emp.remoteEmployeeId),
+        department,
+        designation: asString(emp.jobTitle),
+        workLocation,
+        dateOfJoining: emp.startDate || null,
+        employmentStatus: asString(emp.employmentStatus),
+        source: 'hris',
+        mergeEmployeeId,
+        mergeConnectionId,
+        hrisLinkStatus: 'current',
+        ...(address ? { address } : {}),
+      };
+
+      try {
+        const existing = await Contact.findOne({
+          tenantId,
+          mergeConnectionId,
+          mergeEmployeeId,
+        });
+
+        if (existing) {
+          if (existing.email !== email) {
+            const emailOwner = await Contact.findOne({ tenantId, email });
+            if (emailOwner && String(emailOwner._id) !== String(existing._id)) {
+              logger.warn(
+                {
+                  organizationId: String(tenantId),
+                  connectionId: String(mergeConnectionId),
+                  provider: connection.provider,
+                  mergeEmployeeId,
+                  code: 'MERGE_CONTACT_EMAIL_CONFLICT',
+                  linkedContactId: String(existing._id),
+                  conflictingContactId: String(emailOwner._id),
+                },
+                'Merge HRIS contact email conflict — skipped update',
+              );
+              counts.conflicts += 1;
+              continue;
+            }
+          }
+          Object.assign(existing, patch);
+          await existing.save();
+          counts.updated += 1;
           continue;
         }
-        Object.assign(byEmail, patch);
-        await byEmail.save();
-        counts.updated += 1;
-        continue;
-      }
 
-      // 3) Create new Contact with Merge identity.
-      await Contact.create({ tenantId, ...patch });
-      counts.created += 1;
-    } catch (err) {
-      logger.warn(
-        {
-          organizationId: String(tenantId),
-          connectionId: String(mergeConnectionId),
-          provider: connection.provider,
-          mergeEmployeeId,
-          code: err?.code || err?.name,
-        },
-        'Merge HRIS contact upsert skipped',
-      );
+        const byEmail = await Contact.findOne({ tenantId, email });
+        if (byEmail) {
+          if (
+            contactHasMergeIdentity(byEmail) &&
+            !mergeIdentityMatches(byEmail, { mergeEmployeeId, mergeConnectionId })
+          ) {
+            if (String(byEmail.mergeConnectionId) !== String(mergeConnectionId)) {
+              logger.warn(
+                {
+                  organizationId: String(tenantId),
+                  connectionId: String(mergeConnectionId),
+                  provider: connection.provider,
+                  mergeEmployeeId,
+                  code: 'MERGE_CONTACT_IDENTITY_CONFLICT',
+                  reason: 'cross_connection',
+                  existingContactId: String(byEmail._id),
+                  existingMergeEmployeeId: byEmail.mergeEmployeeId,
+                  existingMergeConnectionId: String(byEmail.mergeConnectionId),
+                },
+                'Merge HRIS contact identity conflict — skipped claim',
+              );
+              counts.conflicts += 1;
+              continue;
+            }
+
+            const oldLive = await MergeHrisEmployee.exists({
+              tenantId,
+              connectionId: mergeConnectionId,
+              mergeEmployeeId: byEmail.mergeEmployeeId,
+            });
+            if (oldLive) {
+              logger.warn(
+                {
+                  organizationId: String(tenantId),
+                  connectionId: String(mergeConnectionId),
+                  provider: connection.provider,
+                  mergeEmployeeId,
+                  code: 'MERGE_CONTACT_IDENTITY_CONFLICT',
+                  reason: 'live_identity',
+                  existingContactId: String(byEmail._id),
+                  existingMergeEmployeeId: byEmail.mergeEmployeeId,
+                  existingMergeConnectionId: String(byEmail.mergeConnectionId),
+                },
+                'Merge HRIS contact identity conflict — skipped claim',
+              );
+              counts.conflicts += 1;
+              continue;
+            }
+            // Old Merge employee is gone on this connection — reclaim.
+          }
+          Object.assign(byEmail, patch);
+          await byEmail.save();
+          counts.updated += 1;
+          continue;
+        }
+
+        await Contact.create({ tenantId, ...patch });
+        counts.created += 1;
+      } catch (err) {
+        if (err?.code === 11000) counts.conflicts += 1;
+        logger.warn(
+          {
+            organizationId: String(tenantId),
+            connectionId: String(mergeConnectionId),
+            provider: connection.provider,
+            mergeEmployeeId,
+            code: err?.code || err?.name,
+          },
+          'Merge HRIS contact upsert skipped',
+        );
+      }
     }
+  }
+
+  if (employeeSnapshotComplete) {
+    await Contact.updateMany(
+      {
+        tenantId,
+        mergeConnectionId,
+        mergeEmployeeId: { $gt: '', $nin: liveIds },
+      },
+      { $set: { hrisLinkStatus: 'stale' } },
+    );
   }
 
   return counts;
@@ -857,6 +901,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
     summary.contacts = await syncContactsFromHrisEmployees({
       tenantId,
       connection,
+      employeeSnapshotComplete: Boolean(summary.employees.snapshotComplete),
     });
 
     connection.lastSyncAt = now;
@@ -914,8 +959,9 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
   if (connectionId) connFilter._id = connectionId;
 
   const connections = await MergeConnection.find(connFilter)
-    .select('_id lastSyncAt')
+    .select('_id lastSyncAt status')
     .lean();
+  const connectionById = new Map(connections.map((c) => [String(c._id), c]));
 
   if (!connections.length) {
     return { employees: [] };
@@ -997,6 +1043,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
       return {
         id: String(r._id),
         connectionId: connKey,
+        connectionStatus: connectionById.get(connKey)?.status || 'disconnected',
         provider: r.provider,
         mergeEmployeeId: r.mergeEmployeeId,
         displayName: r.displayName || `${r.firstName} ${r.lastName}`.trim(),

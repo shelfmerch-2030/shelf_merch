@@ -680,6 +680,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(res.status).toBe(200);
     expect(res.body.employees).toHaveLength(1);
     expect(res.body.employees[0].workEmail).toBe('ada@rubix.net');
+    expect(res.body.employees[0].connectionStatus).toBe('connected');
     expect(res.body.employees[0].address).toBe(
       'Madhapur, Hyderabad, Telangana 500081, India',
     );
@@ -1244,6 +1245,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
     expect(contact.mergeEmployeeId).toBe('emp-1');
     expect(String(contact.mergeConnectionId)).toBe(String(conn._id));
     expect(contact.source).toBe('hris');
+    expect(contact.hrisLinkStatus).toBe('current');
     expect(contact.name).toBe('John Snow');
   });
 
@@ -1397,6 +1399,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
     expect(claimed.mergeEmployeeId).toBe('emp-1');
     expect(String(claimed.mergeConnectionId)).toBe(String(conn._id));
     expect(claimed.source).toBe('hris');
+    expect(claimed.hrisLinkStatus).toBe('current');
     expect(claimed.name).toBe('John Snow');
     expect(claimed.role).toBe('Sender');
   });
@@ -1994,5 +1997,479 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
     expect(contact.phone).toBe('');
     expect(contact.designation).toBe('');
     expect(String(contact.mergeEmployeeId)).toBe('emp-1');
+  });
+});
+
+describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
+  async function seedConnection(forTenant = tenant, provider = 'workday') {
+    return MergeConnection.create({
+      tenantId: forTenant._id,
+      connectedByUserId: admin._id,
+      provider,
+      encryptedAccountToken: encryptToken('lifecycle-account-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncStatus: 'idle',
+    });
+  }
+
+  function employeeRow(overrides = {}) {
+    return {
+      id: 'emp-1',
+      remote_id: 'E1',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      display_full_name: 'Ada Lovelace',
+      work_email: 'ada@rubix.net',
+      employment_status: 'ACTIVE',
+      groups: ['dept-1'],
+      work_location: 'loc-1',
+      ...overrides,
+    };
+  }
+
+  function mockHrisSnapshot({
+    employees = [employeeRow()],
+    employeesPayload,
+  } = {}) {
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href === MERGE_DELETE_ACCOUNT_URL) {
+        return mockJson({});
+      }
+      if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
+        return mockJson({
+          next: null,
+          results: [{ id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' }],
+        });
+      }
+      if (href.startsWith(MERGE_HRIS_LOCATIONS_URL)) {
+        return mockJson({
+          next: null,
+          results: [
+            {
+              id: 'loc-1',
+              name: 'HQ',
+              street_1: '1 Main',
+              city: 'Austin',
+              state: 'TX',
+              zip_code: '78701',
+              country: 'US',
+            },
+          ],
+        });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) {
+        if (employeesPayload) return mockJson(employeesPayload);
+        return mockJson({ next: null, results: employees });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYMENTS_URL)) {
+        return mockJson({
+          next: null,
+          results: employees.map((emp, i) => ({
+            id: `empl-${emp.id || i + 1}`,
+            employee: emp.id,
+            job_title: 'Engineer',
+            employment_type: 'FULL_TIME',
+            effective_date: '2024-01-01T00:00:00Z',
+          })),
+        });
+      }
+      return mockJson({ next: null, results: [] });
+    });
+  }
+
+  async function sync(conn, token = adminToken) {
+    return request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${token}`);
+  }
+
+  it('reclaims the same Contact when the old Merge UUID is pruned and a new UUID shares the email', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(before.mergeEmployeeId).toBe('emp-1');
+    expect(before.hrisLinkStatus).toBe('current');
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-new', remote_id: 'E9' })],
+    });
+    const res = await sync(conn);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.conflicts || 0).toBe(0);
+
+    const after = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(String(after._id)).toBe(String(before._id));
+    expect(after.mergeEmployeeId).toBe('emp-new');
+    expect(String(after.mergeConnectionId)).toBe(String(conn._id));
+    expect(after.hrisLinkStatus).toBe('current');
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-new', remote_id: 'E9' })],
+    });
+    const retry = await sync(conn);
+    expect(retry.status).toBe(200);
+    expect(retry.body.sync.contacts.created).toBe(0);
+    const again = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(String(again._id)).toBe(String(before._id));
+    expect(again.mergeEmployeeId).toBe('emp-new');
+    expect(again.hrisLinkStatus).toBe('current');
+  });
+
+  it('does not reclaim when two live employees share an email', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({ id: 'emp-live-1', remote_id: 'A' }),
+        employeeRow({
+          id: 'emp-live-2',
+          remote_id: 'B',
+          first_name: 'Grace',
+          last_name: 'Hopper',
+          display_full_name: 'Grace Hopper',
+        }),
+      ],
+    });
+    const warnSpy = vi.spyOn((await import('../src/config/logger.js')).logger, 'warn');
+    const res = await sync(conn);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(1);
+    expect(res.body.sync.contacts.conflicts).toBe(1);
+
+    const conflictLogged = warnSpy.mock.calls.some(
+      ([payload, msg]) =>
+        payload?.code === 'MERGE_CONTACT_IDENTITY_CONFLICT' &&
+        payload?.reason === 'live_identity' &&
+        String(msg).includes('identity conflict'),
+    );
+    expect(conflictLogged).toBe(true);
+    warnSpy.mockRestore();
+
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, connectionId: conn._id })).toBe(2);
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(1);
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(['emp-live-1', 'emp-live-2']).toContain(contact.mergeEmployeeId);
+    expect(contact.hrisLinkStatus).toBe('current');
+  });
+
+  it('does not reclaim a Contact linked to another Merge connection', async () => {
+    const connA = await seedConnection(tenant, 'workday');
+    const connB = await seedConnection(tenant, 'deel');
+    mockHrisSnapshot();
+    await sync(connA);
+
+    const linked = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(String(linked.mergeConnectionId)).toBe(String(connA._id));
+
+    const warnSpy = vi.spyOn((await import('../src/config/logger.js')).logger, 'warn');
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-deel', remote_id: 'D1' })],
+    });
+    const res = await sync(connB);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.conflicts).toBe(1);
+
+    const conflictLogged = warnSpy.mock.calls.some(
+      ([payload]) =>
+        payload?.code === 'MERGE_CONTACT_IDENTITY_CONFLICT' &&
+        payload?.reason === 'cross_connection',
+    );
+    expect(conflictLogged).toBe(true);
+    warnSpy.mockRestore();
+
+    const still = await Contact.findOne({ _id: linked._id, tenantId: tenant._id });
+    expect(still.mergeEmployeeId).toBe('emp-1');
+    expect(String(still.mergeConnectionId)).toBe(String(connA._id));
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(1);
+  });
+
+  it('does not claim another tenant Contact with the same email or Merge UUID string', async () => {
+    const connA = await seedConnection(tenant, 'workday');
+    const connB = await seedConnection(otherTenant, 'workday');
+    mockHrisSnapshot();
+    await sync(connA);
+    const contactA = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+
+    mockHrisSnapshot();
+    await sync(connB, otherAdminToken);
+    const contactB = await Contact.findOne({ tenantId: otherTenant._id, email: 'ada@rubix.net' });
+
+    expect(contactA).toBeTruthy();
+    expect(contactB).toBeTruthy();
+    expect(String(contactA._id)).not.toBe(String(contactB._id));
+    expect(String(contactA.tenantId)).toBe(String(tenant._id));
+    expect(String(contactB.tenantId)).toBe(String(otherTenant._id));
+    expect(contactA.mergeEmployeeId).toBe('emp-1');
+    expect(contactB.mergeEmployeeId).toBe('emp-1');
+  });
+
+  it('reuses the same Contact when an employee disappears then returns with the same UUID', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(before.employmentStatus).toBe('ACTIVE');
+    expect(before.hrisLinkStatus).toBe('current');
+
+    mockHrisSnapshot({ employees: [] });
+    const gone = await sync(conn);
+    expect(gone.status).toBe(200);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, connectionId: conn._id })).toBe(0);
+
+    const stale = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(stale).toBeTruthy();
+    expect(stale.mergeEmployeeId).toBe('emp-1');
+    expect(String(stale.mergeConnectionId)).toBe(String(conn._id));
+    expect(stale.hrisLinkStatus).toBe('stale');
+    expect(stale.employmentStatus).toBe('ACTIVE');
+
+    mockHrisSnapshot();
+    await sync(conn);
+    const returned = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(returned.hrisLinkStatus).toBe('current');
+    expect(returned.mergeEmployeeId).toBe('emp-1');
+    expect(returned.employmentStatus).toBe('ACTIVE');
+    expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'ada@rubix.net' })).toBe(1);
+  });
+
+  it('keeps the same Contact current when employment status flips ACTIVE → INACTIVE → ACTIVE', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ employment_status: 'INACTIVE' })],
+    });
+    await sync(conn);
+    const inactive = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(inactive.employmentStatus).toBe('INACTIVE');
+    expect(inactive.hrisLinkStatus).toBe('current');
+    expect(inactive.mergeEmployeeId).toBe('emp-1');
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).toBe(1);
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ employment_status: 'ACTIVE' })],
+    });
+    await sync(conn);
+    const rehired = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(rehired.employmentStatus).toBe('ACTIVE');
+    expect(rehired.hrisLinkStatus).toBe('current');
+    expect(String(rehired._id)).toBe(String(before._id));
+  });
+
+  it('marks linked Contacts stale after a complete prune without deleting them or clearing Merge IDs', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+
+    mockHrisSnapshot({ employees: [] });
+    const res = await sync(conn);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruned).toBe(1);
+
+    expect(await Contact.countDocuments({ _id: before._id, tenantId: tenant._id })).toBe(1);
+    const stale = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(stale.hrisLinkStatus).toBe('stale');
+    expect(stale.mergeEmployeeId).toBe('emp-1');
+    expect(String(stale.mergeConnectionId)).toBe(String(conn._id));
+    expect(stale.employmentStatus).toBe('ACTIVE');
+    expect(stale.source).toBe('hris');
+  });
+
+  it('does not mass-mark Contacts stale after an incomplete snapshot', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(before.hrisLinkStatus).toBe('current');
+
+    mockHrisSnapshot({ employeesPayload: { next: null } });
+    const res = await sync(conn);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruneSkippedReason).toBe('incomplete');
+
+    const still = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(still.hrisLinkStatus).toBe('current');
+    expect(still.mergeEmployeeId).toBe('emp-1');
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).toBe(1);
+  });
+
+  it('marks only this connection stale on a complete empty snapshot and leaves peers untouched', async () => {
+    const connA = await seedConnection(tenant, 'workday');
+    const connB = await seedConnection(tenant, 'deel');
+    mockHrisSnapshot();
+    await sync(connA);
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-deel', work_email: 'deel@rubix.net' })],
+    });
+    await sync(connB);
+
+    mockHrisSnapshot({ employees: [] });
+    const res = await sync(connA);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruned).toBe(1);
+
+    const staleA = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    const currentB = await Contact.findOne({ tenantId: tenant._id, email: 'deel@rubix.net' });
+    expect(staleA.hrisLinkStatus).toBe('stale');
+    expect(staleA.mergeEmployeeId).toBe('emp-1');
+    expect(currentB.hrisLinkStatus).toBe('current');
+    expect(currentB.mergeEmployeeId).toBe('emp-deel');
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, connectionId: connB._id })).toBe(1);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, connectionId: connA._id })).toBe(0);
+  });
+
+  it('preserves HRIS employees and Contacts on disconnect and lists them as disconnected', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot();
+    await sync(conn);
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.hrisLinkStatus).toBe('current');
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/disconnect`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.connection.status).toBe('disconnected');
+
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, connectionId: conn._id })).toBe(1);
+    const stillContact = await Contact.findOne({ _id: contact._id, tenantId: tenant._id });
+    expect(stillContact.hrisLinkStatus).toBe('current');
+    expect(stillContact.mergeEmployeeId).toBe('emp-1');
+
+    const list = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.employees).toHaveLength(1);
+    expect(list.body.employees[0].connectionStatus).toBe('disconnected');
+    expect(list.body.employees[0].mergeEmployeeId).toBe('emp-1');
+  });
+
+  it('reclaims on relink with new UUIDs and same emails; leftover Contacts become stale', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [
+        employeeRow(),
+        employeeRow({
+          id: 'emp-leave',
+          remote_id: 'L1',
+          first_name: 'Gone',
+          last_name: 'Person',
+          display_full_name: 'Gone Person',
+          work_email: 'gone@rubix.net',
+        }),
+      ],
+    });
+    await sync(conn);
+    const kept = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    const leftover = await Contact.findOne({ tenantId: tenant._id, email: 'gone@rubix.net' });
+
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/disconnect`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const relinked = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    relinked.status = 'connected';
+    relinked.encryptedAccountToken = encryptToken('relink-account-token');
+    await relinked.save();
+
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-relink', remote_id: 'R1' })],
+    });
+    const res = await sync(relinked);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.conflicts || 0).toBe(0);
+
+    const reclaimed = await Contact.findOne({ _id: kept._id, tenantId: tenant._id });
+    expect(reclaimed.mergeEmployeeId).toBe('emp-relink');
+    expect(reclaimed.hrisLinkStatus).toBe('current');
+    expect(String(reclaimed.mergeConnectionId)).toBe(String(conn._id));
+
+    const staleLeftover = await Contact.findOne({ _id: leftover._id, tenantId: tenant._id });
+    expect(staleLeftover.mergeEmployeeId).toBe('emp-leave');
+    expect(staleLeftover.hrisLinkStatus).toBe('stale');
+    expect(staleLeftover.email).toBe('gone@rubix.net');
+  });
+
+  it('prune/sync on connection A does not delete connection B employees or mutate B Contacts', async () => {
+    const connA = await seedConnection(tenant, 'workday');
+    const connB = await seedConnection(tenant, 'deel');
+    mockHrisSnapshot();
+    await sync(connA);
+    mockHrisSnapshot({
+      employees: [employeeRow({ id: 'emp-b', work_email: 'b@rubix.net' })],
+    });
+    await sync(connB);
+    const contactB = await Contact.findOne({ tenantId: tenant._id, email: 'b@rubix.net' });
+    const empB = await MergeHrisEmployee.findOne({
+      tenantId: tenant._id,
+      connectionId: connB._id,
+      mergeEmployeeId: 'emp-b',
+    });
+
+    mockHrisSnapshot({ employees: [] });
+    await sync(connA);
+
+    const empBAfter = await MergeHrisEmployee.findOne({ _id: empB._id, tenantId: tenant._id });
+    const contactBAfter = await Contact.findOne({ _id: contactB._id, tenantId: tenant._id });
+    expect(empBAfter).toBeTruthy();
+    expect(contactBAfter.hrisLinkStatus).toBe('current');
+    expect(contactBAfter.mergeEmployeeId).toBe('emp-b');
+    expect(String(contactBAfter.mergeConnectionId)).toBe(String(connB._id));
+  });
+
+  it('keeps no-email employees Directory-only and leaves Zoho/manual Contacts unlinked', async () => {
+    const conn = await seedConnection();
+    const manual = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Manual Person',
+      email: 'manual-life@rubix.net',
+      role: 'Member',
+      source: 'manual',
+    });
+    const zohoLike = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Zoho Person',
+      email: 'zoho-life@rubix.net',
+      role: 'Member',
+      source: 'hris',
+      zohoRecordId: 'z-1',
+    });
+
+    mockHrisSnapshot({
+      employees: [
+        employeeRow({ work_email: '', personal_email: '' }),
+        employeeRow({
+          id: 'emp-2',
+          remote_id: 'E2',
+          work_email: 'ada@rubix.net',
+        }),
+      ],
+    });
+    const res = await sync(conn);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.contacts.created).toBe(1);
+
+    const listed = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listed.body.employees.some((e) => e.mergeEmployeeId === 'emp-1')).toBe(true);
+    expect(await Contact.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).toBe(0);
+
+    const stillManual = await Contact.findOne({ _id: manual._id, tenantId: tenant._id });
+    const stillZoho = await Contact.findOne({ _id: zohoLike._id, tenantId: tenant._id });
+    expect(stillManual.hrisLinkStatus).toBe('none');
+    expect(stillManual.mergeEmployeeId || '').toBe('');
+    expect(stillZoho.hrisLinkStatus).toBe('none');
+    expect(stillZoho.zohoRecordId).toBe('z-1');
+    expect(stillZoho.mergeEmployeeId || '').toBe('');
   });
 });

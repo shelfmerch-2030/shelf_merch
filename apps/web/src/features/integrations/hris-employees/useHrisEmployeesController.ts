@@ -16,6 +16,8 @@ export type HrisEmployeesVm = {
   activeCount: number;
   connectedProviderCount: number;
   connections: MergeConnectionPublic[];
+  hasDisconnectedDirectory: boolean;
+  disconnectedLastSyncAt: string | null;
   loading: boolean;
   error: string | null;
   search: string;
@@ -83,6 +85,7 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
         e.locationName,
         e.country,
         e.provider,
+        e.connectionStatus,
       ]
         .filter(Boolean)
         .join(" ")
@@ -91,12 +94,32 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
     });
   }, [allEmployees, search, providerFilter]);
 
+  const hasDisconnectedDirectory = useMemo(
+    () => allEmployees.some((e) => e.connectionStatus === "disconnected"),
+    [allEmployees],
+  );
+
+  const disconnectedLastSyncAt = useMemo(() => {
+    const fromConnections = (connectionsQuery.data ?? [])
+      .filter((c) => c.status === "disconnected" && c.lastSyncAt)
+      .map((c) => c.lastSyncAt as string)
+      .sort();
+    if (fromConnections.length) return fromConnections[fromConnections.length - 1];
+    const fromEmployees = allEmployees
+      .filter((e) => e.connectionStatus === "disconnected" && e.lastSyncedAt)
+      .map((e) => e.lastSyncedAt as string)
+      .sort();
+    return fromEmployees.length ? fromEmployees[fromEmployees.length - 1] : null;
+  }, [allEmployees, connectionsQuery.data]);
+
   return {
     employees,
     totalCount: allEmployees.length,
     activeCount,
     connectedProviderCount,
     connections: connectionsQuery.data ?? [],
+    hasDisconnectedDirectory,
+    disconnectedLastSyncAt,
     loading: employeesQuery.isLoading || connectionsQuery.isLoading,
     error:
       employeesQuery.error instanceof Error

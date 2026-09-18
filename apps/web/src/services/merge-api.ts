@@ -82,6 +82,7 @@ export type MergeSyncSummary = {
 export type MergeHrisEmployeePublic = {
   id: string;
   connectionId: string;
+  connectionStatus?: "connected" | "needs_attention" | "disconnected" | string;
   provider: string;
   mergeEmployeeId: string;
   displayName: string;

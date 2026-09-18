@@ -14563,6 +14563,12 @@ tr:hover .camp-avatar {
 }
 .hris-dir-banner svg{flex:0 0 auto;margin-top:2px;color:var(--ink-3)}
 .hris-dir-banner p{margin:0}
+.hris-dir-banner--disconnected{
+  background:#fffbeb;
+  border-color:#fde68a;
+  color:#92400e;
+}
+.hris-dir-banner--disconnected svg{color:#d97706}
 .hris-dir-shell{
   background:#fff;
   border:1px solid var(--line);
@@ -14715,6 +14721,16 @@ tr:hover .camp-avatar {
 .hris-dir-status--unknown{
   background:var(--surface-2);
   color:var(--ink-2);
+}
+.hris-dir-status--disconnected{
+  background:#fffbeb;
+  color:#92400e;
+}
+.hris-dir-provider-cell{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
 }
 .hris-dir-provider{
   font-weight:600;

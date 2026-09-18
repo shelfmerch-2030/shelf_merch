@@ -33,6 +33,15 @@ const contactSchema = new mongoose.Schema(
       index: true,
     },
     source: { type: String, enum: ['manual', 'csv', 'hris'], default: 'manual' },
+    /**
+     * Merge HRIS linkage: none = never/unlinked, current = live on that connection,
+     * stale = Merge IDs kept but employee no longer in the last complete snapshot.
+     */
+    hrisLinkStatus: {
+      type: String,
+      enum: ['none', 'current', 'stale'],
+      default: 'none',
+    },
     address: {
       line1: { type: String, default: '' },
       line2: { type: String, default: '' },
