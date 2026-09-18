@@ -1,7 +1,13 @@
-/** Vanity shop URLs — salesforce.store in prod, /shop/:id or /s/:slug locally. */
+/** Vanity shop URLs — {slug}.shelfmerch.io in prod, /shop/:id or /s/:slug locally. */
 
 const SHOP_REDEEM_DOMAIN =
   (import.meta.env.VITE_SHOP_REDEEM_DOMAIN as string | undefined)?.toLowerCase() || "store";
+
+/**
+ * First labels under the redeem domain that are ShelfMerch app hosts, not shops.
+ * Apex (`shelfmerch.io`) is handled separately via exact host match.
+ */
+const MAIN_APP_HOST_LABELS = new Set(["www", "staging"]);
 
 export function slugifyShopName(name: string): string {
   const base = name
@@ -13,15 +19,29 @@ export function slugifyShopName(name: string): string {
   return base || "shop";
 }
 
-/** Extract shop slug when visiting e.g. salesforce.store */
-export function shopSlugFromHostname(): string | null {
-  if (typeof window === "undefined") return null;
-  const host = window.location.hostname.toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1") return null;
-  const suffix = `.${SHOP_REDEEM_DOMAIN}`;
+/**
+ * Extract shop slug when visiting e.g. acme.shelfmerch.io.
+ * Pass `hostname` (and optionally `redeemDomain`) to unit-test without a window.
+ */
+export function shopSlugFromHostname(
+  hostname?: string,
+  redeemDomain: string = SHOP_REDEEM_DOMAIN,
+): string | null {
+  const host = (
+    hostname ?? (typeof window !== "undefined" ? window.location.hostname : "")
+  )
+    .toLowerCase()
+    .trim();
+  if (!host || host === "localhost" || host === "127.0.0.1") return null;
+
+  const domain = redeemDomain.toLowerCase().trim() || "store";
+  if (host === domain) return null;
+
+  const suffix = `.${domain}`;
   if (!host.endsWith(suffix)) return null;
   const slug = host.slice(0, -suffix.length);
   if (!slug || slug.includes(".")) return null;
+  if (MAIN_APP_HOST_LABELS.has(slug)) return null;
   return slug;
 }
 
