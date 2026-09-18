@@ -11,7 +11,12 @@ import {
   resolvePhysical,
   DEFAULT_PHYSICAL,
 } from "@/lib/printCoords";
-import { slugifyShopName, shopRedeemPath, shopStorefrontPath } from "@/lib/shopRedeemUrl";
+import {
+  slugifyShopName,
+  shopRedeemPath,
+  shopSlugFromHostname,
+  shopStorefrontPath,
+} from "@/lib/shopRedeemUrl";
 import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
 import { mockupStageFit } from "@/features/swag/MockupCanvas";
 import { pickPrintArea, printAreaStableKey } from "@/features/swag/mockup-bake";
@@ -110,6 +115,17 @@ describe("shopRedeemUrl", () => {
     expect(slugifyShopName("Salesforce HQ")).toBe("salesforce-hq");
     expect(shopRedeemPath("salesforce")).toBe("/s/salesforce");
     expect(shopStorefrontPath("abc123")).toBe("/shop/abc123");
+  });
+
+  it("treats main app hosts as non-shops and keeps customer subdomains", () => {
+    const domain = "shelfmerch.io";
+    expect(shopSlugFromHostname("staging.shelfmerch.io", domain)).toBeNull();
+    expect(shopSlugFromHostname("shelfmerch.io", domain)).toBeNull();
+    expect(shopSlugFromHostname("www.shelfmerch.io", domain)).toBeNull();
+    expect(shopSlugFromHostname("localhost", domain)).toBeNull();
+    expect(shopSlugFromHostname("127.0.0.1", domain)).toBeNull();
+    expect(shopSlugFromHostname("acme.shelfmerch.io", domain)).toBe("acme");
+    expect(shopSlugFromHostname("salesforce.shelfmerch.io", domain)).toBe("salesforce");
   });
 });
 
