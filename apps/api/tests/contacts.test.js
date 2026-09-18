@@ -338,4 +338,125 @@ describe('contacts API', () => {
     expect(status.status).toBe(200);
     expect(status.body).toHaveProperty('status');
   });
+
+  it('hides Merge-linked effectively INACTIVE Contacts from GET /contacts without deleting them', async () => {
+    const connectionId = new mongoose.Types.ObjectId();
+    const hidden = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Ada Inactive',
+      email: 'ada-inactive@contacts-suite.io',
+      source: 'hris',
+      mergeEmployeeId: 'emp-hidden',
+      mergeConnectionId: connectionId,
+      employmentStatus: 'INACTIVE',
+      hrisLinkStatus: 'current',
+    });
+    const visible = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Ada Active',
+      email: 'ada-active@contacts-suite.io',
+      source: 'hris',
+      mergeEmployeeId: 'emp-visible',
+      mergeConnectionId: connectionId,
+      employmentStatus: 'ACTIVE',
+      hrisLinkStatus: 'current',
+    });
+
+    const list = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));
+    expect(list.status).toBe(200);
+    const emails = list.body.map((c) => c.email);
+    expect(emails).toContain('ada-active@contacts-suite.io');
+    expect(emails).not.toContain('ada-inactive@contacts-suite.io');
+
+    const stored = await Contact.findOne({ _id: hidden._id, tenantId: tenant._id });
+    expect(stored).toBeTruthy();
+    expect(stored.deletedAt).toBeFalsy();
+    expect(stored.mergeEmployeeId).toBe('emp-hidden');
+    expect(String(stored.mergeConnectionId)).toBe(String(connectionId));
+    expect(stored.employmentStatus).toBe('INACTIVE');
+    expect(stored.hrisLinkStatus).toBe('current');
+
+    const patch = await request(app)
+      .patch(`/api/v1/contacts/${hidden._id}`)
+      .set(authHeader(adminToken))
+      .send({ name: 'Ada Inactive Updated' });
+    expect(patch.status).toBe(200);
+    expect(patch.body.name).toBe('Ada Inactive Updated');
+    expect(patch.body.effectiveEmploymentStatus).toBe('INACTIVE');
+
+    expect(await Contact.findOne({ _id: visible._id, tenantId: tenant._id })).toBeTruthy();
+  });
+
+  it('does not hide manual, CSV, or Zoho Contacts based on employment status', async () => {
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Manual Inactive',
+      email: 'manual-inactive@contacts-suite.io',
+      source: 'manual',
+      employmentStatus: 'INACTIVE',
+    });
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Csv Inactive',
+      email: 'csv-inactive@contacts-suite.io',
+      source: 'csv',
+      employmentStatus: 'INACTIVE',
+    });
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Zoho Inactive',
+      email: 'zoho-inactive@contacts-suite.io',
+      source: 'hris',
+      zohoRecordId: 'z-inactive',
+      employmentStatus: 'Inactive',
+    });
+
+    const list = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));
+    expect(list.status).toBe(200);
+    const emails = list.body.map((c) => c.email);
+    expect(emails).toEqual(
+      expect.arrayContaining([
+        'manual-inactive@contacts-suite.io',
+        'csv-inactive@contacts-suite.io',
+        'zoho-inactive@contacts-suite.io',
+      ]),
+    );
+  });
+
+  it('keeps stale Merge Contacts visible when they are still effectively ACTIVE', async () => {
+    const connectionId = new mongoose.Types.ObjectId();
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Stale Active',
+      email: 'stale-active@contacts-suite.io',
+      source: 'hris',
+      mergeEmployeeId: 'emp-stale-active',
+      mergeConnectionId: connectionId,
+      employmentStatus: 'ACTIVE',
+      hrisLinkStatus: 'stale',
+    });
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Stale Inactive',
+      email: 'stale-inactive@contacts-suite.io',
+      source: 'hris',
+      mergeEmployeeId: 'emp-stale-inactive',
+      mergeConnectionId: connectionId,
+      employmentStatus: 'INACTIVE',
+      hrisLinkStatus: 'stale',
+    });
+
+    const list = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));
+    expect(list.status).toBe(200);
+    const emails = list.body.map((c) => c.email);
+    expect(emails).toContain('stale-active@contacts-suite.io');
+    expect(emails).not.toContain('stale-inactive@contacts-suite.io');
+
+    expect(
+      await Contact.countDocuments({
+        tenantId: tenant._id,
+        email: { $in: ['stale-active@contacts-suite.io', 'stale-inactive@contacts-suite.io'] },
+      }),
+    ).toBe(2);
+  });
 });
