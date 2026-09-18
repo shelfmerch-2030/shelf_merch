@@ -3,7 +3,11 @@ import { logger } from '../../../config/logger.js';
 import { ApiError } from '../../../utils/errors.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_PAGES = 200;
+export const MERGE_PAGINATION_MAX_PAGES = 200;
+
+function emptyPaginateSnapshot({ items = [], pageCount = 0, truncated = false, malformed = false, complete = false } = {}) {
+  return { items, complete, pageCount, truncated, malformed };
+}
 
 export function requireMergeConfigured() {
   if (!mergeConfigured()) {
@@ -131,14 +135,20 @@ export async function mergeRequest(
 
 /**
  * Cursor-paginate a Merge list endpoint until `next` is empty.
- * Returns all result rows (not raw page payloads).
+ * Returns a snapshot: { items, complete, pageCount, truncated, malformed }.
+ * complete=false means the caller must not treat this as a canonical HRIS snapshot
+ * (do not prune local rows).
  */
-export async function mergePaginateAll(url, { accountToken, query = {}, logContext = {} } = {}) {
-  const results = [];
+export async function mergePaginateAll(
+  url,
+  { accountToken, query = {}, logContext = {}, maxPages = MERGE_PAGINATION_MAX_PAGES } = {},
+) {
+  const items = [];
   let cursor = query.cursor || null;
   let pages = 0;
+  const pageCap = Math.max(1, Number(maxPages) || MERGE_PAGINATION_MAX_PAGES);
 
-  while (pages < MAX_PAGES) {
+  while (pages < pageCap) {
     pages += 1;
     const pageQuery = {
       ...query,
@@ -153,17 +163,41 @@ export async function mergePaginateAll(url, { accountToken, query = {}, logConte
       logContext: { ...logContext, page: pages },
     });
 
-    const batch = Array.isArray(payload?.results) ? payload.results : [];
-    results.push(...batch);
+    if (!Array.isArray(payload?.results)) {
+      logger.warn(
+        { ...logContext, pages, path: new URL(url).pathname },
+        'Merge pagination page missing results array',
+      );
+      return emptyPaginateSnapshot({
+        items,
+        pageCount: pages,
+        truncated: false,
+        malformed: true,
+        complete: false,
+      });
+    }
+
+    items.push(...payload.results);
 
     const next = payload?.next;
-    if (!next || typeof next !== 'string') break;
+    if (!next || typeof next !== 'string') {
+      return emptyPaginateSnapshot({
+        items,
+        pageCount: pages,
+        truncated: false,
+        malformed: false,
+        complete: true,
+      });
+    }
     cursor = next;
   }
 
-  if (pages >= MAX_PAGES) {
-    logger.warn({ ...logContext, pages }, 'Merge pagination hit page cap');
-  }
-
-  return results;
+  logger.warn({ ...logContext, pages }, 'Merge pagination hit page cap');
+  return emptyPaginateSnapshot({
+    items,
+    pageCount: pages,
+    truncated: true,
+    malformed: false,
+    complete: false,
+  });
 }

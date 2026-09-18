@@ -17,7 +17,7 @@ import { mergePaginateAll, requireMergeConfigured } from './mergeHttp.js';
 import { getOwnedMergeConnection } from './merge.service.js';
 
 function emptyCounts() {
-  return { created: 0, updated: 0, unchanged: 0 };
+  return { created: 0, updated: 0, unchanged: 0, pruned: 0 };
 }
 
 function asDate(value) {
@@ -151,6 +151,102 @@ function arraysEqual(a = [], b = []) {
   return true;
 }
 
+function normalizeGroupType(row) {
+  const type = String(row?.type || '').toUpperCase();
+  if (type === 'DEPARTMENT') return 'DEPARTMENT';
+  if (type === 'TEAM') return 'TEAM';
+  if (row?.is_commonly_used_as_team === true && type !== 'DEPARTMENT') return 'TEAM';
+  return 'UNKNOWN';
+}
+
+function buildDepartmentMergeIds({ groupIds, teamMergeId, groupTypeById }) {
+  const dept = [];
+  const team = [];
+  const other = [];
+  const seen = new Set();
+  const pushUnique = (bucket, id) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    bucket.push(id);
+  };
+  for (const id of groupIds) {
+    const groupType = groupTypeById.get(id) || 'UNKNOWN';
+    if (groupType === 'DEPARTMENT') pushUnique(dept, id);
+    else if (groupType === 'TEAM') pushUnique(team, id);
+    else pushUnique(other, id);
+  }
+  const ordered = [...dept, ...team, ...other];
+  if (teamMergeId && !seen.has(teamMergeId)) ordered.push(teamMergeId);
+  return ordered;
+}
+
+function resolveOrgUnitName({ departmentMergeIds, departmentsById }) {
+  const ids = Array.isArray(departmentMergeIds) ? departmentMergeIds : [];
+  const pickNamed = (predicate) => {
+    for (const id of ids) {
+      const dept = departmentsById.get(id);
+      if (!dept) continue;
+      const name = asString(dept.name);
+      if (!name) continue;
+      if (!predicate || predicate(dept)) return name;
+    }
+    return '';
+  };
+  return (
+    pickNamed((d) => (d.groupType || 'UNKNOWN') === 'DEPARTMENT') ||
+    pickNamed((d) => (d.groupType || 'UNKNOWN') === 'TEAM') ||
+    pickNamed()
+  );
+}
+
+/**
+ * Delete local Merge rows missing from a complete snapshot.
+ * Incomplete / malformed snapshots never prune.
+ * A complete empty snapshot (zero items) deletes all rows for this connection.
+ * A complete snapshot with rows but zero usable ids does not prune.
+ */
+async function pruneByMergeIds({
+  Model,
+  tenantId,
+  connectionId,
+  mergeIdField,
+  seenIds,
+  snapshotComplete,
+  rawItemCount,
+  counts,
+  logContext,
+}) {
+  if (!snapshotComplete) {
+    counts.pruneSkippedReason = 'incomplete';
+    logger.warn(
+      { ...logContext, rawItemCount, seenCount: seenIds.length },
+      'Merge snapshot incomplete — skipped prune',
+    );
+    return;
+  }
+
+  if (seenIds.length === 0) {
+    if (rawItemCount > 0) {
+      counts.pruneSkippedReason = 'no_usable_ids';
+      logger.warn(
+        { ...logContext, rawItemCount },
+        'Merge snapshot had rows but no usable ids — skipped prune',
+      );
+      return;
+    }
+    const deleted = await Model.deleteMany({ tenantId, connectionId });
+    counts.pruned = deleted?.deletedCount || 0;
+    return;
+  }
+
+  const deleted = await Model.deleteMany({
+    tenantId,
+    connectionId,
+    [mergeIdField]: { $nin: seenIds },
+  });
+  counts.pruned = deleted?.deletedCount || 0;
+}
+
 async function upsertByMergeId({
   Model,
   tenantId,
@@ -217,9 +313,7 @@ async function upsertByMergeId({
 
 async function syncDepartments({ tenantId, connection, accountToken, now }) {
   const counts = emptyCounts();
-  // Deel and several HRIS providers expose org units as TEAM (or both TEAM + DEPARTMENT).
-  // Sync both so the directory can show the available department/team name.
-  const rows = await mergePaginateAll(MERGE_HRIS_GROUPS_URL, {
+  const snapshot = await mergePaginateAll(MERGE_HRIS_GROUPS_URL, {
     accountToken,
     query: { page_size: 100 },
     logContext: {
@@ -229,17 +323,9 @@ async function syncDepartments({ tenantId, connection, accountToken, now }) {
     },
   });
 
-  for (const row of rows) {
+  for (const row of snapshot.items) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
-    const type = String(row?.type || '').toUpperCase();
-    const accept =
-      !type ||
-      type === 'DEPARTMENT' ||
-      type === 'TEAM' ||
-      row?.is_commonly_used_as_team === true;
-    if (!accept) continue;
-    if (!asString(row.name)) continue;
 
     await upsertByMergeId({
       Model: MergeHrisDepartment,
@@ -252,6 +338,7 @@ async function syncDepartments({ tenantId, connection, accountToken, now }) {
         provider: connection.provider,
         remoteId: asString(row.remote_id),
         name: asString(row.name),
+        groupType: normalizeGroupType(row),
         parentDepartmentMergeId: asString(row.parent_group),
         lastSyncedAt: now,
         source: 'merge',
@@ -264,7 +351,7 @@ async function syncDepartments({ tenantId, connection, accountToken, now }) {
 
 async function syncLocations({ tenantId, connection, accountToken, now }) {
   const counts = emptyCounts();
-  const rows = await mergePaginateAll(MERGE_HRIS_LOCATIONS_URL, {
+  const snapshot = await mergePaginateAll(MERGE_HRIS_LOCATIONS_URL, {
     accountToken,
     query: { page_size: 100 },
     logContext: {
@@ -274,7 +361,7 @@ async function syncLocations({ tenantId, connection, accountToken, now }) {
     },
   });
 
-  for (const row of rows) {
+  for (const row of snapshot.items) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
 
@@ -304,21 +391,22 @@ async function syncLocations({ tenantId, connection, accountToken, now }) {
   return counts;
 }
 
-async function syncEmployees({ tenantId, connection, accountToken, now, departmentIdSet }) {
+async function syncEmployees({ tenantId, connection, accountToken, now, groupTypeById }) {
   const counts = emptyCounts();
-  const rows = await mergePaginateAll(MERGE_HRIS_EMPLOYEES_URL, {
+  const logContext = {
+    organizationId: String(tenantId),
+    connectionId: String(connection._id),
+    model: 'employees',
+  };
+  const snapshot = await mergePaginateAll(MERGE_HRIS_EMPLOYEES_URL, {
     accountToken,
-    // expand=team so providers like Deel that put org unit on `team` still yield a name.
+    // Common Model Employee.team — not provider-specific; used whenever Merge fills it.
     query: { page_size: 100, expand: 'team' },
-    logContext: {
-      organizationId: String(tenantId),
-      connectionId: String(connection._id),
-      model: 'employees',
-    },
+    logContext,
   });
 
   const seenMergeEmployeeIds = [];
-  for (const row of rows) {
+  for (const row of snapshot.items) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
     seenMergeEmployeeIds.push(mergeId);
@@ -327,7 +415,6 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
       ? row.groups.map((g) => (typeof g === 'object' && g ? asString(g.id) : asString(g))).filter(Boolean)
       : [];
 
-    // Merge Employee.team is often the department-like org unit (especially Deel).
     let teamMergeId = '';
     let teamName = '';
     if (row?.team && typeof row.team === 'object') {
@@ -337,7 +424,7 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
       teamMergeId = asString(row.team);
     }
 
-    if (teamMergeId && teamName && !departmentIdSet.has(teamMergeId)) {
+    if (teamMergeId && teamName && !groupTypeById.has(teamMergeId)) {
       await upsertByMergeId({
         Model: MergeHrisDepartment,
         tenantId,
@@ -349,19 +436,21 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
           provider: connection.provider,
           remoteId: '',
           name: teamName,
+          groupType: 'TEAM',
           parentDepartmentMergeId: '',
           lastSyncedAt: now,
           source: 'merge',
         },
       });
-      departmentIdSet.add(teamMergeId);
+      groupTypeById.set(teamMergeId, 'TEAM');
     }
 
-    const fromGroups = groupIds.filter((id) => departmentIdSet.has(id));
-    const departmentMergeIds = [
-      ...(teamMergeId ? [teamMergeId] : []),
-      ...fromGroups.filter((id) => id !== teamMergeId),
-    ];
+    const knownGroupIds = groupIds.filter((id) => groupTypeById.has(id));
+    const departmentMergeIds = buildDepartmentMergeIds({
+      groupIds: knownGroupIds,
+      teamMergeId,
+      groupTypeById,
+    });
 
     await upsertByMergeId({
       Model: MergeHrisEmployee,
@@ -380,7 +469,6 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
         personalEmail: asString(row.personal_email).toLowerCase(),
         mobilePhoneNumber: asString(row.mobile_phone_number),
         employmentStatus: normalizeMergeEmploymentStatus(row.employment_status),
-        // jobTitle is backfilled from Employments after upsert.
         managerMergeEmployeeId: asString(row.manager),
         departmentMergeIds,
         locationMergeId: asString(row.work_location || row.home_location),
@@ -393,37 +481,50 @@ async function syncEmployees({ tenantId, connection, accountToken, now, departme
     });
   }
 
-  // Canonical snapshot for this Linked Account. Relink issues new Merge UUIDs
-  // while remote_id stays stable; without this prune the directory lists both.
-  const staleFilter = {
+  await pruneByMergeIds({
+    Model: MergeHrisEmployee,
     tenantId,
     connectionId: connection._id,
-  };
-  if (seenMergeEmployeeIds.length) {
-    staleFilter.mergeEmployeeId = { $nin: seenMergeEmployeeIds };
+    mergeIdField: 'mergeEmployeeId',
+    seenIds: seenMergeEmployeeIds,
+    snapshotComplete: snapshot.complete,
+    rawItemCount: snapshot.items.length,
+    counts,
+    logContext,
+  });
+
+  if (counts.pruneSkippedReason) {
+    // Directory hides rows with lastSyncedAt older than connection.lastSyncAt.
+    // Skipped prunes must not make kept employees disappear from the list.
+    await MergeHrisEmployee.updateMany(
+      { tenantId, connectionId: connection._id },
+      { $set: { lastSyncedAt: now } },
+    );
   }
-  await MergeHrisEmployee.deleteMany(staleFilter);
 
   return counts;
 }
 
 async function syncEmployments({ tenantId, connection, accountToken, now }) {
   const counts = emptyCounts();
-  const rows = await mergePaginateAll(MERGE_HRIS_EMPLOYMENTS_URL, {
+  const logContext = {
+    organizationId: String(tenantId),
+    connectionId: String(connection._id),
+    model: 'employments',
+  };
+  const snapshot = await mergePaginateAll(MERGE_HRIS_EMPLOYMENTS_URL, {
     accountToken,
     query: { page_size: 100 },
-    logContext: {
-      organizationId: String(tenantId),
-      connectionId: String(connection._id),
-      model: 'employments',
-    },
+    logContext,
   });
 
   const latestTitleByEmployee = new Map();
+  const seenEmploymentIds = [];
 
-  for (const row of rows) {
+  for (const row of snapshot.items) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
+    seenEmploymentIds.push(mergeId);
     const mergeEmployeeId = asString(row.employee);
     const jobTitle = asString(row.job_title);
     const effectiveDate = asDate(row.effective_date);
@@ -448,20 +549,50 @@ async function syncEmployments({ tenantId, connection, accountToken, now }) {
       },
     });
 
-    if (mergeEmployeeId && jobTitle) {
+    if (mergeEmployeeId) {
       const prev = latestTitleByEmployee.get(mergeEmployeeId);
-      if (!prev || (effectiveDate && (!prev.at || effectiveDate > prev.at))) {
+      if (!prev) {
+        latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
+      } else if (effectiveDate && (!prev.at || effectiveDate > prev.at)) {
         latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
       }
     }
   }
 
-  // Backfill job titles onto employees from latest employment.
-  for (const [mergeEmployeeId, { title }] of latestTitleByEmployee.entries()) {
-    await MergeHrisEmployee.updateOne(
-      { tenantId, connectionId: connection._id, mergeEmployeeId },
-      { $set: { jobTitle: title } },
-    );
+  await pruneByMergeIds({
+    Model: MergeHrisEmployment,
+    tenantId,
+    connectionId: connection._id,
+    mergeIdField: 'mergeEmploymentId',
+    seenIds: seenEmploymentIds,
+    snapshotComplete: snapshot.complete,
+    rawItemCount: snapshot.items.length,
+    counts,
+    logContext,
+  });
+
+  if (snapshot.complete) {
+    const employees = await MergeHrisEmployee.find({
+      tenantId,
+      connectionId: connection._id,
+    })
+      .select('mergeEmployeeId')
+      .lean();
+    for (const emp of employees) {
+      const latest = latestTitleByEmployee.get(emp.mergeEmployeeId);
+      const title = latest ? latest.title : '';
+      await MergeHrisEmployee.updateOne(
+        { tenantId, connectionId: connection._id, mergeEmployeeId: emp.mergeEmployeeId },
+        { $set: { jobTitle: title } },
+      );
+    }
+  } else {
+    for (const [mergeEmployeeId, { title }] of latestTitleByEmployee.entries()) {
+      await MergeHrisEmployee.updateOne(
+        { tenantId, connectionId: connection._id, mergeEmployeeId },
+        { $set: { jobTitle: title } },
+      );
+    }
   }
 
   return counts;
@@ -502,14 +633,12 @@ async function syncContactsFromHrisEmployees({ tenantId, connection }) {
 
   const [departments, locations] = await Promise.all([
     MergeHrisDepartment.find({ tenantId, connectionId: connection._id })
-      .select('mergeDepartmentId name')
+      .select('mergeDepartmentId name groupType')
       .lean(),
     MergeHrisLocation.find({ tenantId, connectionId: connection._id }).lean(),
   ]);
 
-  const deptNameById = new Map(
-    departments.map((d) => [d.mergeDepartmentId, asString(d.name)]),
-  );
+  const departmentsById = new Map(departments.map((d) => [d.mergeDepartmentId, d]));
   const locById = new Map(locations.map((l) => [l.mergeLocationId, l]));
   const mergeConnectionId = connection._id;
 
@@ -527,16 +656,10 @@ async function syncContactsFromHrisEmployees({ tenantId, connection }) {
       `${firstName} ${lastName}`.trim() ||
       email;
 
-    let department = '';
-    if (Array.isArray(emp.departmentMergeIds)) {
-      for (const id of emp.departmentMergeIds) {
-        const label = deptNameById.get(id);
-        if (label) {
-          department = label;
-          break;
-        }
-      }
-    }
+    const department = resolveOrgUnitName({
+      departmentMergeIds: emp.departmentMergeIds,
+      departmentsById,
+    });
 
     const loc = emp.locationMergeId ? locById.get(emp.locationMergeId) : null;
     const workLocation = loc
@@ -549,7 +672,7 @@ async function syncContactsFromHrisEmployees({ tenantId, connection }) {
           city: asString(loc.city) || asString(loc.name),
           state: asString(loc.state),
           pincode: asString(loc.zipCode),
-          country: asString(loc.country) || 'IN',
+          country: asString(loc.country),
         }
       : undefined;
 
@@ -703,9 +826,11 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       tenantId,
       connectionId: connection._id,
     })
-      .select('mergeDepartmentId')
+      .select('mergeDepartmentId groupType')
       .lean();
-    const departmentIdSet = new Set(departments.map((d) => d.mergeDepartmentId));
+    const groupTypeById = new Map(
+      departments.map((d) => [d.mergeDepartmentId, d.groupType || 'UNKNOWN']),
+    );
 
     summary.locations = await syncLocations({
       tenantId,
@@ -719,7 +844,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       connection,
       accountToken,
       now,
-      departmentIdSet,
+      groupTypeById,
     });
 
     summary.employments = await syncEmployments({
@@ -821,7 +946,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
   const connectionIds = [...new Set(rows.map((r) => String(r.connectionId)))];
   const [departments, locations, employments] = await Promise.all([
     MergeHrisDepartment.find({ tenantId, connectionId: { $in: connectionIds } })
-      .select('connectionId mergeDepartmentId name')
+      .select('connectionId mergeDepartmentId name groupType')
       .lean(),
     MergeHrisLocation.find({ tenantId, connectionId: { $in: connectionIds } })
       .select('connectionId mergeLocationId name street1 street2 city state zipCode country')
@@ -831,8 +956,8 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
       .lean(),
   ]);
 
-  const deptNameByKey = new Map(
-    departments.map((d) => [`${d.connectionId}:${d.mergeDepartmentId}`, d.name || '']),
+  const departmentsByKey = new Map(
+    departments.map((d) => [`${d.connectionId}:${d.mergeDepartmentId}`, d]),
   );
   const locByKey = new Map(
     locations.map((l) => [`${l.connectionId}:${l.mergeLocationId}`, l]),
@@ -852,20 +977,17 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
   return {
     employees: rows.map((r) => {
       const connKey = String(r.connectionId);
-      const primaryDeptId = Array.isArray(r.departmentMergeIds) ? r.departmentMergeIds[0] : '';
-      let deptName = '';
+      const departmentsById = new Map();
       if (Array.isArray(r.departmentMergeIds)) {
         for (const deptId of r.departmentMergeIds) {
-          const name = deptNameByKey.get(`${connKey}:${deptId}`) || '';
-          if (name) {
-            deptName = name;
-            break;
-          }
+          const dept = departmentsByKey.get(`${connKey}:${deptId}`);
+          if (dept) departmentsById.set(deptId, dept);
         }
       }
-      if (!deptName && primaryDeptId) {
-        deptName = deptNameByKey.get(`${connKey}:${primaryDeptId}`) || '';
-      }
+      const deptName = resolveOrgUnitName({
+        departmentMergeIds: r.departmentMergeIds,
+        departmentsById,
+      });
       const loc = r.locationMergeId
         ? locByKey.get(`${connKey}:${r.locationMergeId}`)
         : null;
@@ -882,7 +1004,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
         lastName: r.lastName,
         workEmail: r.workEmail,
         employmentStatus: r.employmentStatus,
-        jobTitle: r.jobTitle || employment?.jobTitle || '',
+        jobTitle: r.jobTitle || '',
         employmentType: employment?.employmentType || '',
         departmentName: deptName,
         address,

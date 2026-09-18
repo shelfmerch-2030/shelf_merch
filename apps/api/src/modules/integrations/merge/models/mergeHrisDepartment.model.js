@@ -14,6 +14,12 @@ const mergeHrisDepartmentSchema = new mongoose.Schema(
     mergeDepartmentId: { type: String, required: true },
     remoteId: { type: String, default: '' },
     name: { type: String, default: '' },
+    /** Merge Group.type: DEPARTMENT | TEAM | UNKNOWN (blank/other types). */
+    groupType: {
+      type: String,
+      enum: ['DEPARTMENT', 'TEAM', 'UNKNOWN'],
+      default: 'UNKNOWN',
+    },
     parentDepartmentMergeId: { type: String, default: '' },
     lastSyncedAt: { type: Date, default: null },
     source: { type: String, default: 'merge' },

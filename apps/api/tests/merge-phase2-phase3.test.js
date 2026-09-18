@@ -23,6 +23,7 @@ import {
   MERGE_HRIS_GROUPS_URL,
   MERGE_HRIS_LOCATIONS_URL,
 } from '../src/modules/integrations/merge/merge.constants.js';
+import { mergePaginateAll } from '../src/modules/integrations/merge/mergeHttp.js';
 
 let app;
 let tenant;
@@ -83,6 +84,65 @@ beforeEach(async () => {
 
 afterEach(() => {
   fetchMock?.mockRestore();
+});
+
+describe('mergePaginateAll snapshot completeness', () => {
+  function jsonOk(body) {
+    return mockJson(body, 200);
+  }
+
+  it('returns complete=true for an empty results array with no next cursor', async () => {
+    fetchMock.mockResolvedValueOnce(jsonOk({ results: [], next: null }));
+    const snapshot = await mergePaginateAll('https://api.merge.dev/api/hris/v1/employees', {
+      accountToken: 'acct',
+    });
+    expect(snapshot.complete).toBe(true);
+    expect(snapshot.malformed).toBe(false);
+    expect(snapshot.truncated).toBe(false);
+    expect(snapshot.items).toEqual([]);
+  });
+
+  it('returns complete=false when results is missing', async () => {
+    fetchMock.mockResolvedValueOnce(jsonOk({ next: null }));
+    const snapshot = await mergePaginateAll('https://api.merge.dev/api/hris/v1/employees', {
+      accountToken: 'acct',
+    });
+    expect(snapshot.complete).toBe(false);
+    expect(snapshot.malformed).toBe(true);
+    expect(snapshot.items).toEqual([]);
+  });
+
+  it('returns complete=false when results is not an array', async () => {
+    fetchMock.mockResolvedValueOnce(jsonOk({ results: null, next: null }));
+    const snapshot = await mergePaginateAll('https://api.merge.dev/api/hris/v1/employees', {
+      accountToken: 'acct',
+    });
+    expect(snapshot.complete).toBe(false);
+    expect(snapshot.malformed).toBe(true);
+  });
+
+  it('returns complete=false when pagination hits the page cap', async () => {
+    fetchMock.mockImplementation(async () => jsonOk({ results: [{ id: 'e1' }], next: 'cursor-next' }));
+    const snapshot = await mergePaginateAll('https://api.merge.dev/api/hris/v1/employees', {
+      accountToken: 'acct',
+      maxPages: 2,
+    });
+    expect(snapshot.complete).toBe(false);
+    expect(snapshot.truncated).toBe(true);
+    expect(snapshot.pageCount).toBe(2);
+    expect(snapshot.items).toHaveLength(2);
+  });
+
+  it('returns complete=true after following next until empty', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonOk({ results: [{ id: 'e1' }], next: 'c2' }))
+      .mockResolvedValueOnce(jsonOk({ results: [{ id: 'e2' }], next: null }));
+    const snapshot = await mergePaginateAll('https://api.merge.dev/api/hris/v1/employees', {
+      accountToken: 'acct',
+    });
+    expect(snapshot.complete).toBe(true);
+    expect(snapshot.items.map((r) => r.id)).toEqual(['e1', 'e2']);
+  });
 });
 
 describe('POST /api/integrations/merge/exchange-token', () => {
@@ -464,8 +524,19 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     });
     expect(emp.workEmail).toBe('ada@rubix.net');
     expect(emp.jobTitle).toBe('Engineer');
-    expect(emp.departmentMergeIds).toEqual(['team-1', 'dept-1']);
+    expect(emp.departmentMergeIds).toEqual(['dept-1', 'team-1']);
     expect(emp.employmentStatus).toBe('ACTIVE');
+
+    const engineering = await MergeHrisDepartment.findOne({
+      tenantId: tenant._id,
+      mergeDepartmentId: 'dept-1',
+    });
+    expect(engineering.groupType).toBe('DEPARTMENT');
+    const analytics = await MergeHrisDepartment.findOne({
+      tenantId: tenant._id,
+      mergeDepartmentId: 'team-1',
+    });
+    expect(analytics.groupType).toBe('TEAM');
 
     const inactive = await MergeHrisEmployee.findOne({
       tenantId: tenant._id,
@@ -485,6 +556,8 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(adaContact.designation).toBe('Engineer');
     expect(adaContact.mergeEmployeeId).toBe('emp-1');
     expect(String(adaContact.mergeConnectionId)).toBe(String(conn._id));
+    expect(adaContact.department).toBe('Engineering');
+    expect(adaContact.address?.country).toBe('IN');
     expect(await Contact.countDocuments({ tenantId: tenant._id, email: 'grace@rubix.net' })).toBe(1);
 
     const graceContact = await Contact.findOne({ tenantId: tenant._id, email: 'grace@rubix.net' });
@@ -1487,5 +1560,439 @@ describe('Merge HRIS → Contact identity upsert', () => {
     expect(stillOther.email).toBe('johnsnow@shelfmerch.com');
     expect(stillOther.mergeEmployeeId || '').toBe('');
     expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(2);
+  });
+});
+
+describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => {
+  async function seedConnection(forTenant = tenant, provider = 'workday') {
+    return MergeConnection.create({
+      tenantId: forTenant._id,
+      connectedByUserId: admin._id,
+      provider,
+      encryptedAccountToken: encryptToken('sync-account-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncStatus: 'idle',
+    });
+  }
+
+  function mockPages({
+    groups = [{ id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' }],
+    locations = [
+      {
+        id: 'loc-1',
+        name: 'HQ',
+        street_1: '1 Main',
+        city: 'Austin',
+        state: 'TX',
+        zip_code: '78701',
+        country: 'US',
+      },
+    ],
+    employees = [
+      {
+        id: 'emp-1',
+        remote_id: 'E1',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        display_full_name: 'Ada Lovelace',
+        work_email: 'ada@rubix.net',
+        employment_status: 'ACTIVE',
+        groups: ['dept-1'],
+        work_location: 'loc-1',
+      },
+    ],
+    employments = [
+      {
+        id: 'empl-1',
+        employee: 'emp-1',
+        job_title: 'Engineer',
+        employment_type: 'FULL_TIME',
+        effective_date: '2024-01-01T00:00:00Z',
+      },
+    ],
+    employeesPayload,
+    employmentsPayload,
+  } = {}) {
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
+        return mockJson({ next: null, results: groups });
+      }
+      if (href.startsWith(MERGE_HRIS_LOCATIONS_URL)) {
+        return mockJson({ next: null, results: locations });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) {
+        if (employeesPayload) return mockJson(employeesPayload);
+        return mockJson({ next: null, results: employees });
+      }
+      if (href.startsWith(MERGE_HRIS_EMPLOYMENTS_URL)) {
+        if (employmentsPayload) return mockJson(employmentsPayload);
+        return mockJson({ next: null, results: employments });
+      }
+      return mockJson({ next: null, results: [] });
+    });
+  }
+
+  it('does not prune when the employee snapshot is malformed', async () => {
+    const conn = await seedConnection();
+    mockPages();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    mockPages({ employeesPayload: { next: null } });
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruneSkippedReason).toBe('incomplete');
+    expect(res.body.sync.employees.pruned).toBe(0);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
+  });
+
+  it('does not prune when employee rows exist but none have ids', async () => {
+    const conn = await seedConnection();
+    mockPages();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    mockPages({ employees: [{ first_name: 'Nameless' }] });
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruneSkippedReason).toBe('no_usable_ids');
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
+  });
+
+  it('prunes all connection employees on a complete empty snapshot', async () => {
+    const conn = await seedConnection();
+    const otherConn = await seedConnection(otherTenant, 'workday');
+    await MergeHrisEmployee.create({
+      tenantId: otherTenant._id,
+      connectionId: otherConn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'emp-other',
+      displayName: 'Other Org',
+      workEmail: 'other@example.com',
+      source: 'merge',
+    });
+    mockPages();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
+
+    mockPages({ employees: [] });
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruned).toBe(1);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(0);
+    expect(await MergeHrisEmployee.countDocuments({ tenantId: otherTenant._id })).toBe(1);
+  });
+
+  it('does not prune unfetched ids when employee pagination is truncated', async () => {
+    const conn = await seedConnection();
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'emp-local-only',
+      displayName: 'Keep Me',
+      workEmail: 'keep@rubix.net',
+      source: 'merge',
+    });
+
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) {
+        return mockJson({ results: [{ id: 'emp-page', first_name: 'Paged' }], next: 'cursor-next' });
+      }
+      return mockJson({ next: null, results: [] });
+    });
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.pruneSkippedReason).toBe('incomplete');
+    expect(
+      await MergeHrisEmployee.countDocuments({
+        tenantId: tenant._id,
+        mergeEmployeeId: 'emp-local-only',
+      }),
+    ).toBe(1);
+  });
+
+  it('clears job title when upstream employment title is removed', async () => {
+    const conn = await seedConnection();
+    mockPages();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(
+      (await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).jobTitle,
+    ).toBe('Engineer');
+
+    mockPages({
+      employments: [
+        {
+          id: 'empl-1',
+          employee: 'emp-1',
+          job_title: '',
+          employment_type: 'FULL_TIME',
+          effective_date: '2024-01-01T00:00:00Z',
+        },
+      ],
+    });
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
+    expect(emp.jobTitle).toBe('');
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.designation).toBe('');
+  });
+
+  it('clears job title when a complete employment snapshot has no rows for the employee', async () => {
+    const conn = await seedConnection();
+    mockPages();
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    mockPages({ employments: [] });
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
+    expect(emp.jobTitle).toBe('');
+    expect(await MergeHrisEmployment.countDocuments({ tenantId: tenant._id })).toBe(0);
+  });
+
+  it('prefers DEPARTMENT over TEAM for display and does not invent IN country', async () => {
+    const conn = await seedConnection();
+    mockPages({
+      groups: [
+        { id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' },
+        { id: 'team-1', name: 'Analytics', type: 'TEAM' },
+        { id: 'cc-1', name: 'R&D Cost', type: 'COST_CENTER' },
+      ],
+      locations: [{ id: 'loc-1', name: 'Remote', city: 'Berlin', country: '' }],
+      employees: [
+        {
+          id: 'emp-1',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          work_email: 'ada@rubix.net',
+          groups: ['dept-1', 'team-1', 'cc-1'],
+          team: { id: 'team-1', name: 'Analytics' },
+          work_location: 'loc-1',
+        },
+      ],
+      employments: [],
+    });
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
+    expect(emp.departmentMergeIds).toEqual(['dept-1', 'team-1', 'cc-1']);
+
+    const cost = await MergeHrisDepartment.findOne({
+      tenantId: tenant._id,
+      mergeDepartmentId: 'cc-1',
+    });
+    expect(cost.groupType).toBe('UNKNOWN');
+    expect(cost.name).toBe('R&D Cost');
+
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.department).toBe('Engineering');
+    expect(contact.address?.country).toBe('');
+
+    const list = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(list.status).toBe(200);
+    const listed = list.body.employees.find((e) => e.mergeEmployeeId === 'emp-1');
+    expect(listed.departmentName).toBe('Engineering');
+    expect(listed.country).toBe('');
+  });
+
+  it('uses team name when only Employee.team is present (Deel-like)', async () => {
+    const conn = await seedConnection(tenant, 'deel');
+    mockPages({
+      groups: [],
+      locations: [],
+      employees: [
+        {
+          id: 'emp-1',
+          first_name: 'John',
+          last_name: 'Snow',
+          work_email: 'john@deel.test',
+          team: { id: 'team-deel', name: 'Night Watch' },
+        },
+      ],
+      employments: [],
+    });
+    await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
+    expect(emp.departmentMergeIds).toEqual(['team-deel']);
+    const team = await MergeHrisDepartment.findOne({
+      tenantId: tenant._id,
+      mergeDepartmentId: 'team-deel',
+    });
+    expect(team.groupType).toBe('TEAM');
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'john@deel.test' });
+    expect(contact.department).toBe('Night Watch');
+  });
+
+  it('keeps employees without email in the directory and does not create Contacts', async () => {
+    const conn = await seedConnection();
+    mockPages({
+      employees: [
+        {
+          id: 'emp-no-email',
+          first_name: 'Sam',
+          last_name: 'Tarly',
+          employment_status: 'ACTIVE',
+        },
+      ],
+      employments: [],
+      locations: [],
+    });
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.sync.employees.created).toBe(1);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(
+      await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-no-email' }),
+    ).toBe(1);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(0);
+  });
+
+  it('updates the same employee when optional fields appear, change, and disappear', async () => {
+    const conn = await seedConnection();
+    mockPages({
+      employees: [
+        {
+          id: 'emp-1',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+        },
+      ],
+      employments: [],
+      locations: [],
+      groups: [],
+    });
+    let res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.body.sync.employees.created).toBe(1);
+    expect(res.body.sync.contacts.created).toBe(0);
+
+    const before = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
+    expect(before.workEmail).toBe('');
+    expect(before.mobilePhoneNumber).toBe('');
+    expect(before.lastName).toBe('Lovelace');
+
+    mockPages({
+      groups: [{ id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' }],
+      locations: [{ id: 'loc-1', name: 'HQ', country: 'GB' }],
+      employees: [
+        {
+          id: 'emp-1',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          work_email: 'ada@rubix.net',
+          mobile_phone_number: '555-0100',
+          groups: ['dept-1'],
+          work_location: 'loc-1',
+        },
+      ],
+      employments: [
+        {
+          id: 'empl-1',
+          employee: 'emp-1',
+          job_title: 'Engineer',
+          effective_date: '2024-01-01T00:00:00Z',
+        },
+      ],
+    });
+    res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.body.sync.employees.created).toBe(0);
+    expect(res.body.sync.employees.updated).toBe(1);
+    expect(res.body.sync.contacts.created).toBe(1);
+
+    const mid = await MergeHrisEmployee.findOne({
+      _id: before._id,
+      tenantId: tenant._id,
+    });
+    expect(mid.workEmail).toBe('ada@rubix.net');
+    expect(mid.mobilePhoneNumber).toBe('555-0100');
+    expect(mid.jobTitle).toBe('Engineer');
+    expect(mid.locationMergeId).toBe('loc-1');
+
+    mockPages({
+      groups: [{ id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' }],
+      locations: [{ id: 'loc-1', name: 'HQ', country: 'GB' }],
+      employees: [
+        {
+          id: 'emp-1',
+          first_name: 'Ada',
+          last_name: '',
+          work_email: 'ada@rubix.net',
+          mobile_phone_number: '',
+          groups: ['dept-1'],
+        },
+      ],
+      employments: [
+        {
+          id: 'empl-1',
+          employee: 'emp-1',
+          job_title: '',
+          effective_date: '2024-01-01T00:00:00Z',
+        },
+      ],
+    });
+    res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.body.sync.contacts.created).toBe(0);
+    expect(res.body.sync.contacts.updated).toBe(1);
+
+    const after = await MergeHrisEmployee.findOne({
+      _id: before._id,
+      tenantId: tenant._id,
+    });
+    expect(after.lastName).toBe('');
+    expect(after.mobilePhoneNumber).toBe('');
+    expect(after.locationMergeId).toBe('');
+    expect(after.jobTitle).toBe('');
+    expect(after.workEmail).toBe('ada@rubix.net');
+
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.lastName).toBe('');
+    expect(contact.phone).toBe('');
+    expect(contact.designation).toBe('');
+    expect(String(contact.mergeEmployeeId)).toBe('emp-1');
   });
 });
