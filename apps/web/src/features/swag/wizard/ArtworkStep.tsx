@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Check, CircleHelp, Eye, Info, MoreHorizontal, Trash2, Upload, X } from "lucide-react";
+import { Check, CircleHelp, Eye, Image as ImageIcon, Info, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -193,17 +193,35 @@ export function ArtworkStep({
 
         {!designedCount && !bannerDismissed ? (
           <div className="sw-art-alert">
-            <span>
-              Add artwork on the left to place it on each product&apos;s default placeholder. Click a
-              product to fine-tune or add logos to other placeholders.
-            </span>
+            <div className="sw-art-alert__main">
+              <p className="sw-art-alert__text">
+                Add artwork on the left to place it on each product&apos;s default placeholder.
+                Click a product to fine-tune or add logos to other placeholders.
+              </p>
+              <button
+                type="button"
+                className="sw-art-alert__cta"
+                onClick={() => {
+                  setTab("upload");
+                  setBannerDismissed(true);
+                }}
+              >
+                Get started
+              </button>
+            </div>
+            <div className="sw-art-alert__visual" aria-hidden="true">
+              <span className="sw-art-alert__blob" />
+              <span className="sw-art-alert__badge">
+                <ImageIcon size={22} strokeWidth={1.75} />
+              </span>
+            </div>
             <button
               type="button"
               className="sw-art-alert-close"
               aria-label="Dismiss"
               onClick={() => setBannerDismissed(true)}
             >
-              <X size={14} />
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         ) : null}
@@ -370,10 +388,10 @@ export function ArtworkStep({
                     <button
                       type="button"
                       className="sw-mockup-menu"
-                      aria-label={`Edit branding for ${p.nm}`}
+                      aria-label={`Preview branding for ${p.nm}`}
                       onClick={() => setEditIdx(idx)}
                     >
-                      <MoreHorizontal size={16} />
+                      <Eye size={16} strokeWidth={2} />
                     </button>
                     <button
                       type="button"

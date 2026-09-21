@@ -2695,6 +2695,49 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
       .set('Authorization', `Bearer ${adminToken}`);
     expect(listed.body.find((c) => c.email === 'ada@rubix.net')).toBeUndefined();
   });
+
+  it('hides Contact from live MergeHrisEmployee INACTIVE without rewriting Contact fields', async () => {
+    const conn = await seedConnection(tenant, 'deel');
+    mockHrisSnapshot();
+    await sync(conn);
+    const contact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(contact.employmentStatus).toBe('ACTIVE');
+    expect(contact.terminationDate).toBeFalsy();
+
+    const emp = await MergeHrisEmployee.findOne({
+      tenantId: tenant._id,
+      mergeEmployeeId: 'emp-1',
+    });
+    emp.employmentStatus = 'ACTIVE';
+    emp.terminationDate = new Date('2020-01-15T00:00:00.000Z');
+    emp.startDate = new Date('2020-01-01T00:00:00.000Z');
+    await emp.save();
+
+    const contactBefore = await Contact.findOne({ _id: contact._id, tenantId: tenant._id });
+    expect(contactBefore.terminationDate).toBeFalsy();
+    expect(contactBefore.employmentStatus).toBe('ACTIVE');
+
+    let listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listed.body.find((c) => c.email === 'ada@rubix.net')).toBeUndefined();
+
+    const unchanged = await Contact.findOne({ _id: contact._id, tenantId: tenant._id });
+    expect(unchanged.employmentStatus).toBe('ACTIVE');
+    expect(unchanged.terminationDate).toBeFalsy();
+    expect(unchanged.updatedAt?.toISOString()).toBe(contactBefore.updatedAt?.toISOString());
+
+    emp.terminationDate = null;
+    await emp.save();
+
+    listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const visible = listed.body.find((c) => c.email === 'ada@rubix.net');
+    expect(visible).toBeTruthy();
+    expect(String(visible._id)).toBe(String(contact._id));
+    expect(visible.effectiveEmploymentStatus).toBe('ACTIVE');
+  });
 });
 
 describe('Merge sync lock', () => {

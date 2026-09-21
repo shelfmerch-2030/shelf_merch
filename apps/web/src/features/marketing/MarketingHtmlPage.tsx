@@ -163,6 +163,75 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
     padding-top: 0 !important;
   }
 
+  /* Terms / Privacy: compact legal heroes + body that actually breathe */
+  .hero:has(> .intro) {
+    min-height: 0 !important;
+    align-items: end !important;
+    padding: clamp(56px, 7vw, 88px) 7vw clamp(64px, 7vw, 92px) !important;
+    grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.75fr) !important;
+    gap: clamp(28px, 4vw, 56px) !important;
+    overflow: hidden !important;
+  }
+
+  .hero:has(> .intro) h1 {
+    font-size: clamp(52px, 6.2vw, 92px) !important;
+    line-height: 0.88 !important;
+    letter-spacing: -0.06em !important;
+    margin: 22px 0 0 !important;
+  }
+
+  .hero:has(> .intro) .intro p {
+    max-width: 380px !important;
+    margin: 0 0 16px !important;
+    font-size: 17px !important;
+    line-height: 1.55 !important;
+  }
+
+  .hero:has(> .intro) .two,
+  .hero:has(> .intro) .shape.two {
+    bottom: -48px !important;
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .layout:has(> .toc) {
+    display: grid !important;
+    max-width: none !important;
+    width: 100% !important;
+    padding: clamp(56px, 7vw, 96px) 7vw clamp(72px, 9vw, 120px) !important;
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+    column-gap: clamp(40px, 5vw, 72px) !important;
+    row-gap: 0 !important;
+    justify-content: start !important;
+    align-items: start !important;
+    margin: 0 !important;
+  }
+
+  .layout:has(> .toc) > .toc {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    position: sticky !important;
+    top: 24px !important;
+    align-self: start !important;
+    width: 100% !important;
+    max-width: 240px !important;
+    z-index: 1 !important;
+  }
+
+  .layout:has(> .toc) > :not(.toc) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    max-width: 820px !important;
+    position: relative !important;
+    z-index: 0 !important;
+  }
+
+  .layout:has(> .toc) .note,
+  .layout:has(> .toc) .notice {
+    margin-bottom: 40px !important;
+  }
+
   .hero:has(.hero-collage) {
     height: calc(100svh - var(--marketing-header-offset)) !important;
     min-height: calc(100svh - var(--marketing-header-offset)) !important;
@@ -733,6 +802,29 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
       grid-template-columns: 1fr !important;
     }
 
+    .hero:has(> .intro) {
+      align-items: start !important;
+      gap: 28px !important;
+      padding: 48px 6vw 56px !important;
+    }
+
+    .layout:has(> .toc) {
+      grid-template-columns: 1fr !important;
+      gap: 28px !important;
+      padding-top: 40px !important;
+    }
+
+    .layout:has(> .toc) > .toc,
+    .layout:has(> .toc) > :not(.toc) {
+      grid-column: 1 !important;
+      grid-row: auto !important;
+      max-width: 100% !important;
+    }
+
+    .layout:has(> .toc) > .toc {
+      position: static !important;
+    }
+
     .section-head,
     .control-head,
     .split-heading {
@@ -824,6 +916,36 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
 
     .hero {
       min-height: 0 !important;
+    }
+
+    .hero:has(> .intro) {
+      min-height: 0 !important;
+      align-items: start !important;
+      padding: 40px 6vw 48px !important;
+      grid-template-columns: 1fr !important;
+      gap: 28px !important;
+    }
+
+    .hero:has(> .intro) h1 {
+      font-size: 48px !important;
+    }
+
+    .layout:has(> .toc) {
+      padding-top: 40px !important;
+      padding-bottom: 64px !important;
+      grid-template-columns: 1fr !important;
+      gap: 28px !important;
+    }
+
+    .layout:has(> .toc) > .toc,
+    .layout:has(> .toc) > :not(.toc) {
+      grid-column: 1 !important;
+      grid-row: auto !important;
+      max-width: 100% !important;
+    }
+
+    .layout:has(> .toc) > .toc {
+      position: static !important;
     }
 
     .hero-copy,
