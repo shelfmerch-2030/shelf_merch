@@ -37,7 +37,6 @@ import { getStoredUser } from "@/services/api-bridge";
 import { entityManagerBudgetRemaining } from "@/services/workspace-api";
 import { walletUnallocated } from "@/lib/walletFormat";
 import workspaceSettingsImg from "../../../assets/workspace-setting-tab.png";
-import setupHeroImg from "../../../assets/dash-setup-hero.png";
 import metricGiftsIcon from "../../../assets/dash-metric-gifts.png";
 import metricPeopleIcon from "../../../assets/dash-metric-people.png";
 import metricShopsIcon from "../../../assets/dash-metric-shops.png";
@@ -313,7 +312,7 @@ function ShortcutGrid() {
 function SetupVisual() {
   return (
     <div className="dash-setup-visual" aria-hidden="true">
-      <img className="dash-setup-visual__img" src={setupHeroImg} alt="" />
+      <img className="dash-setup-visual__img" src="/images/dashboard-setup-3d.png" alt="" />
     </div>
   );
 }

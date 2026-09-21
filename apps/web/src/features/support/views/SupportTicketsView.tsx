@@ -3,7 +3,6 @@ import {
   CircleHelp,
   CreditCard,
   Gift,
-  LifeBuoy,
   MapPin,
   Paperclip,
   Plus,
@@ -238,7 +237,6 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
       {vm.tickets.length === 0 ? (
         <div className="sup-panel">
           <div className="sup-empty">
-            <LifeBuoy size={34} color="var(--ink-3)" aria-hidden="true" />
             <h3>No tickets yet</h3>
             <p>Stuck on an order, delivery or redemption? Raise a ticket and we&apos;ll help.</p>
             <button type="button" className="sup-empty__cta" onClick={vm.onOpenCreate}>

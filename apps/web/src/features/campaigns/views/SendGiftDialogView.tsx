@@ -10,6 +10,8 @@ import {
 import { ShopBanner } from "@/features/shops/banner";
 import type { SendGiftVm } from "../controllers/useCampaignsController";
 
+type SendChoice = "kit" | "points";
+
 const titleStyle = { fontSize: 20, fontFamily: "var(--disp)" } as const;
 const descStyle = { fontSize: 14, margin: "8px 0 0" } as const;
 const actionRowStyle = { gap: 10, marginTop: 24 } as const;
@@ -34,46 +36,92 @@ export function SendGiftDialogView({
 }: SendGiftVm) {
   const modalWidth = view === "choose" ? 440 : 560;
   const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [sendChoice, setSendChoice] = useState<SendChoice | null>(null);
 
   useEffect(() => {
     if (view !== "points") setSelectedShopId(null);
   }, [view]);
 
+  useEffect(() => {
+    if (!open || view !== "choose") setSendChoice(null);
+  }, [open, view]);
+
   const selectedShop = availableShops.find((shop) => shop.id === selectedShopId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm-modal send-gift-modal" style={{ maxWidth: modalWidth }}>
-        <div className="modal-pad">
-          {view === "choose" ? (
-            <>
-              <DialogHeader>
-                <DialogTitle style={titleStyle}>What would you like to send?</DialogTitle>
-                <DialogDescription className="muted" style={descStyle}>
-                  Choose how you&apos;d like to delight your people. You can fine-tune recipients and
-                  branding on the next step.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="row" style={actionRowStyle}>
+      <DialogContent
+        className={`sm-modal send-gift-modal${view === "choose" ? " send-gift-modal--choose" : ""}`}
+        style={{ maxWidth: modalWidth }}
+      >
+        {view === "choose" ? (
+            <div className="send-gift-choose">
+              <div className="send-gift-choose__body">
+                <DialogHeader>
+                  <DialogTitle className="send-gift-choose__title">
+                    What would you like to send?
+                  </DialogTitle>
+                  <DialogDescription className="send-gift-choose__desc">
+                    Select one option to continue. Recipients and branding come next.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="send-gift-choices" role="radiogroup" aria-label="Send type">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={sendChoice === "kit"}
+                    className={`send-gift-choice${sendChoice === "kit" ? " is-on" : ""}`}
+                    onClick={() => setSendChoice("kit")}
+                  >
+                    <span className="send-gift-choice__copy">
+                      <span className="send-gift-choice__title">Send a kit</span>
+                      <span className="send-gift-choice__sub">
+                        Ship a merch kit to selected people
+                      </span>
+                    </span>
+                    <span className="send-gift-choice__radio" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={sendChoice === "points"}
+                    className={`send-gift-choice${sendChoice === "points" ? " is-on" : ""}`}
+                    onClick={() => setSendChoice("points")}
+                  >
+                    <span className="send-gift-choice__copy">
+                      <span className="send-gift-choice__title">Send points</span>
+                      <span className="send-gift-choice__sub">
+                        Give shop credit they can redeem
+                      </span>
+                    </span>
+                    <span className="send-gift-choice__radio" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+              <div className="send-gift-choose__footer">
                 <button
                   type="button"
-                  className="btn btn-ghost"
-                  style={actionBtnStyle}
-                  onClick={onPickKitView}
+                  className="send-gift-choose__btn send-gift-choose__btn--ghost"
+                  onClick={() => onOpenChange(false)}
                 >
-                  Send a kit
+                  Cancel
                 </button>
                 <button
                   type="button"
-                  className="btn btn-brand"
-                  style={actionBtnStyle}
-                  onClick={onStartSendPoints}
+                  className="send-gift-choose__btn send-gift-choose__btn--primary"
+                  disabled={!sendChoice}
+                  onClick={() => {
+                    if (sendChoice === "kit") onPickKitView();
+                    if (sendChoice === "points") onStartSendPoints();
+                  }}
                 >
-                  Send points/credits
+                  Continue
                 </button>
               </div>
-            </>
-          ) : view === "points" ? (
+            </div>
+          ) : (
+          <div className="modal-pad">
+          {view === "points" ? (
             <>
               <DialogHeader>
                 <DialogTitle style={titleStyle}>Choose a shop</DialogTitle>
@@ -222,7 +270,8 @@ export function SendGiftDialogView({
               </div>
             </>
           )}
-        </div>
+          </div>
+          )}
       </DialogContent>
     </Dialog>
   );

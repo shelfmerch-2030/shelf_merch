@@ -7,7 +7,7 @@ import { z } from 'zod';
  */
 export const strongPassword = z
   .string()
-  .min(10, 'Password must be at least 10 characters')
+  .min(8, 'Password must be at least 8 characters')
   .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), {
     message: 'Password must include at least one letter and one number',
   });

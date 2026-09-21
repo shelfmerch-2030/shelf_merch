@@ -56,7 +56,7 @@ export function AcceptInviteView(vm: AcceptInviteVm) {
               value={vm.password}
               onValueChange={vm.onPassword}
               autoComplete="new-password"
-              placeholder="At least 10 characters"
+              placeholder="At least 8 characters"
             />
           </div>
 
@@ -71,7 +71,7 @@ export function AcceptInviteView(vm: AcceptInviteVm) {
           </div>
 
           <p className="auth-simple-legal" style={{ marginTop: -4, marginBottom: 16 }}>
-            Use at least 10 characters with one letter and one number.
+            Use at least 8 characters with one letter and one number.
           </p>
 
           {vm.error ? (

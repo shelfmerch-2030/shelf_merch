@@ -115,6 +115,10 @@ export function useSignupController(): SignupVm {
       toast.error("Password must be at least 8 characters");
       return;
     }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      toast.error("Password must include at least one letter and one number");
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;

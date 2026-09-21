@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { LockKeyhole } from "lucide-react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import type { ReactNode } from "react";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import {
@@ -159,20 +159,27 @@ function Section({
   title,
   desc,
   badge,
+  action,
   children,
 }: {
   title: string;
   desc: string;
   badge?: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="bonus-integ-section">
-      <h2>
-        {title}
-        {badge ? <span className="bonus-integ-section-badge">{badge}</span> : null}
-      </h2>
-      <p>{desc}</p>
+      <div className="bonus-integ-section__head">
+        <div className="bonus-integ-section__copy">
+          <h2>
+            {title}
+            {badge ? <span className="bonus-integ-section-badge">{badge}</span> : null}
+          </h2>
+          <p>{desc}</p>
+        </div>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -232,6 +239,14 @@ export function IntegrationsView(vm: IntegrationsVm) {
       <Section
         title="User management"
         desc="Connect your HRIS, HRMS, or company directory to sync employee names, emails, and directory data automatically."
+        action={
+          hasMergeConnection ? (
+            <Link to="/app/integrations/hris-employees" className="bonus-integ-section__action">
+              <span>View employee directory</span>
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          ) : null
+        }
       >
         <div className="bonus-integ-logo-grid">
           {USER_MANAGEMENT_TOOLS.map((item) => {
@@ -256,11 +271,6 @@ export function IntegrationsView(vm: IntegrationsVm) {
             );
           })}
         </div>
-        {hasMergeConnection ? (
-          <p className="bonus-integ-section__link">
-            <Link to="/app/integrations/hris-employees">View employee directory</Link>
-          </p>
-        ) : null}
       </Section>
 
       <Section

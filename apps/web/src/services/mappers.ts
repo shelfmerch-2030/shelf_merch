@@ -143,6 +143,10 @@ export type UiContact = {
   phone?: string;
   department?: string;
   employeeCode?: string;
+  designation?: string;
+  dateOfJoining?: string | null;
+  employmentStatus?: string;
+  effectiveEmploymentStatus?: string;
 };
 
 export type UiKitProductRef = {
@@ -597,10 +601,14 @@ export function mapContact(c: ApiProduct): UiContact {
     city: addr.city || "",
     state: addr.state || "",
     pincode: addr.pincode || "",
-    country: addr.country || "IN",
+    country: addr.country || "",
     phone: c.phone || "",
     department: c.department || "",
     employeeCode: c.employeeCode || "",
+    designation: c.designation || "",
+    dateOfJoining: c.dateOfJoining ? String(c.dateOfJoining) : null,
+    employmentStatus: c.employmentStatus || "",
+    effectiveEmploymentStatus: c.effectiveEmploymentStatus || "",
   };
 }
 

@@ -45,12 +45,7 @@ export function CampaignsView(vm: CampaignsVm) {
           onResumeCampaign={vm.onResumeCampaign}
         />
       ) : (
-        <CampaignsEmptyStateView
-          canSend={vm.canSend}
-          onSendGift={vm.onSendGift}
-          onSendPointsCampaign={vm.onSendPointsCampaign}
-          onSendKitCampaign={vm.onSendKitCampaign}
-        />
+        <CampaignsEmptyStateView canSend={vm.canSend} onSendGift={vm.onSendGift} />
       )}
       <SendGiftDialogView {...vm.gift} />
     </>

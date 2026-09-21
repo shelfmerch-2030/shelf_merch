@@ -322,8 +322,6 @@ export function CampaignsTableView({
             embedded
             canSend={canSend}
             onSendGift={onSendGift}
-            onSendPointsCampaign={onSendPointsCampaign}
-            onSendKitCampaign={onSendKitCampaign}
           />
         ) : (
           <>

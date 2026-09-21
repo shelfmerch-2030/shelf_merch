@@ -5,6 +5,26 @@ export const ROLES = ["Owner", "Admin", "Sender", "Member", "Non-Member"] as con
 /** Roles a user can pick when adding (Owner is assigned, not chosen). */
 export const ADD_ROLES = ["Non-Member", "Member", "Sender", "Admin"] as const;
 
+/** Directory-style worker status from HRIS effective status, with a role fallback. */
+export function contactWorkerStatus(contact: {
+  role?: string;
+  employmentStatus?: string;
+  effectiveEmploymentStatus?: string;
+}): { key: "active" | "invited" | "inactive"; label: string } {
+  const raw = String(contact.effectiveEmploymentStatus || contact.employmentStatus || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+  if (raw === "INACTIVE" || raw === "TERMINATED" || raw === "ARCHIVED") {
+    return { key: "inactive", label: "No active contracts" };
+  }
+  if (raw === "SUSPENDED") return { key: "inactive", label: "Suspended" };
+  if (raw === "PENDING") return { key: "invited", label: "Invited" };
+  if (raw === "ACTIVE") return { key: "active", label: "Active" };
+  if (contact.role === "Non-Member") return { key: "invited", label: "Invited" };
+  return { key: "active", label: "Active" };
+}
+
 export const COUNTRIES = [
   { value: "IN", label: "India" },
   { value: "AE", label: "UAE" },
