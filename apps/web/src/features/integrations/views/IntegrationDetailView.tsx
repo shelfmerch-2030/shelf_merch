@@ -5,9 +5,12 @@ import {
   ArrowRight,
   CircleAlert,
   CircleHelp,
+  Clock,
   Loader2,
   RefreshCw,
   Unplug,
+  Users,
+  Contact,
 } from "lucide-react";
 import type { Tile } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
@@ -88,13 +91,16 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, {
+  const date = d.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
-    hour: "2-digit",
+  });
+  const time = d.toLocaleTimeString(undefined, {
+    hour: "numeric",
     minute: "2-digit",
   });
+  return `${date} at ${time}`;
 }
 
 function mergeSyncFailureCopy(connection: MergeConnectionPublic) {
@@ -157,12 +163,18 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 function MetaStats({ items }: { items: { label: string; value: string }[] }) {
   return (
     <div className="bonus-integ-meta-stats">
-      {items.map((item) => (
-        <div key={item.label} className="bonus-integ-meta-stat">
-          <span className="bonus-integ-meta-stat__label">{item.label}</span>
-          <span className="bonus-integ-meta-stat__value">{item.value}</span>
-        </div>
-      ))}
+      {items.map((item) => {
+        const ok = item.label === "Status" && item.value === "Connected";
+        return (
+          <div key={item.label} className="bonus-integ-meta-stat">
+            <span className="bonus-integ-meta-stat__label">{item.label}</span>
+            <span className={`bonus-integ-meta-stat__value${ok ? " is-ok" : ""}`}>
+              {ok ? <i aria-hidden="true" /> : null}
+              {item.value}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -548,20 +560,9 @@ export function IntegrationDetailView({
   } else if (isMergeProvider && mergeHealthy && connection) {
     body = (
       <>
-        <MetaStats
-          items={[
-            { label: "Status", value: syncFailed ? "Sync failed" : "Connected" },
-            { label: "Last synced", value: formatDate(connection.lastSyncAt) },
-            {
-              label: "Provider",
-              value: connection.integrationName || tile.name,
-            },
-          ]}
-        />
-
         {syncFailureMessage ? <Callout tone="warning">{syncFailureMessage}</Callout> : null}
 
-        <div className="bonus-integ-detail-actions">
+        <div className="bonus-integ-detail-actions bonus-integ-detail-actions--split">
           {canManage && onSync ? (
             <button
               type="button"
@@ -593,22 +594,29 @@ export function IntegrationDetailView({
           ) : null}
         </div>
 
-        <div className="bonus-integ-quick-links">
+        <section className="bonus-integ-quick-links" aria-labelledby="integ-people-heading">
+          <p id="integ-people-heading" className="bonus-integ-quick-links__label">People</p>
           <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
-            <span>
+            <span className="bonus-integ-directory-icon bonus-integ-directory-icon--people" aria-hidden="true">
+              <Users size={16} />
+            </span>
+            <span className="bonus-integ-directory-copy">
               <strong>Employee directory</strong>
-              <span>Browse synced people from this provider</span>
+              <span>Browse everyone synced from {tile.name}</span>
             </span>
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
           <Link to="/app/contacts" className="bonus-integ-directory-link">
-            <span>
+            <span className="bonus-integ-directory-icon bonus-integ-directory-icon--contacts" aria-hidden="true">
+              <Contact size={16} />
+            </span>
+            <span className="bonus-integ-directory-copy">
               <strong>Workspace Contacts</strong>
-              <span>Employees are also available as contacts after sync</span>
+              <span>Use them for gifting after each sync</span>
             </span>
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
-        </div>
+        </section>
       </>
     );
   } else if (isMergeProvider && mergeNeedsReconnect && connection) {
@@ -740,6 +748,19 @@ export function IntegrationDetailView({
     );
   }
 
+  const headerStatus =
+    isMergeProvider && mergeHealthy && connection
+      ? syncFailed
+        ? ({ tone: "warning", label: "Sync failed" } as const)
+        : ({ tone: "success", label: "Connected" } as const)
+      : isMergeProvider && mergeNeedsReconnect
+        ? ({ tone: "warning", label: "Needs reconnect" } as const)
+        : zohoConnected && zoho
+          ? zoho.status === "connected"
+            ? ({ tone: "success", label: "Connected" } as const)
+            : ({ tone: "warning", label: "Needs attention" } as const)
+          : null;
+
   return (
     <div className="bonus-integ-detail-page">
       <button type="button" className="bonus-integ-back" onClick={onBack}>
@@ -755,22 +776,32 @@ export function IntegrationDetailView({
             </div>
           )}
           <div className="bonus-integ-detail-heading">
-            <p className="bonus-integ-detail-kicker">{detailKicker}</p>
-            {/* Logo already identifies the provider — avoid repeating the name as a title. */}
-            {!tile.icon ? <h1>{tile.name}</h1> : null}
+            <div className="bonus-integ-detail-title-row">
+              <p className="bonus-integ-detail-kicker">{detailKicker}</p>
+              {headerStatus ? (
+                <StatusPill tone={headerStatus.tone} label={headerStatus.label} />
+              ) : null}
+            </div>
+            <h1>{tile.name}</h1>
             <p className="bonus-integ-detail-lead">{detailCopy(tile)}</p>
+            {isMergeProvider && mergeHealthy && connection?.lastSyncAt ? (
+              <p className="bonus-integ-detail-meta">
+                <Clock size={13} aria-hidden="true" />
+                Last synced {formatDate(connection.lastSyncAt)}
+              </p>
+            ) : null}
           </div>
         </header>
 
         <div className="bonus-integ-detail-body">{body}</div>
 
-        <div className="bonus-integ-help">
+        <footer className="bonus-integ-help">
           <CircleHelp size={14} aria-hidden="true" />
-          <span>Need help? </span>
+          <span>Need help?</span>
           <button type="button" onClick={onSupport}>
             Drop us a line
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );

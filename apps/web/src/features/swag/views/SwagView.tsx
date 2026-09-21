@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Archive, MoreVertical, Plus, Shirt } from "lucide-react";
+import { Archive, Plus, Shirt } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -12,12 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import type { SwagVm } from "../controllers/useSwagController";
@@ -26,7 +20,6 @@ import { PublishCollectionDialog } from "../PublishCollectionDialog";
 import { SwagCollectionCard } from "../SwagCollectionCard";
 import { useArchiveCollection, useDeleteCollection, useRestoreCollection } from "../model";
 import type { UiCollection } from "@/services/mappers";
-import startDesigningImg from "../../../../assets/start_designing.png";
 
 export function SwagView(vm: SwagVm) {
   const navigate = useNavigate();
@@ -81,27 +74,10 @@ export function SwagView(vm: SwagVm) {
     }
   }
 
-  const overflowActions = isArchivedTab
-    ? [
-        {
-          id: "collections",
-          label: "Collections",
-          onSelect: () => vm.onSelectTab("Collections"),
-        },
-      ]
-    : [
-        {
-          id: "archived",
-          label: "Archived",
-          onSelect: () => vm.onSelectTab("Archived"),
-        },
-      ];
-
   return (
     <>
       <PageHeader
         title="Swag"
-        subtitle="Design and publish branded collections to your shops."
         actions={
           <>
             {vm.canDesignSwag ? (
@@ -116,34 +92,14 @@ export function SwagView(vm: SwagVm) {
         }
       />
 
-      <div className="swag-hero-banner" role="img" aria-label="Build your swag collection" />
-
-      <div className="swag-toolbar">
-        <h2 className="swag-toolbar__title">
-          {isArchivedTab ? (
-            <>
-              <Archive size={16} strokeWidth={2.2} aria-hidden="true" />
-              Archived
-            </>
-          ) : (
-            <>Collections{vm.empty ? "" : ` (${vm.collections.length})`}</>
-          )}
-        </h2>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className="swag-toolbar__menu" aria-label="More options">
-              <MoreVertical size={18} strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="bottom" className="shop-card-menu">
-            {overflowActions.map((action) => (
-              <DropdownMenuItem key={action.id} onSelect={action.onSelect}>
-                {action.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {isArchivedTab ? (
+        <div className="swag-toolbar">
+          <h2 className="swag-toolbar__title">
+            <Archive size={16} strokeWidth={2.2} aria-hidden="true" />
+            Archived
+          </h2>
+        </div>
+      ) : null}
 
       {vm.empty ? (
         isArchivedTab ? (
@@ -155,32 +111,34 @@ export function SwagView(vm: SwagVm) {
             <p>Archived collections will appear here.</p>
           </div>
         ) : (
-          <div
-            className="card swag-empty-designer"
-            style={{ position: "relative", overflow: "hidden", padding: 0 }}
-          >
+          <div className="card swag-empty-designer">
             <img
-              src={startDesigningImg}
-              alt="Design your swag collection"
-              className="start-designing-img"
-              style={{ width: "100%", height: "auto", display: "block" }}
+              src="/images/swag-collection-soft-banner.png"
+              alt=""
+              className="swag-empty-designer__image"
+              aria-hidden="true"
             />
-            {vm.canDesignSwag ? (
-              <button
-                type="button"
-                className="btn btn-dark btn-lg"
-                style={{
-                  padding: "0 20px",
-                  position: "absolute",
-                  bottom: 24,
-                  left: 80,
-                  zIndex: 10,
-                }}
-                onClick={vm.onStartDesigning}
-              >
-                <Plus size={16} /> Start designing
-              </button>
-            ) : null}
+            <div className="swag-empty-designer__copy">
+              <p className="swag-empty-designer__eyebrow">Collection builder</p>
+              <h3>
+                Design your
+                <br />
+                swag collection.
+              </h3>
+              <p>
+                Pick products, add artwork, and launch a branded collection your team can publish
+                to any shop.
+              </p>
+              {vm.canDesignSwag ? (
+                <button
+                  type="button"
+                  className="btn btn-dark btn-lg swag-empty-designer__cta"
+                  onClick={vm.onStartDesigning}
+                >
+                  <Plus size={16} /> Start designing
+                </button>
+              ) : null}
+            </div>
           </div>
         )
       ) : (
