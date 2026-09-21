@@ -30,6 +30,18 @@
   box-shadow: 0 14px 34px rgba(15, 18, 25, 0.04);
 }
 
+.bonus-integ-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin-bottom: 18px;
+}
+
+.bonus-integ-section__copy {
+  min-width: 0;
+}
+
 .bonus-integ-section h2 {
   margin: 0 0 6px;
   display: flex;
@@ -58,28 +70,41 @@
   text-transform: uppercase;
 }
 
+.bonus-integ-section__copy p,
 .bonus-integ-section > p {
-  margin: 0 0 18px;
+  margin: 0;
   max-width: 62ch;
   color: var(--ink-2);
   font-size: 14px;
   line-height: 1.5;
 }
 
-.bonus-integ-section__link {
-  margin: 16px 0 0;
+.bonus-integ-section__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-top: 4px;
+  color: var(--brand, #3152ff);
   font-size: 13.5px;
   font-weight: 600;
-}
-
-.bonus-integ-section__link a {
-  color: var(--brand, #3152ff);
+  line-height: 1.2;
   text-decoration: none;
-  font-weight: 600;
+  white-space: nowrap;
 }
 
-.bonus-integ-section__link a:hover {
+.bonus-integ-section__action svg {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.bonus-integ-section__action:hover {
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bonus-integ-section__action:hover svg {
+  transform: translateX(2px);
 }
 
 /* HRIS logo grid */
@@ -452,6 +477,10 @@
     padding: 18px 16px 20px;
   }
 
+  .bonus-integ-section__head {
+    flex-wrap: wrap;
+  }
+
   .bonus-integ-logo-grid,
   .bonus-integ-grid,
   .bonus-integ-grid--detail {
@@ -465,4 +494,119 @@
   .bonus-integ-grid--detail {
     grid-template-columns: 1fr;
   }
+}
+
+.bonus-integ-detail-header {
+  align-items: center;
+}
+
+.bonus-integ-detail-brand {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  padding: 12px 14px;
+  border: 1px solid #e8eaed;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.bonus-integ-detail-brand .bonus-integ-logo,
+.bonus-integ-detail-brand .bonus-integ-logo--large {
+  width: auto;
+  height: auto;
+  flex: none;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.bonus-integ-detail-brand .bonus-integ-logo img,
+.bonus-integ-detail-brand .bonus-integ-logo--large img {
+  display: block;
+  width: auto;
+  height: 28px;
+  max-width: 140px;
+  max-height: none;
+  object-fit: contain;
+}
+
+.bonus-integ-detail-kicker {
+  white-space: nowrap;
+}
+
+.bonus-integ-detail-lead {
+  max-width: none;
+}
+
+.bonus-integ-back {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.bonus-integ-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: #f9fafb;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: #4b5563;
+}
+
+.bonus-integ-status-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9ca3af;
+  box-shadow: none;
+  flex: none;
+}
+
+.bonus-integ-status-pill--success {
+  color: #166534;
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+}
+
+.bonus-integ-status-pill--success .bonus-integ-status-pill__dot {
+  background: #16a34a;
+}
+
+.bonus-integ-status-pill--warning {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.bonus-integ-status-pill--warning .bonus-integ-status-pill__dot {
+  background: #d97706;
+}
+
+.bonus-integ-status-pill--danger {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.bonus-integ-status-pill--danger .bonus-integ-status-pill__dot {
+  background: #dc2626;
+}
+
+.bonus-integ-help {
+  margin: 0;
+  padding: 16px 28px 22px;
+  border-top: 1px solid #eef0f3;
+  color: #9ca3af;
+}
+
+.bonus-integ-help button {
+  color: #4f46e5;
+  font-weight: 600;
 }

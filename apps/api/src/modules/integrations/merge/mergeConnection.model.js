@@ -44,6 +44,10 @@ const mergeConnectionSchema = new mongoose.Schema(
       default: 'idle',
     },
     lastError: { type: String, default: '' },
+    /** Owner token for the in-flight sync lease. Not public. */
+    syncLockToken: { type: String, default: '' },
+    /** Lease expiry; a crashed process stops renewing so the next acquire can proceed. */
+    syncLockUntil: { type: Date, default: null },
   },
   { timestamps: true },
 );

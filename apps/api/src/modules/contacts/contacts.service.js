@@ -2,6 +2,8 @@ import { Contact } from './contact.model.js';
 import { managedEntityNamesForUser } from '../entities/entities.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { deriveEffectiveEmploymentStatus } from '../integrations/merge/effectiveEmploymentStatus.js';
+import { MergeConnection } from '../integrations/merge/mergeConnection.model.js';
+import { MergeHrisEmployee } from '../integrations/merge/models/mergeHrisEmployee.model.js';
 
 function normalizeDept(value) {
   return String(value || '')
@@ -32,19 +34,98 @@ function isEntityManager(user) {
   return user?.role === 'entity_manager' || user?.scopeType === 'entity';
 }
 
+function mergeIdentityOf(contact) {
+  const mergeEmployeeId = String(contact?.mergeEmployeeId || '').trim();
+  const mergeConnectionId = contact?.mergeConnectionId;
+  if (!mergeEmployeeId || !mergeConnectionId) return null;
+  return {
+    mergeEmployeeId,
+    mergeConnectionId,
+    key: `${String(mergeConnectionId)}:${mergeEmployeeId}`,
+  };
+}
+
+/** Same freshness Directory uses: missing/null lastSyncedAt, or >= connection.lastSyncAt. */
+function isDirectoryVisibleEmployee(emp, connection) {
+  if (!emp || !connection) return false;
+  if (!connection.lastSyncAt) return true;
+  if (emp.lastSyncedAt == null) return true;
+  return new Date(emp.lastSyncedAt).getTime() >= new Date(connection.lastSyncAt).getTime();
+}
+
+/**
+ * One batched employee lookup for the Merge-linked Contacts in `rows`.
+ * Keyed by `${connectionId}:${mergeEmployeeId}`. Directory-invisible leftovers
+ * are omitted so callers fall back to Contact fields.
+ */
+async function loadDirectoryEmployeesByIdentity({ tenantId, rows }) {
+  const idsByConnection = new Map();
+  for (const row of rows) {
+    const ident = mergeIdentityOf(row);
+    if (!ident) continue;
+    const connKey = String(ident.mergeConnectionId);
+    let ids = idsByConnection.get(connKey);
+    if (!ids) {
+      ids = new Set();
+      idsByConnection.set(connKey, ids);
+    }
+    ids.add(ident.mergeEmployeeId);
+  }
+
+  if (!idsByConnection.size) return new Map();
+
+  const connectionIds = [...idsByConnection.keys()];
+  const connections = await MergeConnection.find({
+    tenantId,
+    _id: { $in: connectionIds },
+  })
+    .select('_id lastSyncAt')
+    .lean();
+
+  if (!connections.length) return new Map();
+
+  const connectionsById = new Map(connections.map((c) => [String(c._id), c]));
+  const employees = await MergeHrisEmployee.find({
+    tenantId,
+    $or: connections.map((c) => ({
+      connectionId: c._id,
+      mergeEmployeeId: { $in: [...idsByConnection.get(String(c._id))] },
+    })),
+  })
+    .select('connectionId mergeEmployeeId employmentStatus terminationDate startDate lastSyncedAt')
+    .lean();
+
+  const employeesByKey = new Map();
+  for (const emp of employees) {
+    const connection = connectionsById.get(String(emp.connectionId));
+    if (!isDirectoryVisibleEmployee(emp, connection)) continue;
+    employeesByKey.set(`${String(emp.connectionId)}:${emp.mergeEmployeeId}`, emp);
+  }
+  return employeesByKey;
+}
+
 /** Read-time effective status; never writes derived values onto the Contact. */
-export function contactToPublicJSON(contact, now) {
+export function contactToPublicJSON(contact, now, liveEmployee = null) {
   if (!contact) return contact;
   const obj =
     typeof contact.toJSON === 'function'
       ? contact.toJSON()
       : { ...contact };
-  const derived = deriveEffectiveEmploymentStatus({
-    employmentStatus: obj.employmentStatus,
-    terminationDate: obj.terminationDate,
-    startDate: obj.dateOfJoining,
-    now,
-  });
+  const derived = deriveEffectiveEmploymentStatus(
+    liveEmployee
+      ? {
+          employmentStatus: liveEmployee.employmentStatus,
+          terminationDate: liveEmployee.terminationDate,
+          startDate: liveEmployee.startDate,
+          now,
+        }
+      : {
+          employmentStatus: obj.employmentStatus,
+          terminationDate: obj.terminationDate,
+          startDate: obj.dateOfJoining,
+          now,
+        },
+  );
   return {
     ...obj,
     effectiveEmploymentStatus: derived.effectiveEmploymentStatus,
@@ -52,12 +133,30 @@ export function contactToPublicJSON(contact, now) {
   };
 }
 
+/** Merge-linked and effectively inactive — hide from the normal Contacts list only. */
+function isHiddenInactiveMergeHrisContact(row) {
+  if (!row?.mergeEmployeeId || !row?.mergeConnectionId) return false;
+  return row.effectiveEmploymentStatus === 'INACTIVE';
+}
+
+function toListedContacts(rows, employeesByKey, now) {
+  const listed = [];
+  for (const row of rows) {
+    const ident = mergeIdentityOf(row);
+    const liveEmployee = ident ? employeesByKey.get(ident.key) : null;
+    const json = contactToPublicJSON(row, now, liveEmployee || null);
+    if (!isHiddenInactiveMergeHrisContact(json)) listed.push(json);
+  }
+  return listed;
+}
+
 /** List contacts visible to the caller — tenant-wide for admins, dept-scoped for EMs. */
-export async function listContactsForUser({ tenantId, user }) {
+export async function listContactsForUser({ tenantId, user, now }) {
   const names = await managedEntityNamesForUser({ tenantId, user });
   if (names === null) {
     const rows = await Contact.find({ tenantId }).sort({ name: 1 });
-    return rows.map((row) => contactToPublicJSON(row));
+    const employeesByKey = await loadDirectoryEmployeesByIdentity({ tenantId, rows });
+    return toListedContacts(rows, employeesByKey, now);
   }
   if (!names.length) return [];
 
@@ -65,7 +164,8 @@ export async function listContactsForUser({ tenantId, user }) {
     tenantId,
     ...departmentMatchFilter(names),
   }).sort({ name: 1 });
-  return rows.map((row) => contactToPublicJSON(row));
+  const employeesByKey = await loadDirectoryEmployeesByIdentity({ tenantId, rows });
+  return toListedContacts(rows, employeesByKey, now);
 }
 
 /**

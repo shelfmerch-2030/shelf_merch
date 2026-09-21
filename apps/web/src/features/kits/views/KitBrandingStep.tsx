@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Check, CircleHelp, Eye, Info, MoreHorizontal, Trash2, Upload, X } from "lucide-react";
+import { Check, Eye, Image as ImageIcon, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -177,35 +177,51 @@ export function KitBrandingStep({
     <div className="sw-art-studio">
       <div className="sw-art-layout">
         <header className="sw-art-page-head">
+          <p className="sw-art-eyebrow">Step 3 of 4</p>
           <h1>Brand your kit</h1>
           <p className="sw-art-page-lead">
-            Upload your artwork and place it on each product. You can edit or update your design
-            anytime. Our team will mock up every item for approval.{" "}
-            <span className="sw-art-page-info" title="Decoration info" aria-label="More information">
-              <Info size={11} strokeWidth={2.5} />
-            </span>
+            Upload artwork and place it on each product. You can refine placement anytime before
+            publishing.
           </p>
         </header>
 
         {!designedCount && !bannerDismissed ? (
           <div className="sw-art-alert">
-            <span>
-              Add your artwork on the left to preview it on every product — all colour variants are
-              included. Click a product to fine-tune placement.
-            </span>
+            <div className="sw-art-alert__main">
+              <p className="sw-art-alert__text">
+                Add artwork on the left to preview it on every product, all colour variants
+                included. Click a product to fine-tune placement.
+              </p>
+              <button
+                type="button"
+                className="sw-art-alert__cta"
+                onClick={() => {
+                  setTab("upload");
+                  setBannerDismissed(true);
+                }}
+              >
+                Get started
+              </button>
+            </div>
+            <div className="sw-art-alert__visual" aria-hidden="true">
+              <span className="sw-art-alert__blob" />
+              <span className="sw-art-alert__badge">
+                <ImageIcon size={22} strokeWidth={1.75} />
+              </span>
+            </div>
             <button
               type="button"
               className="sw-art-alert-close"
               aria-label="Dismiss"
               onClick={() => setBannerDismissed(true)}
             >
-              <X size={14} />
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         ) : null}
 
         <aside className="sw-art-panel">
-          <h2 className="sw-art-panel-title">Add New Artwork</h2>
+          <h2 className="sw-art-panel-title">Artwork</h2>
 
           <div className="sw-art-tabs" role="tablist" aria-label="Artwork source">
             <button
@@ -215,7 +231,7 @@ export function KitBrandingStep({
               className={`sw-art-tab${tab === "upload" ? " on" : ""}`}
               onClick={() => setTab("upload")}
             >
-              Upload from device
+              Upload
             </button>
             <button
               type="button"
@@ -224,7 +240,7 @@ export function KitBrandingStep({
               className={`sw-art-tab${tab === "previous" ? " on" : ""}`}
               onClick={() => setTab("previous")}
             >
-              Previous uploads
+              Previous
             </button>
           </div>
 
@@ -251,8 +267,11 @@ export function KitBrandingStep({
                   onDragLeave={() => setDragging(false)}
                   onDrop={onDrop}
                 >
-                  <Upload size={18} />
-                  <span>Choose a file from your device</span>
+                  <span className="sw-art-upload-icon">
+                    <Upload size={18} strokeWidth={2} />
+                  </span>
+                  <span className="sw-art-upload-title">Drag and drop, or browse</span>
+                  <span className="sw-art-upload-sub">SVG, PNG, JPG · 300 DPI recommended</span>
                 </button>
               )}
             </div>
@@ -273,7 +292,7 @@ export function KitBrandingStep({
                   ))
                 ) : (
                   <div className="sw-art-prev-empty mut3">
-                    No previous uploads yet. Upload artwork from your device first.
+                    No previous uploads yet. Upload from your device first.
                   </div>
                 )}
               </div>
@@ -292,17 +311,9 @@ export function KitBrandingStep({
             }}
           />
 
-          <div className="sw-art-quality-tip">
-            <CircleHelp size={14} />
-            <span>
-              Choose a high-quality file to prevent production delays and ensure the best results.
-              Use a logo with a transparent background and ensure all other artwork has a resolution
-              of at least 300 DPI.{" "}
-              <button type="button" className="lnk sw-art-quality-link">
-                Learn more
-              </button>
-            </span>
-          </div>
+          <p className="sw-art-quality-tip">
+            Use a transparent logo and artwork at 300 DPI or higher for the best print quality.
+          </p>
 
           <button
             type="button"
@@ -313,30 +324,18 @@ export function KitBrandingStep({
             Add artwork
           </button>
 
-          <div className="field" style={{ marginTop: 14, marginBottom: 0 }}>
+          <div className="field sw-art-notes-field">
             <label className="lbl" htmlFor="kit-brand-notes">
-              Notes to design team{" "}
-              <span
-                className="mut3"
-                style={{ fontWeight: 500, textTransform: "none", letterSpacing: 0 }}
-              >
-                (optional)
-              </span>
+              Notes for design team
+              <span className="sw-art-optional">Optional</span>
             </label>
             <textarea
               id="kit-brand-notes"
-              className="inp"
+              className="inp sw-art-notes-input"
               rows={3}
-              placeholder="e.g. White logo on the chest, full-colour on mugs"
+              placeholder="e.g. White logo on the chest, full colour on mugs"
               value={notes}
               onChange={(e) => onNotes(e.target.value)}
-              style={{
-                resize: "vertical",
-                minHeight: 72,
-                padding: "10px 12px",
-                lineHeight: 1.45,
-                marginTop: 8,
-              }}
             />
           </div>
 
@@ -359,9 +358,9 @@ export function KitBrandingStep({
         <div className="sw-art-preview-stage">
           <div className="sw-art-preview-head">
             <div>
-              <div className="sw-art-preview-title">Your products</div>
+              <div className="sw-art-preview-title">Products</div>
               <div className="mut3 sw-art-preview-hint">
-                Click a product to edit logo placement, size, and extra placeholders
+                Click a product to edit placement and placeholders
               </div>
             </div>
             {designedCount > 0 ? (
@@ -396,10 +395,10 @@ export function KitBrandingStep({
                     <button
                       type="button"
                       className="sw-mockup-menu"
-                      aria-label={`Edit branding for ${p.nm}`}
+                      aria-label={`Preview branding for ${p.nm}`}
                       onClick={() => setEditIdx(idx)}
                     >
-                      <MoreHorizontal size={16} />
+                      <Eye size={16} strokeWidth={2} />
                     </button>
                     <button
                       type="button"
@@ -423,7 +422,7 @@ export function KitBrandingStep({
                       {p.brand ? <div className="brand">{p.brand}</div> : null}
                       <div className="nm">{p.nm}</div>
                       <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
-                        {designed ? "Designed" : "Not Designed"}
+                        {designed ? "Designed" : "Not designed"}
                       </div>
                     </div>
                   </div>

@@ -3,8 +3,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import type { Plugin } from "vite";
+import { loadEnv, type Plugin } from "vite";
 
+const REPO_ROOT = path.resolve(__dirname, "../..");
 const API_UPLOADS_DIR = path.resolve(__dirname, "../api/uploads");
 const UPLOAD_MIME: Record<string, string> = {
   png: "image/png",
@@ -38,11 +39,36 @@ function devUploadsPlugin(): Plugin {
   };
 }
 
+/**
+ * Strip GTM snippets from index.html when VITE_GTM_ID is unset/empty so local
+ * and non-production builds do not load Tag Manager. When the ID is set, Vite's
+ * built-in %VITE_GTM_ID% HTML replacement injects the container ID.
+ */
+function conditionalGtmPlugin(envDir: string): Plugin {
+  let gtmId = "";
+  return {
+    name: "conditional-gtm",
+    configResolved(config) {
+      const env = loadEnv(config.mode, envDir, "VITE_");
+      gtmId = (env.VITE_GTM_ID || "").trim();
+    },
+    transformIndexHtml(html) {
+      if (gtmId) return html;
+      return html
+        .replace(/<!-- Google Tag Manager -->[\s\S]*?<!-- End Google Tag Manager -->\s*/g, "")
+        .replace(
+          /<!-- Google Tag Manager \(noscript\) -->[\s\S]*?<!-- End Google Tag Manager \(noscript\) -->\s*/g,
+          "",
+        );
+    },
+  };
+}
+
 // Plain Vite SPA — builds to static assets (dist/) for static hosting.
 // The router plugin must run before the React plugin.
 export default defineConfig({
-  envDir: path.resolve(__dirname, "../.."),
-  plugins: [react(), tailwindcss(), devUploadsPlugin()],
+  envDir: REPO_ROOT,
+  plugins: [react(), tailwindcss(), devUploadsPlugin(), conditionalGtmPlugin(REPO_ROOT)],
   resolve: {
     tsconfigPaths: true,
   },

@@ -1,4 +1,4 @@
-import { Receipt, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { inr } from "@/components/platform/platform-ui";
@@ -26,10 +26,7 @@ export function OrdersView(vm: OrdersVm) {
       <PageHeader title="Orders" subtitle={SUBTITLE} />
 
       {!vm.hasOrders ? (
-        <div className="card empty">
-          <div className="ic" aria-hidden="true">
-            <Receipt size={34} color="var(--ink-3)" />
-          </div>
+        <div className="card empty app-simple-empty">
           <h3>No orders yet</h3>
           <p>Orders appear here when recipients redeem gifts or you send kits at scale.</p>
         </div>

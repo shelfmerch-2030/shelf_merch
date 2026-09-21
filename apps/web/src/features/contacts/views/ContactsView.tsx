@@ -1,24 +1,40 @@
+import { useEffect, useState } from "react";
 import {
-  ArrowDownAZ,
-  ArrowUpAZ,
+  AlertTriangle,
   ArrowUpDown,
-  Ban,
+  Check,
   ChevronDown,
-  CircleHelp,
+  HelpCircle,
+  MoreHorizontal,
   Plus,
   Search,
-  SquareArrowOutUpRight,
-  Trash2,
+  SlidersHorizontal,
+  Upload,
 } from "lucide-react";
-import { toast } from "sonner";
+import { COUNTRY_OPTIONS } from "@/data/countries";
 import { LoadingState } from "@/components/LoadingState";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ContactFormDialog } from "../ContactFormDialog";
-import { ROLES } from "../types";
+import { ROLES, contactWorkerStatus } from "../types";
 import type { UiContact } from "../model";
 import {
   type ContactsVm,
   type SortDir,
   type SortKey,
+  type WorkerStatusFilter,
 } from "../controllers/useContactsController";
 import "../contacts-page.css";
 
@@ -31,8 +47,8 @@ const FOOTER_LINKS = [
   "Contact us",
 ];
 
-const FILTER_OPTIONS: [string, string][] = [
-  ["all", "All roles"],
+const WORKER_TYPE_OPTIONS: [string, string][] = [
+  ["all", "All worker types"],
   ["Owner", "Owner"],
   ["Admin", "Admin"],
   ["Sender", "Sender"],
@@ -40,9 +56,31 @@ const FILTER_OPTIONS: [string, string][] = [
   ["Non-Member", "Non-Member"],
 ];
 
+const STATUS_OPTIONS: [WorkerStatusFilter, string][] = [
+  ["all", "All statuses"],
+  ["active", "Active"],
+  ["invited", "Invited"],
+  ["inactive", "No active contracts"],
+];
+
 const SORT_OPTIONS: [SortDir, string][] = [
   ["asc", "A–Z"],
   ["desc", "Z–A"],
+];
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 function permissionLabel(role: string) {
@@ -53,21 +91,14 @@ function permissionLabel(role: string) {
   return "Non-Member";
 }
 
-function roleTone(role: string) {
-  if (role === "Owner") return "owner";
-  if (role === "Admin") return "admin";
-  if (role === "Sender") return "sender";
-  return "member";
-}
-
 function avatarTone(seed: string) {
   const tones = [
-    { bg: "#dbeafe", fg: "#111827" },
-    { bg: "#fef3c7", fg: "#111827" },
-    { bg: "#e0e7ff", fg: "#111827" },
-    { bg: "#dcfce7", fg: "#111827" },
-    { bg: "#fce7f3", fg: "#111827" },
-    { bg: "#e0f2fe", fg: "#111827" },
+    { bg: "#ede9fe", fg: "#5b21b6" },
+    { bg: "#dbeafe", fg: "#1d4ed8" },
+    { bg: "#fce7f3", fg: "#9d174d" },
+    { bg: "#d1fae5", fg: "#047857" },
+    { bg: "#ffedd5", fg: "#c2410c" },
+    { bg: "#e0f2fe", fg: "#0369a1" },
   ];
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash + seed.charCodeAt(i) * 17) % tones.length;
@@ -88,10 +119,162 @@ function emptyCell(value?: string) {
   return v ? v : "—";
 }
 
+function personSubtitle(contact: UiContact) {
+  const title = (contact.designation || "").trim();
+  return title || "Not specified";
+}
+
+function DeleteContactDialog({
+  contact,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  contact: UiContact | null;
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  const [ack, setAck] = useState(false);
+  useEffect(() => {
+    if (contact) setAck(false);
+  }, [contact]);
+  const label = contact?.name || contact?.email || "this contact";
+  return (
+    <AlertDialog open={contact !== null} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="ct-del">
+        <div className="ct-del__icon" aria-hidden="true">
+          <AlertTriangle size={28} />
+        </div>
+        <AlertDialogTitle className="ct-del__title">Delete {label}&apos;s contact?</AlertDialogTitle>
+        <AlertDialogDescription className="ct-del__copy">
+          This person will be removed from Contacts. This cannot be undone.
+          Use this mainly for contacts added by mistake.
+        </AlertDialogDescription>
+        <label className="ct-del__ack">
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+          />
+          <span>I understand and acknowledge the implications of deleting this contact</span>
+        </label>
+        <div className="ct-del__actions">
+          <AlertDialogCancel className="ct-del__cancel">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="ct-del__danger"
+            disabled={!ack || pending}
+            onClick={(e) => {
+              if (!ack) {
+                e.preventDefault();
+                return;
+              }
+              onConfirm();
+            }}
+          >
+            Delete contact
+          </AlertDialogAction>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function WorkerTypeCell({
+  contact,
+  canEdit,
+  disabled,
+  onChange,
+}: {
+  contact: UiContact;
+  canEdit: boolean;
+  disabled: boolean;
+  onChange: (role: string) => void;
+}) {
+  if (contact.role === "Owner" || !canEdit) {
+    return <span className="ct-worker-type">{permissionLabel(contact.role)}</span>;
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="ct-role-trigger"
+          disabled={disabled}
+          aria-label={`Worker type for ${contact.name || contact.email}`}
+        >
+          {permissionLabel(contact.role)}
+          <ChevronDown size={14} aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="ct-role-menu">
+        {ROLES.filter((role) => role !== "Owner").map((role) => (
+          <DropdownMenuItem
+            key={role}
+            className={contact.role === role ? "ct-role-menu__on" : undefined}
+            onSelect={() => onChange(role)}
+          >
+            {role}
+            {contact.role === role ? (
+              <Check size={14} className="ct-role-check" aria-hidden="true" />
+            ) : (
+              <span className="ct-role-check-spacer" aria-hidden="true" />
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  IND: "IN",
+  USA: "US",
+  UK: "GB",
+  UAE: "AE",
+};
+
+function countryDisplay(code?: string) {
+  const raw = (code || "").trim();
+  if (!raw) return null;
+  const upper = COUNTRY_ALIASES[raw.toUpperCase()] || raw.toUpperCase();
+  const byCode = COUNTRY_OPTIONS.find((c) => c.value === upper);
+  const byLabel = COUNTRY_OPTIONS.find((c) => c.label.toLowerCase() === raw.toLowerCase());
+  const match = byCode || byLabel;
+  if (match) return { iso: match.value.toLowerCase(), label: match.label };
+  if (/^[A-Z]{2}$/.test(upper)) return { iso: upper.toLowerCase(), label: raw };
+  return { iso: "", label: raw };
+}
+
+function countryFlagSrc(iso: string) {
+  return `https://cdn.jsdelivr.net/gh/HatScripts/circle-flags@2.7.0/flags/${iso}.svg`;
+}
+
+function ordinalDay(day: number) {
+  const v = day % 100;
+  if (v >= 11 && v <= 13) return `${day}th`;
+  if (day % 10 === 1) return `${day}st`;
+  if (day % 10 === 2) return `${day}nd`;
+  if (day % 10 === 3) return `${day}rd`;
+  return `${day}th`;
+}
+
+function formatStartDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}(T00:00:00(\.000)?Z)?$/.test(value);
+  const year = dateOnly ? d.getUTCFullYear() : d.getFullYear();
+  const month = dateOnly ? d.getUTCMonth() : d.getMonth();
+  const day = dateOnly ? d.getUTCDate() : d.getDate();
+  return `${MONTHS[month]} ${ordinalDay(day)} ${year}`;
+}
+
 function SortHead({
   label,
   col,
   className,
+  hint,
   sortKey,
   sortDir,
   onToggleSort,
@@ -99,6 +282,7 @@ function SortHead({
   label: string;
   col?: SortKey;
   className?: string;
+  hint?: string;
   sortKey: SortKey;
   sortDir: SortDir;
   onToggleSort: (key: SortKey) => void;
@@ -106,73 +290,60 @@ function SortHead({
   const active = col && sortKey === col;
   return (
     <th className={className}>
-      {col ? (
-        <button
-          type="button"
-          className="ct-th-sort"
-          onClick={() => onToggleSort(col)}
-          aria-label={`Sort by ${label} ${active && sortDir === "asc" ? "descending" : "ascending"}`}
-        >
-          {label}
-          {active ? (
-            sortDir === "asc" ? (
-              <ArrowUpAZ size={12} className="on" aria-hidden="true" />
-            ) : (
-              <ArrowDownAZ size={12} className="on" aria-hidden="true" />
-            )
-          ) : (
-            <ArrowUpDown size={12} aria-hidden="true" />
-          )}
-        </button>
-      ) : (
-        label
-      )}
+      <span className="ct-th-label">
+        {col ? (
+          <button
+            type="button"
+            className={`ct-th-sort${active ? " is-on" : ""}`}
+            onClick={() => onToggleSort(col)}
+            aria-label={`Sort by ${label} ${active && sortDir === "asc" ? "descending" : "ascending"}`}
+          >
+            {label}
+            <ArrowUpDown size={14} aria-hidden="true" />
+          </button>
+        ) : (
+          label
+        )}
+        {hint ? (
+          <span className="ct-th-info" title={hint} aria-label={hint}>
+            <HelpCircle size={13} aria-hidden="true" />
+          </span>
+        ) : null}
+      </span>
     </th>
   );
 }
 
-/** Contacts screen: role summary, search/filter toolbar, and contacts table. */
+/** Contacts screen: Deel Directory columns mapped onto Contact fields. */
 export function ContactsView(vm: ContactsVm) {
   const hasActiveFilters =
-    Boolean(vm.query) || vm.roleFilter !== "all" || vm.departmentFilter !== "all";
+    Boolean(vm.query) ||
+    vm.roleFilter !== "all" ||
+    vm.departmentFilter !== "all" ||
+    vm.statusFilter !== "all";
+  const totalLabel = vm.filtered.length === 1 ? "item" : "items";
 
   return (
     <>
       <div className="contacts-page">
         <header className="ct-hero">
-          <h1>All Contacts</h1>
+          <h1>Contacts</h1>
           <div className="ct-hero__actions">
-            <div className="ct-stats" aria-label="Contact role summary">
-              <div className="ct-stats__item">
-                <span className="ct-stats__label">Admins</span>
-                <span className="ct-stats__value">{vm.counts.admins}</span>
-              </div>
-              <div className="ct-stats__item">
-                <span className="ct-stats__label">Senders</span>
-                <span className="ct-stats__value">{vm.counts.senders}</span>
-              </div>
-              <div className="ct-stats__item">
-                <span className="ct-stats__label">Members</span>
-                <span className="ct-stats__value">{vm.counts.members}</span>
-              </div>
-              <button
-                type="button"
-                className="ct-stats__help"
-                aria-label="About contact roles"
-                onClick={() =>
-                  toast.message(
-                    "Admins manage settings, Senders can send gifts, Members can receive gifts.",
-                  )
-                }
-              >
-                <CircleHelp size={16} aria-hidden="true" />
-              </button>
-            </div>
             {vm.canManageContacts ? (
-              <button type="button" className="ct-hero__cta" onClick={() => vm.onAddOpen("manual")}>
-                <Plus size={16} aria-hidden="true" />
-                Add contacts
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="ct-hero__ghost"
+                  onClick={() => vm.onAddOpen("csv")}
+                >
+                  <Upload size={15} aria-hidden="true" />
+                  Import
+                </button>
+                <button type="button" className="ct-hero__cta" onClick={() => vm.onAddOpen("manual")}>
+                  <Plus size={15} aria-hidden="true" />
+                  Add people
+                </button>
+              </>
             ) : null}
           </div>
         </header>
@@ -186,85 +357,58 @@ export function ContactsView(vm: ContactsVm) {
         ) : (
           <section className="ct-panel">
             <div className="ct-panel__toolbar">
-              <label className="ct-search">
-                <Search size={15} aria-hidden="true" />
-                <input
-                  aria-label="Search contacts"
-                  placeholder="Search by name or email"
-                  value={vm.query}
-                  onChange={(e) => vm.onQuery(e.target.value)}
-                />
-              </label>
+              <div className="ct-toolbar-pills">
+                <label className="ct-search">
+                  <Search size={15} aria-hidden="true" />
+                  <input
+                    aria-label="Search contacts"
+                    placeholder="Search"
+                    value={vm.query}
+                    onChange={(e) => vm.onQuery(e.target.value)}
+                  />
+                </label>
 
-              <div className="ct-filter-wrap">
-                <button
-                  type="button"
-                  className="ct-filter-btn"
-                  aria-expanded={vm.filterOpen === "sort"}
-                  onClick={() =>
-                    vm.onFilterOpenChange(vm.filterOpen === "sort" ? null : "sort")
-                  }
-                >
-                  {vm.sortDir === "asc" ? "A–Z" : "Z–A"}
-                  <ChevronDown size={14} aria-hidden="true" />
-                </button>
-                {vm.filterOpen === "sort" && (
-                  <div className="ct-filter-menu" role="menu">
-                    {SORT_OPTIONS.map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        role="menuitem"
-                        className={vm.sortKey === "name" && vm.sortDir === value ? "on" : ""}
-                        onClick={() => vm.onSortDir(value)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="ct-filter-wrap">
-                <button
-                  type="button"
-                  className="ct-filter-btn"
-                  aria-expanded={vm.filterOpen === "role"}
-                  onClick={() =>
-                    vm.onFilterOpenChange(vm.filterOpen === "role" ? null : "role")
-                  }
-                >
-                  {vm.roleFilter === "all" ? "All roles" : vm.roleFilter}
-                  <ChevronDown size={14} aria-hidden="true" />
-                </button>
-                {vm.filterOpen === "role" && (
-                  <div className="ct-filter-menu" role="menu">
-                    {FILTER_OPTIONS.map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        role="menuitem"
-                        className={vm.roleFilter === value ? "on" : ""}
-                        onClick={() => vm.onRoleFilter(value)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {vm.canManageContactRoles ? (
                 <div className="ct-filter-wrap">
                   <button
                     type="button"
-                    className="ct-filter-btn"
+                    className={`ct-filter-btn${vm.sortKey !== "name" || vm.sortDir !== "asc" ? " is-on" : ""}`}
+                    aria-expanded={vm.filterOpen === "sort"}
+                    onClick={() =>
+                      vm.onFilterOpenChange(vm.filterOpen === "sort" ? null : "sort")
+                    }
+                  >
+                    <SlidersHorizontal size={14} aria-hidden="true" />
+                    Sort
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {vm.filterOpen === "sort" && (
+                    <div className="ct-filter-menu" role="menu">
+                      {SORT_OPTIONS.map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          role="menuitem"
+                          className={vm.sortKey === "name" && vm.sortDir === value ? "on" : ""}
+                          onClick={() => vm.onSortDir(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="ct-filter-wrap">
+                  <button
+                    type="button"
+                    className={`ct-filter-btn${vm.departmentFilter !== "all" ? " is-on" : ""}`}
                     aria-expanded={vm.filterOpen === "dept"}
                     onClick={() =>
                       vm.onFilterOpenChange(vm.filterOpen === "dept" ? null : "dept")
                     }
                   >
-                    {vm.departmentFilter === "all" ? "All departments" : vm.departmentFilter}
+                    Group
+                    {vm.departmentFilter !== "all" ? <span className="ct-pill-count">1</span> : null}
                     <ChevronDown size={14} aria-hidden="true" />
                   </button>
                   {vm.filterOpen === "dept" && (
@@ -275,7 +419,7 @@ export function ContactsView(vm: ContactsVm) {
                         className={vm.departmentFilter === "all" ? "on" : ""}
                         onClick={() => vm.onDepartmentFilter("all")}
                       >
-                        All departments
+                        All groups
                       </button>
                       {vm.departmentOptions.map((dept) => (
                         <button
@@ -291,8 +435,73 @@ export function ContactsView(vm: ContactsVm) {
                     </div>
                   )}
                 </div>
-              ) : null}
+
+                <div className="ct-filter-wrap">
+                  <button
+                    type="button"
+                    className={`ct-filter-btn${vm.roleFilter !== "all" ? " is-on" : ""}`}
+                    aria-expanded={vm.filterOpen === "role"}
+                    onClick={() =>
+                      vm.onFilterOpenChange(vm.filterOpen === "role" ? null : "role")
+                    }
+                  >
+                    Worker type
+                    {vm.roleFilter !== "all" ? <span className="ct-pill-count">1</span> : null}
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {vm.filterOpen === "role" && (
+                    <div className="ct-filter-menu" role="menu">
+                      {WORKER_TYPE_OPTIONS.map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          role="menuitem"
+                          className={vm.roleFilter === value ? "on" : ""}
+                          onClick={() => vm.onRoleFilter(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="ct-filter-wrap">
+                  <button
+                    type="button"
+                    className={`ct-filter-btn${vm.statusFilter !== "all" ? " is-on" : ""}`}
+                    aria-expanded={vm.filterOpen === "status"}
+                    onClick={() =>
+                      vm.onFilterOpenChange(vm.filterOpen === "status" ? null : "status")
+                    }
+                  >
+                    Worker status
+                    {vm.statusFilter !== "all" ? <span className="ct-pill-count">1</span> : null}
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {vm.filterOpen === "status" && (
+                    <div className="ct-filter-menu" role="menu">
+                      {STATUS_OPTIONS.map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          role="menuitem"
+                          className={vm.statusFilter === value ? "on" : ""}
+                          onClick={() => vm.onStatusFilter(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+
+            <div className="ct-table-card">
+            <p className="ct-total">
+              Total {vm.filtered.length} {totalLabel}
+            </p>
 
             {vm.filtered.length === 0 ? (
               <div className="ct-empty">
@@ -306,19 +515,17 @@ export function ContactsView(vm: ContactsVm) {
             ) : (
               <div className="ct-table-wrap">
                 <table className="ct-table">
+                  <colgroup>
+                    <col className="ct-col-person" />
+                    <col className="ct-col-country" />
+                    <col className="ct-col-group" />
+                    <col className="ct-col-type" />
+                    <col className="ct-col-status" />
+                    <col className="ct-col-date" />
+                    <col className="ct-col-actions" />
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="ct-th-check">
-                        <input
-                          type="checkbox"
-                          aria-label="Select all contacts"
-                          checked={vm.allSelected}
-                          ref={(el) => {
-                            if (el) el.indeterminate = vm.someSelected && !vm.allSelected;
-                          }}
-                          onChange={vm.onToggleAll}
-                        />
-                      </th>
                       <SortHead
                         label="Person"
                         col="name"
@@ -326,33 +533,33 @@ export function ContactsView(vm: ContactsVm) {
                         sortDir={vm.sortDir}
                         onToggleSort={vm.onToggleSort}
                       />
+                      <th>Country</th>
+                      <th>Group</th>
+                      <th>Worker type</th>
                       <SortHead
-                        label="Email"
-                        col="email"
+                        label="Worker status"
+                        hint="Employment status from HRIS when available"
                         sortKey={vm.sortKey}
                         sortDir={vm.sortDir}
                         onToggleSort={vm.onToggleSort}
                       />
-                      <th>Role</th>
-                      <th>Dept</th>
-                      <th>Location</th>
+                      <SortHead
+                        label="Start date"
+                        hint="Date of joining"
+                        sortKey={vm.sortKey}
+                        sortDir={vm.sortDir}
+                        onToggleSort={vm.onToggleSort}
+                      />
                       <th className="ct-th-actions" aria-label="Actions" />
                     </tr>
                   </thead>
                   <tbody>
                     {vm.filtered.map((c: UiContact) => {
                       const tone = avatarTone(c.id || c.email || c.name);
+                      const country = countryDisplay(c.country);
+                      const status = contactWorkerStatus(c);
                       return (
                         <tr key={c.id}>
-                          <td className="ct-td-check">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select ${c.name || c.email}`}
-                              checked={vm.selected.has(c.id)}
-                              disabled={c.role === "Owner"}
-                              onChange={() => vm.onToggleOne(c.id)}
-                            />
-                          </td>
                           <td>
                             <div className="ct-person">
                               <span
@@ -362,66 +569,88 @@ export function ContactsView(vm: ContactsVm) {
                               >
                                 {initials(c)}
                               </span>
-                              <span className="ct-name">{emptyCell(c.name)}</span>
+                              <span className="ct-person-copy">
+                                <span className="ct-name">{emptyCell(c.name)}</span>
+                                <span className="ct-sub">{personSubtitle(c)}</span>
+                              </span>
                             </div>
                           </td>
                           <td>
-                            <span className="ct-email" title={c.email}>
-                              {c.email}
-                            </span>
-                          </td>
-                          <td>
-                            {c.role === "Owner" || !vm.canManageContactRoles ? (
-                              <span className={`ct-chip ct-chip--${roleTone(c.role)}`}>
-                                {permissionLabel(c.role)}
+                            {country ? (
+                              <span className="ct-country">
+                                {country.iso ? (
+                                  <img
+                                    className="ct-flag"
+                                    src={countryFlagSrc(country.iso)}
+                                    alt=""
+                                    width={18}
+                                    height={18}
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                ) : null}
+                                {country.label}
                               </span>
                             ) : (
-                              <select
-                                className="ct-role-select"
-                                value={c.role}
-                                disabled={vm.isRolePending}
-                                onChange={(e) => vm.onRoleChange(c, e.target.value)}
-                              >
-                                {ROLES.filter((r) => r !== "Owner").map((r) => (
-                                  <option key={r} value={r}>
-                                    {r}
-                                  </option>
-                                ))}
-                              </select>
+                              <span className="ct-muted">—</span>
                             )}
                           </td>
                           <td className="ct-muted">{emptyCell(c.department)}</td>
-                          <td className="ct-muted">{emptyCell(c.loc)}</td>
+                          <td>
+                            <WorkerTypeCell
+                              contact={c}
+                              canEdit={vm.canManageContactRoles}
+                              disabled={vm.isRolePending}
+                              onChange={(role) => vm.onRoleChange(c, role)}
+                            />
+                          </td>
+                          <td>
+                            <span className={`ct-status ct-status--${status.key}`}>
+                              <i aria-hidden="true" />
+                              {status.label}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="ct-date">{formatStartDate(c.dateOfJoining)}</span>
+                          </td>
                           <td className="ct-td-actions">
                             {vm.canManageContacts ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="ct-row-action"
-                                  aria-label={`Restrict ${c.name || c.email}`}
-                                  disabled={c.role === "Owner"}
-                                  onClick={vm.onRestrict}
-                                >
-                                  <Ban size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ct-row-action"
-                                  aria-label={`Edit ${c.name || c.email}`}
-                                  onClick={() => vm.onEdit(c)}
-                                >
-                                  <SquareArrowOutUpRight size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="ct-row-action ct-row-action--danger"
-                                  aria-label={`Delete ${c.name || c.email}`}
-                                  disabled={c.role === "Owner" || vm.isDeletePending}
-                                  onClick={() => vm.onDelete(c)}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="ct-kebab"
+                                    aria-label={`Actions for ${c.name || c.email}`}
+                                  >
+                                    <MoreHorizontal size={16} aria-hidden="true" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="ct-row-menu">
+                                  <DropdownMenuItem onSelect={() => vm.onEdit(c)}>
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={c.role === "Owner"}
+                                    onSelect={() => {
+                                      if (c.role === "Owner") return;
+                                      vm.onRestrict();
+                                    }}
+                                  >
+                                    Restrict
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={c.role === "Owner" || vm.isDeletePending}
+                                    className="ct-row-menu__danger"
+                                    onSelect={() => {
+                                      if (c.role === "Owner") return;
+                                      vm.onDelete(c);
+                                    }}
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             ) : null}
                           </td>
                         </tr>
@@ -431,6 +660,7 @@ export function ContactsView(vm: ContactsVm) {
                 </table>
               </div>
             )}
+            </div>
           </section>
         )}
 
@@ -460,6 +690,12 @@ export function ContactsView(vm: ContactsVm) {
         mode="edit"
         contact={vm.editing ?? undefined}
         canManageContactRoles={vm.canManageContactRoles}
+      />
+      <DeleteContactDialog
+        contact={vm.deleting}
+        pending={vm.isDeletePending}
+        onOpenChange={vm.onDeleteOpenChange}
+        onConfirm={vm.onDeleteConfirm}
       />
     </>
   );

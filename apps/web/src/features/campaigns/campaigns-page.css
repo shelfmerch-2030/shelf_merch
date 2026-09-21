@@ -559,7 +559,7 @@
 }
 
 .camp-empty__art {
-  width: min(150px, 30%);
+  width: min(180px, 42%);
   height: auto;
   margin-bottom: 8px;
   object-fit: contain;
@@ -606,53 +606,6 @@
   line-height: 1.45;
 }
 
-.camp-start {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  width: min(100%, 540px);
-  margin-top: 16px;
-}
-
-.camp-start__card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 7px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fff;
-  text-align: left;
-}
-
-.camp-start__label {
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.camp-start__hint {
-  color: var(--ink-2);
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
-.camp-start__link {
-  margin-top: 4px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--brand, #3152ff);
-  font-size: 13px;
-  font-weight: 750;
-  cursor: pointer;
-}
-
-.camp-start__link:hover {
-  text-decoration: underline;
-}
-
 @media (max-width: 1100px) {
   .camp-kpi {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -676,10 +629,6 @@
   .camp-list-head__type,
   .camp-row__type {
     display: none;
-  }
-
-  .camp-start {
-    grid-template-columns: 1fr;
   }
 }
 

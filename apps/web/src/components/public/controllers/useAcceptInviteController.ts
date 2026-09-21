@@ -11,7 +11,7 @@ function readInviteToken(searchToken: string): string {
 }
 
 function invitePasswordValid(password: string, confirm: string): boolean {
-  if (password.length < 10) return false;
+  if (password.length < 8) return false;
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return false;
   return password === confirm;
 }
@@ -51,7 +51,7 @@ export function useAcceptInviteController(searchToken: string): AcceptInviteVm {
       return;
     }
     if (!invitePasswordValid(password, confirm)) {
-      setError("Password must be at least 10 characters and include a letter and a number.");
+      setError("Password must be at least 8 characters and include a letter and a number.");
       return;
     }
     setLoading(true);

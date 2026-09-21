@@ -4,10 +4,12 @@ import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useContacts, useDeleteContact, useUpdateContact } from "../model";
 import type { UiContact } from "../model";
-import { contactToForm, ROLES } from "../types";
+import { contactToForm, ROLES, contactWorkerStatus } from "../types";
 
 export type SortKey = "email" | "name";
 export type SortDir = "asc" | "desc";
+export type FilterOpen = "role" | "dept" | "sort" | "status" | null;
+export type WorkerStatusFilter = "all" | "active" | "invited" | "inactive";
 
 export type RoleCounts = { admins: number; senders: number; members: number };
 
@@ -18,9 +20,10 @@ export type ContactsVm = {
   roleFilter: string;
   departmentFilter: string;
   departmentOptions: string[];
-  filterOpen: "role" | "dept" | "sort" | null;
+  filterOpen: FilterOpen;
   sortKey: SortKey;
   sortDir: SortDir;
+  statusFilter: WorkerStatusFilter;
   counts: RoleCounts;
   filtered: UiContact[];
   selected: Set<string>;
@@ -36,13 +39,17 @@ export type ContactsVm = {
   onQuery: (query: string) => void;
   onRoleFilter: (role: string) => void;
   onDepartmentFilter: (department: string) => void;
+  onStatusFilter: (status: WorkerStatusFilter) => void;
   onSortDir: (dir: SortDir) => void;
-  onFilterOpenChange: (open: "role" | "dept" | "sort" | null) => void;
+  onFilterOpenChange: (open: FilterOpen) => void;
   onToggleSort: (key: SortKey) => void;
   onToggleAll: () => void;
   onToggleOne: (id: string) => void;
   onRoleChange: (contact: UiContact, role: string) => void;
   onDelete: (contact: UiContact) => void;
+  deleting: UiContact | null;
+  onDeleteOpenChange: (open: boolean) => void;
+  onDeleteConfirm: () => void;
   onAddOpen: (tab?: "manual" | "csv") => void;
   onAddOpenChange: (open: boolean) => void;
   onEdit: (contact: UiContact) => void;
@@ -89,7 +96,9 @@ export function useContactsController(): ContactsVm {
   const [adding, setAdding] = useState(false);
   const [addInitialTab, setAddInitialTab] = useState<"manual" | "csv">("manual");
   const [editing, setEditing] = useState<UiContact | null>(null);
-  const [filterOpen, setFilterOpen] = useState<"role" | "dept" | "sort" | null>(null);
+  const [deleting, setDeleting] = useState<UiContact | null>(null);
+  const [filterOpen, setFilterOpen] = useState<FilterOpen>(null);
+  const [statusFilter, setStatusFilter] = useState<WorkerStatusFilter>("all");
 
   const counts = useMemo(() => roleCounts(contacts ?? []), [contacts]);
 
@@ -118,8 +127,11 @@ export function useContactsController(): ContactsVm {
         (c) => (c.department || "").trim().toLowerCase() === departmentFilter.toLowerCase(),
       );
     }
+    if (statusFilter !== "all") {
+      list = list.filter((c) => contactWorkerStatus(c).key === statusFilter);
+    }
     return sortContacts(list, sortKey, sortDir);
-  }, [contacts, query, roleFilter, departmentFilter, sortKey, sortDir]);
+  }, [contacts, query, roleFilter, departmentFilter, statusFilter, sortKey, sortDir]);
 
   const allSelected =
     filtered.length > 0 && filtered.every((c) => selected.has(c.id) || c.role === "Owner");
@@ -169,27 +181,25 @@ export function useContactsController(): ContactsVm {
       toast.error("The workspace owner contact cannot be deleted");
       return;
     }
-    const label = contact.name || contact.email;
-    toast(`Delete contact "${label}"? This cannot be undone.`, {
-      action: {
-        label: "Delete",
-        onClick: async () => {
-          try {
-            await deleteContact.mutateAsync(contact.id);
-            setSelected((prev) => {
-              const next = new Set(prev);
-              next.delete(contact.id);
-              return next;
-            });
-            if (editing?.id === contact.id) setEditing(null);
-            toast.success("Contact deleted");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not delete contact");
-          }
-        },
-      },
-      cancel: { label: "Cancel", onClick: () => {} },
-    });
+    setDeleting(contact);
+  }
+
+  async function onDeleteConfirm() {
+    if (!deleting || deleting.role === "Owner") return;
+    const contact = deleting;
+    try {
+      await deleteContact.mutateAsync(contact.id);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(contact.id);
+        return next;
+      });
+      if (editing?.id === contact.id) setEditing(null);
+      setDeleting(null);
+      toast.success("Contact deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete contact");
+    }
   }
 
   return {
@@ -206,6 +216,7 @@ export function useContactsController(): ContactsVm {
     filterOpen,
     sortKey,
     sortDir,
+    statusFilter,
     counts,
     filtered,
     selected,
@@ -218,6 +229,7 @@ export function useContactsController(): ContactsVm {
     adding,
     addInitialTab,
     editing,
+    deleting,
     onQuery: setQuery,
     onRoleFilter: (role) => {
       setRoleFilter(role);
@@ -225,6 +237,10 @@ export function useContactsController(): ContactsVm {
     },
     onDepartmentFilter: (department) => {
       setDepartmentFilter(department);
+      setFilterOpen(null);
+    },
+    onStatusFilter: (status) => {
+      setStatusFilter(status);
       setFilterOpen(null);
     },
     onSortDir: (dir) => {
@@ -247,6 +263,10 @@ export function useContactsController(): ContactsVm {
     onEditOpenChange: (open) => {
       if (!open) setEditing(null);
     },
+    onDeleteOpenChange: (open) => {
+      if (!open) setDeleting(null);
+    },
+    onDeleteConfirm,
     onRestrict: () => toast.message("Contact restrictions — coming soon"),
     onFooterLink: (link) => toast.message(`${link} — coming soon`),
   };
