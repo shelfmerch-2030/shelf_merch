@@ -74,6 +74,10 @@ import {
 import { sendPrivacyPolicy } from './modules/legal/privacyPolicy.controller.js';
 import { sendTermsOfService } from './modules/legal/termsOfService.controller.js';
 import { sendDocsPage, DOCS_PUBLIC_ROUTES } from './modules/docs/docs.controller.js';
+import {
+  sendCatalogSitemap,
+  sendSeoPublicFile,
+} from './modules/seo/sitemap.controller.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = path.resolve(__dirname, '../../web/dist');
@@ -364,12 +368,33 @@ export function createApp() {
     app.get(routePath, sendDocsPage(routePath));
   }
 
+  /**
+   * SEO: robots + sitemap index/static from apps/web/public (also copied into
+   * web/dist by Vite). Catalog child sitemap is runtime from Mongo.
+   * Registered before the SPA catch-all in every environment so tests and
+   * production never serve index.html for these paths.
+   */
+  app.get('/robots.txt', sendSeoPublicFile('robots.txt'));
+  app.get('/sitemap.xml', sendSeoPublicFile('sitemap.xml'));
+  app.get('/sitemap-static.xml', sendSeoPublicFile('sitemap-static.xml'));
+  app.get('/sitemap-catalog.xml', asyncHandler(sendCatalogSitemap));
+
   // Production: serve the Vite SPA from the same origin as the API.
   if (env.NODE_ENV === 'production' && existsSync(WEB_DIST)) {
     app.use(express.static(WEB_DIST, { index: false, maxAge: '1d' }));
     app.get('/{*path}', (req, res, next) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
       if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/email-assets/')) return next();
+      // Explicit SEO / legal / docs / zoho routes are registered above; never
+      // fall through to the SPA shell for sitemap/robots if static misses.
+      if (
+        req.path === '/robots.txt' ||
+        req.path === '/sitemap.xml' ||
+        req.path === '/sitemap-static.xml' ||
+        req.path === '/sitemap-catalog.xml'
+      ) {
+        return next();
+      }
       // /zoho/people(*), /legal/*, /docs/*, and /case-studies/* are registered above.
       res.sendFile('index.html', { root: WEB_DIST });
     });
