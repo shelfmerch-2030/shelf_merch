@@ -174,7 +174,7 @@ export function Footer() {
             <ClockIcon />
           </span>
           <p>
-            <small>Mon - Fri, 9:00 AM - 6:30 PM</small>
+            <small>Mon - Fri, 9:00 AM - 6:00 PM</small>
             <strong>We&apos;re here to help</strong>
           </p>
         </div>
