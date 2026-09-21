@@ -24,6 +24,11 @@ import {
   MERGE_HRIS_LOCATIONS_URL,
 } from '../src/modules/integrations/merge/merge.constants.js';
 import { mergePaginateAll } from '../src/modules/integrations/merge/mergeHttp.js';
+import { syncMergeConnection } from '../src/modules/integrations/merge/mergeSync.service.js';
+import {
+  acquireMergeSyncLock,
+  renewMergeSyncLock,
+} from '../src/modules/integrations/merge/mergeSyncLock.js';
 
 let app;
 let tenant;
@@ -2253,6 +2258,19 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(inactive.mergeEmployeeId).toBe('emp-1');
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).toBe(1);
 
+    let listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listed.body.find((c) => c.email === 'ada@rubix.net')).toBeUndefined();
+
+    const directoryInactive = await request(app)
+      .get('/api/integrations/merge/employees')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(
+      directoryInactive.body.employees.find((e) => e.mergeEmployeeId === 'emp-1')
+        ?.effectiveEmploymentStatus,
+    ).toBe('INACTIVE');
+
     mockHrisSnapshot({
       employees: [employeeRow({ employment_status: 'ACTIVE' })],
     });
@@ -2261,6 +2279,14 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(rehired.employmentStatus).toBe('ACTIVE');
     expect(rehired.hrisLinkStatus).toBe('current');
     expect(String(rehired._id)).toBe(String(before._id));
+
+    listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const visible = listed.body.find((c) => c.email === 'ada@rubix.net');
+    expect(visible).toBeTruthy();
+    expect(String(visible._id)).toBe(String(before._id));
+    expect(visible.effectiveEmploymentStatus).toBe('ACTIVE');
   });
 
   it('marks linked Contacts stale after a complete prune without deleting them or clearing Merge IDs', async () => {
@@ -2281,6 +2307,14 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(String(stale.mergeConnectionId)).toBe(String(conn._id));
     expect(stale.employmentStatus).toBe('ACTIVE');
     expect(stale.source).toBe('hris');
+
+    const listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const visible = listed.body.find((c) => c.email === 'ada@rubix.net');
+    expect(visible).toBeTruthy();
+    expect(visible.hrisLinkStatus).toBe('stale');
+    expect(visible.effectiveEmploymentStatus).toBe('ACTIVE');
   });
 
   it('does not mass-mark Contacts stale after an incomplete snapshot', async () => {
@@ -2504,15 +2538,19 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(row.effectiveStatusSource).toBe('termination_date');
     expect(row.terminationDate).toBeTruthy();
 
+    const storedContact = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(storedContact).toBeTruthy();
+    expect(storedContact.deletedAt).toBeFalsy();
+    expect(storedContact.employmentStatus).toBe('ACTIVE');
+    expect(storedContact.terminationDate?.toISOString()).toBe(past);
+    expect(storedContact.hrisLinkStatus).toBe('current');
+    expect(storedContact.mergeEmployeeId).toBe('emp-1');
+
     const contacts = await request(app)
       .get('/api/v1/contacts')
       .set('Authorization', `Bearer ${adminToken}`);
-    const contact = contacts.body.find((c) => c.email === 'ada@rubix.net');
-    expect(contact.employmentStatus).toBe('ACTIVE');
-    expect(contact.effectiveEmploymentStatus).toBe('INACTIVE');
-    expect(contact.effectiveStatusSource).toBe('termination_date');
-    expect(new Date(contact.terminationDate).toISOString()).toBe(past);
-    expect(contact.hrisLinkStatus).toBe('current');
+    expect(contacts.status).toBe(200);
+    expect(contacts.body.find((c) => c.email === 'ada@rubix.net')).toBeUndefined();
   });
 
   it('keeps Directory Active for a future date-only termination and for today date-only', async () => {
@@ -2596,6 +2634,13 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(row.employmentStatus).toBe('ACTIVE');
     expect(row.effectiveEmploymentStatus).toBe('ACTIVE');
     expect(row.effectiveStatusSource).toBe('merge_status');
+
+    const contacts = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const listedContact = contacts.body.find((c) => c.email === 'ada@rubix.net');
+    expect(listedContact).toBeTruthy();
+    expect(listedContact.effectiveEmploymentStatus).toBe('ACTIVE');
   });
 
   it('treats a later start_date after an old termination as rehire (ACTIVE)', async () => {
@@ -2625,5 +2670,368 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
     expect(contact.employmentStatus).toBe('ACTIVE');
     expect(contact.effectiveEmploymentStatus).toBe('ACTIVE');
     expect(contact.effectiveStatusSource).toBe('rehire');
+  });
+
+  it('hides a stale Merge Contact that is still effectively INACTIVE', async () => {
+    const conn = await seedConnection();
+    mockHrisSnapshot({
+      employees: [employeeRow({ employment_status: 'INACTIVE' })],
+    });
+    await sync(conn);
+    const before = await Contact.findOne({ tenantId: tenant._id, email: 'ada@rubix.net' });
+    expect(before.employmentStatus).toBe('INACTIVE');
+
+    mockHrisSnapshot({ employees: [] });
+    await sync(conn);
+    const stale = await Contact.findOne({ _id: before._id, tenantId: tenant._id });
+    expect(stale).toBeTruthy();
+    expect(stale.deletedAt).toBeFalsy();
+    expect(stale.hrisLinkStatus).toBe('stale');
+    expect(stale.mergeEmployeeId).toBe('emp-1');
+    expect(stale.employmentStatus).toBe('INACTIVE');
+
+    const listed = await request(app)
+      .get('/api/v1/contacts')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listed.body.find((c) => c.email === 'ada@rubix.net')).toBeUndefined();
+  });
+});
+
+describe('Merge sync lock', () => {
+  async function seedConnection(forTenant = tenant, provider = 'workday') {
+    return MergeConnection.create({
+      tenantId: forTenant._id,
+      connectedByUserId: admin._id,
+      provider,
+      encryptedAccountToken: encryptToken('sync-account-token'),
+      status: 'connected',
+      connectedAt: new Date(),
+      lastSyncStatus: 'idle',
+    });
+  }
+
+  function hrisPages() {
+    return {
+      groups: {
+        next: null,
+        results: [{ id: 'dept-1', name: 'Engineering', type: 'DEPARTMENT' }],
+      },
+      locations: {
+        next: null,
+        results: [{ id: 'loc-1', name: 'HQ', city: 'Austin', country: 'US' }],
+      },
+      employees: {
+        next: null,
+        results: [
+          {
+            id: 'emp-1',
+            remote_id: 'E1',
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+            display_full_name: 'Ada Lovelace',
+            work_email: 'ada@rubix.net',
+            employment_status: 'ACTIVE',
+            groups: ['dept-1'],
+            work_location: 'loc-1',
+          },
+        ],
+      },
+      employments: {
+        next: null,
+        results: [{ id: 'empl-1', employee: 'emp-1', job_title: 'Engineer' }],
+      },
+    };
+  }
+
+  function mockHrisFetch(gate) {
+    const pages = hrisPages();
+    fetchMock.mockImplementation(async (url) => {
+      const href = String(url);
+      if (gate && href.startsWith(MERGE_HRIS_GROUPS_URL)) await gate;
+      if (href.startsWith(MERGE_HRIS_GROUPS_URL)) return mockJson(pages.groups);
+      if (href.startsWith(MERGE_HRIS_LOCATIONS_URL)) return mockJson(pages.locations);
+      if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) return mockJson(pages.employees);
+      if (href.startsWith(MERGE_HRIS_EMPLOYMENTS_URL)) return mockJson(pages.employments);
+      return mockJson({ next: null, results: [] });
+    });
+  }
+
+  async function waitForLock(conn) {
+    const started = Date.now();
+    while (Date.now() - started < 4000) {
+      const row = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+      if (row?.syncLockToken) return row;
+      await new Promise((r) => setTimeout(r, 15));
+    }
+    throw new Error('sync lock was not acquired');
+  }
+
+  it('rejects a second overlapping sync for the same connection with MERGE_SYNC_IN_PROGRESS', async () => {
+    const conn = await seedConnection();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    mockHrisFetch(gate);
+
+    const firstStarted = request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .then((res) => res);
+    await waitForLock(conn);
+
+    const second = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(second.status).toBe(409);
+    expect(second.body.error?.code).toBe('MERGE_SYNC_IN_PROGRESS');
+    expect(second.body.error?.message).toMatch(/already in progress/i);
+
+    release();
+    const firstRes = await firstStarted;
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.body.sync.employees.created).toBe(1);
+
+    const refreshed = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    expect(refreshed.syncLockToken).toBe('');
+    expect(refreshed.syncLockUntil).toBeNull();
+    expect(refreshed.lastSyncStatus).toBe('success');
+  });
+
+  it('allows another sync after success and after failure', async () => {
+    const conn = await seedConnection();
+    mockHrisFetch();
+    const ok = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(ok.status).toBe(200);
+
+    mockHrisFetch();
+    const again = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(again.status).toBe(200);
+
+    fetchMock.mockResolvedValue(mockJson({ detail: 'upstream' }, 500));
+    const failed = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(failed.status).toBe(502);
+
+    const afterFail = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    expect(afterFail.lastSyncStatus).toBe('failed');
+    expect(afterFail.syncLockToken).toBe('');
+
+    mockHrisFetch();
+    const recovered = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(recovered.status).toBe(200);
+  });
+
+  it('recovers a stale lock whose lease has expired', async () => {
+    const conn = await seedConnection();
+    conn.lastSyncStatus = 'syncing';
+    conn.syncLockToken = 'expired-owner';
+    conn.syncLockUntil = new Date(Date.now() - 1000);
+    await conn.save();
+    mockHrisFetch();
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.connection.lastSyncStatus).toBe('success');
+  });
+
+  it('returns 409 without calling Merge when a live lock is held', async () => {
+    const conn = await seedConnection();
+    conn.syncLockToken = 'live-owner';
+    conn.syncLockUntil = new Date(Date.now() + 60_000);
+    conn.lastSyncStatus = 'syncing';
+    await conn.save();
+    mockHrisFetch();
+
+    const res = await request(app)
+      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(409);
+    expect(res.body.error?.code).toBe('MERGE_SYNC_IN_PROGRESS');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const still = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    expect(still.syncLockToken).toBe('live-owner');
+  });
+
+  it('lets two connections on the same tenant sync concurrently', async () => {
+    const workday = await seedConnection(tenant, 'workday');
+    const deel = await seedConnection(tenant, 'deel');
+    mockHrisFetch();
+
+    const [a, b] = await Promise.all([
+      request(app)
+        .post(`/api/integrations/merge/connections/${workday._id}/sync`)
+        .set('Authorization', `Bearer ${adminToken}`),
+      request(app)
+        .post(`/api/integrations/merge/connections/${deel._id}/sync`)
+        .set('Authorization', `Bearer ${adminToken}`),
+    ]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+  });
+
+  it('lets two tenants sync the same provider concurrently', async () => {
+    const mine = await seedConnection(tenant, 'workday');
+    const theirs = await seedConnection(otherTenant, 'workday');
+    mockHrisFetch();
+
+    const [a, b] = await Promise.all([
+      request(app)
+        .post(`/api/integrations/merge/connections/${mine._id}/sync`)
+        .set('Authorization', `Bearer ${adminToken}`),
+      request(app)
+        .post(`/api/integrations/merge/connections/${theirs._id}/sync`)
+        .set('Authorization', `Bearer ${otherAdminToken}`),
+    ]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+  });
+
+  it('renews syncLockUntil while a sync is running', async () => {
+    const conn = await seedConnection();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    mockHrisFetch(gate);
+
+    const pending = syncMergeConnection({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      lock: { leaseMs: 80, renewEveryMs: 20 },
+    });
+    const held = await waitForLock(conn);
+    const firstUntil = held.syncLockUntil.getTime();
+    const deadline = Date.now() + 500;
+    let mid = held;
+    while (Date.now() < deadline) {
+      mid = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+      if (mid.syncLockUntil.getTime() > firstUntil) break;
+      await new Promise((r) => setTimeout(r, 15));
+    }
+    expect(mid.syncLockToken).toBe(held.syncLockToken);
+    expect(mid.syncLockUntil.getTime()).toBeGreaterThan(firstUntil);
+
+    release();
+    const result = await pending;
+    expect(result.connection.lastSyncStatus).toBe('success');
+  });
+
+  it('does not extend another sync lock on renew', async () => {
+    const conn = await seedConnection();
+    const acquired = await acquireMergeSyncLock({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      leaseMs: 60_000,
+    });
+    expect(acquired).toBeTruthy();
+    const until = acquired.connection.syncLockUntil.getTime();
+
+    const missed = await renewMergeSyncLock({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      token: 'someone-else',
+      leaseMs: 60_000,
+    });
+    expect(missed).toBeNull();
+
+    const still = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    expect(still.syncLockToken).toBe(acquired.token);
+    expect(still.syncLockUntil.getTime()).toBe(until);
+  });
+
+  it('stops before prune/stale/terminal writes when ownership is lost', async () => {
+    const conn = await seedConnection();
+    await MergeHrisEmployee.create({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+      provider: 'workday',
+      mergeEmployeeId: 'emp-stale',
+      displayName: 'Leftover',
+      workEmail: 'leftover@rubix.net',
+      employmentStatus: 'ACTIVE',
+      lastSyncedAt: new Date(),
+      source: 'merge',
+    });
+    await Contact.create({
+      tenantId: tenant._id,
+      name: 'Leftover',
+      email: 'leftover@rubix.net',
+      source: 'hris',
+      mergeEmployeeId: 'emp-stale',
+      mergeConnectionId: conn._id,
+      hrisLinkStatus: 'current',
+      employmentStatus: 'ACTIVE',
+    });
+
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    mockHrisFetch(gate);
+
+    const pending = syncMergeConnection({
+      tenantId: tenant._id,
+      connectionId: conn._id,
+    });
+    await waitForLock(conn);
+
+    await MergeConnection.updateOne(
+      { _id: conn._id, tenantId: tenant._id },
+      {
+        $set: {
+          syncLockToken: 'other-owner',
+          syncLockUntil: new Date(Date.now() + 120_000),
+        },
+      },
+    );
+
+    release();
+    await expect(pending).rejects.toMatchObject({ code: 'MERGE_SYNC_LOCK_LOST', status: 409 });
+
+    expect(
+      await MergeHrisEmployee.countDocuments({
+        tenantId: tenant._id,
+        connectionId: conn._id,
+        mergeEmployeeId: 'emp-stale',
+      }),
+    ).toBe(1);
+    const leftover = await Contact.findOne({ tenantId: tenant._id, email: 'leftover@rubix.net' });
+    expect(leftover.hrisLinkStatus).toBe('current');
+
+    const refreshed = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
+    expect(refreshed.syncLockToken).toBe('other-owner');
+    expect(refreshed.lastSyncStatus).toBe('syncing');
+    expect(refreshed.lastSyncAt).toBeNull();
+  });
+
+  it('clears the heartbeat timer on success, failure, and lock loss', async () => {
+    const conn = await seedConnection();
+    const intervalIds = [];
+    const realSetInterval = global.setInterval;
+    const setSpy = vi.spyOn(global, 'setInterval').mockImplementation((fn, ms) => {
+      const id = realSetInterval(fn, ms);
+      intervalIds.push(id);
+      return id;
+    });
+    const clearSpy = vi.spyOn(global, 'clearInterval');
+
+    mockHrisFetch();
+    await syncMergeConnection({ tenantId: tenant._id, connectionId: conn._id });
+    expect(intervalIds.length).toBeGreaterThan(0);
+    expect(clearSpy).toHaveBeenCalledWith(intervalIds[0]);
+
+    setSpy.mockRestore();
+    clearSpy.mockRestore();
   });
 });

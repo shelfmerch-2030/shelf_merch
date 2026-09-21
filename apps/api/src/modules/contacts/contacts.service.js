@@ -52,12 +52,24 @@ export function contactToPublicJSON(contact, now) {
   };
 }
 
+/** Merge-linked and effectively inactive — hide from the normal Contacts list only. */
+function isHiddenInactiveMergeHrisContact(row) {
+  if (!row?.mergeEmployeeId || !row?.mergeConnectionId) return false;
+  return row.effectiveEmploymentStatus === 'INACTIVE';
+}
+
+function toListedContacts(rows) {
+  return rows
+    .map((row) => contactToPublicJSON(row))
+    .filter((row) => !isHiddenInactiveMergeHrisContact(row));
+}
+
 /** List contacts visible to the caller — tenant-wide for admins, dept-scoped for EMs. */
 export async function listContactsForUser({ tenantId, user }) {
   const names = await managedEntityNamesForUser({ tenantId, user });
   if (names === null) {
     const rows = await Contact.find({ tenantId }).sort({ name: 1 });
-    return rows.map((row) => contactToPublicJSON(row));
+    return toListedContacts(rows);
   }
   if (!names.length) return [];
 
@@ -65,7 +77,7 @@ export async function listContactsForUser({ tenantId, user }) {
     tenantId,
     ...departmentMatchFilter(names),
   }).sort({ name: 1 });
-  return rows.map((row) => contactToPublicJSON(row));
+  return toListedContacts(rows);
 }
 
 /**

@@ -60,6 +60,9 @@ export function mergeSyncErrorMessage(err: unknown): string {
     if (code === "MERGE_PROVIDER_ERROR") {
       return "The provider could not complete sync. Try again.";
     }
+    if (code === "MERGE_SYNC_IN_PROGRESS" || code === "MERGE_SYNC_LOCK_LOST") {
+      return "Sync already in progress";
+    }
   }
   if (err instanceof Error && err.message) return err.message;
   return "Merge sync failed";

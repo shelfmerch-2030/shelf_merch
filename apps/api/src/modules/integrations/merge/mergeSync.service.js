@@ -16,6 +16,16 @@ import { MergeConnection } from './mergeConnection.model.js';
 import { mergePaginateAll, requireMergeConfigured } from './mergeHttp.js';
 import { getOwnedMergeConnection } from './merge.service.js';
 import { deriveEffectiveEmploymentStatus } from './effectiveEmploymentStatus.js';
+import {
+  MERGE_SYNC_LOCK_LEASE_MS,
+  MERGE_SYNC_LOCK_RENEW_EVERY_MS,
+  acquireMergeSyncLock,
+  assertMergeSyncLockOwned,
+  completeMergeSyncLock,
+  mergeSyncInProgressError,
+  mergeSyncLockLostError,
+  startMergeSyncLockHeartbeat,
+} from './mergeSyncLock.js';
 
 function emptyCounts() {
   return { created: 0, updated: 0, unchanged: 0, pruned: 0 };
@@ -216,7 +226,9 @@ async function pruneByMergeIds({
   rawItemCount,
   counts,
   logContext,
+  assertLock,
 }) {
+  if (assertLock) await assertLock();
   if (!snapshotComplete) {
     counts.pruneSkippedReason = 'incomplete';
     logger.warn(
@@ -392,7 +404,7 @@ async function syncLocations({ tenantId, connection, accountToken, now }) {
   return counts;
 }
 
-async function syncEmployees({ tenantId, connection, accountToken, now, groupTypeById }) {
+async function syncEmployees({ tenantId, connection, accountToken, now, groupTypeById, assertLock }) {
   const counts = emptyCounts();
   const logContext = {
     organizationId: String(tenantId),
@@ -492,6 +504,7 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
     rawItemCount: snapshot.items.length,
     counts,
     logContext,
+    assertLock,
   });
 
   if (counts.pruneSkippedReason) {
@@ -507,7 +520,7 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
   return counts;
 }
 
-async function syncEmployments({ tenantId, connection, accountToken, now }) {
+async function syncEmployments({ tenantId, connection, accountToken, now, assertLock }) {
   const counts = emptyCounts();
   const logContext = {
     organizationId: String(tenantId),
@@ -571,6 +584,7 @@ async function syncEmployments({ tenantId, connection, accountToken, now }) {
     rawItemCount: snapshot.items.length,
     counts,
     logContext,
+    assertLock,
   });
 
   if (snapshot.complete) {
@@ -628,7 +642,9 @@ async function syncContactsFromHrisEmployees({
   tenantId,
   connection,
   employeeSnapshotComplete = false,
+  assertLock,
 }) {
+  if (assertLock) await assertLock();
   const counts = { ...emptyCounts(), conflicts: 0 };
   const mergeConnectionId = connection._id;
   const employees = await MergeHrisEmployee.find({
@@ -811,6 +827,7 @@ async function syncContactsFromHrisEmployees({
   }
 
   if (employeeSnapshotComplete) {
+    if (assertLock) await assertLock();
     await Contact.updateMany(
       {
         tenantId,
@@ -828,30 +845,53 @@ async function syncContactsFromHrisEmployees({
  * Full paginated HRIS sync for a tenant-owned Merge connection.
  * Updates Merge HRIS models and mirrors employees into Workspace Contacts.
  * Never creates ShelfMerch Users/logins.
+ * `lock` lease/renew overrides are for tests only.
  */
-export async function syncMergeConnection({ tenantId, connectionId }) {
+export async function syncMergeConnection({ tenantId, connectionId, lock } = {}) {
   requireMergeConfigured();
 
-  const connection = await getOwnedMergeConnection({ tenantId, connectionId });
-  if (connection.status !== 'connected' && connection.status !== 'needs_attention') {
+  const owned = await getOwnedMergeConnection({ tenantId, connectionId });
+  if (owned.status !== 'connected' && owned.status !== 'needs_attention') {
     throw new ApiError(400, 'Merge connection is not active', 'MERGE_CONNECTION_INACTIVE');
   }
-  if (!connection.encryptedAccountToken) {
+  if (!owned.encryptedAccountToken) {
     throw new ApiError(400, 'Merge account token is missing', 'MERGE_TOKEN_MISSING');
   }
 
   let accountToken;
   try {
-    accountToken = decryptToken(connection.encryptedAccountToken);
+    accountToken = decryptToken(owned.encryptedAccountToken);
   } catch {
     throw new ApiError(500, 'Could not decrypt Merge account token', 'MERGE_TOKEN_DECRYPT_FAILED');
   }
 
-  const now = new Date();
-  connection.lastSyncStatus = 'syncing';
-  connection.lastError = '';
-  await connection.save();
+  const leaseMs = Number(lock?.leaseMs) > 0 ? Number(lock.leaseMs) : MERGE_SYNC_LOCK_LEASE_MS;
+  const renewEveryMs =
+    Number(lock?.renewEveryMs) > 0 ? Number(lock.renewEveryMs) : MERGE_SYNC_LOCK_RENEW_EVERY_MS;
 
+  const acquired = await acquireMergeSyncLock({ tenantId, connectionId, leaseMs });
+  if (!acquired) throw mergeSyncInProgressError();
+
+  const { token } = acquired;
+  let connection = acquired.connection;
+  let lockLost = false;
+  const stopHeartbeat = startMergeSyncLockHeartbeat({
+    tenantId,
+    connectionId: connection._id,
+    token,
+    leaseMs,
+    renewEveryMs,
+    onLost: () => {
+      lockLost = true;
+    },
+  });
+
+  const assertLock = async () => {
+    if (lockLost) throw mergeSyncLockLostError();
+    await assertMergeSyncLockOwned({ tenantId, connectionId: connection._id, token });
+  };
+
+  const now = new Date();
   const summary = {
     employees: emptyCounts(),
     departments: emptyCounts(),
@@ -861,6 +901,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
   };
 
   try {
+    await assertLock();
     summary.departments = await syncDepartments({
       tenantId,
       connection,
@@ -868,6 +909,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       now,
     });
 
+    await assertLock();
     const departments = await MergeHrisDepartment.find({
       tenantId,
       connectionId: connection._id,
@@ -878,6 +920,7 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       departments.map((d) => [d.mergeDepartmentId, d.groupType || 'UNKNOWN']),
     );
 
+    await assertLock();
     summary.locations = await syncLocations({
       tenantId,
       connection,
@@ -885,32 +928,49 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       now,
     });
 
+    await assertLock();
     summary.employees = await syncEmployees({
       tenantId,
       connection,
       accountToken,
       now,
       groupTypeById,
+      assertLock,
     });
 
+    await assertLock();
     summary.employments = await syncEmployments({
       tenantId,
       connection,
       accountToken,
       now,
+      assertLock,
     });
 
+    await assertLock();
     summary.contacts = await syncContactsFromHrisEmployees({
       tenantId,
       connection,
       employeeSnapshotComplete: Boolean(summary.employees.snapshotComplete),
+      assertLock,
     });
 
-    connection.lastSyncAt = now;
-    connection.lastSyncStatus = 'success';
-    connection.lastError = '';
-    connection.status = 'connected';
-    await connection.save();
+    stopHeartbeat();
+    await assertLock();
+
+    const completed = await completeMergeSyncLock({
+      tenantId,
+      connectionId: connection._id,
+      token,
+      fields: {
+        lastSyncAt: now,
+        lastSyncStatus: 'success',
+        lastError: '',
+        status: 'connected',
+      },
+    });
+    if (!completed) throw mergeSyncLockLostError();
+    connection = completed;
 
     logger.info(
       {
@@ -929,18 +989,37 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       sync: summary,
     };
   } catch (err) {
-    connection.lastSyncStatus = 'failed';
-    connection.lastError = err?.code || err?.message || 'SYNC_FAILED';
-
-    if (err?.code === 'MERGE_SCOPES_DISABLED') {
-      // Valid Linked Account; missing dashboard scopes — keep connected.
-      connection.status = 'connected';
-      connection.lastError = 'MERGE_SCOPES_DISABLED';
-    } else if (err?.code === 'MERGE_AUTH_FAILED') {
-      connection.status = 'needs_attention';
+    stopHeartbeat();
+    if (err?.code === 'MERGE_SYNC_LOCK_LOST') {
+      logger.warn(
+        {
+          organizationId: String(tenantId),
+          connectionId: String(connection._id),
+          provider: connection.provider,
+          code: err.code,
+        },
+        'Merge HRIS sync aborted — lock lost',
+      );
+      throw err;
     }
 
-    await connection.save();
+    const failedFields = {
+      lastSyncStatus: 'failed',
+      lastError: err?.code || err?.message || 'SYNC_FAILED',
+    };
+    if (err?.code === 'MERGE_SCOPES_DISABLED') {
+      failedFields.status = 'connected';
+      failedFields.lastError = 'MERGE_SCOPES_DISABLED';
+    } else if (err?.code === 'MERGE_AUTH_FAILED') {
+      failedFields.status = 'needs_attention';
+    }
+
+    await completeMergeSyncLock({
+      tenantId,
+      connectionId: connection._id,
+      token,
+      fields: failedFields,
+    });
 
     logger.warn(
       {
@@ -952,6 +1031,8 @@ export async function syncMergeConnection({ tenantId, connectionId }) {
       'Merge HRIS sync failed',
     );
     throw err;
+  } finally {
+    stopHeartbeat();
   }
 }
 
