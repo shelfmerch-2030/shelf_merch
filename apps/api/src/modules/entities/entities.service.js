@@ -4,6 +4,7 @@ import { WalletTransaction } from '../wallets/walletTransaction.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
 import { User } from '../users/user.model.js';
 import { inviteUser } from '../users/users.service.js';
+import { appendEmailAllowlist } from '../auth/workEmail.js';
 import { RoleAssignment } from '../roles/roleAssignment.model.js';
 import { transitionState } from '../../services/stateMachine.service.js';
 import * as ledger from '../../services/ledger.service.js';
@@ -209,7 +210,11 @@ export async function deleteEntity({ tenantId, entityId }) {
   return entity;
 }
 
-/** §7.5 /assign-manager — invite (or reuse) a user and bind them to the entity. */
+/**
+ * §7.5 /assign-manager — invite (or reuse) a user and bind them to the entity.
+ * Company admins may invite any manager email; we allowlist it so they can accept
+ * the invite and sign in without a separate Shelf Merch admin step.
+ */
 export async function assignManager({ tenantId, entityId, data, userId }) {
   const entity = await getEntity({ tenantId, entityId });
   const tenant = await Tenant.findById(tenantId).select('name').lean();
@@ -225,12 +230,14 @@ export async function assignManager({ tenantId, entityId, data, userId }) {
     scopeId: entity._id,
     assignedEntityIds: [entity._id],
     sendInvite,
+    requireAllowlist: false,
     emailContext: {
       departmentName: entity.name,
       organizationName: tenant?.name || 'your organization',
       roleTitle: data.role || 'Department Manager',
     },
   });
+  await appendEmailAllowlist([data.email], userId);
 
   entity.managerUserId = user._id;
   // Pending whenever the bound account still needs to accept / activate.
