@@ -34,9 +34,17 @@ export function ShopsView(vm: ShopsVm) {
           actions={createAction}
         />
         <div className="card empty">
-          <div className="ic" aria-hidden="true">
-            <img src={storeImg} alt="" width={34} height={34} />
-          </div>
+          <img
+            src={storeImg}
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: 140,
+              height: 140,
+              marginBottom: 16,
+              objectFit: "contain",
+            }}
+          />
           <h3>No shops yet</h3>
           <p>Create one to celebrate a moment.</p>
           {vm.canCreateShop ? (
