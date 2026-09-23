@@ -13,6 +13,7 @@ import {
   CreditCard,
   Gift,
   GlassWater,
+  Globe2,
   Headphones,
   Lightbulb,
   LockKeyhole,
@@ -36,7 +37,6 @@ import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { getStoredUser } from "@/services/api-bridge";
 import { entityManagerBudgetRemaining } from "@/services/workspace-api";
 import { walletUnallocated } from "@/lib/walletFormat";
-import workspaceSettingsImg from "../../../assets/workspace-setting-tab.png";
 import metricGiftsIcon from "../../../assets/dash-metric-gifts.png";
 import metricPeopleIcon from "../../../assets/dash-metric-people.png";
 import metricShopsIcon from "../../../assets/dash-metric-shops.png";
@@ -70,6 +70,10 @@ function formatRole(role: string) {
     member: "Member",
   };
   return map[role] ?? role.replace(/_/g, " ");
+}
+
+function workspaceSlug(name: string) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "workspace";
 }
 
 const ONBOARDING_HELP_LINKS = [
@@ -171,6 +175,36 @@ function productThumb(p: UiProduct): string | undefined {
   return resolveMediaUrl(p.mockupUrl) || resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imgUrl);
 }
 
+function productSearchText(p: UiProduct) {
+  return `${p.nm || ""} ${p.brand || ""} ${p.category || ""} ${p.subcategory || ""} ${p.g || ""}`.toLowerCase();
+}
+
+function pickCatalogPreviewProducts(products: UiProduct[]) {
+  const blocked = /foldable wireless|activedry polo|activewear crew|anti-theft laptop|bamboo bluetooth/i;
+  const available = products.filter((product) => productThumb(product) && !blocked.test(product.nm));
+  const used = new Set<string>();
+
+  const pickOne = (match: RegExp) => {
+    const found = available.find((product) => {
+      const key = product.id || product.nm;
+      return key && !used.has(key) && match.test(productSearchText(product));
+    });
+    if (found) used.add(found.id || found.nm);
+    return found;
+  };
+
+  const curated = [
+    pickOne(/bottle|tumbler|mug|flask|drinkware/),
+    pickOne(/notebook|diary|journal|planner|pen|office|stationery/),
+    pickOne(/tote|duffle|sling|bag|backpack/),
+    pickOne(/cap|hat|keychain|key chain|accessor/),
+    pickOne(/hoodie|jacket|sweatshirt|apparel|shirt|tee/),
+  ].filter((product): product is UiProduct => Boolean(product));
+
+  const rest = available.filter((product) => !used.has(product.id || product.nm));
+  return [...curated, ...rest].slice(0, 10);
+}
+
 function SectionHead({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="dash-section-head">
@@ -243,7 +277,19 @@ function HelpCenter({ onboarding = false }: { onboarding?: boolean }) {
   );
 }
 
-function WorkspaceSettingsCard({ preview = false, art = false }: { preview?: boolean; art?: boolean }) {
+function WorkspaceSettingsCard({
+  preview = false,
+  art = false,
+  account = "Workspace",
+  ownerName = "Owner",
+}: {
+  preview?: boolean;
+  art?: boolean;
+  account?: string;
+  ownerName?: string;
+}) {
+  const slug = workspaceSlug(account);
+
   if (preview || art) {
     return (
       <Link
@@ -251,11 +297,17 @@ function WorkspaceSettingsCard({ preview = false, art = false }: { preview?: boo
         className="dash-settings-card dash-settings-card--preview card"
         aria-label="Customize workspace settings"
       >
-        <img
-          className="dash-settings-card__image"
-          src={art ? workspaceSettingsImg : workspaceSettingsImg}
-          alt="Workspace settings preview"
-        />
+        <span className="dash-settings-card__icon"><Settings size={18} aria-hidden="true" /></span>
+        <span className="dash-settings-card__copy">
+          <strong>Workspace settings</strong>
+          <span>Update company profile, owner and workspace URL.</span>
+        </span>
+        <span className="dash-settings-card__rows" aria-hidden="true">
+          <span><Store size={15} /> Workspace name <b>{account}</b></span>
+          <span><Users size={15} /> Owner <b>{ownerName}</b></span>
+          <span><Globe2 size={15} /> Workspace URL <b>/{slug}</b></span>
+        </span>
+        <span className="dash-settings-card__cta">Customize workspace <ArrowRight size={15} /></span>
       </Link>
     );
   }
@@ -274,28 +326,32 @@ function WorkspaceSettingsCard({ preview = false, art = false }: { preview?: boo
 }
 
 function ShortcutGrid() {
+  const icons: Record<string, LucideIcon> = {
+    Kits: Box,
+    Wallet: Landmark,
+    "Spot gifting": Gift,
+    "Automated gifting": CalendarDays,
+  };
+
   return (
     <section className="dash-shortcuts card">
       <SectionHead title="Everything you can do" />
       <div className="dash-shortcut-grid">
         {SHORTCUTS.map((item, index) => {
-          const num = String(index + 1).padStart(2, "0");
+          const Icon = icons[item.label] ?? Box;
           return (
             <Link
               key={item.label}
               to={item.href}
               className={`dash-shortcut dash-shortcut--${item.tone}`}
             >
-              <div className="dash-shortcut__top">
-                <img
-                  className="dash-shortcut__icon"
-                  src={item.icon}
-                  alt=""
-                  aria-hidden="true"
-                />
-                <span className="dash-shortcut__num">{num}</span>
-              </div>
-              <strong className="dash-shortcut__title">{item.label}</strong>
+              <span className="dash-shortcut__icon" aria-hidden="true">
+                <Icon size={18} strokeWidth={2.2} />
+              </span>
+              <span className="dash-shortcut__title-row">
+                <strong className="dash-shortcut__title">{item.label}</strong>
+                <ArrowRight size={16} strokeWidth={2.3} aria-hidden="true" />
+              </span>
               <span className="dash-shortcut__body">{item.body}</span>
               <span className="dash-shortcut__feature">
                 <span className="dash-shortcut__check" aria-hidden="true">✓</span>
@@ -341,14 +397,20 @@ function QuickTipsCard() {
       <div key={tip.title} className="dash-tip-card__slide">
         <div className="dash-tip-card__head">
           <span className="dash-tip-card__icon" aria-hidden="true"><Icon size={18} /></span>
-          <h2>{tip.title}</h2>
+          <span className="dash-tip-card__title">
+            <small>Workspace insight</small>
+            <h2>{tip.title}</h2>
+          </span>
         </div>
         <p>{tip.body}</p>
       </div>
-      <div className="dash-tip-dots" aria-hidden="true">
-        {QUICK_TIPS.map((item, i) => (
-          <i key={item.title} className={i === index ? "is-active" : undefined} />
-        ))}
+      <div className="dash-tip-card__footer">
+        <span>Tip {index + 1} of {QUICK_TIPS.length}</span>
+        <div className="dash-tip-dots" aria-hidden="true">
+          {QUICK_TIPS.map((item, i) => (
+            <i key={item.title} className={i === index ? "is-active" : undefined} />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -357,7 +419,7 @@ function QuickTipsCard() {
 function CatalogSendCard({ products }: { products: UiProduct[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  const items = products
+  const items = pickCatalogPreviewProducts(products)
     .map((p) => {
       const image = productThumb(p);
       if (!image) return null;
@@ -407,7 +469,15 @@ function CatalogSendCard({ products }: { products: UiProduct[] }) {
   );
 }
 
-function OnboardingDashboard({ catalogProducts }: { catalogProducts: UiProduct[] }) {
+function OnboardingDashboard({
+  catalogProducts,
+  account,
+  ownerName,
+}: {
+  catalogProducts: UiProduct[];
+  account: string;
+  ownerName: string;
+}) {
   return (
     <div className="dash-onboard">
       <section className="dash-setup card">
@@ -456,7 +526,7 @@ function OnboardingDashboard({ catalogProducts }: { catalogProducts: UiProduct[]
 
         <div className="dash-onboard-side">
           <HelpCenter onboarding />
-          <WorkspaceSettingsCard art />
+          <WorkspaceSettingsCard art account={account} ownerName={ownerName} />
         </div>
       </section>
 
@@ -772,6 +842,7 @@ function ExistingDashboard({
   canCreateShop,
   isEntityManager,
   catalogProducts,
+  ownerName,
 }: {
   account: string;
   memberCount: number;
@@ -783,6 +854,7 @@ function ExistingDashboard({
   canCreateShop: boolean;
   isEntityManager: boolean;
   catalogProducts: UiProduct[];
+  ownerName: string;
 }) {
   return (
     <>
@@ -793,7 +865,7 @@ function ExistingDashboard({
           <MetricCard label="Active Shops" value={activeShopCount} iconSrc={metricShopsIcon} artSrc={metricArtShops} tone="green" href="/app/shops" cta="Go to shops" />
           <MetricCard label="Available budget" value={formatInr(mainBalance)} iconSrc={metricBudgetIcon} artSrc={metricArtBudget} tone="amber" href="/app/wallets" cta="Go to budget" />
         </div>
-        <WorkspaceSettingsCard preview />
+        <WorkspaceSettingsCard preview account={account} ownerName={ownerName} />
       </section>
 
   
@@ -840,6 +912,7 @@ export function DashboardPage() {
   const userName = workspace.userPatch.name || sessionUser?.name || "User";
   const initials = workspace.userPatch.initials || "U";
   const account = workspace.account || "Workspace";
+  const ownerName = workspace.owner?.name || userName;
   const roleLabel = formatRole(workspace.userPatch.role);
   const contacts = workspace.contacts ?? [];
   const memberCount = contacts.length;
@@ -878,7 +951,11 @@ export function DashboardPage() {
       </section>
 
       {showOnboarding ? (
-        <OnboardingDashboard catalogProducts={workspace.catalogProducts ?? []} />
+        <OnboardingDashboard
+          catalogProducts={workspace.catalogProducts ?? []}
+          account={account}
+          ownerName={ownerName}
+        />
       ) : (
         <ExistingDashboard
           account={account}
@@ -891,6 +968,7 @@ export function DashboardPage() {
           canCreateShop={canCreateShop}
           isEntityManager={isEntityManager}
           catalogProducts={workspace.catalogProducts ?? []}
+          ownerName={ownerName}
         />
       )}
     </div>

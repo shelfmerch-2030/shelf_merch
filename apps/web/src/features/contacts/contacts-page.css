@@ -2,6 +2,7 @@
 
 .contacts-page {
   color: var(--ink);
+  font-family: var(--sans);
   margin-top: -8px;
   padding-bottom: 0;
   background: transparent;
@@ -31,9 +32,9 @@
 
 .ct-hero h1 {
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--disp);
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.15;
   color: #111827;
@@ -48,6 +49,7 @@
 
 .ct-hero__ghost,
 .ct-hero__cta {
+  font-family: var(--sans);
   height: 36px;
   padding: 0 14px;
   border-radius: 8px;
@@ -136,6 +138,7 @@
 }
 
 .ct-search input {
+  font-family: var(--sans);
   flex: 1;
   min-width: 0;
   border: none;
@@ -159,6 +162,7 @@
 }
 
 .ct-filter-btn {
+  font-family: var(--sans);
   height: 36px;
   padding: 0 12px;
   border: 1px solid #e5e7eb;
@@ -213,6 +217,7 @@
 }
 
 .ct-filter-menu button {
+  font-family: var(--sans);
   display: block;
   width: 100%;
   text-align: left;
@@ -267,6 +272,7 @@
 }
 
 .ct-table {
+  font-family: var(--sans);
   width: 100%;
   table-layout: fixed;
   border-collapse: separate;
@@ -290,6 +296,7 @@
 }
 
 .ct-table thead th {
+  font-family: var(--sans);
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -351,6 +358,7 @@
 }
 
 .ct-table tbody td {
+  font-family: var(--sans);
   padding: 12px 16px;
   font-size: 13.5px;
   vertical-align: middle;
@@ -405,8 +413,10 @@
 
 .ct-name {
   display: block;
+  font-family: var(--disp);
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: #4f46e5;
   white-space: nowrap;
   overflow: hidden;
@@ -599,9 +609,9 @@
 
 .ct-empty h3 {
   margin: 8px 0 0;
-  font-family: var(--sans);
+  font-family: var(--disp);
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 750;
   color: #111827;
 }
 

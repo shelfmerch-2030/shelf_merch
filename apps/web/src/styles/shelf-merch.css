@@ -15007,9 +15007,9 @@ tr:hover .camp-avatar {
 .hris-dir-top-copy{min-width:0;max-width:620px}
 .hris-dir-top h1{
   margin:0;
-  font-family:var(--sans);
+  font-family:var(--disp);
   font-size:28px;
-  font-weight:700;
+  font-weight:800;
   letter-spacing:-.03em;
   line-height:1.15;
   color:#111827;
@@ -15124,6 +15124,7 @@ tr:hover .camp-avatar {
 }
 .hris-dir-filter-wrap:has(.hris-dir-filter-menu){z-index:40}
 .hris-dir-filter-btn{
+  font-family:var(--sans);
   height:36px;
   padding:0 12px;
   border:1px solid #e5e7eb;
@@ -15171,6 +15172,7 @@ tr:hover .camp-avatar {
   z-index:50;
 }
 .hris-dir-filter-menu button{
+  font-family:var(--sans);
   display:block;
   width:100%;
   text-align:left;
@@ -15259,6 +15261,7 @@ tr:hover .camp-avatar {
   border-right:0;
 }
 .hris-dir-table tbody td{
+  font-family:var(--sans);
   padding:12px 16px;
   font-size:13.5px;
   line-height:1.45;
@@ -15306,10 +15309,10 @@ tr:hover .camp-avatar {
 }
 .hris-dir-person-name{
   display:block;
-  font-family:var(--sans);
-  font-weight:600;
+  font-family:var(--disp);
+  font-weight:700;
   font-size:13.5px;
-  letter-spacing:0;
+  letter-spacing:-.01em;
   color:#4f46e5;
   line-height:1.2;
   white-space:nowrap;
@@ -15387,9 +15390,9 @@ tr:hover .camp-avatar {
 }
 .hris-dir-empty h3{
   margin:8px 0 0;
-  font-family:var(--sans);
+  font-family:var(--disp);
   font-size:18px;
-  font-weight:650;
+  font-weight:750;
   color:#111827;
 }
 .hris-dir-empty p{
