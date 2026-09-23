@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { StoreBanner } from "@/components/StoreBanner";
 import { LoadingState } from "@/components/LoadingState";
 import { publicFetch } from "@/services/api";
-import { shopRedeemDisplayHost } from "@/lib/shopRedeemUrl";
+import { shopPublicLinkLabel } from "@/lib/shopRedeemUrl";
 
 type ShopInfo = {
   id: string;
@@ -96,7 +96,7 @@ export default function ShopRedeemEntry({ slug }: { slug: string }) {
           Enter your work email to access your rewards and redeem points.
         </p>
         <p className="mut3" style={{ fontSize: 12, marginBottom: 24 }}>
-          {shopRedeemDisplayHost(slug)}
+          {shopPublicLinkLabel(slug)}
         </p>
 
         {error ? (

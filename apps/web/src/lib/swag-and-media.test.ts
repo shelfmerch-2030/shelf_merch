@@ -13,9 +13,13 @@ import {
 } from "@/lib/printCoords";
 import {
   slugifyShopName,
+  shopPublicLinkLabel,
+  shopRedeemHref,
   shopRedeemPath,
   shopSlugFromHostname,
+  shopStorefrontHref,
   shopStorefrontPath,
+  usesPathStorefront,
 } from "@/lib/shopRedeemUrl";
 import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
 import { mockupStageFit } from "@/features/swag/MockupCanvas";
@@ -126,6 +130,45 @@ describe("shopRedeemUrl", () => {
     expect(shopSlugFromHostname("127.0.0.1", domain)).toBeNull();
     expect(shopSlugFromHostname("acme.shelfmerch.io", domain)).toBe("acme");
     expect(shopSlugFromHostname("salesforce.shelfmerch.io", domain)).toBe("salesforce");
+  });
+
+  it("uses path storefronts on staging and local, vanity hosts in production", () => {
+    const domain = "shelfmerch.io";
+    expect(usesPathStorefront("staging.shelfmerch.io", domain)).toBe(true);
+    expect(usesPathStorefront("localhost", domain)).toBe(true);
+    expect(usesPathStorefront("127.0.0.1", domain)).toBe(true);
+    expect(usesPathStorefront("preview.example.com", domain)).toBe(true);
+    expect(usesPathStorefront("shelfmerch.io", domain)).toBe(false);
+    expect(usesPathStorefront("www.shelfmerch.io", domain)).toBe(false);
+    expect(usesPathStorefront("acme.shelfmerch.io", domain)).toBe(false);
+  });
+
+  it("builds staging path links and production vanity links", () => {
+    const shop = { id: "abc123", slug: "acme" };
+    const staging = {
+      hostname: "staging.shelfmerch.io",
+      host: "staging.shelfmerch.io",
+      origin: "https://staging.shelfmerch.io",
+      protocol: "https:",
+    };
+    const prod = {
+      hostname: "shelfmerch.io",
+      host: "shelfmerch.io",
+      origin: "https://shelfmerch.io",
+      protocol: "https:",
+    };
+
+    expect(shopStorefrontHref(shop, staging)).toBe("https://staging.shelfmerch.io/s/acme");
+    expect(shopRedeemHref("acme", staging)).toBe("https://staging.shelfmerch.io/s/acme");
+    expect(shopPublicLinkLabel("acme", staging)).toBe("staging.shelfmerch.io/s/acme");
+
+    expect(shopStorefrontHref(shop, prod)).toBe("https://acme.store");
+    expect(shopRedeemHref("acme", prod)).toBe("https://acme.store");
+    expect(shopPublicLinkLabel("acme", prod)).toBe("acme.store");
+
+    expect(shopStorefrontHref({ id: "abc123" }, staging)).toBe(
+      "https://staging.shelfmerch.io/shop/abc123",
+    );
   });
 });
 
