@@ -318,7 +318,6 @@ describe('wallet setup wizard + state machine', () => {
       .send({ allocations: [{ entityId: entityRes.body._id, amount: 900_000 }] });
     expect(tooMuch.status).toBe(422);
 
-    await appendEmailAllowlist(['priya@rubix.net']);
     const mgr = await request(app)
       .post(`/api/v1/entities/${entityRes.body._id}/assign-manager`)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -541,7 +540,6 @@ describe('user invite', () => {
       name: 'Marketing',
     });
     const email = `new-mgr-${Date.now()}@test.io`;
-    await appendEmailAllowlist([email]);
 
     const assign = await request(app)
       .post(`/api/v1/entities/${entity._id}/assign-manager`)

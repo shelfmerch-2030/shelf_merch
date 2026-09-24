@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { Copy, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import type { UiShop } from "@/services/mappers";
-import { shopRedeemDisplayHost, shopRedeemHref, slugifyShopName } from "@/lib/shopRedeemUrl";
+import { shopPublicLinkLabel, shopRedeemHref, slugifyShopName } from "@/lib/shopRedeemUrl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +53,7 @@ export function ShopCard({ shop, fallbackUser }: { shop: UiShop; fallbackUser: s
   }
 
   const slug = shop.slug || slugifyShopName(shop.name);
-  const redeemHost = shopRedeemDisplayHost(slug);
+  const redeemLabel = shopPublicLinkLabel(slug);
 
   async function copyRedeemLink() {
     try {
@@ -143,7 +143,7 @@ export function ShopCard({ shop, fallbackUser }: { shop: UiShop; fallbackUser: s
               }}
             >
               <Copy size={14} aria-hidden />
-              {redeemHost}
+              {redeemLabel}
             </button>
           ) : null}
           <div style={{ marginTop: 14, textAlign: "right" }}>

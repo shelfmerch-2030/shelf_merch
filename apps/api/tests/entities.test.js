@@ -8,7 +8,6 @@ import {
   makeFundedWallet,
   makeEntity,
   authHeader,
-  allowlistAuthEmails,
 } from './helpers.js';
 import { createApp } from '../src/app.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
@@ -89,14 +88,17 @@ describe('entities API', () => {
     expect(res.status).toBe(404);
   });
 
-  it('assigns a manager and patches entity metadata', async () => {
-    await allowlistAuthEmails('mgr-new@entity-suite.io');
+  it('assigns a manager, allowlists their email, and patches entity metadata', async () => {
+    const email = 'mgr-new@entity-suite.io';
     const assign = await request(app)
       .post(`/api/v1/entities/${entity._id}/assign-manager`)
       .set(authHeader(adminToken))
-      .send({ name: 'Mgr New', email: 'mgr-new@entity-suite.io' });
+      .send({ name: 'Mgr New', email });
     expect(assign.status).toBe(201);
-    expect(assign.body.manager.email).toBe('mgr-new@entity-suite.io');
+    expect(assign.body.manager.email).toBe(email);
+
+    const { getEmailAllowlist } = await import('../src/modules/auth/workEmail.js');
+    expect(await getEmailAllowlist()).toContain(email);
 
     const patch = await request(app)
       .patch(`/api/v1/entities/${entity._id}`)

@@ -1,9 +1,10 @@
 import { Link } from "react-router";
-import { Plus, Store } from "lucide-react";
+import { Plus } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { ShopCard } from "../ShopCard";
 import type { ShopsVm } from "../controllers/useShopsController";
+import storeImg from "../../../../assets/store.png";
 
 /** Shops list: empty state or a grid of shop cards. */
 export function ShopsView(vm: ShopsVm) {
@@ -33,9 +34,17 @@ export function ShopsView(vm: ShopsVm) {
           actions={createAction}
         />
         <div className="card empty">
-          <div className="ic" aria-hidden="true">
-            <Store size={34} color="var(--gray-300)" />
-          </div>
+          <img
+            src={storeImg}
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: 140,
+              height: 140,
+              marginBottom: 16,
+              objectFit: "contain",
+            }}
+          />
           <h3>No shops yet</h3>
           <p>Create one to celebrate a moment.</p>
           {vm.canCreateShop ? (

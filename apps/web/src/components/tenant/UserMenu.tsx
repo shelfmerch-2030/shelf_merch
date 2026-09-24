@@ -99,7 +99,7 @@ export function UserMenu({
                 role="menuitem"
                 onClick={() => {
                   close();
-                  toast("Accessibility support — contact help@shelfmerch.io");
+                  toast("Accessibility support — contact support@shelfmerch.com");
                 }}
               >
                 Accessibility Support
