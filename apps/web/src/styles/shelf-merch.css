@@ -5676,25 +5676,49 @@ button.thumb{font:inherit;color:inherit}
   width: 14px;
   height: 14px;
 }
-.sm-toast--success,
-.sm-toast--error,
-.sm-toast--info,
-.sm-toast--warning {
+.sm-toast--success {
+  background: var(--green-50);
+  border-color: color-mix(in srgb, var(--green-600) 30%, var(--line));
+}
+.sm-toast--success .sm-toast-icon {
+  color: var(--green-600);
+}
+.sm-toast--success .sm-toast-close {
+  border-color: color-mix(in srgb, var(--green-600) 22%, var(--line));
+  background: color-mix(in srgb, var(--green-50) 70%, #fff) !important;
+}
+.sm-toast--error {
   background: var(--brand-50);
   border-color: var(--brand-100);
 }
-.sm-toast--success .sm-toast-icon,
-.sm-toast--error .sm-toast-icon,
-.sm-toast--info .sm-toast-icon,
-.sm-toast--warning .sm-toast-icon {
-  color: var(--brand);
+.sm-toast--error .sm-toast-icon {
+  color: var(--danger);
 }
-.sm-toast--success .sm-toast-close,
-.sm-toast--error .sm-toast-close,
-.sm-toast--info .sm-toast-close,
-.sm-toast--warning .sm-toast-close {
+.sm-toast--error .sm-toast-close {
   border-color: var(--brand-100);
   background: color-mix(in srgb, var(--brand-50) 55%, #fff) !important;
+}
+.sm-toast--info {
+  background: var(--brand-50);
+  border-color: var(--brand-100);
+}
+.sm-toast--info .sm-toast-icon {
+  color: var(--brand);
+}
+.sm-toast--info .sm-toast-close {
+  border-color: var(--brand-100);
+  background: color-mix(in srgb, var(--brand-50) 55%, #fff) !important;
+}
+.sm-toast--warning {
+  background: var(--orange-50, #fff7ed);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+}
+.sm-toast--warning .sm-toast-icon {
+  color: var(--accent-d);
+}
+.sm-toast--warning .sm-toast-close {
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
+  background: color-mix(in srgb, var(--orange-50, #fff7ed) 70%, #fff) !important;
 }
 .sm-toast [data-content] {
   flex: 1;
@@ -5713,11 +5737,17 @@ button.thumb{font:inherit;color:inherit}
   height: 3px !important;
   background: color-mix(in srgb, var(--ink) 12%, transparent) !important;
 }
-.sm-toast--success [data-progress],
-.sm-toast--error [data-progress],
-.sm-toast--info [data-progress],
-.sm-toast--warning [data-progress] {
+.sm-toast--success [data-progress] {
+  background: color-mix(in srgb, var(--green-600) 55%, transparent) !important;
+}
+.sm-toast--error [data-progress] {
   background: color-mix(in srgb, var(--brand) 55%, transparent) !important;
+}
+.sm-toast--info [data-progress] {
+  background: color-mix(in srgb, var(--brand) 55%, transparent) !important;
+}
+.sm-toast--warning [data-progress] {
+  background: color-mix(in srgb, var(--accent) 55%, transparent) !important;
 }
 @keyframes sm-sonner-spin {
   to {

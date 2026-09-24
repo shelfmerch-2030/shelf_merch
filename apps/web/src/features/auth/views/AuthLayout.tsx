@@ -9,8 +9,6 @@ type AuthLayoutProps = {
   subtitle?: string;
   /** `welcome` = merch backdrop + card with wordmark above (login / signup). `compact` = smaller card for reset flows. */
   variant?: "branded" | "welcome" | "compact";
-  /** Keep the screen inside the viewport (login). */
-  lockScroll?: boolean;
   footerLink?: { hint: string; label: string; to: "/login" | "/signup" | "/forgot-password" };
 };
 
@@ -19,7 +17,6 @@ export function AuthLayout({
   title,
   subtitle,
   variant = "branded",
-  lockScroll = false,
   footerLink,
 }: AuthLayoutProps) {
   const isWelcome = variant === "welcome";
@@ -30,33 +27,21 @@ export function AuthLayout({
 
   return (
     <div
-      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}${isCompact ? " auth-simple--compact" : ""}${lockScroll ? " auth-simple--noscroll" : ""}`}
+      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}${isCompact ? " auth-simple--compact" : ""}`}
       style={authBackgroundStyle}
     >
       <div className="auth-simple-body">
         <div className="auth-simple-shell">
           <section className="auth-simple-art" aria-label="Shelf Merch branded merchandise">
-            {isWelcome ? (
-              <div className="auth-brand-caption">
-                <p className="auth-brand-caption__lead">Every gift,</p>
-                <p className="auth-brand-caption__highlight">
-                  <span>one shelf.</span>
-                </p>
-                <p className="auth-brand-caption__tag">Made for gifting teams everywhere.</p>
-              </div>
-            ) : (
-              <img src={authMerchImage} alt="" className="auth-simple-art-img" />
-            )}
+            <img src={authMerchImage} alt="" className="auth-simple-art-img" />
           </section>
 
           {isWelcome ? (
             <div className="auth-simple-form-col">
               <Link to="/" className="auth-welcome-brand" aria-label="Shelf Merch home">
-                <img
-                  src="/images/logo/shelfmerch-wordmark-transparent.png"
-                  alt=""
-                  className="auth-welcome-brand__logo"
-                />
+                <span className="auth-welcome-brand__text" aria-hidden="true">
+                  Shelf Merch
+                </span>
               </Link>
               <section className="auth-simple-card">
                 <h1 className="auth-simple-title">{title}</h1>

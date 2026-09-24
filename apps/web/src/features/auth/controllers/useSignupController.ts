@@ -39,82 +39,6 @@ export function clearSignupDraft() {
   }
 }
 
-export type SignupFieldErrors = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  company: string;
-  password: string;
-  confirmPassword: string;
-};
-
-const emptyFieldErrors: SignupFieldErrors = {
-  firstName: "",
-  lastName: "",
-  email: "",
-  company: "",
-  password: "",
-  confirmPassword: "",
-};
-
-function personNameError(value: string, label: string) {
-  const v = value.trim();
-  if (!v) return `Enter your ${label}`;
-  if (!/^[\p{L}][\p{L} .'-]*$/u.test(v)) return `Enter a valid ${label}`;
-  return "";
-}
-
-function workEmailError(value: string) {
-  const v = value.trim();
-  if (!v) return "Enter your work email";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Enter a valid work email";
-  return "";
-}
-
-function companyNameError(value: string) {
-  const v = value.trim();
-  if (!v) return "Enter your company name";
-  if (!/\p{L}/u.test(v)) return "Enter a valid company name";
-  return "";
-}
-
-function passwordFieldError(value: string) {
-  if (!value) return "Enter a password";
-  if (value.length < 8) return "Password must be at least 8 characters";
-  if (!/[A-Za-z]/.test(value) || !/\d/.test(value)) {
-    return "Use at least one letter and one number";
-  }
-  return "";
-}
-
-function confirmPasswordError(password: string, confirm: string) {
-  if (!confirm) return "Confirm your password";
-  if (password !== confirm) return "Passwords do not match";
-  return "";
-}
-
-export function signupFieldErrors(fields: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  company: string;
-  password: string;
-  confirmPassword: string;
-}): SignupFieldErrors {
-  return {
-    firstName: personNameError(fields.firstName, "first name"),
-    lastName: personNameError(fields.lastName, "last name"),
-    email: workEmailError(fields.email),
-    company: companyNameError(fields.company),
-    password: passwordFieldError(fields.password),
-    confirmPassword: confirmPasswordError(fields.password, fields.confirmPassword),
-  };
-}
-
-function hasFieldErrors(errors: SignupFieldErrors) {
-  return Object.values(errors).some(Boolean);
-}
-
 export type SignupVm = {
   email: string;
   password: string;
@@ -126,7 +50,6 @@ export type SignupVm = {
   showConfirmPassword: boolean;
   busy: boolean;
   accountExists: boolean;
-  fieldErrors: SignupFieldErrors;
   onEmail: (email: string) => void;
   onPassword: (password: string) => void;
   onConfirmPassword: (password: string) => void;
@@ -170,25 +93,6 @@ export function useSignupController(): SignupVm {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>(emptyFieldErrors);
-
-  function fieldsNow(patch: Partial<SignupFieldErrors> = {}) {
-    return {
-      firstName,
-      lastName,
-      email,
-      company,
-      password,
-      confirmPassword,
-      ...patch,
-    };
-  }
-
-  function refreshErrors(patch: Partial<SignupFieldErrors> = {}) {
-    if (!submitted) return;
-    setFieldErrors(signupFieldErrors(fieldsNow(patch)));
-  }
 
   useEffect(() => {
     if (prefill) {
@@ -201,20 +105,24 @@ export function useSignupController(): SignupVm {
     e.preventDefault();
     if (submitInFlight.current) return;
 
-    const trimmedEmail = email.trim();
-    const errors = signupFieldErrors({
-      firstName,
-      lastName,
-      email: trimmedEmail,
-      company,
-      password,
-      confirmPassword,
-    });
-    setSubmitted(true);
-    setFieldErrors(errors);
-    if (hasFieldErrors(errors)) return;
-
     const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password || !name || !company.trim()) {
+      toast.error("Fill in all fields");
+      return;
+    }
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      toast.error("Password must include at least one letter and one number");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
 
     submitInFlight.current = true;
     setBusy(true);
@@ -269,32 +177,15 @@ export function useSignupController(): SignupVm {
     showConfirmPassword,
     busy,
     accountExists,
-    fieldErrors,
     onEmail: (v) => {
       setAccountExists(false);
       setEmail(v);
-      refreshErrors({ email: v });
     },
-    onPassword: (v) => {
-      setPassword(v);
-      refreshErrors({ password: v });
-    },
-    onConfirmPassword: (v) => {
-      setConfirmPassword(v);
-      refreshErrors({ confirmPassword: v });
-    },
-    onFirstName: (v) => {
-      setFirstName(v);
-      refreshErrors({ firstName: v });
-    },
-    onLastName: (v) => {
-      setLastName(v);
-      refreshErrors({ lastName: v });
-    },
-    onCompany: (v) => {
-      setCompany(v);
-      refreshErrors({ company: v });
-    },
+    onPassword: setPassword,
+    onConfirmPassword: setConfirmPassword,
+    onFirstName: setFirstName,
+    onLastName: setLastName,
+    onCompany: setCompany,
     onToggleShowPassword: () => setShowPassword((s) => !s),
     onToggleShowConfirmPassword: () => setShowConfirmPassword((s) => !s),
     onSubmit: submit,
