@@ -7,6 +7,7 @@ export function SignupView(vm: SignupVm) {
   return (
     <AuthLayout
       variant="welcome"
+      dense
       title="Create your account"
       subtitle="Start managing merch, gifting and orders"
       footerLink={{ hint: "Already have an account?", label: "Log in", to: "/login" }}
@@ -94,7 +95,7 @@ export function SignupView(vm: SignupVm) {
           </div>
 
           <div className="auth-simple-field">
-            <AuthLabel htmlFor="signup-confirm">Confirm Password</AuthLabel>
+            <AuthLabel htmlFor="signup-confirm">Confirm password</AuthLabel>
             <PasswordField
               id="signup-confirm"
               value={vm.confirmPassword}
