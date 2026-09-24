@@ -6,14 +6,15 @@ export function LoginView(vm: LoginVm) {
   return (
     <AuthLayout
       variant="welcome"
-      title="Welcome back 👋"
+      lockScroll
+      title="Welcome back"
       footerLink={{ hint: "Need an account?", label: "Create account", to: "/signup" }}
     >
       <form className="auth-simple-form" onSubmit={vm.onSubmit} aria-busy={vm.busy}>
         <fieldset className="auth-simple-fieldset" disabled={vm.loginDisabled}>
           <div className="auth-float-field">
             <label htmlFor="login-email" className="auth-float-label">
-              Work email
+              Email
             </label>
             <input
               id="login-email"
