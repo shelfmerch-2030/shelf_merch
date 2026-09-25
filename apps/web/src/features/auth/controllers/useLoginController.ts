@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { login, isPlatformUser } from "../model";
 import { loginErrorMessage } from "../loginErrors";
+
+const SESSION_EXPIRED_NOTICE = "Your session expired. Please sign in again.";
 
 export type LoginVm = {
   email: string;
@@ -10,6 +12,7 @@ export type LoginVm = {
   showPassword: boolean;
   busy: boolean;
   error: string;
+  notice: string;
   loginDisabled: boolean;
   onEmail: (email: string) => void;
   onPassword: (password: string) => void;
@@ -21,6 +24,7 @@ export type LoginVm = {
 /** Controller for the login screen: form state, submit flow, redirect by role. */
 export function useLoginController(): LoginVm {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const submitInFlight = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,6 +65,7 @@ export function useLoginController(): LoginVm {
     showPassword,
     busy,
     error,
+    notice: searchParams.get("session") === "expired" ? SESSION_EXPIRED_NOTICE : "",
     loginDisabled: busy,
     onEmail: setEmail,
     onPassword: setPassword,

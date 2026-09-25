@@ -41,14 +41,20 @@ export const registerSchema = z.object({
   companyName: z.string().min(1),
 });
 
-export const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
+export const refreshSchema = z.preprocess(
+  (value) => (value == null ? {} : value),
+  z.object({
+    refreshToken: z.string().min(1).optional(),
+  }),
+);
 
-export const logoutSchema = z.object({
-  refreshToken: z.string().optional(),
-  everywhere: z.boolean().optional().default(false),
-});
+export const logoutSchema = z.preprocess(
+  (value) => (value == null ? {} : value),
+  z.object({
+    refreshToken: z.string().optional(),
+    everywhere: z.boolean().optional().default(false),
+  }),
+);
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),

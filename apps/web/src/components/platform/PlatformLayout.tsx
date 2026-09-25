@@ -5,6 +5,7 @@ import {
   isAuthenticated,
   isPlatformUser,
   logout,
+  logoutEverywhere,
 } from "@/services/api-bridge";
 import { navItemsForRole, type PlatformNavItem } from "@/services/platform-access";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
@@ -50,6 +51,10 @@ export default function PlatformLayout() {
     await logout().catch(() => {});
   }
 
+  async function onLogoutEverywhere() {
+    await logoutEverywhere().catch(() => {});
+  }
+
   if (!user || !isPlatformUser(user)) return null;
 
   return (
@@ -79,6 +84,9 @@ export default function PlatformLayout() {
         </Link>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onLogout}>
           Sign out
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onLogoutEverywhere}>
+          Sign out all devices
         </button>
       </header>
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PAYLOAD_TOO_LARGE_MESSAGE } from "@/lib/errorMessage";
-import { ApiError, errorFromResponse } from "./api";
+import { ApiError, errorFromResponse, SESSION_EXPIRED_MESSAGE } from "./api";
 
 const NGINX_413 = `<html>
 <head><title>413 Request Entity Too Large</title></head>
@@ -31,6 +31,14 @@ describe("errorFromResponse", () => {
     });
     expect(err.message).toBe("Uploaded file is too large");
     expect(err.code).toBe("LIMIT_FILE_SIZE");
+  });
+
+  it("hides raw access-token failures behind the session message", () => {
+    const err = errorFromResponse(401, {
+      error: { code: "UNAUTHORIZED", message: "Invalid or expired access token" },
+    });
+    expect(err.message).toBe(SESSION_EXPIRED_MESSAGE);
+    expect(err.message).not.toContain("access token");
   });
 
   it("does not dump non-JSON HTML for other gateway failures", () => {

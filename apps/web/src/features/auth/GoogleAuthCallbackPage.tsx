@@ -6,12 +6,11 @@ import { isPlatformUser, setSession, type AuthUser } from "@/services/auth-store
 function parseHashSession(hash: string) {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
   const accessToken = params.get("accessToken");
-  const refreshToken = params.get("refreshToken");
   const userRaw = params.get("user");
-  if (!accessToken || !refreshToken || !userRaw) return null;
+  if (!accessToken || !userRaw) return null;
   try {
     const user = JSON.parse(userRaw) as AuthUser;
-    return { accessToken, refreshToken, user };
+    return { accessToken, user };
   } catch {
     return null;
   }

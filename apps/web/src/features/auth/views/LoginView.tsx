@@ -45,6 +45,12 @@ export function LoginView(vm: LoginVm) {
             </button>
           </div>
 
+          {vm.notice ? (
+            <p className="auth-simple-subtitle" role="status">
+              {vm.notice}
+            </p>
+          ) : null}
+
           {vm.error ? (
             <p className="auth-simple-error auth-simple-error--shake" role="alert">
               {vm.error}

@@ -19,6 +19,7 @@ import { Order } from '../src/modules/orders/order.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Invoice } from '../src/modules/invoices/invoice.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
+import { refreshTokenFromResponse } from './helpers.js';
 import { appendEmailAllowlist, BUILT_IN_PLATFORM_ALLOWLIST_EMAILS } from '../src/modules/auth/workEmail.js';
 
 let app;
@@ -865,7 +866,7 @@ describe('settings & signup gating (§3.4, §6)', () => {
 
     const staleRefresh = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
     expect(staleRefresh.status).toBe(401);
 
     const oldPasswordBlocked = await request(app)
@@ -897,7 +898,7 @@ describe('settings & signup gating (§3.4, §6)', () => {
 
     const refresh = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: freshLogin.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(freshLogin)}`);
     expect(refresh.status).toBe(401);
 
     const blocked = await request(app)

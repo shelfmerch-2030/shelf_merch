@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
-import { makeTenant, makeUser, authHeader, allowlistAuthEmails } from './helpers.js';
+import { makeTenant, makeUser, authHeader, allowlistAuthEmails, refreshTokenFromResponse } from './helpers.js';
+import { RefreshToken } from '../src/modules/auth/refreshToken.model.js';
 import { createApp } from '../src/app.js';
 import { JWT_ACCESS_AUDIENCE, JWT_ISSUER } from '../src/config/jwt.js';
 import { User } from '../src/modules/users/user.model.js';
@@ -80,7 +81,8 @@ describe('authentication — login & role assignment', () => {
       .send({ email: 'admin@login-ok.io', password: 'correct-horse-1' });
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
-    expect(res.body.refreshToken).toBeTruthy();
+    expect(res.body.refreshToken).toBeUndefined();
+    expect(refreshTokenFromResponse(res)).toBeTruthy();
     expect(res.body.user.role).toBe('company_admin');
     expect(res.body.user.tenantId).toBe(String(tenant._id));
   });
@@ -133,6 +135,30 @@ describe('authentication — login & role assignment', () => {
 });
 
 describe('authentication — refresh token', () => {
+  it('sets an HttpOnly refresh cookie and does not return the token to JavaScript', async () => {
+    const tenant = await makeTenant({ slug: 'refresh-cookie' });
+    await makeUser(tenant, 'company_admin', 'tenant', {
+      email: 'admin@refresh-cookie.io',
+      password: 'correct-horse-1',
+    });
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@refresh-cookie.io', password: 'correct-horse-1' });
+    expect(login.status).toBe(200);
+    expect(login.body.refreshToken).toBeUndefined();
+    const cookie = []
+      .concat(login.headers['set-cookie'] || [])
+      .find((entry) => entry.startsWith('sm_refresh='));
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).toMatch(/Path=\/(?:;|$)/);
+    expect(cookie).not.toMatch(/;\s*Secure/i);
+    const stored = await RefreshToken.findOne({ userId: login.body.user.id });
+    expect(stored.tokenHash).toBeTruthy();
+    expect(stored.tokenHash).not.toBe(refreshTokenFromResponse(login));
+    expect(stored.expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 60 * 60 * 1000);
+  });
+
   it('refresh rotates tokens; old refresh token cannot be reused', async () => {
     const tenant = await makeTenant({ slug: 'refresh-ok' });
     await makeUser(tenant, 'company_admin', 'tenant', {
@@ -143,19 +169,111 @@ describe('authentication — refresh token', () => {
       .post('/api/v1/auth/login')
       .send({ email: 'admin@refresh-ok.io', password: 'correct-horse-1' });
     expect(login.status).toBe(200);
+    const firstRefresh = refreshTokenFromResponse(login);
 
     const refreshed = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${firstRefresh}`);
     expect(refreshed.status).toBe(200);
     expect(refreshed.body.accessToken).toBeTruthy();
-    expect(refreshed.body.refreshToken).toBeTruthy();
-    expect(refreshed.body.refreshToken).not.toBe(login.body.refreshToken);
+    expect(refreshed.body.refreshToken).toBeUndefined();
+    const rotated = refreshTokenFromResponse(refreshed);
+    expect(rotated).toBeTruthy();
+    expect(rotated).not.toBe(firstRefresh);
 
     const replay = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${firstRefresh}`);
     expect(replay.status).toBe(401);
+    expect(replay.body.error.code).toBe('REFRESH_IN_PROGRESS');
+
+    const current = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${rotated}`);
+    expect(current.status).toBe(200);
+  });
+
+  it('replay after the grace window revokes every device session', async () => {
+    const tenant = await makeTenant({ slug: 'refresh-replay' });
+    const { user } = await makeUser(tenant, 'company_admin', 'tenant', {
+      email: 'admin@refresh-replay.io',
+      password: 'correct-horse-1',
+    });
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@refresh-replay.io', password: 'correct-horse-1' });
+    const firstRefresh = refreshTokenFromResponse(login);
+    const refreshed = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${firstRefresh}`);
+    const rotated = refreshTokenFromResponse(refreshed);
+
+    await RefreshToken.updateMany(
+      { userId: user._id, revokedAt: { $ne: null } },
+      { revokedAt: new Date(Date.now() - 60_000) },
+    );
+
+    const replay = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${firstRefresh}`);
+    expect(replay.status).toBe(401);
+    expect(replay.body.error.code).toBe('SESSION_EXPIRED');
+    expect(replay.body.error.message).toBe('Your session expired. Please sign in again.');
+
+    const killed = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${rotated}`);
+    expect(killed.status).toBe(401);
+
+    const saved = await User.findById(user._id).select('sessionVersion');
+    expect(saved.sessionVersion).toBe(1);
+  });
+
+  it('keeps a second device signed in when the first device logs out', async () => {
+    const tenant = await makeTenant({ slug: 'refresh-devices' });
+    await makeUser(tenant, 'company_admin', 'tenant', {
+      email: 'admin@refresh-devices.io',
+      password: 'correct-horse-1',
+    });
+    const laptop = await request(app)
+      .post('/api/v1/auth/login')
+      .set('User-Agent', 'Chrome-Laptop')
+      .send({ email: 'admin@refresh-devices.io', password: 'correct-horse-1' });
+    const phone = await request(app)
+      .post('/api/v1/auth/login')
+      .set('User-Agent', 'Mobile-Safari')
+      .send({ email: 'admin@refresh-devices.io', password: 'correct-horse-1' });
+    const laptopToken = refreshTokenFromResponse(laptop);
+    const phoneToken = refreshTokenFromResponse(phone);
+    expect(laptopToken).not.toBe(phoneToken);
+
+    const logout = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `sm_refresh=${laptopToken}`);
+    expect(logout.status).toBe(200);
+
+    const laptopRefresh = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${laptopToken}`);
+    expect(laptopRefresh.status).toBe(401);
+
+    const phoneRefresh = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${phoneToken}`);
+    expect(phoneRefresh.status).toBe(200);
+
+    const everywhere = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${phoneRefresh.body.accessToken}`)
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(phoneRefresh)}`)
+      .send({ everywhere: true });
+    expect(everywhere.status).toBe(200);
+
+    const after = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(phoneRefresh)}`);
+    expect(after.status).toBe(401);
+    expect(after.body.error.message).toBe('Your session expired. Please sign in again.');
   });
 
   it('rejects an invalid refresh token', async () => {
@@ -190,12 +308,12 @@ describe('authentication — refresh token', () => {
 
     const logout = await request(app)
       .post('/api/v1/auth/logout')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
     expect(logout.status).toBe(200);
 
     const refresh = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
     expect(refresh.status).toBe(401);
   });
 });
