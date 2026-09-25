@@ -163,7 +163,7 @@ export function UserMenu({
                 className="user-menu-help"
                 onClick={() => {
                   close();
-                  toast("Help center — docs.shelfmerch.io");
+                  window.location.href = "mailto:support@shelfmerch.com";
                 }}
               >
                 <HelpCircle />

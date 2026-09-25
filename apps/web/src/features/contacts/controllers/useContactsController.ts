@@ -26,6 +26,7 @@ export type ContactsVm = {
   statusFilter: WorkerStatusFilter;
   counts: RoleCounts;
   filtered: UiContact[];
+  hasContacts: boolean;
   selected: Set<string>;
   allSelected: boolean;
   someSelected: boolean;
@@ -219,6 +220,7 @@ export function useContactsController(): ContactsVm {
     statusFilter,
     counts,
     filtered,
+    hasContacts: (contacts?.length ?? 0) > 0,
     selected,
     allSelected,
     someSelected,

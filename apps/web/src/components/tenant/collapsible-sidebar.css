@@ -7,7 +7,7 @@
 }
 
 .sidebar-rail {
-  --sidebar-rail-bg: #f8fafc;
+  --sidebar-rail-bg: #b9d4ff;
   --sidebar-rail-icon: #0f172a;
   --sidebar-rail-ink: #0f172a;
   --sidebar-rail-highlight: #ffffff;
@@ -31,7 +31,7 @@
 }
 
 /* Portaled to body (not inside .sidebar-rail) — use brand tokens directly */
-.sidebar-rail__toggle {
+button.sidebar-rail__toggle {
   position: fixed;
   z-index: 30;
   width: 22px;
@@ -39,20 +39,21 @@
   border-radius: 0 0 8px 0;
   display: grid;
   place-items: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #b9d4ff;
   border-top: none;
   border-left: none;
-  background: #f8fafc;
+  background: #b9d4ff;
   color: #334155;
-  box-shadow: 2px 1px 5px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
   cursor: pointer;
   padding: 0;
   transition: color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.sidebar-rail__toggle:hover {
+button.sidebar-rail__toggle:hover,
+button.sidebar-rail__toggle:focus-visible {
   color: #0f172a;
-  background: #ffffff;
+  background: #b9d4ff;
   box-shadow: 2px 2px 7px rgba(15, 23, 42, 0.08);
 }
 
@@ -137,14 +138,15 @@
 
 .sidebar-rail:not(.sidebar-rail--expanded) .sidebar-rail__item--active .sidebar-rail__item-icon {
   background: var(--sidebar-rail-active);
-  border-color: #bfdbfe;
-  color: #3155ff;
-  box-shadow: 0 8px 18px rgba(49, 85, 255, 0.12);
+  border-color: transparent;
+  color: var(--sidebar-rail-icon);
+  box-shadow: none;
 }
 
 .sidebar-rail:not(.sidebar-rail--expanded) .sidebar-rail__item--active:hover .sidebar-rail__item-icon {
   background: var(--sidebar-rail-active);
-  color: #3155ff;
+  border-color: transparent;
+  color: var(--sidebar-rail-icon);
 }
 
 .sidebar-rail:not(.sidebar-rail--expanded) .sidebar-rail__item:hover,
@@ -179,14 +181,15 @@
 
 .sidebar-rail--expanded .sidebar-rail__item--active {
   background: var(--sidebar-rail-active);
-  border-color: #bfdbfe;
-  color: #3155ff;
+  border-color: transparent;
+  color: var(--sidebar-rail-icon);
   box-shadow: none;
 }
 
 .sidebar-rail--expanded .sidebar-rail__item--active:hover {
   background: var(--sidebar-rail-active);
-  color: #3155ff;
+  border-color: transparent;
+  color: var(--sidebar-rail-icon);
 }
 
 .sidebar-rail--expanded .sidebar-rail__item--active .sidebar-rail__item-label,

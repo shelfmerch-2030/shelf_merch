@@ -1,10 +1,11 @@
+import { REFRESH_TTL_SEC } from '../config/env.js';
 import { ensureRedisReady, getRedis } from '../config/redis.js';
 
 const REFRESH_PREFIX = 'session:refresh:';
 const USER_SESSIONS_PREFIX = 'session:user:';
 
-/** Matches auth.service REFRESH_TTL_MS (30 days). */
-export const SESSION_TTL_SEC = 30 * 24 * 60 * 60;
+/** Matches the refresh-token lifetime from JWT_REFRESH_TTL. */
+export const SESSION_TTL_SEC = REFRESH_TTL_SEC;
 
 export async function isSessionStoreReady() {
   return ensureRedisReady();

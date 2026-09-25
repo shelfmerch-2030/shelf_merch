@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { env } from '../../config/env.js';
+import { env, REFRESH_TTL_MS } from '../../config/env.js';
 import { accessSignOptions } from '../../config/jwt.js';
 import { sendPasswordResetEmail, sendSignupVerificationEmail } from '../../services/email.service.js';
 import { SignupPending } from './signupPending.model.js';
@@ -22,7 +22,6 @@ import { ApiError, ConflictError, UnauthorizedError } from '../../utils/errors.j
 import { assertAllowedAuthEmail } from './workEmail.js';
 
 const BCRYPT_ROUNDS = 12;
-const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Parallel tab refreshes present the just-rotated token; don't treat that as theft. */
 const REFRESH_REUSE_GRACE_MS = 15 * 1000;
 const SESSION_EXPIRED_MESSAGE = 'Your session expired. Please sign in again.';

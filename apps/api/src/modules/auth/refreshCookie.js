@@ -1,13 +1,13 @@
 import { parse as parseCookie, serialize as serializeCookie } from 'cookie';
-import { env } from '../../config/env.js';
+import { env, REFRESH_TTL_SEC } from '../../config/env.js';
 
 /** HttpOnly refresh-session cookie. Never readable from JavaScript. */
 export const REFRESH_COOKIE = 'sm_refresh';
 
 const REFRESH_COOKIE_PATH = '/';
-/** Previous path, cleared on logout so an older cookie does not linger. */
+/** Previous path. Cleared whenever a new cookie is set so the browser cannot send both. */
 const LEGACY_REFRESH_COOKIE_PATH = '/api/v1/auth';
-const REFRESH_MAX_AGE_SEC = 30 * 24 * 60 * 60;
+const REFRESH_MAX_AGE_SEC = REFRESH_TTL_SEC;
 
 function cookieOptions(maxAge, path = REFRESH_COOKIE_PATH) {
   const production = env.NODE_ENV === 'production';
@@ -20,16 +20,23 @@ function cookieOptions(maxAge, path = REFRESH_COOKIE_PATH) {
   };
 }
 
+function appendCookie(res, token, maxAge, path = REFRESH_COOKIE_PATH) {
+  res.append('Set-Cookie', serializeCookie(REFRESH_COOKIE, token, cookieOptions(maxAge, path)));
+}
+
+/** Drop the old path-scoped cookie. A different path is a different cookie. */
+function clearLegacyRefreshCookie(res) {
+  appendCookie(res, '', 0, LEGACY_REFRESH_COOKIE_PATH);
+}
+
 export function setRefreshCookie(res, token) {
-  res.append('Set-Cookie', serializeCookie(REFRESH_COOKIE, token, cookieOptions(REFRESH_MAX_AGE_SEC)));
+  appendCookie(res, token, REFRESH_MAX_AGE_SEC);
+  clearLegacyRefreshCookie(res);
 }
 
 export function clearRefreshCookie(res) {
-  res.append('Set-Cookie', serializeCookie(REFRESH_COOKIE, '', cookieOptions(0)));
-  res.append(
-    'Set-Cookie',
-    serializeCookie(REFRESH_COOKIE, '', cookieOptions(0, LEGACY_REFRESH_COOKIE_PATH)),
-  );
+  appendCookie(res, '', 0);
+  clearLegacyRefreshCookie(res);
 }
 
 /**

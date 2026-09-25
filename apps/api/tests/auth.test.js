@@ -153,10 +153,69 @@ describe('authentication — refresh token', () => {
     expect(cookie).toMatch(/SameSite=Lax/i);
     expect(cookie).toMatch(/Path=\/(?:;|$)/);
     expect(cookie).not.toMatch(/;\s*Secure/i);
+    expect(cookie).toMatch(/Max-Age=86400(?:;|$)/);
     const stored = await RefreshToken.findOne({ userId: login.body.user.id });
     expect(stored.tokenHash).toBeTruthy();
     expect(stored.tokenHash).not.toBe(refreshTokenFromResponse(login));
-    expect(stored.expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 60 * 60 * 1000);
+    const day = 24 * 60 * 60 * 1000;
+    const remaining = stored.expiresAt.getTime() - Date.now();
+    expect(remaining).toBeGreaterThan(day - 5000);
+    expect(remaining).toBeLessThanOrEqual(day);
+  });
+
+  it('clears a legacy Path=/api/v1/auth refresh cookie when issuing a new one', async () => {
+    const tenant = await makeTenant({ slug: 'refresh-legacy-path' });
+    await makeUser(tenant, 'company_admin', 'tenant', {
+      email: 'admin@refresh-legacy-path.io',
+      password: 'correct-horse-1',
+    });
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@refresh-legacy-path.io', password: 'correct-horse-1' });
+    expect(login.status).toBe(200);
+
+    const cookies = [].concat(login.headers['set-cookie'] || []);
+    const live = cookies.filter((entry) => entry.startsWith('sm_refresh=') && !/Max-Age=0(?:;|$)/i.test(entry));
+    const cleared = cookies.find((entry) => /Path=\/api\/v1\/auth/i.test(entry));
+
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatch(/Path=\/(?:;|$)/);
+    expect(live[0]).not.toMatch(/Path=\/api\/v1\/auth/i);
+    expect(cleared).toMatch(/^sm_refresh=;/);
+    expect(cleared).toMatch(/Max-Age=0/i);
+    expect(cleared).toMatch(/HttpOnly/i);
+
+    const refreshed = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
+    const rotatedCookies = [].concat(refreshed.headers['set-cookie'] || []);
+    const rotatedLive = rotatedCookies.filter(
+      (entry) => entry.startsWith('sm_refresh=') && !/Max-Age=0(?:;|$)/i.test(entry),
+    );
+    expect(rotatedLive).toHaveLength(1);
+    expect(rotatedLive[0]).toMatch(/Path=\/(?:;|$)/);
+    expect(rotatedCookies.some((entry) => /Path=\/api\/v1\/auth/i.test(entry) && /Max-Age=0/i.test(entry))).toBe(true);
+  });
+
+  it('rejects a refresh token after its 24 hour lifetime', async () => {
+    const tenant = await makeTenant({ slug: 'refresh-expired' });
+    await makeUser(tenant, 'company_admin', 'tenant', {
+      email: 'admin@refresh-expired.io',
+      password: 'correct-horse-1',
+    });
+    const login = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@refresh-expired.io', password: 'correct-horse-1' });
+    await RefreshToken.updateMany(
+      { userId: login.body.user.id },
+      { expiresAt: new Date(Date.now() - 1000) },
+    );
+
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('SESSION_EXPIRED');
   });
 
   it('refresh rotates tokens; old refresh token cannot be reused', async () => {

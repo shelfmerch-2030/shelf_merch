@@ -653,7 +653,7 @@
 }
 .dash-send-item small { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-2); }
 
-.dash-onboard .dash-help-list__icon { background: #e0e7ff; color: #3730a3; }
+.dash-onboard .dash-help-list__icon { background: #dbeafe; color: #1d4ed8; }
 .dash-onboard .dash-onboard-side > .dash-card,
 .dash-onboard .dash-onboard-side > section.card:first-child {
   background: #f5f3ff;
@@ -2250,12 +2250,12 @@
 /* Professional dashboard refinement: quieter density, Deel-like restraint. */
 .dash-page,
 .dash-onboard {
-  gap: 16px;
+  gap: 8px;
 }
 
 .dash-welcome {
-  padding: 14px 24px;
-  min-height: 82px;
+  padding: 12px 24px;
+  min-height: 72px;
   border-radius: 12px;
   border-color: #e2e8f0;
   box-shadow: none;
@@ -2275,60 +2275,63 @@
 }
 
 .dash-setup {
-  min-height: 300px;
-  padding: 36px 0 36px 56px;
-  grid-template-columns: minmax(360px, 0.88fr) minmax(480px, 1.12fr);
+  min-height: 252px;
+  padding: 30px 48px;
+  grid-template-columns: minmax(430px, 0.48fr) minmax(520px, 0.52fr);
   border-radius: 14px;
-  border-color: #98cffb;
-  background: linear-gradient(105deg, #d9edff 0%, #c9e7ff 62%, #badeff 100%);
+  border-color: #9bc2ef;
+  background:
+    linear-gradient(90deg, rgba(188, 220, 255, 0.98) 0%, rgba(188, 220, 255, 0.78) 44%, rgba(188, 220, 255, 0) 66%),
+    url("/images/dashboard-setup-banner.png") center / cover no-repeat,
+    #bcdcff;
 }
 
 .dash-setup__copy {
-  max-width: 560px;
+  max-width: 500px;
 }
 
 .dash-setup__eyebrow {
-  padding: 8px 14px;
+  padding: 7px 13px;
   border-color: rgba(49, 85, 255, 0.18);
   color: #3155ff;
   background: rgba(255, 255, 255, 0.7);
 }
 
 .dash-setup h1 {
-  max-width: 520px;
-  font-size: clamp(42px, 3.25vw, 64px);
-  letter-spacing: -0.045em;
+  max-width: 500px;
+  font-size: clamp(36px, 2.75vw, 52px);
+  letter-spacing: -0.04em;
+  line-height: 1.02;
 }
 
 .dash-setup p {
   max-width: 470px;
-  font-size: 19px;
-  line-height: 1.45;
+  font-size: 17px;
+  line-height: 1.42;
 }
 
 .dash-setup__cta {
-  min-height: 56px;
-  padding: 0 28px;
+  min-height: 50px;
+  padding: 0 24px;
   border-radius: 999px;
   font-size: 17px;
 }
 
 .dash-setup__trust {
-  margin-top: 28px;
-  gap: 28px;
+  margin-top: 20px;
+  gap: 24px;
 }
 
 .dash-setup-visual {
-  min-height: 300px;
+  display: none;
 }
 
 .dash-setup-visual__img {
-  max-height: 350px;
-  transform: translateX(108px) scaleX(-1);
+  display: none;
 }
 
 .dash-setup:hover .dash-setup-visual__img {
-  transform: translateX(108px) scaleX(-1);
+  transform: none;
 }
 
 .dash-onboard-mid,
@@ -2353,12 +2356,77 @@
   background: linear-gradient(135deg, #3155ff 0%, #3755d7 56%, #5962e8 100%);
 }
 
+.dash-onboard-mid {
+  align-items: stretch;
+}
+
+.dash-onboard .dash-why-panel {
+  padding: 16px 18px 14px;
+}
+
+.dash-onboard .dash-why-list {
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 2px 0 0;
+}
+
+.dash-onboard .dash-why-list li {
+  padding: 8px 8px;
+}
+
+.dash-onboard .dash-why-list__icon {
+  width: 40px;
+  height: 40px;
+}
+
+.dash-onboard-video .dash-video,
+.dash-onboard .dash-video--centered {
+  min-height: 0;
+  height: 100%;
+  padding: 20px 20px 44px;
+}
+
+.dash-onboard-side {
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+.dash-onboard .dash-onboard-side > .dash-card,
+.dash-onboard .dash-onboard-side > section.card:first-child {
+  height: auto;
+  padding: 14px 16px;
+}
+
+.dash-onboard .dash-help-list__item {
+  padding: 7px 6px;
+}
+
+.dash-onboard .dash-settings-card--preview {
+  height: auto;
+  padding: 14px 16px 12px;
+  gap: 8px 12px;
+}
+
+.dash-onboard .dash-settings-card__rows {
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.dash-onboard .dash-settings-card__rows > span {
+  min-height: 32px;
+}
+
 .dash-tip-card {
-  min-height: 164px;
-  padding: 18px;
-  border-radius: 12px;
-  justify-content: space-between;
-  gap: 18px;
+  min-height: 100%;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r);
+  overflow: hidden;
+  justify-content: stretch;
+  gap: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .dash-tip-card--peach,
@@ -2366,100 +2434,219 @@
 .dash-tip-card--sky,
 .dash-tip-card--lemon,
 .dash-tip-card--rose {
-  background: #fff;
-  border-color: #e5e7eb;
   color: #334155;
 }
 
-.dash-tip-card__slide {
-  flex: 1;
+.dash-tip-card--peach {
+  --tip-accent: #ff6655;
+  --tip-soft: #fff1ed;
 }
 
-.dash-tip-card__head {
-  gap: 12px;
-  margin-bottom: 12px;
+.dash-tip-card--mint {
+  --tip-accent: #68dcb4;
+  --tip-soft: #ecfbf5;
 }
 
-.dash-tip-card__head::after {
-  content: "Setup guidance";
-  margin-left: auto;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+.dash-tip-card--sky {
+  --tip-accent: #3155ff;
+  --tip-soft: #eef4ff;
+}
+
+.dash-tip-card--lemon {
+  --tip-accent: #ffd84a;
+  --tip-soft: #fff8db;
+}
+
+.dash-tip-card--rose {
+  --tip-accent: #b89df5;
+  --tip-soft: #f3edff;
+}
+
+.dash-tip-card__visual {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  flex: 1 1 auto;
+  align-self: stretch;
+  border-radius: var(--r);
+  overflow: hidden;
+  background:
+    linear-gradient(100deg, rgba(49, 85, 255, 0.05) 0 34%, rgba(49, 85, 255, 0.16) 34% 100%),
+    #bfe0ff;
+}
+
+.dash-tip-card__visual::before {
+  content: "";
+  position: absolute;
+  left: 14%;
+  top: 5%;
+  width: 52%;
+  height: 90%;
+  border: 1.5px dashed #b89df5;
+  border-radius: 16px;
+}
+
+.dash-tip-card__visual::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 58%;
+  background: rgba(255, 255, 255, 0.2);
+  clip-path: polygon(0 14%, 100% 0, 100% 100%, 0 86%);
+}
+
+.dash-tip-card__stack {
+  position: absolute;
+  z-index: 1;
+  left: 20%;
+  top: 13%;
+  display: grid;
+  gap: 28px;
+  width: 36%;
+  min-width: 178px;
+}
+
+.dash-tip-card__stack span {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 0 0 6px rgba(184, 157, 245, 0.72);
   font-size: 11px;
   font-weight: 800;
-  line-height: 1;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
-.dash-tip-card__icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #3155ff;
+.dash-tip-card__stack svg {
+  width: 25px;
+  height: 25px;
+  padding: 5px;
+  flex: none;
+  border-radius: 999px;
+  color: #111827;
+}
+
+.dash-tip-card__stack span:nth-child(1) svg {
+  background: #d7ecff;
+}
+
+.dash-tip-card__stack span:nth-child(2) svg {
+  background: #ffe59c;
+}
+
+.dash-tip-card__stack span:nth-child(3) svg {
+  background: #d7ffd9;
+}
+
+.dash-onboard-lower > .dash-tip-card {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 100%;
+  height: auto;
+  padding: 16px 14px 14px;
+  border: 0;
+  border-radius: 18px;
+  background: #eef1ff;
   box-shadow: none;
+  overflow: visible;
 }
 
 .dash-tip-card__title {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-right: 22px;
+  position: relative;
 }
 
-.dash-tip-card__title small {
-  color: #64748b;
-  font-size: 11px;
+.dash-tip-card__title h2 {
+  margin: 0;
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.dash-tip-card__head h2 {
-  font-size: 16px;
+  color: #111827;
   letter-spacing: 0;
 }
 
-.dash-tip-card p {
-  max-width: 560px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.5;
-  flex: 0;
+.dash-tip-card__title-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #3155ff;
+  flex: none;
 }
 
-.dash-tip-card__footer {
+.dash-tip-card__spark {
+  position: absolute;
+  top: -2px;
+  right: 2px;
+  color: #7aa2ff;
+}
+
+.dash-tip-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.dash-tip-card__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #eef2f7;
-  color: #64748b;
-  font-size: 11.5px;
-  font-weight: 800;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: visible;
 }
 
-.dash-tip-dots {
-  gap: 6px;
-  margin-top: 0;
+.dash-tip-card__row svg:last-child {
+  margin-left: auto;
+  color: #94a3b8;
+  flex: none;
 }
 
-.dash-tip-dots i {
-  width: 26px;
-  height: 5px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  opacity: 1;
+.dash-tip-card__row-icon {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  display: block;
+  flex: 0 0 32px;
+  color: #111827;
 }
 
-.dash-tip-dots i.is-active {
-  background: #3155ff;
-  transform: none;
+.dash-tip-card__row-icon svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  display: block;
+  transform: translate(-50%, -50%);
 }
+
+.dash-tip-card__row-icon--blue { background: #dbeafe; color: #1d4ed8; }
+.dash-tip-card__row-icon--amber { background: #fde68a; color: #111827; }
+.dash-tip-card__row-icon--green { background: #bbf7d0; color: #166534; }
 
 .dash-send-card {
   padding: 20px 24px 24px;
@@ -2536,116 +2723,172 @@
 }
 
 .dash-shortcuts {
-  padding: 24px;
-  border-radius: 18px;
-  border-color: #e5e7eb;
-  background: #f3f4f6;
+  padding: 18px 22px 22px;
+  border-radius: 20px;
+  border-color: #dfe3e8;
+  background: #fff;
+  box-shadow: none;
 }
 
 .dash-shortcut-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.dash-shortcut {
-  min-height: 132px;
-  padding: 24px;
-  border-radius: 14px;
-  border: 0;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  gap: 8px 14px;
-  align-items: start;
+.dash-shortcuts .dash-shortcut {
+  position: relative;
+  min-height: 226px;
+  padding: 0 14px 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--shortcut-icon, #3155ff) 16%, #dbe3ef);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--shortcut-bg, #d7e8ff) 0 86px,
+      #fff 86px 100%
+    );
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  color: inherit;
+  isolation: isolate;
 }
 
-.dash-shortcut::before {
+.dash-shortcuts .dash-shortcut::after {
   display: none;
 }
 
-.dash-shortcut::after {
+.dash-shortcuts .dash-shortcut::before {
   display: none;
 }
 
-.dash-shortcut:hover {
+.dash-shortcuts .dash-shortcut:hover {
   transform: translateY(-2px);
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  background:
+    linear-gradient(
+      to bottom,
+      var(--shortcut-bg, #d7e8ff) 0 86px,
+      #fff 86px 100%
+    );
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
 }
 
-.dash-shortcut__icon {
-  grid-row: 1 / span 2;
-  width: 40px;
-  height: 40px;
+.dash-shortcuts .dash-shortcut__icon {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  margin: 0;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  color: #3155ff;
-  display: grid;
-  place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
-}
-
-.dash-shortcut__num {
-  display: none;
-}
-
-.dash-shortcut__title-row {
+  border: 0;
+  border-radius: 50%;
+  color: var(--shortcut-icon, #3155ff);
+  background: #fff;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 3px 0 0;
-  color: #0f172a;
+  justify-content: center;
+  box-shadow: none;
+  object-fit: unset;
 }
 
-.dash-shortcut__title-row svg {
-  flex: none;
-  color: #94a3b8;
-  transition: color 0.16s ease, transform 0.16s ease;
+.dash-shortcuts .dash-shortcut__icon svg {
+  width: 19px;
+  height: 19px;
+  display: block;
 }
 
-.dash-shortcut:hover .dash-shortcut__title-row svg {
-  color: #3155ff;
-  transform: translateX(2px);
-}
-
-.dash-shortcut__title {
-  margin: 0;
-  font-size: 17px;
+.dash-shortcuts .dash-shortcut__title {
+  position: relative;
+  z-index: 2;
+  margin: 108px 0 0;
+  min-height: 0;
+  color: #111827;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 0;
   line-height: 1.25;
 }
 
-.dash-shortcut__body {
-  grid-column: 2;
-  font-size: 14px;
-  line-height: 1.45;
-  color: #475569;
-  max-height: none;
+.dash-shortcuts .dash-shortcut__body {
+  position: relative;
+  z-index: 2;
+  max-width: 152px;
+  margin: 8px auto 0;
+  flex: none;
+  font-size: 10px;
+  line-height: 1.28;
+  color: #64748b;
+  max-height: 66px;
   overflow: hidden;
 }
 
-.dash-shortcut__feature {
-  display: none;
+.dash-shortcuts .dash-shortcut__foot {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.dash-shortcut__check {
-  width: 15px;
-  height: 15px;
-  font-size: 10px;
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #3155ff;
+.dash-shortcuts .dash-shortcut__badge {
+  position: static;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: #ff7a3c;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 800;
 }
 
-.dash-shortcut--coral .dash-shortcut__icon { color: #7c3aed; background: #ede9fe; border-color: #ddd6fe; }
-.dash-shortcut--blue .dash-shortcut__icon { color: #2563eb; background: #dbeafe; border-color: #bfdbfe; }
-.dash-shortcut--yellow .dash-shortcut__icon { color: #92400e; background: #fef3c7; border-color: #fde68a; }
-.dash-shortcut--lilac .dash-shortcut__icon { color: #0891b2; background: #cffafe; border-color: #a5f3fc; }
+.dash-shortcuts .dash-shortcut__go {
+  position: static;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--shortcut-arrow, #b9d4ff);
+  color: #1f2937;
+  flex: none;
+}
+
+.dash-shortcuts .dash-shortcut--coral {
+  --shortcut-bg: #d4e6ff;
+  --shortcut-icon: #2f5fe0;
+  --shortcut-arrow: #b7d2ff;
+}
+
+.dash-shortcuts .dash-shortcut--blue {
+  --shortcut-bg: #e6dcff;
+  --shortcut-icon: #6a3df0;
+  --shortcut-arrow: #d0c2ff;
+}
+
+.dash-shortcuts .dash-shortcut--yellow {
+  --shortcut-bg: #ffe4d4;
+  --shortcut-icon: #f2652f;
+  --shortcut-arrow: #ffc9b0;
+}
+
+.dash-shortcuts .dash-shortcut--lilac {
+  --shortcut-bg: #d7f5e4;
+  --shortcut-icon: #14945f;
+  --shortcut-arrow: #b7e8cc;
+}
 
 .dash-shortcut--coral,
 .dash-shortcut--blue,

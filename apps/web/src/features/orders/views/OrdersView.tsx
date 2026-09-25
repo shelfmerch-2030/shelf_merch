@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { inr } from "@/components/platform/platform-ui";
+import ordersEmptyArt from "../../../../assets/orders-empty.png";
 import type { OrdersVm } from "../controllers/useOrdersController";
 import { OrderDetailDialogView } from "./OrderDetailDialogView";
 import { OrderStatusTag } from "./OrderStatusTag";
@@ -27,6 +28,7 @@ export function OrdersView(vm: OrdersVm) {
 
       {!vm.hasOrders ? (
         <div className="card empty app-simple-empty">
+          <img src={ordersEmptyArt} alt="" aria-hidden="true" className="app-simple-empty__art" />
           <h3>No orders yet</h3>
           <p>Orders appear here when recipients redeem gifts or you send kits at scale.</p>
         </div>

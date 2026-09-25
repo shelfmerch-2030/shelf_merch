@@ -1,26 +1,26 @@
-import { Plus } from "lucide-react";
+import budgetEmptyArt from "../../../../../assets/budget-empty-generated.png";
 
 type Props = {
   onSetup: () => void;
   disabled?: boolean;
 };
 
-/** First-time empty state — matches the legacy card.empty layout. */
+/** First-time budget empty state. */
 export function EmptyBudgetState({ onSetup, disabled }: Props) {
   return (
-    <div className="card empty app-simple-empty">
-      <h3>Organization budget</h3>
-      <p>
-        Create your merchandise budget by submitting a Purchase Order or Agreement. ShelfMerch will
-        review your funding request before your budget goes live.
+    <div className="card budget-empty">
+      <img src={budgetEmptyArt} alt="" className="budget-empty__art" />
+      <h3 className="budget-empty__title">Organization budget</h3>
+      <p className="budget-empty__desc">
+        Set up a budget for your team to start sending swag, kits and gifts.
       </p>
       <button
         type="button"
-        className="app-simple-empty__cta"
+        className="budget-empty__cta"
         onClick={onSetup}
         disabled={disabled}
       >
-        <Plus size={16} /> Setup budget
+        Set up your first budget
       </button>
     </div>
   );

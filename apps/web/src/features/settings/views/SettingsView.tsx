@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { ExternalLink, Upload } from "lucide-react";
 import { PageHeader } from "@/components/tenant/PageHeader";
-import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { SettingsVm } from "../controllers/useSettingsController";
 import { TransferOwnershipDialog } from "../TransferOwnershipDialog";
@@ -85,13 +84,11 @@ function WorkspaceSettingsView(vm: SettingsVm) {
           Used as the company icon on member profiles across the workspace.
         </p>
         <div className="settings-section__body">
-          <div className="settings-logo" style={{ padding: vm.logoUrl ? 6 : 0 }}>
-            {vm.logoUrl ? (
+          {vm.logoUrl ? (
+            <div className="settings-logo" style={{ padding: 6 }}>
               <img src={resolveMediaUrl(vm.logoUrl)} alt="Workspace icon" />
-            ) : (
-              <ShelfMerchLogo variant="icon" height={26} alt="" />
-            )}
-          </div>
+            </div>
+          ) : null}
           {vm.canEditWorkspace ? (
             <button
               type="button"

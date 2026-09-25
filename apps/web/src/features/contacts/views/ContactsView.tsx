@@ -36,16 +36,8 @@ import {
   type SortKey,
   type WorkerStatusFilter,
 } from "../controllers/useContactsController";
+import contactsEmptyArt from "../../../../assets/contacts-empty.png";
 import "../contacts-page.css";
-
-const FOOTER_LINKS = [
-  "Terms of use",
-  "Cookie preferences",
-  "Accessibility support",
-  "Explore features",
-  "Help center",
-  "Contact us",
-];
 
 const WORKER_TYPE_OPTIONS: [string, string][] = [
   ["all", "All worker types"],
@@ -353,6 +345,22 @@ export function ContactsView(vm: ContactsVm) {
         ) : vm.errorMessage ? (
           <div className="card" style={{ padding: 16, color: "var(--danger)" }}>
             {vm.errorMessage}
+          </div>
+        ) : !vm.hasContacts ? (
+          <div className="card empty contacts-empty">
+            <img src={contactsEmptyArt} alt="" aria-hidden="true" className="contacts-empty__art" />
+            <h3>No contacts yet</h3>
+            <p>Add people to start sending gifts and points.</p>
+            {vm.canManageContacts ? (
+              <button
+                type="button"
+                className="btn btn-brand"
+                style={{ marginTop: 14 }}
+                onClick={() => vm.onAddOpen("manual")}
+              >
+                Add people
+              </button>
+            ) : null}
           </div>
         ) : (
           <section className="ct-panel">
@@ -663,17 +671,6 @@ export function ContactsView(vm: ContactsVm) {
             </div>
           </section>
         )}
-
-        <footer className="ct-footer">
-          <span>© Powered by Shelf Merch</span>
-          <nav aria-label="Footer">
-            {FOOTER_LINKS.map((link) => (
-              <button key={link} type="button" onClick={() => vm.onFooterLink(link)}>
-                {link}
-              </button>
-            ))}
-          </nav>
-        </footer>
       </div>
 
       <ContactFormDialog

@@ -20,6 +20,7 @@ import { PublishCollectionDialog } from "../PublishCollectionDialog";
 import { SwagCollectionCard } from "../SwagCollectionCard";
 import { useArchiveCollection, useDeleteCollection, useRestoreCollection } from "../model";
 import type { UiCollection } from "@/services/mappers";
+import swagHeroLavenderSaasImg from "../../../../assets/swag-hero-lavender-saas.png";
 
 export function SwagView(vm: SwagVm) {
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ export function SwagView(vm: SwagVm) {
         ) : (
           <div className="card swag-empty-designer">
             <img
-              src="/images/swag-collection-soft-banner.png"
+              src={swagHeroLavenderSaasImg}
               alt=""
               className="swag-empty-designer__image"
               aria-hidden="true"
