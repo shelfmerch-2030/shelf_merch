@@ -10,6 +10,7 @@ import { Entity } from '../src/modules/entities/entity.model.js';
 import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
 import { signAccessToken } from '../src/modules/auth/auth.service.js';
+import { refreshTokenFromResponse } from './helpers.js';
 import { appendEmailAllowlist } from '../src/modules/auth/workEmail.js';
 import * as ledger from '../src/services/ledger.service.js';
 
@@ -434,13 +435,13 @@ describe('auth flow', () => {
 
     const refresh = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
     expect(refresh.status).toBe(200);
 
     // Rotated: the old refresh token is dead.
     const reuse = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: login.body.refreshToken });
+      .set('Cookie', `sm_refresh=${refreshTokenFromResponse(login)}`);
     expect(reuse.status).toBe(401);
 
     const badLogin = await request(app)

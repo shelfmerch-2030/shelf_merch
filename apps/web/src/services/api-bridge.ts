@@ -4,7 +4,6 @@
 import { ApiError, apiFetch, publicFetch } from "./api";
 import {
   clearSession,
-  getRefreshToken,
   getStoredUser,
   isAuthenticated,
   isPlatformUser,
@@ -59,7 +58,6 @@ export function useMocks(): boolean {
 
 type AuthResult = {
   accessToken: string;
-  refreshToken: string;
   user: Parameters<typeof setSession>[0]["user"];
 };
 
@@ -73,7 +71,6 @@ const DEMO_PASSWORD = "demo1234";
 
 const DEMO_SESSION: AuthResult = {
   accessToken: "demo-access-token",
-  refreshToken: "demo-refresh-token",
   user: {
     id: "demo-hr-rubix",
     tenantId: "demo-tenant",
@@ -198,21 +195,24 @@ export function startGoogleAuth(mode: "login" | "signup" = "login") {
   window.location.assign(`/api/v1/auth/google?${params.toString()}`);
 }
 
-export async function logout() {
-  const refreshToken = getRefreshToken();
-  clearSession();
-  if (refreshToken) {
-    try {
-      await apiFetch("/auth/logout", {
-        method: "POST",
-        auth: false,
-        body: JSON.stringify({ refreshToken }),
-      });
-    } catch {
-      /* session already cleared locally */
-    }
+/** Current device, or every device when `everywhere` is set (bumps sessionVersion). */
+export async function logout(options?: { everywhere?: boolean }) {
+  const everywhere = Boolean(options?.everywhere);
+  try {
+    await apiFetch("/auth/logout", {
+      method: "POST",
+      auth: everywhere,
+      body: JSON.stringify({ everywhere }),
+    });
+  } catch {
+    /* still leave the app */
   }
+  clearSession();
   window.location.assign("/");
+}
+
+export async function logoutEverywhere() {
+  return logout({ everywhere: true });
 }
 
 export async function tryRestoreSession(): Promise<WorkspaceSnapshot | "platform" | null> {

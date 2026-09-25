@@ -93,3 +93,17 @@ export async function makeShop(tenant, overrides = {}) {
 export function authHeader(token) {
   return { Authorization: `Bearer ${token}` };
 }
+
+/** Raw refresh token from the HttpOnly Set-Cookie (not the JSON body). */
+export function refreshTokenFromResponse(res) {
+  const raw = res.headers['set-cookie'] || [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  const found = list.find((entry) => typeof entry === 'string' && entry.startsWith('sm_refresh='));
+  if (!found) return null;
+  const value = found.slice('sm_refresh='.length).split(';')[0];
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}

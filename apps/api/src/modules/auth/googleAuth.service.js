@@ -171,7 +171,6 @@ export async function completeGoogleOAuth({ code, mode, ip, userAgent }) {
 export function buildClientRedirect(result) {
   const hash = new URLSearchParams({
     accessToken: result.accessToken,
-    refreshToken: result.refreshToken,
     user: JSON.stringify(result.user),
   });
   return `${googleClientUrl()}#${hash.toString()}`;

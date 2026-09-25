@@ -1,6 +1,34 @@
+import jwt from 'jsonwebtoken';
+import { env } from '../../config/env.js';
+import { accessVerifyOptions } from '../../config/jwt.js';
+import { writeAudit } from '../../services/audit.service.js';
 import * as authService from './auth.service.js';
 import * as googleAuth from './googleAuth.service.js';
-import { writeAudit } from '../../services/audit.service.js';
+import { clearRefreshCookie, readRefreshToken, setRefreshCookie } from './refreshCookie.js';
+
+function publicSession(result) {
+  return {
+    accessToken: result.accessToken,
+    user: result.user,
+  };
+}
+
+function sendAuthSession(res, result, status = 200) {
+  setRefreshCookie(res, result.refreshToken);
+  res.status(status).json(publicSession(result));
+}
+
+function userIdFromAccessHeader(req) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, accessVerifyOptions());
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function register(req, res) {
   const result = await authService.register({
@@ -14,7 +42,7 @@ export async function register(req, res) {
     entityType: 'User',
     entityId: result.user.id,
   });
-  res.status(201).json(result);
+  sendAuthSession(res, result, 201);
 }
 
 export async function startSignup(req, res) {
@@ -51,7 +79,7 @@ export async function verifySignupOtp(req, res) {
     entityType: 'User',
     entityId: result.user.id,
   });
-  res.status(201).json(result);
+  sendAuthSession(res, result, 201);
 }
 
 export async function login(req, res) {
@@ -67,7 +95,7 @@ export async function login(req, res) {
       entityType: 'User',
       entityId: result.user.id,
     });
-    res.json(result);
+    sendAuthSession(res, result);
   } catch (err) {
     const code = err?.code;
     if (code === 'INVALID_CREDENTIALS') {
@@ -83,16 +111,28 @@ export async function login(req, res) {
 }
 
 export async function refresh(req, res) {
-  const result = await authService.refresh({
-    ...req.body,
-    ip: req.ip,
-    userAgent: req.headers['user-agent'] ?? '',
-  });
-  res.json(result);
+  try {
+    const result = await authService.refresh({
+      refreshToken: readRefreshToken(req),
+      ip: req.ip,
+      userAgent: req.headers['user-agent'] ?? '',
+    });
+    sendAuthSession(res, result);
+  } catch (err) {
+    // A parallel refresh already replaced the cookie. Don't wipe that new cookie.
+    if (err?.code !== 'REFRESH_IN_PROGRESS') clearRefreshCookie(res);
+    throw err;
+  }
 }
 
 export async function logout(req, res) {
-  await authService.logout({ ...req.body, userId: req.user?.userId });
+  const everywhere = Boolean(req.body?.everywhere);
+  await authService.logout({
+    refreshToken: readRefreshToken(req),
+    everywhere,
+    userId: everywhere ? userIdFromAccessHeader(req) : null,
+  });
+  clearRefreshCookie(res);
   res.json({ success: true });
 }
 
@@ -174,6 +214,7 @@ export async function googleCallback(req, res) {
       entityType: 'User',
       entityId: result.user.id,
     });
+    setRefreshCookie(res, result.refreshToken);
     res.redirect(googleAuth.buildClientRedirect(result));
   } catch (err) {
     res.redirect(googleAuth.buildClientErrorRedirect(err));

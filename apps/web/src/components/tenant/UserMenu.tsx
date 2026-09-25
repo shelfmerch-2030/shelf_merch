@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Check, Globe, HelpCircle, User } from "lucide-react";
 import { toast } from "sonner";
-import { logout } from "@/services/api-bridge";
+import { logout, logoutEverywhere } from "@/services/api-bridge";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 function TopbarChevron({ open }: { open: boolean }) {
@@ -58,6 +58,11 @@ export function UserMenu({
   function onLogout() {
     close();
     void logout();
+  }
+
+  function onLogoutEverywhere() {
+    close();
+    void logoutEverywhere();
   }
 
   const workspaceLabel = workspaceName.toLowerCase();
@@ -166,6 +171,9 @@ export function UserMenu({
               </button>
               <button type="button" className="user-menu-logout" onClick={onLogout}>
                 Logout
+              </button>
+              <button type="button" className="user-menu-logout" onClick={onLogoutEverywhere}>
+                Log out all devices
               </button>
             </div>
           </div>

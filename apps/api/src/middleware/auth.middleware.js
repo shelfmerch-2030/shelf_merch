@@ -28,7 +28,7 @@ export async function authenticate(req, _res, next) {
       return next(new UnauthorizedError('Account is suspended'));
     }
     if ((payload.sv ?? 0) !== (existing.sessionVersion ?? 0)) {
-      return next(new UnauthorizedError('Session expired. Please sign in again.'));
+      return next(new UnauthorizedError('Your session expired. Please sign in again.', 'SESSION_EXPIRED'));
     }
 
     // Demo /app login: kill live access tokens when the temporary password is inactive.

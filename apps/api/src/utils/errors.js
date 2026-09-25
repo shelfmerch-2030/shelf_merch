@@ -21,8 +21,8 @@ export class ForbiddenError extends ApiError {
 }
 
 export class UnauthorizedError extends ApiError {
-  constructor(message = 'Unauthorized') {
-    super(401, message, 'UNAUTHORIZED');
+  constructor(message = 'Unauthorized', code = 'UNAUTHORIZED') {
+    super(401, message, code);
   }
 }
 

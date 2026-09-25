@@ -23,6 +23,9 @@ import { assertAllowedAuthEmail } from './workEmail.js';
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Parallel tab refreshes present the just-rotated token; don't treat that as theft. */
+const REFRESH_REUSE_GRACE_MS = 15 * 1000;
+const SESSION_EXPIRED_MESSAGE = 'Your session expired. Please sign in again.';
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const SIGNUP_OTP_TTL_MS = 2 * 60 * 1000;
 const SIGNUP_RESEND_COOLDOWN_MS = 30 * 1000;
@@ -71,18 +74,30 @@ export function signImpersonationAccessToken(user, roleAssignment, impersonation
 export async function issueRefreshToken(userId, { ip = '', userAgent = '' } = {}) {
   const token = crypto.randomBytes(48).toString('hex');
   const tokenHash = sha256(token);
+  const deviceInfo = String(userAgent || '').slice(0, 512);
+  const ipAddress = String(ip || '').slice(0, 64);
+  // Mongo is the source of truth (hashed only). Redis is an optional cache.
+  await RefreshToken.create({
+    userId,
+    tokenHash,
+    ip: ipAddress,
+    ipAddress,
+    userAgent: deviceInfo,
+    deviceInfo,
+    expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+  });
   if (await isSessionStoreReady()) {
-    await createSession({ userId, tokenHash, ip, userAgent });
-  } else {
-    await RefreshToken.create({
-      userId,
-      tokenHash,
-      ip,
-      userAgent,
-      expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
-    });
+    await createSession({ userId, tokenHash, ip: ipAddress, userAgent: deviceInfo });
   }
   return token;
+}
+
+/** Revoke every device session and bump sessionVersion so live access JWTs die. */
+async function invalidateAllSessions(userId) {
+  if (!userId) return;
+  await User.updateOne({ _id: userId }, { $inc: { sessionVersion: 1 } });
+  if (await isSessionStoreReady()) await revokeAllUserSessions(userId);
+  await RefreshToken.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() });
 }
 
 async function revokeStoredRefreshToken(tokenHash, userId = null) {
@@ -438,24 +453,42 @@ export async function login({ email, password, ip, userAgent }) {
 }
 
 export async function refresh({ refreshToken, ip, userAgent }) {
+  if (!refreshToken) {
+    throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
+  }
+
   const tokenHash = sha256(refreshToken);
+  const stored = await RefreshToken.findOne({ tokenHash });
   let userId = null;
 
-  if (await isSessionStoreReady()) {
+  if (stored) {
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
+    }
+    if (stored.revokedAt) {
+      const age = Date.now() - new Date(stored.revokedAt).getTime();
+      // A second in-flight refresh from another tab still holds the previous cookie.
+      if (age <= REFRESH_REUSE_GRACE_MS) {
+        throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'REFRESH_IN_PROGRESS');
+      }
+      // Reuse after rotation is a replay. Kill every device session.
+      await invalidateAllSessions(stored.userId);
+      throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
+    }
+    userId = stored.userId;
+  } else if (await isSessionStoreReady()) {
     const session = await getSession(tokenHash);
     if (session) userId = session.userId;
   }
 
   if (!userId) {
-    const stored = await RefreshToken.findOne({ tokenHash });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      throw new UnauthorizedError('Invalid refresh token');
-    }
-    userId = stored.userId;
+    throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
   }
 
   const user = await User.findOne({ _id: userId });
-  if (!user || user.status !== 'active') throw new UnauthorizedError('Invalid refresh token');
+  if (!user || user.status !== 'active') {
+    throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
+  }
 
   const { DEMO_LOGIN_EMAIL, getDemoLoginPasswordStatus } = await import('../platform/platformSettings.service.js');
   if (user.email === DEMO_LOGIN_EMAIL) {
@@ -488,9 +521,9 @@ export async function refresh({ refreshToken, ip, userAgent }) {
 }
 
 export async function logout({ refreshToken, everywhere = false, userId = null }) {
-  if (everywhere && userId) {
-    if (await isSessionStoreReady()) await revokeAllUserSessions(userId);
-    await RefreshToken.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() });
+  if (everywhere) {
+    if (!userId) throw new UnauthorizedError(SESSION_EXPIRED_MESSAGE, 'SESSION_EXPIRED');
+    await invalidateAllSessions(userId);
     return;
   }
   if (refreshToken) {

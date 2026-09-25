@@ -36,7 +36,8 @@ describe("auth-store", () => {
     });
 
     expect(getAccessToken()).toBe("access");
-    expect(getRefreshToken()).toBe("refresh");
+    expect(getRefreshToken()).toBeNull();
+    expect(localStorage.getItem("sm_refresh")).toBeNull();
     expect(getStoredUser()).toEqual(user);
     expect(isAuthenticated()).toBe(true);
 
@@ -57,7 +58,9 @@ describe("auth-store", () => {
     sessionStorage.setItem("sm_user", JSON.stringify(user));
 
     expect(getAccessToken()).toBe("legacy-access");
-    expect(getRefreshToken()).toBe("legacy-refresh");
+    expect(getRefreshToken()).toBeNull();
+    expect(localStorage.getItem("sm_refresh")).toBeNull();
+    expect(sessionStorage.getItem("sm_refresh")).toBeNull();
     expect(getStoredUser()).toEqual(user);
     expect(localStorage.getItem("sm_access")).toBe("legacy-access");
     expect(sessionStorage.getItem("sm_access")).toBeNull();

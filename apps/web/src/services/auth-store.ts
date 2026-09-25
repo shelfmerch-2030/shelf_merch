@@ -62,8 +62,13 @@ export function getAccessToken(): string | null {
   return readAuthItem(ACCESS_KEY);
 }
 
+/**
+ * Refresh tokens live in an HttpOnly cookie. Drop any legacy copy that older
+ * builds wrote into web storage so page scripts cannot read it.
+ */
 export function getRefreshToken(): string | null {
-  return readAuthItem(REFRESH_KEY);
+  removeAuthItem(REFRESH_KEY);
+  return null;
 }
 
 export function getStoredUser(): AuthUser | null {
@@ -78,11 +83,12 @@ export function getStoredUser(): AuthUser | null {
 
 export function setSession(tokens: {
   accessToken: string;
-  refreshToken: string;
   user: AuthUser;
+  /** Ignored. Kept so older callers compile; the cookie holds the refresh token. */
+  refreshToken?: string;
 }) {
   writeAuthItem(ACCESS_KEY, tokens.accessToken);
-  writeAuthItem(REFRESH_KEY, tokens.refreshToken);
+  removeAuthItem(REFRESH_KEY);
   writeAuthItem(USER_KEY, JSON.stringify(tokens.user));
   notifyAuthChange();
 }
