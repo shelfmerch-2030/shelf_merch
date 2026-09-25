@@ -1,35 +1,27 @@
-import { Plus } from "lucide-react";
-import budgetArt from "../../../../../assets/budget.png";
+import budgetEmptyArt from "../../../../../assets/budget-empty-generated.png";
 
 type Props = {
   onSetup: () => void;
   disabled?: boolean;
 };
 
-/** First-time empty state — illustrated wallet with brief setup copy. */
+/** First-time budget empty state. */
 export function EmptyBudgetState({ onSetup, disabled }: Props) {
   return (
-    <div className="card empty app-simple-empty budget-empty">
-      <div className="budget-empty__copy">
-        <h3>Organization budget</h3>
-        <p>Submit a PO or agreement to fund your wallet. After review, allocate and track spend here.</p>
-        <button
-          type="button"
-          className="app-simple-empty__cta"
-          onClick={onSetup}
-          disabled={disabled}
-        >
-          <Plus size={16} /> Setup budget
-        </button>
-      </div>
-      <img
-        src={budgetArt}
-        alt="Wallet with coins, calculator, and budget report"
-        className="budget-empty__art"
-        width={1254}
-        height={1254}
-        decoding="async"
-      />
+    <div className="card budget-empty">
+      <img src={budgetEmptyArt} alt="" className="budget-empty__art" />
+      <h3 className="budget-empty__title">Organization budget</h3>
+      <p className="budget-empty__desc">
+        Set up a budget for your team to start sending swag, kits and gifts.
+      </p>
+      <button
+        type="button"
+        className="budget-empty__cta"
+        onClick={onSetup}
+        disabled={disabled}
+      >
+        Set up your first budget
+      </button>
     </div>
   );
 }

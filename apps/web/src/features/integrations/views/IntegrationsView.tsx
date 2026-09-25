@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import {
   COLLABORATION_TOOLS,
-  DISPLAY_TOOLS,
   USER_MANAGEMENT_TOOLS,
   asTile,
   type Integration,
@@ -18,13 +17,11 @@ import "../integrations-page.css";
 
 function IntegrationTile({
   item,
-  detail = false,
   onSelect,
   connected = false,
   disabled = false,
 }: {
   item: Tile | Integration;
-  detail?: boolean;
   onSelect: (tile: Tile) => void;
   connected?: boolean;
   disabled?: boolean;
@@ -34,7 +31,7 @@ function IntegrationTile({
   return (
     <button
       type="button"
-      className={`bonus-integ-tile${detail ? " bonus-integ-tile--detail" : ""}${disabled ? " bonus-integ-tile--disabled" : ""}`}
+      className={`bonus-integ-tile${disabled ? " bonus-integ-tile--disabled" : ""}`}
       disabled={disabled}
       onClick={() => {
         if (disabled) return;
@@ -59,7 +56,6 @@ function IntegrationTile({
         {tile.recommended && !connected && !disabled ? (
           <span className="bonus-integ-recommended">Recommended</span>
         ) : null}
-        {detail && tile.desc ? <span className="bonus-integ-desc">{tile.desc}</span> : null}
       </span>
     </button>
   );
@@ -320,17 +316,6 @@ export function IntegrationsView(vm: IntegrationsVm) {
           <button type="button" onClick={vm.onViewPlans}>
             View plans
           </button>
-        </div>
-      </Section>
-
-      <Section
-        title="Shelf Merch display"
-        desc="Maximize the impact of gifting across the tools your employees already use."
-      >
-        <div className="bonus-integ-grid bonus-integ-grid--detail">
-          {DISPLAY_TOOLS.map((item) => (
-            <IntegrationTile detail item={item} key={item.id} onSelect={vm.onSelect} />
-          ))}
         </div>
       </Section>
     </div>

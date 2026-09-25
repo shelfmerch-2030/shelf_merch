@@ -1,0 +1,43 @@
+<svg width="260" height="220" viewBox="0 0 260 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M130 199c51.362 0 93-5.373 93-12s-41.638-12-93-12-93 5.373-93 12 41.638 12 93 12Z" fill="#e7edfd"/>
+
+  <path d="M163 76h52l34 35-5 91H141l6-112c.434-8.054 7.364-14 16-14Z" fill="white" stroke="#111318" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M216 77v33h33" fill="#365fe3"/>
+  <path d="M216 77v33h33" stroke="#111318" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M166 118l14 5 8 20h42" stroke="#365fe3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="186" cy="153" r="7" fill="#365fe3"/>
+  <circle cx="226" cy="153" r="7" fill="#365fe3"/>
+  <path d="M159 169h67" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+  <path d="M156 189h62" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+
+  <circle cx="85" cy="67" r="31" fill="#fd7c1f" stroke="#111318" stroke-width="7"/>
+  <circle cx="85" cy="67" r="22" stroke="#9c430b" stroke-width="4"/>
+  <circle cx="126" cy="54" r="41" fill="#fd7c1f" stroke="#111318" stroke-width="7"/>
+  <circle cx="126" cy="54" r="30" stroke="#9c430b" stroke-width="4"/>
+  <text x="85" y="79" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="37" font-weight="900">₹</text>
+  <text x="126" y="72" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="53" font-weight="900">₹</text>
+
+  <path d="M31 87c0-10.493 8.507-19 19-19h128c10.493 0 19 8.507 19 19v104H31V87Z" fill="#365fe3" stroke="#111318" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M31 88c23-10 143-10 166 0" stroke="#e7edfd" stroke-width="9" stroke-linecap="round"/>
+  <path d="M106 69h44v111c0 16.569-13.431 30-30 30s-30-13.431-30-30V69h16v110c0 7.732 6.268 14 14 14s14-6.268 14-14V69h16" fill="#365fe3"/>
+  <path d="M106 69h44v111c0 16.569-13.431 30-30 30s-30-13.431-30-30V69h16v110c0 7.732 6.268 14 14 14s14-6.268 14-14V69h16" stroke="#111318" stroke-width="7" stroke-linejoin="round"/>
+  <circle cx="120" cy="165" r="17" fill="white" stroke="#111318" stroke-width="7"/>
+
+  <path d="M14 150c0-9.389 18.58-17 41.5-17S97 140.611 97 150v34c0 9.389-18.58 17-41.5 17S14 193.389 14 184v-34Z" fill="#fd7c1f" stroke="#111318" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M14 150c0 9.389 18.58 17 41.5 17S97 159.389 97 150" stroke="#111318" stroke-width="7"/>
+  <path d="M14 174c0 9.389 18.58 17 41.5 17S97 183.389 97 174" stroke="#111318" stroke-width="7"/>
+  <circle cx="98" cy="181" r="31" fill="#fd7c1f" stroke="#111318" stroke-width="7"/>
+  <circle cx="98" cy="181" r="22" stroke="#9c430b" stroke-width="4"/>
+  <text x="98" y="195" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="42" font-weight="900">₹</text>
+
+  <circle cx="219" cy="184" r="31" fill="#365fe3" stroke="#111318" stroke-width="7"/>
+  <path d="M204 184l11 11 22-25" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M17 110l7 17 17 7-17 7-7 17-7-17-17-7 17-7 7-17Z" fill="#fd7c1f"/>
+  <path d="M203 25l7 18 18 7-18 7-7 18-7-18-18-7 18-7 7-18Z" fill="#365fe3"/>
+  <path d="M236 50l6 14 14 6-14 6-6 14-6-14-14-6 14-6 6-14Z" fill="#fd7c1f"/>
+  <path d="M59 15l4 21" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+  <path d="M38 33l17 12" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+  <path d="M239 172l13-15" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+  <path d="M249 181l18-4" stroke="#111318" stroke-width="7" stroke-linecap="round"/>
+</svg>

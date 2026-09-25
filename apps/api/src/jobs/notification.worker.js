@@ -12,5 +12,6 @@ export function startNotificationWorker() {
     { connection: getRedis(), concurrency: 5 },
   );
   worker.on('failed', (job, err) => logger.error({ type: job?.data?.type, err }, 'Notification delivery failed'));
+  worker.on('error', (err) => logger.error({ err: err.message }, 'Notification worker error'));
   return worker;
 }

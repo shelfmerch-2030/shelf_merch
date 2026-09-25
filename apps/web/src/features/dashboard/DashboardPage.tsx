@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Coffee,
-  CreditCard,
   Gift,
   GlassWater,
   Globe2,
@@ -138,37 +137,10 @@ const FALLBACK_SEND_ITEMS = [
   { id: "cap", name: "Structured Cap", price: "From ₹349", image: capImg, href: "/app/catalog" },
 ] as const;
 
-const QUICK_TIPS = [
-  {
-    title: "Quick tip",
-    body: "Your organization has one budget — allocate portions to departments as needed.",
-    icon: Lightbulb,
-    tone: "peach",
-  },
-  {
-    title: "Security first",
-    body: "All transactions are secure and require admin approval before processing.",
-    icon: ShieldCheck,
-    tone: "mint",
-  },
-  {
-    title: "Admin control",
-    body: "Only admins can manage the organization budget, members and approvals.",
-    icon: Users,
-    tone: "sky",
-  },
-  {
-    title: "Track effortlessly",
-    body: "Monitor your gifting activity, budgets and sent gifts all in one place.",
-    icon: Gift,
-    tone: "lemon",
-  },
-  {
-    title: "No hidden fees",
-    body: "There are no setup or transaction fees. What you see is what you get.",
-    icon: CreditCard,
-    tone: "rose",
-  },
+const QUICK_ACTIONS = [
+  { label: "Quick tip", icon: Lightbulb, tone: "blue", href: "/app" },
+  { label: "Budget controls", icon: Landmark, tone: "amber", href: "/app/wallets" },
+  { label: "Order tracking", icon: ShoppingBag, tone: "green", href: "/app/orders" },
 ] as const;
 
 function productThumb(p: UiProduct): string | undefined {
@@ -327,7 +299,7 @@ function WorkspaceSettingsCard({
 
 function ShortcutGrid() {
   const icons: Record<string, LucideIcon> = {
-    Kits: Box,
+    Kits: Gift,
     Wallet: Landmark,
     "Spot gifting": Gift,
     "Automated gifting": CalendarDays,
@@ -337,7 +309,7 @@ function ShortcutGrid() {
     <section className="dash-shortcuts card">
       <SectionHead title="Everything you can do" />
       <div className="dash-shortcut-grid">
-        {SHORTCUTS.map((item, index) => {
+        {SHORTCUTS.map((item) => {
           const Icon = icons[item.label] ?? Box;
           return (
             <Link
@@ -348,14 +320,15 @@ function ShortcutGrid() {
               <span className="dash-shortcut__icon" aria-hidden="true">
                 <Icon size={18} strokeWidth={2.2} />
               </span>
-              <span className="dash-shortcut__title-row">
-                <strong className="dash-shortcut__title">{item.label}</strong>
-                <ArrowRight size={16} strokeWidth={2.3} aria-hidden="true" />
-              </span>
+              <strong className="dash-shortcut__title">{item.label}</strong>
               <span className="dash-shortcut__body">{item.body}</span>
-              <span className="dash-shortcut__feature">
-                <span className="dash-shortcut__check" aria-hidden="true">✓</span>
-                {item.feature}
+              <span className="dash-shortcut__foot">
+                {"badge" in item ? (
+                  <span className="dash-shortcut__badge">{item.badge}</span>
+                ) : null}
+                <span className="dash-shortcut__go" aria-hidden="true">
+                  <ArrowRight size={15} strokeWidth={2.2} />
+                </span>
               </span>
             </Link>
           );
@@ -374,44 +347,31 @@ function SetupVisual() {
 }
 
 function QuickTipsCard() {
-  const [index, setIndex] = useState(0);
-  const [hovering, setHovering] = useState(false);
-  const tip = QUICK_TIPS[index];
-  const Icon = tip.icon;
-
-  useEffect(() => {
-    if (!hovering) return;
-    const id = window.setInterval(() => {
-      setIndex((current) => (current + 1) % QUICK_TIPS.length);
-    }, 2200);
-    return () => window.clearInterval(id);
-  }, [hovering]);
-
   return (
-    <section
-      className={`dash-tip-card card dash-tip-card--${tip.tone}`}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-      aria-label="Quick tips. Hover to cycle tips."
-    >
-      <div key={tip.title} className="dash-tip-card__slide">
-        <div className="dash-tip-card__head">
-          <span className="dash-tip-card__icon" aria-hidden="true"><Icon size={18} /></span>
-          <span className="dash-tip-card__title">
-            <small>Workspace insight</small>
-            <h2>{tip.title}</h2>
-          </span>
-        </div>
-        <p>{tip.body}</p>
-      </div>
-      <div className="dash-tip-card__footer">
-        <span>Tip {index + 1} of {QUICK_TIPS.length}</span>
-        <div className="dash-tip-dots" aria-hidden="true">
-          {QUICK_TIPS.map((item, i) => (
-            <i key={item.title} className={i === index ? "is-active" : undefined} />
-          ))}
-        </div>
-      </div>
+    <section className="dash-tip-card" aria-label="Quick actions and tips">
+      <header className="dash-tip-card__title">
+        <span className="dash-tip-card__title-icon" aria-hidden="true">
+          <Lightbulb size={16} />
+        </span>
+        <h2>Quick actions & tips</h2>
+        <Sparkles className="dash-tip-card__spark" size={18} aria-hidden="true" />
+      </header>
+      <ul className="dash-tip-card__list">
+        {QUICK_ACTIONS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <li key={item.label}>
+              <Link to={item.href} className="dash-tip-card__row">
+                <span className={`dash-tip-card__row-icon dash-tip-card__row-icon--${item.tone}`} aria-hidden="true">
+                  <Icon size={15} />
+                </span>
+                <span>{item.label}</span>
+                <ChevronRight size={16} aria-hidden="true" />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

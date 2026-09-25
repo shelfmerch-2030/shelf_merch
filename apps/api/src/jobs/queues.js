@@ -12,7 +12,11 @@ let scheduledCampaignQueue = null;
 const localDeliveryTimers = new Map();
 
 function makeQueue(name) {
-  return new Queue(name, { connection: getRedis() });
+  const queue = new Queue(name, { connection: getRedis() });
+  queue.on('error', (err) => {
+    logger.error({ err: err.message, queue: name }, 'queue connection error');
+  });
+  return queue;
 }
 
 export function getCsvImportQueue() {

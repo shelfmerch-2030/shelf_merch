@@ -20,6 +20,31 @@
   overflow: visible;
 }
 
+.contacts-empty {
+  min-height: 430px;
+  padding: 54px 28px;
+  gap: 8px;
+  border-radius: 18px;
+  border-color: rgba(15, 18, 25, 0.08);
+  box-shadow: 0 22px 55px rgba(15, 18, 25, 0.07);
+}
+
+.contacts-empty__art {
+  width: min(180px, 42%);
+  height: auto;
+  margin: 0 0 -12px;
+  object-fit: contain;
+}
+
+.contacts-empty h3,
+.contacts-empty p {
+  margin: 0;
+}
+
+.contacts-empty p {
+  max-width: 42ch;
+}
+
 .ct-hero {
   display: flex;
   align-items: center;
@@ -620,37 +645,6 @@
   max-width: 42ch;
   color: #6b7280;
   font-size: 14px;
-}
-
-.ct-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  flex: none;
-  margin-top: 12px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.ct-footer nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.ct-footer button {
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.ct-footer button:hover {
-  color: #374151;
 }
 
 .ct-del {

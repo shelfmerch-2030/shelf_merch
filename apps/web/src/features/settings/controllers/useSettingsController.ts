@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useInvalidateWorkspace, useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
+import { ApiError } from "@/services/api";
 import {
   getStoredUser,
   updateWorkspaceSettingsApi,
@@ -13,6 +14,17 @@ export type SettingsTab = "workspace" | "sso";
 
 const LOGO_ACCEPT = /\.(svg|png|webp|jpe?g)$/i;
 const LOGO_MAX = 5 * 1024 * 1024;
+
+async function withGatewayRetry<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 0;
+    if (status !== 502 && status !== 503 && status !== 504) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return run();
+  }
+}
 
 export type SettingsVm = {
   tab: SettingsTab;
@@ -85,8 +97,8 @@ export function useSettingsController(): SettingsVm {
 
     setIsUploading(true);
     try {
-      const uploadedLogoUrl = await uploadWorkspaceLogoApi(file);
-      await updateWorkspaceSettingsApi({ logoUrl: uploadedLogoUrl });
+      const uploadedLogoUrl = await withGatewayRetry(() => uploadWorkspaceLogoApi(file));
+      await withGatewayRetry(() => updateWorkspaceSettingsApi({ logoUrl: uploadedLogoUrl }));
       setLogoUrl(uploadedLogoUrl);
       await invalidateWorkspace();
       toast.success("Workspace icon updated");

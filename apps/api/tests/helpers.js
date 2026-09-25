@@ -98,7 +98,11 @@ export function authHeader(token) {
 export function refreshTokenFromResponse(res) {
   const raw = res.headers['set-cookie'] || [];
   const list = Array.isArray(raw) ? raw : [raw];
-  const found = list.find((entry) => typeof entry === 'string' && entry.startsWith('sm_refresh='));
+  const found = list.find((entry) => {
+    if (typeof entry !== 'string' || !entry.startsWith('sm_refresh=')) return false;
+    const value = entry.slice('sm_refresh='.length).split(';')[0];
+    return value.length > 0 && !/Max-Age=0(?:;|$)/i.test(entry);
+  });
   if (!found) return null;
   const value = found.slice('sm_refresh='.length).split(';')[0];
   try {

@@ -118,7 +118,7 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: requiredSecret('dev-access-secret-change-me'),
   JWT_REFRESH_SECRET: requiredSecret('dev-refresh-secret-change-me'),
   JWT_ACCESS_TTL: z.string().default('15m'),
-  JWT_REFRESH_TTL: z.string().default('30d'),
+  JWT_REFRESH_TTL: z.string().default('24h'),
 
   R2_ENDPOINT: z.string().optional().default(''),
   R2_ACCESS_KEY: z.string().optional().default(''),
@@ -193,6 +193,21 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+const DURATION_MS = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+
+/** Parse JWT-style durations such as 15m, 24h, or 30d. */
+export function parseDurationMs(value) {
+  const match = /^(\d+)(s|m|h|d)$/.exec(String(value).trim());
+  if (!match) {
+    throw new Error(`Invalid duration "${value}". Use a number plus s, m, h, or d.`);
+  }
+  return Number(match[1]) * DURATION_MS[match[2]];
+}
+
+/** Refresh-token lifetime. Cookie maxAge, Mongo expiresAt, and Redis TTL all use this. */
+export const REFRESH_TTL_MS = parseDurationMs(env.JWT_REFRESH_TTL);
+export const REFRESH_TTL_SEC = Math.floor(REFRESH_TTL_MS / 1000);
 
 const zohoPartial =
   Boolean(env.ZOHO_CLIENT_ID) ||

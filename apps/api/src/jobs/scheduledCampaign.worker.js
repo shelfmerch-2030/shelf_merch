@@ -59,6 +59,9 @@ export async function startScheduledCampaignWorker() {
     worker.on('failed', (_job, err) =>
       logger.error({ err: err.message }, 'scheduled campaign job failed'),
     );
+    worker.on('error', (err) =>
+      logger.error({ err: err.message }, 'scheduled campaign worker error'),
+    );
     // Keep a queue handle so delayed jobs from launch share the same Redis connection.
     getScheduledCampaignQueue();
   }

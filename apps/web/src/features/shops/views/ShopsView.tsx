@@ -33,18 +33,8 @@ export function ShopsView(vm: ShopsVm) {
           subtitle="Branded storefronts your recipients shop from."
           actions={createAction}
         />
-        <div className="card empty">
-          <img
-            src={storeImg}
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: 140,
-              height: 140,
-              marginBottom: 16,
-              objectFit: "contain",
-            }}
-          />
+        <div className="card empty shops-empty">
+          <img src={storeImg} alt="" aria-hidden="true" className="shops-empty__art" />
           <h3>No shops yet</h3>
           <p>Create one to celebrate a moment.</p>
           {vm.canCreateShop ? (
