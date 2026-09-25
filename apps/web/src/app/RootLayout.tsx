@@ -1,13 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
 import { Link, useRouteError, useRevalidator } from "react-router";
-import { SessionExpiredModal } from "@/components/auth/SessionExpiredModal";
 import { Toaster } from "@/components/ui/sonner";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { ShopSubdomainGate } from "./ShopSubdomainGate";
 import errorPageArt from "@/assets/error-page-signpost.png";
-
-const queryClient = new QueryClient();
+import { queryClient } from "@/services/queryClient";
 
 function ErrorStatusPage({
   title,
@@ -52,7 +50,6 @@ export function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ShopSubdomainGate />
-      <SessionExpiredModal />
       <Toaster />
     </QueryClientProvider>
   );

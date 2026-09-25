@@ -1,25 +1,19 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
-  isSessionExpiredModalOpen,
-  openSessionExpiredModal,
-  resetSessionExpiredState,
-  subscribeSessionExpired,
+  beginSessionLogout,
+  isSessionLogoutStarted,
+  resetSessionLogoutState,
 } from "./sessionExpired";
 
-describe("session expired modal state", () => {
+describe("session logout latch", () => {
   beforeEach(() => {
-    resetSessionExpiredState();
+    resetSessionLogoutState();
   });
 
-  it("opens once when several requests fail together", () => {
-    const seen: boolean[] = [];
-    subscribeSessionExpired((open) => seen.push(open));
-
-    openSessionExpiredModal();
-    openSessionExpiredModal();
-    openSessionExpiredModal();
-
-    expect(isSessionExpiredModalOpen()).toBe(true);
-    expect(seen.filter(Boolean)).toEqual([true]);
+  it("lets only the first failure start logout", () => {
+    expect(beginSessionLogout()).toBe(true);
+    expect(beginSessionLogout()).toBe(false);
+    expect(beginSessionLogout()).toBe(false);
+    expect(isSessionLogoutStarted()).toBe(true);
   });
 });

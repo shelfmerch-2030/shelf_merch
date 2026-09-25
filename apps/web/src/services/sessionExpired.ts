@@ -1,28 +1,19 @@
-type Listener = (open: boolean) => void;
+let started = false;
 
-let open = false;
-const listeners = new Set<Listener>();
-
-export function isSessionExpiredModalOpen() {
-  return open;
+export function isSessionLogoutStarted() {
+  return started;
 }
 
-/** Opens the blocking session modal. Repeated calls stay on the same modal. */
-export function openSessionExpiredModal() {
-  if (open) return;
-  open = true;
-  for (const listener of listeners) listener(true);
+/** True only for the first caller, so parallel failures share one logout. */
+
+export function beginSessionLogout() {
+  if (started) return false;
+  started = true;
+  return true;
 }
 
-export function subscribeSessionExpired(listener: Listener) {
-  listeners.add(listener);
-  listener(open);
-  return () => {
-    listeners.delete(listener);
-  };
-}
+/** Test-only reset. */
 
-export function resetSessionExpiredState() {
-  open = false;
-  for (const listener of listeners) listener(false);
+export function resetSessionLogoutState() {
+  started = false;
 }

@@ -1,11 +1,13 @@
 import { formatErrorDetails, messageFromGatewayResponse } from "@/lib/errorMessage";
 import { API_BASE } from "./config";
 import {
+  clearSession,
   getAccessToken,
   setSession,
   type AuthUser,
 } from "./auth-store";
-import { isSessionExpiredModalOpen, openSessionExpiredModal } from "./sessionExpired";
+import { queryClient } from "./queryClient";
+import { beginSessionLogout, isSessionLogoutStarted } from "./sessionExpired";
 
 export const SESSION_EXPIRED_MESSAGE = "Your session expired. Please sign in again.";
 
@@ -194,6 +196,21 @@ async function refreshAccessToken(): Promise<RefreshOutcome> {
   }
 }
 
+function logoutExpiredSession() {
+  if (!beginSessionLogout()) return;
+  clearSession();
+  try {
+    localStorage.removeItem(REFRESH_LOCK_KEY);
+  } catch {
+    /* private mode */
+  }
+  queryClient.clear();
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  if (path === "/login" || path.startsWith("/login/")) return;
+  window.location.assign("/login");
+}
+
 function shouldRefresh(path: string, status: number, auth: boolean) {
   if (!auth || status !== 401) return false;
   return !path.includes("/auth/refresh");
@@ -233,12 +250,12 @@ export async function apiFetch<T = unknown>(
   let res = await fetch(url, { ...init, headers, credentials: init.credentials ?? "include" });
 
   if (shouldRefresh(path, res.status, auth)) {
-    if (isSessionExpiredModalOpen()) {
+    if (isSessionLogoutStarted()) {
       throw new ApiError(401, SESSION_EXPIRED_MESSAGE, "SESSION_EXPIRED");
     }
     const refreshed = await ensureRefreshed();
     if (refreshed === "expired") {
-      openSessionExpiredModal();
+      logoutExpiredSession();
       throw new ApiError(401, SESSION_EXPIRED_MESSAGE, "SESSION_EXPIRED");
     }
     if (refreshed !== "ok") {
@@ -254,7 +271,7 @@ export async function apiFetch<T = unknown>(
   if (!res.ok) {
     const err = errorFromResponse(res.status, body);
     if (auth && err.status === 401 && err.code === "SESSION_EXPIRED") {
-      openSessionExpiredModal();
+      logoutExpiredSession();
       throw new ApiError(401, SESSION_EXPIRED_MESSAGE, "SESSION_EXPIRED");
     }
     throw err;
