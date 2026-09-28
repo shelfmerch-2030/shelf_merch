@@ -185,6 +185,9 @@ export async function updateCampaign({ tenantId, campaignId, user, patch }) {
     assertEntityAccess(user, entity._id);
     campaign.entityId = entityId;
   }
+  for (const key of Object.keys(rest)) {
+    if (rest[key] === undefined) delete rest[key];
+  }
   Object.assign(campaign, rest);
   await campaign.save();
   return withCampaignMeta(campaign);
