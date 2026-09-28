@@ -125,7 +125,7 @@ export function ShopBuilderStep({
       </div>
 
       <Dialog open={bannerOpen} onOpenChange={setBannerOpen}>
-        <DialogContent className="sm-modal">
+        <DialogContent className="sm-modal sm-banner-modal">
           <div className="modal-pad">
             <DialogHeader>
               <DialogTitle>Edit banner</DialogTitle>
@@ -157,10 +157,7 @@ export function ShopBuilderStep({
               style={{
                 gridTemplateColumns: "repeat(3,1fr)",
                 gap: 10,
-                maxHeight: 240,
-                overflow: "auto",
                 marginTop: 8,
-                paddingRight: 4,
               }}
             >
               {SHOP_BANNER_PRESETS.map(([id, label]) => (

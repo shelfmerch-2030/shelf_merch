@@ -4514,6 +4514,32 @@ button.thumb{font:inherit;color:inherit}
   gap:0!important;
   background:#fff!important;
 }
+/* Banner picker is taller than a 100% viewport — pin it inside the screen and scroll the body. */
+.sm-modal.sm-banner-modal{
+  top:24px!important;
+  bottom:auto!important;
+  transform:translateX(-50%)!important;
+  max-height:calc(100dvh - 48px)!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  padding:0!important;
+}
+.sm-modal.sm-banner-modal>.modal-pad{
+  overflow-y:auto;
+  min-height:0;
+  flex:1 1 auto;
+  padding:28px 32px 24px;
+  overscroll-behavior:contain;
+}
+.sm-modal.sm-banner-modal>.absolute{
+  top:22px;
+  right:22px;
+  z-index:2;
+}
+@media(max-width:560px){
+  .sm-modal.sm-banner-modal>.modal-pad{padding:24px 20px 20px}
+}
 /* Swag product branding editor — wide lateral layout (overrides 640px .sm-modal cap) */
 .sm-modal.sw-brand-modal{
   width:min(1240px,96vw)!important;

@@ -96,7 +96,7 @@ export function BannerEditorDialog({
 
   return (
     <Dialog open={shop !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm-modal">
+      <DialogContent className="sm-modal sm-banner-modal">
         {shop && (
           <div className="modal-pad">
             <DialogHeader>
@@ -145,9 +145,6 @@ export function BannerEditorDialog({
               style={{
                 gridTemplateColumns: "repeat(3,1fr)",
                 gap: 10,
-                maxHeight: 220,
-                overflow: "auto",
-                paddingRight: 4,
               }}
             >
               {SHOP_BANNER_PRESETS.map(([id, label]) => (
