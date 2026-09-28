@@ -280,7 +280,7 @@ export function StoreAuthPanel({
             : `Welcome to ${shop.name}`;
 
   return (
-    <AuthLayout title={title} subtitle={subtitle}>
+    <AuthLayout variant="welcome" title={title} subtitle={subtitle}>
       {mode === "signin" ? (
         <form className="auth-simple-form" onSubmit={onSignIn}>
           <div className="auth-simple-field">
@@ -493,11 +493,13 @@ export function StoreAuthPanel({
         </form>
       ) : null}
 
-      <p className="mut3" style={{ textAlign: "center", marginTop: 16, fontSize: 12 }}>
-        <Link to={storeHref(shop)} className="auth-simple-switch-link">
-          {shop.name}
-        </Link>
-      </p>
+      {mode !== "claim" ? (
+        <p className="auth-simple-switch">
+          <Link to={storeHref(shop)} className="auth-simple-switch-link">
+            {shop.name}
+          </Link>
+        </p>
+      ) : null}
     </AuthLayout>
   );
 }
