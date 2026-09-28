@@ -41,7 +41,24 @@ export const createCampaignSchema = z.object({
     .optional(),
 });
 
-export const updateCampaignSchema = createCampaignSchema.partial();
+/** Drop `.default()` so a partial update does not invent values for omitted fields. */
+function withoutDefault(field) {
+  let current = field;
+  while (current?.def?.type === 'default') current = current.def.innerType;
+  return current;
+}
+
+// `.partial()` still applies create-schema defaults (shopId: null, kitId: null, …).
+// Finishing a saved points draft PATCHes name/message only — those defaults were
+// unlinking the campaign from its shop after the wallet was charged.
+export const updateCampaignSchema = z.object(
+  Object.fromEntries(
+    Object.entries(createCampaignSchema.shape).map(([key, field]) => [
+      key,
+      withoutDefault(field).optional(),
+    ]),
+  ),
+);
 
 export const importRecipientsSchema = z.object({
   recipients: z

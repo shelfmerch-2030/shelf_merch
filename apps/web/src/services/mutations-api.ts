@@ -1045,6 +1045,7 @@ export async function launchPointsCampaignApi(payload: {
       method: "PATCH",
       body: JSON.stringify({
         entityId: payload.entityId,
+        shopId: payload.shopId,
         name: payload.name,
         pointsScope: payload.pointsScope ?? "shop",
         message: payload.message,
