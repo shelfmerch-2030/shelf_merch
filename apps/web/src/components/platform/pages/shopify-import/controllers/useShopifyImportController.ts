@@ -16,6 +16,18 @@ export type ShopifyImportVm = {
   onViewResults: () => void;
 };
 
+function normalizeShopifyTokenInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{")) return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed) as { access_token?: unknown; accessToken?: unknown };
+    const token = parsed.access_token ?? parsed.accessToken;
+    return typeof token === "string" ? token.trim() : trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 /** Controller for the Shopify import page (catalog or kits). */
 export function useShopifyImportController(): ShopifyImportVm {
   const navigate = useNavigate();
@@ -32,7 +44,7 @@ export function useShopifyImportController(): ShopifyImportVm {
     setError("");
     setSummary(null);
     try {
-      setSummary(await (kits ? importShopifyKits : importShopify)(domain.trim(), token.trim()));
+      setSummary(await (kits ? importShopifyKits : importShopify)(domain.trim(), normalizeShopifyTokenInput(token)));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import failed");
     } finally {

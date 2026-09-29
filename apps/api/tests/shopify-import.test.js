@@ -15,6 +15,7 @@ import {
   inferColorFromTitle,
   parseShopifyStorefrontTabs,
   resolveHsnFromInventoryItems,
+  normalizeAccessToken,
   normalizeDomain,
 } from '../src/modules/catalog/shopifyImport.service.js';
 
@@ -196,6 +197,16 @@ describe('Shopify catalog import', () => {
   it('accepts a shop handle or full myshopify host', () => {
     expect(normalizeDomain('xzhbhm-qa')).toBe('xzhbhm-qa.myshopify.com');
     expect(normalizeDomain('https://xzhbhm-qa.myshopify.com/admin')).toBe('xzhbhm-qa.myshopify.com');
+  });
+
+  it('extracts the access token when the full Shopify OAuth response is pasted', () => {
+    expect(
+      normalizeAccessToken(JSON.stringify({
+        access_token: 'shpat_from_response',
+        scope: 'read_products,read_inventory',
+        expires_in: 86399,
+      })),
+    ).toBe('shpat_from_response');
   });
 
   it('separates metafield description/features from the body_html size guide', () => {
@@ -495,6 +506,26 @@ describe('Shopify catalog import', () => {
       .send({ domain: 'xyz.myshopify.com', accessToken: 'shpss_not_a_token' });
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('TOKEN_REQUIRED');
+  });
+
+  it('imports when the accessToken field contains the full OAuth token response', async () => {
+    const fetchMock = stubShopifyFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await request(app)
+      .post('/api/v1/platform/products/import/shopify')
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({
+        domain: 'xyz.myshopify.com',
+        accessToken: JSON.stringify({
+          access_token: 'shpat_from_response',
+          scope: 'read_products,read_inventory',
+          expires_in: 86399,
+        }),
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.imported).toBe(2);
+    const productListCall = fetchMock.mock.calls.find(([url]) => String(url).includes('/products.json'));
+    expect(productListCall[1].headers['X-Shopify-Access-Token']).toBe('shpat_from_response');
   });
 
   it('imports via GraphQL when REST products.json is unavailable', async () => {

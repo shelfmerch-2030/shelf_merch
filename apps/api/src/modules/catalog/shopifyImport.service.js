@@ -30,7 +30,20 @@ export function normalizeAccessToken(input) {
   if (!input || typeof input !== 'string') {
     throw new ApiError(422, 'A Shopify Admin API access token is required', 'TOKEN_REQUIRED');
   }
-  const token = input.trim().replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
+  let token = input.trim();
+  if (token.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(token);
+      token = String(parsed?.access_token || parsed?.accessToken || '').trim();
+    } catch {
+      throw new ApiError(
+        422,
+        'Paste the Shopify access_token value from the token response, not the full response body.',
+        'TOKEN_REQUIRED',
+      );
+    }
+  }
+  token = token.replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
   if (!token) {
     throw new ApiError(422, 'A Shopify Admin API access token is required', 'TOKEN_REQUIRED');
   }

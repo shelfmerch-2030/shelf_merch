@@ -250,6 +250,18 @@ export function PrintAreaEditor({
     tr.getLayer()?.batchDraw();
   }, [selected, value, mockup, phys.width, phys.height, phys.length, imageNatural?.w, imageNatural?.h]);
 
+  function removeArea(index: number) {
+    if (index < 0 || index >= value.length) return;
+    const next = value.filter((_, i) => i !== index);
+    onChange(next);
+    if (!next.length) {
+      setSelected(0);
+      return;
+    }
+    if (selected > index) setSelected(selected - 1);
+    else if (selected === index) setSelected(Math.min(index, next.length - 1));
+  }
+
   function addArea() {
     const n = value.length + 1;
     const view = imageViews?.find((v) => resolveMediaUrl(v.url) === mockup);
@@ -345,8 +357,7 @@ export function PrintAreaEditor({
     if (!a) return;
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      onChange(value.filter((_, i) => i !== selected));
-      setSelected(0);
+      removeArea(selected);
       return;
     }
     const stepIn = e.shiftKey ? 0.5 : 0.1;
@@ -764,34 +775,71 @@ export function PrintAreaEditor({
         <div className="row" style={{ gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
           {value.length > 0 && (
             <div className="row" style={{ gap: 6, flexWrap: "wrap", flex: "1 1 auto" }}>
-              {value.map((a, i) => (
-                <button
-                  key={`${a.key || a.label || "area"}_${i}`}
-                  type="button"
-                  className={i === selected ? "btn btn-dark btn-sm" : "btn btn-ghost btn-sm"}
-                  onClick={() => {
-                    setSelected(i);
-                    if (a.mockupImageUrl) {
-                      const src = resolveMediaUrl(a.mockupImageUrl);
-                      if (src && resolvedImages.includes(src)) setMockup(src);
-                    }
-                  }}
-                  title={
-                    a.widthIn && a.heightIn
-                      ? `${a.widthIn}×${a.heightIn} in`
-                      : a.label || `Area ${i + 1}`
-                  }
-                >
-                  {a.label || `Area ${i + 1}`}
-                </button>
-              ))}
+              {value.map((a, i) => {
+                const label = a.label || `Area ${i + 1}`;
+                return (
+                  <div
+                    key={`${a.key || a.label || "area"}_${i}`}
+                    className={i === selected ? "btn btn-dark btn-sm" : "btn btn-ghost btn-sm"}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      paddingRight: 6,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(i);
+                        if (a.mockupImageUrl) {
+                          const src = resolveMediaUrl(a.mockupImageUrl);
+                          if (src && resolvedImages.includes(src)) setMockup(src);
+                        }
+                      }}
+                      title={
+                        a.widthIn && a.heightIn ? `${a.widthIn}×${a.heightIn} in` : label
+                      }
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "inherit",
+                        font: "inherit",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      {label}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${label}`}
+                      title={`Remove ${label}`}
+                      onClick={() => removeArea(i)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "inherit",
+                        cursor: "pointer",
+                        padding: 0,
+                        lineHeight: 1,
+                        fontSize: 16,
+                        opacity: 0.75,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
           <button type="button" className="btn btn-soft btn-sm" onClick={addArea}>
             + Add print area
           </button>
           <span className="muted" style={{ fontSize: 12 }}>
-            Inches are source of truth · drag / resize / rotate · arrows nudge 0.1″
+            Inches are source of truth · drag / resize / rotate · arrows nudge 0.1″ · × removes an
+            area
           </span>
         </div>
       </div>
@@ -950,11 +998,8 @@ export function PrintAreaEditor({
             </div>
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                onChange(value.filter((_, i) => i !== selected));
-                setSelected(0);
-              }}
+              className="btn btn-ghost btn-sm btn-danger-ghost"
+              onClick={() => removeArea(selected)}
             >
               Remove this area
             </button>

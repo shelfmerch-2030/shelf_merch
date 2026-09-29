@@ -64,28 +64,63 @@ function conditionalGtmPlugin(envDir: string): Plugin {
   };
 }
 
+/** Allow long-running proxied API calls (Shopify import) without idle socket cuts. */
+function longRunningProxyPlugin(): Plugin {
+  return {
+    name: "long-running-proxy",
+    configureServer(server) {
+      server.httpServer?.once("listening", () => {
+        const httpServer = server.httpServer;
+        if (!httpServer) return;
+        httpServer.requestTimeout = 0;
+        httpServer.headersTimeout = 0;
+        httpServer.timeout = 0;
+      });
+    },
+  };
+}
+
 // Plain Vite SPA — builds to static assets (dist/) for static hosting.
 // The router plugin must run before the React plugin.
 export default defineConfig({
   envDir: REPO_ROOT,
-  plugins: [react(), tailwindcss(), devUploadsPlugin(), conditionalGtmPlugin(REPO_ROOT)],
+  plugins: [
+    react(),
+    tailwindcss(),
+    devUploadsPlugin(),
+    conditionalGtmPlugin(REPO_ROOT),
+    longRunningProxyPlugin(),
+  ],
   resolve: {
     tsconfigPaths: true,
   },
   server: {
     port: 8080,
+    // Shopify catalog import can run many minutes (per-product Admin + storefront calls).
+    // Node's default request/socket timeouts (~2–5 min) otherwise close the proxied
+    // connection and the browser reports net::ERR_EMPTY_RESPONSE.
     proxy: {
       "/api": {
         target: "http://127.0.0.1:3001",
         changeOrigin: true,
-        timeout: 120_000,
-        proxyTimeout: 120_000,
+        timeout: 0,
+        proxyTimeout: 0,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (_proxyReq, req) => {
+            req.setTimeout(0);
+          });
+        },
       },
       "/uploads": {
         target: "http://127.0.0.1:3001",
         changeOrigin: true,
-        timeout: 120_000,
-        proxyTimeout: 120_000,
+        timeout: 0,
+        proxyTimeout: 0,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (_proxyReq, req) => {
+            req.setTimeout(0);
+          });
+        },
       },
     },
   },

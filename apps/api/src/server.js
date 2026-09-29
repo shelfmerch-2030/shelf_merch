@@ -40,6 +40,12 @@ async function main() {
       logger.info(`Zoho OAuth redirect URI: ${env.ZOHO_REDIRECT_URI}`);
     }
   });
+  // Shopify import (and similar bulk Admin pulls) can exceed Node's default
+  // requestTimeout (5m). Closing mid-response surfaces as ERR_EMPTY_RESPONSE
+  // through the Vite proxy.
+  server.requestTimeout = 0;
+  server.headersTimeout = 0;
+  server.timeout = 0;
   server.on('error', (err) => {
     if (err.code === 'EACCES') {
       logger.fatal(

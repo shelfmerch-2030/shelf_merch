@@ -444,7 +444,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
 
   async function goToStep(i: number) {
     if (!id) return;
-    if (i === 4 && step === 3 && printAreas.length) {
+    if (i === 4 && step === 3) {
       setBusy(true);
       setError("");
       try {
@@ -491,9 +491,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     setProblems([]);
     try {
       await updateProduct(id, { ...details, reason: "save details before publish" });
-      if (printAreas.length) {
-        await applyPrintAreasSave();
-      }
+      await applyPrintAreasSave();
       // Persist admin-selected Shopify image as the front mask fallback
       // when no transparent mask image was uploaded.
       const needsFrontMaskFallback = !maskByView.front && Boolean(activeMarketingImageUrl);

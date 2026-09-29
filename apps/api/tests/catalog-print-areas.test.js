@@ -81,6 +81,38 @@ describe('platform product print areas (POD placeholders)', () => {
     expect(reloaded.printableAreas).toEqual(['Front', 'Back']);
   });
 
+  it('can remove a print area by saving the remaining list (including empty)', async () => {
+    await request(app)
+      .put(`/api/v1/platform/products/${product._id}/print-areas`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({
+        printAreas: [
+          area(),
+          area({ key: 'front_2', label: 'Front 2' }),
+          area({ key: 'back', label: 'Back' }),
+        ],
+      });
+
+    const trimmed = await request(app)
+      .put(`/api/v1/platform/products/${product._id}/print-areas`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({ printAreas: [area(), area({ key: 'back', label: 'Back' })] });
+    expect(trimmed.status).toBe(200);
+    expect(trimmed.body.printAreas).toHaveLength(2);
+    expect(trimmed.body.printAreas.map((a) => a.label)).toEqual(['Front', 'Back']);
+
+    const cleared = await request(app)
+      .put(`/api/v1/platform/products/${product._id}/print-areas`)
+      .set('Authorization', `Bearer ${catalogToken}`)
+      .send({ printAreas: [] });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.printAreas).toEqual([]);
+
+    const reloaded = await CatalogProduct.findById(product._id);
+    expect(reloaded.printAreas).toHaveLength(0);
+    expect(reloaded.printableAreas).toEqual([]);
+  });
+
   it('persists physicalDimensions + dpi with print areas', async () => {
     const res = await request(app)
       .put(`/api/v1/platform/products/${product._id}/print-areas`)
