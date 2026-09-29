@@ -60,7 +60,6 @@ import {
 } from './modules/catalog/platformCatalog.routes.js';
 import { platformKitsRouter } from './modules/kits/platformKits.routes.js';
 import mediaRoutes from './modules/media/media.routes.js';
-import chatRoutes from './modules/chat/chat.routes.js';
 import { platformReportsRouter } from './modules/reports/reports.routes.js';
 import zohoIntegrationsRoutes from './modules/integrations/zoho/zoho.routes.js';
 import mergeIntegrationsRoutes from './modules/integrations/merge/merge.routes.js';
@@ -289,7 +288,6 @@ export function createApp() {
   api.use('/orders', ordersRoutes);
   api.use('/order-invoices', orderInvoiceRoutes);
   api.use('/support-tickets', tenantSupportRouter);
-  api.use('/chat', chatRoutes);
   // Platform control plane (SUPER_ADMIN_FLOW) — /api/v1/platform/*
   api.use('/platform/dashboard', platformDashboardRouter);
   api.use('/platform/products', platformProductsRouter);
