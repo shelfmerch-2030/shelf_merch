@@ -489,24 +489,36 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
 
 .shops-empty{
   min-height: 430px;
-  padding: 54px 28px;
-  gap: 8px;
-  border-radius: 18px;
-  border-color: rgba(15, 18, 25, 0.08);
-  box-shadow: 0 22px 55px rgba(15, 18, 25, 0.07);
+  padding: 48px 28px 40px;
+  gap: 10px;
+  border-radius: var(--r, 16px);
+  border-color: var(--line);
+  box-shadow: none;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, var(--brand-50) 0%, transparent 62%),
+    linear-gradient(180deg, #fbfcfe 0%, var(--bg-card, #fff) 48%);
 }
 .shops-empty__art{
-  width: min(180px, 42%);
+  width: min(176px, 44%);
   height: auto;
-  margin: 0 0 -12px;
+  margin: 0 0 2px;
   object-fit: contain;
+  filter: drop-shadow(0 14px 28px rgba(49, 85, 255, 0.14));
 }
-.shops-empty h3,
+.shops-empty h3{
+  margin: 0;
+  font-family: var(--disp);
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
 .shops-empty p{
   margin: 0;
-}
-.shops-empty p{
   max-width: 42ch;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .budget-empty__title{
@@ -6047,16 +6059,25 @@ button.thumb{font:inherit;color:inherit}
   font-size:14px;
   line-height:1.5;
   margin:0 0 24px;
-  max-width:32ch;
+  max-width:38ch;
 }
 .sm-shop-welcome-actions{
   display:flex;
   gap:12px;
   justify-content:center;
+  flex-wrap:wrap;
 }
 .sm-shop-welcome-actions .btn{
   min-width:120px;
   justify-content:center;
+}
+.sm-shop-welcome-actions .btn-ghost{
+  border:1px solid var(--line);
+  background:transparent;
+  color:var(--ink);
+}
+.sm-shop-welcome-actions .btn-ghost:hover{
+  background:var(--surface-2, #f5f7fb);
 }
 
 /* Shop builder ? full-bleed banner + equal category cards */

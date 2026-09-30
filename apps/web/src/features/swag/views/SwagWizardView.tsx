@@ -1,4 +1,5 @@
 import { LoadingState } from "@/components/LoadingState";
+import { NextStepDialog } from "@/components/NextStepDialog";
 import { WizardChrome } from "../wizard/WizardChrome";
 import { NameStep } from "../wizard/NameStep";
 import { CatalogStep } from "../wizard/CatalogStep";
@@ -19,6 +20,17 @@ export function SwagWizardView(vm: SwagWizardVm) {
   if (vm.isWorking) {
     return <LoadingState message={vm.workingLabel} fullScreen={false} />;
   }
+
+  const publishReadyDialog = (
+    <NextStepDialog
+      open={vm.publishReadyOpen}
+      title="Your swag is ready!"
+      description="Your products have been successfully published to your shop."
+      primaryLabel="Add contacts"
+      onPrimary={vm.onPublishReadyPrimary}
+      onSecondary={vm.onPublishReadyLater}
+    />
+  );
 
   const backLink = (label: string, step: SwagDraft["step"]) => (
     <button
@@ -158,49 +170,52 @@ export function SwagWizardView(vm: SwagWizardVm) {
   }
 
   return (
-    <WizardChrome
-      title="Design swag"
-      steps={STEPS}
-      activeIndex={3}
-      onExit={vm.onExit}
-      exitLabel="Back to my swag"
-      footer={
-        <>
-          <div className="row" style={{ gap: 12, alignItems: "center" }}>
-            <b style={{ fontSize: 15 }}>{draft.name}</b>
-            <span className="tag tag-soft" style={{ fontWeight: 700 }}>
-              {vm.pickedProducts.length} item{vm.pickedProducts.length === 1 ? "" : "s"}
-            </span>
-            {vm.pickedShops.size > 0 ? (
-              <span className="tag tag-live">
-                <span className="dot" />
-                {vm.pickedShops.size} {vm.pickedShops.size === 1 ? "shop" : "shops"}
+    <>
+      <WizardChrome
+        title="Design swag"
+        steps={STEPS}
+        activeIndex={3}
+        onExit={vm.onExit}
+        exitLabel="Back to my swag"
+        footer={
+          <>
+            <div className="row" style={{ gap: 12, alignItems: "center" }}>
+              <b style={{ fontSize: 15 }}>{draft.name}</b>
+              <span className="tag tag-soft" style={{ fontWeight: 700 }}>
+                {vm.pickedProducts.length} item{vm.pickedProducts.length === 1 ? "" : "s"}
               </span>
-            ) : null}
-          </div>
-          <div className="row" style={{ gap: 12, alignItems: "center" }}>
-            {backLink("Back to artwork", 2)}
-            <button
-              type="button"
-              className="btn btn-brand"
-              disabled={vm.isWorking || vm.pickedShops.size === 0}
-              onClick={vm.onPublish}
-            >
-              Publish
-            </button>
-          </div>
-        </>
-      }
-    >
-      <AddToShopStep
-        collectionName={draft.name}
-        products={vm.pickedProducts}
-        placements={draft.placements}
-        areaArts={draft.areaArts || {}}
-        shops={vm.shops}
-        picked={vm.pickedShops}
-        onToggle={vm.onToggleShop}
-      />
-    </WizardChrome>
+              {vm.pickedShops.size > 0 ? (
+                <span className="tag tag-live">
+                  <span className="dot" />
+                  {vm.pickedShops.size} {vm.pickedShops.size === 1 ? "shop" : "shops"}
+                </span>
+              ) : null}
+            </div>
+            <div className="row" style={{ gap: 12, alignItems: "center" }}>
+              {backLink("Back to artwork", 2)}
+              <button
+                type="button"
+                className="btn btn-brand"
+                disabled={vm.isWorking || vm.pickedShops.size === 0}
+                onClick={vm.onPublish}
+              >
+                Publish
+              </button>
+            </div>
+          </>
+        }
+      >
+        <AddToShopStep
+          collectionName={draft.name}
+          products={vm.pickedProducts}
+          placements={draft.placements}
+          areaArts={draft.areaArts || {}}
+          shops={vm.shops}
+          picked={vm.pickedShops}
+          onToggle={vm.onToggleShop}
+        />
+      </WizardChrome>
+      {publishReadyDialog}
+    </>
   );
 }

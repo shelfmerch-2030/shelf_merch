@@ -1108,7 +1108,7 @@ export async function launchPointsCampaignApi(payload: {
   return mapCampaign(launched);
 }
 
-export async function launchKitCampaignApi(payload: {
+type KitCampaignPayload = {
   entityId: string;
   kitId: string;
   name: string;
@@ -1137,7 +1137,9 @@ export async function launchKitCampaignApi(payload: {
   }>;
   isSample?: boolean;
   brandingEnabled?: boolean;
-}) {
+};
+
+async function createKitCampaignDraft(payload: KitCampaignPayload) {
   const campaign = await apiFetch<Record<string, unknown>>("/campaigns", {
     method: "POST",
     body: JSON.stringify({
@@ -1155,22 +1157,36 @@ export async function launchKitCampaignApi(payload: {
   });
   const campaignId = String(campaign._id);
 
-  await apiFetch(`/campaigns/${campaignId}/recipients/import`, {
-    method: "POST",
-    body: JSON.stringify({
-      recipients: payload.recipients.map((r) => ({
-        contactId: r.contactId,
-        name: r.name,
-        email: r.email,
-        phone: r.phone || "",
-        variants: r.variants,
-      })),
-      ...(payload.totalBudget != null ? { totalBudget: payload.totalBudget } : {}),
-      ...(payload.packaging === "none" || payload.packaging === "box" || payload.packaging === "wrap"
-        ? { packaging: payload.packaging }
-        : {}),
-    }),
-  });
+  if (payload.recipients.length) {
+    await apiFetch(`/campaigns/${campaignId}/recipients/import`, {
+      method: "POST",
+      body: JSON.stringify({
+        recipients: payload.recipients.map((r) => ({
+          contactId: r.contactId,
+          name: r.name,
+          email: r.email,
+          phone: r.phone || "",
+          variants: r.variants,
+        })),
+        ...(payload.totalBudget != null ? { totalBudget: payload.totalBudget } : {}),
+        ...(payload.packaging === "none" || payload.packaging === "box" || payload.packaging === "wrap"
+          ? { packaging: payload.packaging }
+          : {}),
+      }),
+    });
+  }
+
+  return { campaign, campaignId };
+}
+
+/** Create a kit campaign draft (and import recipients) without launching. */
+export async function saveKitCampaignDraftApi(payload: KitCampaignPayload) {
+  const { campaign } = await createKitCampaignDraft(payload);
+  return mapCampaign(campaign);
+}
+
+export async function launchKitCampaignApi(payload: KitCampaignPayload) {
+  const { campaignId } = await createKitCampaignDraft(payload);
 
   const launched = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}/launch`, {
     method: "POST",

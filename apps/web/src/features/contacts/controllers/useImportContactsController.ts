@@ -21,7 +21,10 @@ export type ImportContactsVm = {
 };
 
 /** Controller for the CSV import panel: file selection, import flow, status. */
-export function useImportContactsController(onDone: () => void): ImportContactsVm {
+export function useImportContactsController(
+  onDone: () => void,
+  onImportSuccess?: (count: number) => void,
+): ImportContactsVm {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<ContactImportStatus | null>(null);
   const importContacts = useImportContacts();
@@ -45,6 +48,7 @@ export function useImportContactsController(onDone: () => void): ImportContactsV
       setStatus(result);
       if (result.status === "done") {
         toast.success(`Imported ${result.validCount} contact${result.validCount === 1 ? "" : "s"}`);
+        if (result.validCount > 0) onImportSuccess?.(result.validCount);
       } else {
         toast.error("Import failed — check the errors below");
       }

@@ -37,11 +37,14 @@ export type SwagWizardVm = {
   shops: UiShop[];
   pickedShops: Set<string>;
   shopName?: string;
+  publishReadyOpen: boolean;
   onExit: () => void;
   onStep: (step: SwagDraft["step"]) => void;
   onSubmitName: () => void;
   onToggleShop: (shopId: string) => void;
   onPublish: () => void;
+  onPublishReadyPrimary: () => void;
+  onPublishReadyLater: () => void;
 };
 
 /** Controller for the design-swag wizard: draft reducer, mockup baking, save + publish flow. */
@@ -56,6 +59,7 @@ export function useSwagWizardController(): SwagWizardVm {
   const syncPublish = useSyncCollectionPublish();
   const [working, setWorking] = useState(false);
   const [workingLabel, setWorkingLabel] = useState("Publishing…");
+  const [publishReadyOpen, setPublishReadyOpen] = useState(false);
   const publishingRef = useRef(false);
   const [pickedShops, setPickedShops] = useState<Set<string>>(() =>
     shopId ? new Set([shopId]) : new Set(),
@@ -236,13 +240,23 @@ export function useSwagWizardController(): SwagWizardVm {
       toast.success(
         `Published "${col.name}" to ${publishedCount} ${publishedCount === 1 ? "shop" : "shops"}`,
       );
-      onExit();
+      setPublishReadyOpen(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to generate and publish");
     } finally {
       releasePublishLock(publishingRef);
       setWorking(false);
     }
+  }
+
+  function onPublishReadyPrimary() {
+    setPublishReadyOpen(false);
+    navigate("/app/contacts");
+  }
+
+  function onPublishReadyLater() {
+    setPublishReadyOpen(false);
+    onExit();
   }
 
   return {
@@ -261,10 +275,13 @@ export function useSwagWizardController(): SwagWizardVm {
     shops,
     pickedShops,
     shopName,
+    publishReadyOpen,
     onExit,
     onStep: (step) => dispatch({ type: "setStep", step }),
     onSubmitName,
     onToggleShop,
     onPublish,
+    onPublishReadyPrimary,
+    onPublishReadyLater,
   };
 }

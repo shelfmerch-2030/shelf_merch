@@ -460,7 +460,7 @@
 }
 .dash-why-list li {
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 56px 1fr;
   gap: 14px;
   align-items: center;
   padding: 14px 10px;
@@ -472,13 +472,19 @@
   transform: translateX(2px);
 }
 .dash-why-list__icon {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 14px;
   background: #dbeafe;
   color: #1d4ed8;
   display: grid;
   place-items: center;
+}
+.dash-why-list__icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
 }
 .dash-why-list strong { display: block; color: var(--ink); font-size: 15px; font-weight: 800; }
 .dash-why-list p { margin-top: 5px; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
@@ -2361,22 +2367,38 @@
 }
 
 .dash-onboard .dash-why-panel {
-  padding: 16px 18px 14px;
+  padding: 18px 18px 16px;
 }
 
 .dash-onboard .dash-why-list {
-  justify-content: flex-start;
-  gap: 6px;
-  padding: 2px 0 0;
+  justify-content: space-evenly;
+  gap: 10px;
+  padding: 8px 0 4px;
+  flex: 1;
 }
 
 .dash-onboard .dash-why-list li {
-  padding: 8px 8px;
+  padding: 14px 10px;
+  grid-template-columns: 56px 1fr;
 }
 
 .dash-onboard .dash-why-list__icon {
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
+}
+
+.dash-onboard .dash-why-list__icon img {
+  width: 36px;
+  height: 36px;
+}
+
+.dash-onboard .dash-why-list strong {
+  font-size: 16px;
+}
+
+.dash-onboard .dash-why-list p {
+  font-size: 14px;
+  margin-top: 6px;
 }
 
 .dash-onboard-video .dash-video,
@@ -2738,15 +2760,15 @@
 
 .dash-shortcuts .dash-shortcut {
   position: relative;
-  min-height: 226px;
+  min-height: 250px;
   padding: 0 14px 14px;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--shortcut-icon, #3155ff) 16%, #dbe3ef);
   background:
     linear-gradient(
       to bottom,
-      var(--shortcut-bg, #d7e8ff) 0 86px,
-      #fff 86px 100%
+      var(--shortcut-bg, #d7e8ff) 0 100px,
+      #fff 100px 100%
     );
   box-shadow: none;
   display: flex;
@@ -2771,8 +2793,8 @@
   background:
     linear-gradient(
       to bottom,
-      var(--shortcut-bg, #d7e8ff) 0 86px,
-      #fff 86px 100%
+      var(--shortcut-bg, #d7e8ff) 0 100px,
+      #fff 100px 100%
     );
   border-color: transparent;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
@@ -2784,8 +2806,8 @@
   left: 50%;
   z-index: 3;
   transform: translateX(-50%);
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -2799,20 +2821,21 @@
   object-fit: unset;
 }
 
-.dash-shortcuts .dash-shortcut__icon svg {
-  width: 19px;
-  height: 19px;
+.dash-shortcuts .dash-shortcut__icon img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
   display: block;
 }
 
 .dash-shortcuts .dash-shortcut__title {
   position: relative;
   z-index: 2;
-  margin: 108px 0 0;
+  margin: 122px 0 0;
   min-height: 0;
   color: #111827;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.25;
@@ -2821,13 +2844,13 @@
 .dash-shortcuts .dash-shortcut__body {
   position: relative;
   z-index: 2;
-  max-width: 152px;
+  max-width: 168px;
   margin: 8px auto 0;
   flex: none;
-  font-size: 10px;
-  line-height: 1.28;
+  font-size: 12px;
+  line-height: 1.35;
   color: #64748b;
-  max-height: 66px;
+  max-height: 78px;
   overflow: hidden;
 }
 

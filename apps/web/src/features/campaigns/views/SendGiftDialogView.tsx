@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ShopBanner } from "@/features/shops/banner";
+import { PreDesignedKits } from "@/features/kits/PreDesignedKits";
 import type { SendGiftVm } from "../controllers/useCampaignsController";
 
 type SendChoice = "kit" | "points";
@@ -215,7 +216,9 @@ export function SendGiftDialogView({
               <DialogHeader>
                 <DialogTitle style={titleStyle}>Choose a kit to send</DialogTitle>
                 <DialogDescription className="muted" style={descStyle}>
-                  Select one of your existing kits, or create a new kit.
+                  {availableKits.length > 0
+                    ? "Select one of your existing kits, or create a new kit."
+                    : "Choose a pre-designed kit to send, or create your own."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -238,9 +241,8 @@ export function SendGiftDialogView({
                   ))}
                 </div>
               ) : (
-                <div className="send-gift-kit-empty" style={{ marginTop: 20 }}>
-                  <h3>No kits available</h3>
-                  <p>Create a kit before starting this send.</p>
+                <div style={{ marginTop: 16 }}>
+                  <PreDesignedKits onBeforeSend={() => onOpenChange(false)} />
                 </div>
               )}
 

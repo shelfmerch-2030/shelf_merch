@@ -4,7 +4,7 @@ import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { ShopCard } from "../ShopCard";
 import type { ShopsVm } from "../controllers/useShopsController";
-import storeImg from "../../../../assets/store.png";
+import shopsEmptyArt from "../../../../assets/shops-empty.png";
 
 /** Shops list: empty state or a grid of shop cards. */
 export function ShopsView(vm: ShopsVm) {
@@ -34,7 +34,7 @@ export function ShopsView(vm: ShopsVm) {
           actions={createAction}
         />
         <div className="card empty shops-empty">
-          <img src={storeImg} alt="" aria-hidden="true" className="shops-empty__art" />
+          <img src={shopsEmptyArt} alt="" aria-hidden="true" className="shops-empty__art" />
           <h3>No shops yet</h3>
           <p>Create one to celebrate a moment.</p>
           {vm.canCreateShop ? (

@@ -1,5 +1,5 @@
 ﻿function normalizePriceLabel(value: string): string {
-  return value.replace(/[\u20B9\u20A8]/g, "Rs").replace(/^Rs\.?\s*/i, "Rs");
+  return value.replace(/[\u20B9\u20A8]/g, "₹").replace(/^₹\.?\s*/i, "₹");
 }
 
 function formatCardAmount(raw: string): string {
@@ -23,12 +23,12 @@ export function CatalogPrice({
 }) {
   const label =
     basePriceInr && basePriceInr > 0
-      ? `Rs${Math.round(basePriceInr)}`
+      ? `₹${Math.round(basePriceInr)}`
       : price?.trim() || "";
   if (!label) return null;
 
   const normalized = normalizePriceLabel(label);
-  const parts = normalized.match(/^(.*?)(Rs)\s?(.+)$/i);
+  const parts = normalized.match(/^(.*?)(₹)\s?(.+)$/i);
 
   if (size === "detail") {
     return (
@@ -37,7 +37,7 @@ export function CatalogPrice({
           {parts ? (
             <>
               {parts[1] ? <span className="catalog-pdp-price-prefix">{parts[1]}</span> : null}
-              <span className="catalog-pdp-price-symbol">Rs. </span>
+              <span className="catalog-pdp-price-symbol">₹ </span>
               <span className="catalog-pdp-price-amount">{formatCardAmount(parts[3])}</span>
             </>
           ) : (
@@ -58,7 +58,7 @@ export function CatalogPrice({
   return (
     <div className={className ? `pr ${className}` : "pr"}>
       {prefix ? <span className="pr-prefix">{prefix}</span> : null}
-      <span className="pr-symbol">Rs.</span>
+      <span className="pr-symbol">₹</span>
       <span className="pr-amount">{amount}</span>
     </div>
   );

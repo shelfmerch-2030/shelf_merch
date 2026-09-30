@@ -12,10 +12,11 @@ import {
   buildKitPreviewFromWorkspace,
   type KitPreviewData,
 } from "@/features/kits/KitPreviewDialog";
+import { gateWalletForCuratedKitSend } from "@/features/kits/curatedKitWalletGate";
 import {
-  gateWalletForCuratedKitSend,
-  insufficientFundsMessage,
-} from "@/features/kits/curatedKitWalletGate";
+  getSendFlowBlockReason,
+  sendFlowBlockMessage,
+} from "@/features/send/fundsGate";
 import { useStartSampleOrder } from "@/features/kits/sample/useStartSampleOrder";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiKit } from "@/services/mappers";
@@ -204,6 +205,16 @@ export function useCatalogKitsController(
 
   const onSend = useCallback(
     async (kit: CatalogKitCard) => {
+      if (!workspace) {
+        toast.error("Workspace is still loading — try again in a moment.");
+        return;
+      }
+      const blockReason = getSendFlowBlockReason(workspace);
+      if (blockReason) {
+        toast.error(sendFlowBlockMessage(blockReason));
+        return;
+      }
+
       if (kit.workspaceKit?.id) {
         navigate(`/app/kits/${kit.workspaceKit.id}/send`);
         return;
@@ -212,24 +223,15 @@ export function useCatalogKitsController(
       const platformKit = kit.platformKit;
       if (!platformKit) return;
 
-      if (!workspace) {
-        toast.error("Workspace is still loading — try again in a moment.");
-        return;
-      }
-
       const gate = gateWalletForCuratedKitSend(workspace, curatedPricePerKit(platformKit));
       if (!gate.allowed) {
-        if (gate.reason === "no_wallet") {
-          navigate("/app/wallets", { state: { startCreateWallet: true } });
-          return;
-        }
-        if (gate.reason === "pending_approval") {
-          toast.message("Your wallet is under review. Once approved, you'll be able to send kits.");
-          return;
-        }
-        toast.error(
-          insufficientFundsMessage(gate.available, gate.required, gate.currency),
-        );
+        const reason =
+          gate.reason === "pending_approval"
+            ? "pending_approval"
+            : gate.reason === "no_wallet"
+              ? "no_wallet"
+              : "insufficient_funds";
+        toast.error(sendFlowBlockMessage(reason));
         return;
       }
 

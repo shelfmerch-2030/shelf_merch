@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
+import { toast } from "sonner";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import {
+  getSendFlowBlockReason,
+  sendFlowBlockMessage,
+} from "@/features/send/fundsGate";
 import { collectionLinkedToShop, SHOP_TABS, shopTabFromSearch, type ShopTab } from "../types";
 import { publishedShopListings } from "../shopListings";
 import {
@@ -109,6 +114,11 @@ export function useShopDetailController(): ShopDetailVm {
 
   function onSendPoints(campaignId?: string) {
     if (!shop || !canSendPoints) return;
+    const reason = getSendFlowBlockReason(workspace);
+    if (reason) {
+      toast.error(sendFlowBlockMessage(reason));
+      return;
+    }
     const params = new URLSearchParams({ shop: shop.id });
     if (campaignId) params.set("campaign", campaignId);
     navigate(`/app/campaigns/send-points?${params}`);
