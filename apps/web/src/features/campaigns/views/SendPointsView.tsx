@@ -7,6 +7,7 @@ import { WizardChrome } from "@/features/swag/wizard/WizardChrome";
 import { RecipientPicker } from "@/features/send/RecipientPicker";
 import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
+import { InsufficientFundsDraftBanner } from "@/features/send/InsufficientFundsDraftBanner";
 import { POINTS_PER_RUPEE } from "@/lib/storeCurrency";
 import {
   conversionBadge,
@@ -51,6 +52,7 @@ export function SendPointsView({
   onBack,
   onPayNow,
   onSaveAndExit,
+  fundsBlockReason,
   pickerContacts,
   onToggleRecip,
   onSelectAllRecips,
@@ -297,32 +299,41 @@ export function SendPointsView({
       )}
 
       {step === 2 && (
-        <RecipientExperience
-          kind="points"
-          shopName={shop?.name}
-          shopBrand={
-            shop
-              ? { name: shop.name, logoUrl: shop.logoUrl, bannerConfig: shop.bannerConfig }
-              : undefined
-          }
-          currencyMode={currencyMode}
-          pointsScope={draft.pointsScope}
-          pointsAmount={
-            usesCredits ? Math.round(draft.ppr) : Math.round(draft.ppr * POINTS_PER_RUPEE)
-          }
-          from={draft.from}
-          message={draft.msg}
-          fromPlaceholder={SEND_POINTS_PLACEHOLDERS.from}
-          messagePlaceholder={SEND_POINTS_PLACEHOLDERS.msg}
-          onFrom={(from) => dispatch({ type: "setFrom", from })}
-          onMessage={(msg) => dispatch({ type: "setMsg", msg })}
-          when={draft.when}
-          onWhen={(when) => dispatch({ type: "setWhen", when })}
-          schedule={draft.schedule}
-          onSchedule={(key, value) => dispatch({ type: "setSchedule", key, value })}
-          preview={draft.preview}
-          onPreview={(preview) => dispatch({ type: "setPreview", preview })}
-        />
+        <>
+          {fundsBlockReason ? (
+            <InsufficientFundsDraftBanner
+              reason={fundsBlockReason}
+              saving={isSaving}
+              onSave={() => void onSaveAndExit()}
+            />
+          ) : null}
+          <RecipientExperience
+            kind="points"
+            shopName={shop?.name}
+            shopBrand={
+              shop
+                ? { name: shop.name, logoUrl: shop.logoUrl, bannerConfig: shop.bannerConfig }
+                : undefined
+            }
+            currencyMode={currencyMode}
+            pointsScope={draft.pointsScope}
+            pointsAmount={
+              usesCredits ? Math.round(draft.ppr) : Math.round(draft.ppr * POINTS_PER_RUPEE)
+            }
+            from={draft.from}
+            message={draft.msg}
+            fromPlaceholder={SEND_POINTS_PLACEHOLDERS.from}
+            messagePlaceholder={SEND_POINTS_PLACEHOLDERS.msg}
+            onFrom={(from) => dispatch({ type: "setFrom", from })}
+            onMessage={(msg) => dispatch({ type: "setMsg", msg })}
+            when={draft.when}
+            onWhen={(when) => dispatch({ type: "setWhen", when })}
+            schedule={draft.schedule}
+            onSchedule={(key, value) => dispatch({ type: "setSchedule", key, value })}
+            preview={draft.preview}
+            onPreview={(preview) => dispatch({ type: "setPreview", preview })}
+          />
+        </>
       )}
 
       {step === 3 && (

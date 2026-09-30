@@ -10,6 +10,8 @@ import {
   Search,
   SlidersHorizontal,
   Upload,
+  UserPlus,
+  Plug,
 } from "lucide-react";
 import { COUNTRY_OPTIONS } from "@/data/countries";
 import { LoadingState } from "@/components/LoadingState";
@@ -27,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NextStepDialog } from "@/components/NextStepDialog";
 import { ContactFormDialog } from "../ContactFormDialog";
 import { ROLES, contactWorkerStatus } from "../types";
 import type { UiContact } from "../model";
@@ -36,8 +39,19 @@ import {
   type SortKey,
   type WorkerStatusFilter,
 } from "../controllers/useContactsController";
-import contactsEmptyArt from "../../../../assets/contacts-empty.png";
+import contactsAddArt from "../../../../assets/contacts-add.png";
 import "../contacts-page.css";
+
+function contactsAddedDescription(count: number) {
+  if (count <= 0) return "Your contacts have been successfully added.";
+  const formatted = count.toLocaleString("en-IN");
+  return count === 1
+    ? "1 contact has been added."
+    : `${formatted} contacts have been added.`;
+}
+
+const CONTACTS_ADDED_DETAIL =
+  "You can now create a campaign and send points or kits to your team.";
 
 const WORKER_TYPE_OPTIONS: [string, string][] = [
   ["all", "All worker types"],
@@ -347,19 +361,56 @@ export function ContactsView(vm: ContactsVm) {
             {vm.errorMessage}
           </div>
         ) : !vm.hasContacts ? (
-          <div className="card empty contacts-empty">
-            <img src={contactsEmptyArt} alt="" aria-hidden="true" className="contacts-empty__art" />
-            <h3>No contacts yet</h3>
-            <p>Add people to start sending gifts and points.</p>
+          <div className="contacts-empty">
+            <div className="contacts-empty__hero">
+              <img
+                src={contactsAddArt}
+                alt=""
+                aria-hidden="true"
+                className="contacts-empty__art"
+              />
+              <h3>Add your contacts</h3>
+              <p>Add recipients to send points or kits to your team.</p>
+            </div>
             {vm.canManageContacts ? (
-              <button
-                type="button"
-                className="btn btn-brand"
-                style={{ marginTop: 14 }}
-                onClick={() => vm.onAddOpen("manual")}
-              >
-                Add people
-              </button>
+              <div className="contacts-empty__options">
+                <button
+                  type="button"
+                  className="contacts-empty__option"
+                  onClick={() => vm.onAddOpen("manual")}
+                >
+                  <span className="contacts-empty__option-icon contacts-empty__option-icon--blue" aria-hidden="true">
+                    <UserPlus size={18} strokeWidth={2.2} />
+                  </span>
+                  <strong>Add manually</strong>
+                  <p>Add individual contacts one by one.</p>
+                  <span className="contacts-empty__option-cta">Add manually</span>
+                </button>
+                <button
+                  type="button"
+                  className="contacts-empty__option"
+                  onClick={() => vm.onAddOpen("csv")}
+                >
+                  <span className="contacts-empty__option-icon contacts-empty__option-icon--coral" aria-hidden="true">
+                    <Upload size={18} strokeWidth={2.2} />
+                  </span>
+                  <strong>Import contacts</strong>
+                  <p>Upload an Excel or CSV file with your contacts.</p>
+                  <span className="contacts-empty__option-cta">Upload file</span>
+                </button>
+                <button
+                  type="button"
+                  className="contacts-empty__option"
+                  onClick={vm.onConnectIntegration}
+                >
+                  <span className="contacts-empty__option-icon contacts-empty__option-icon--green" aria-hidden="true">
+                    <Plug size={18} strokeWidth={2.2} />
+                  </span>
+                  <strong>Connect an integration</strong>
+                  <p>Sync contacts from your HR or employee management system.</p>
+                  <span className="contacts-empty__option-cta">Connect integration</span>
+                </button>
+              </div>
             ) : null}
           </div>
         ) : (
@@ -680,6 +731,7 @@ export function ContactsView(vm: ContactsVm) {
         canImportContacts
         canManageContactRoles={vm.canManageContactRoles}
         initialTab={vm.addInitialTab}
+        onAddedSuccess={vm.onContactsAddedSuccess}
       />
       <ContactFormDialog
         open={vm.editing !== null}
@@ -693,6 +745,15 @@ export function ContactsView(vm: ContactsVm) {
         pending={vm.isDeletePending}
         onOpenChange={vm.onDeleteOpenChange}
         onConfirm={vm.onDeleteConfirm}
+      />
+      <NextStepDialog
+        open={vm.contactsAddedOpen}
+        title="Contacts added"
+        description={contactsAddedDescription(vm.contactsAddedCount)}
+        detail={CONTACTS_ADDED_DETAIL}
+        primaryLabel="Create a campaign"
+        onPrimary={vm.onContactsAddedPrimary}
+        onSecondary={vm.onContactsAddedLater}
       />
     </>
   );

@@ -24,7 +24,17 @@ import {
   selectAllRecipientIds,
 } from "@/features/send/recipientSelection";
 import { kitPickedIndices } from "../wizard/kitDraft";
-import { useLaunchKitCampaign, useUpdateKit, useUploadKitArtwork, usePlatformKits } from "../model";
+import {
+  useLaunchKitCampaign,
+  useSaveKitCampaignDraft,
+  useUpdateKit,
+  useUploadKitArtwork,
+  usePlatformKits,
+} from "../model";
+import {
+  getInsufficientFundsReason,
+  type SendFlowBlockReason,
+} from "@/features/send/fundsGate";
 import type { UiKit } from "../model";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { variantImageUrls, type KitVariantImage } from "@/lib/kitVariantImages";
@@ -220,6 +230,9 @@ export type SendKitVm = {
   onNext: () => void;
   onBack: () => void;
   onPayAndSend: () => void;
+  fundsBlockReason: SendFlowBlockReason | null;
+  isSavingDraft: boolean;
+  onSaveAsDraft: () => void;
   kitName: string;
   setKitName: (name: string) => void;
   /** Curated kits: logo upload on Items step. */
@@ -242,10 +255,12 @@ export function useSendKitController(): SendKitVm {
   const { data: workspace, isLoading } = useWorkspace();
   const refreshWorkspace = useInvalidateWorkspace();
   const launch = useLaunchKitCampaign();
+  const saveDraft = useSaveKitCampaignDraft();
   const updateKit = useUpdateKit();
   const uploadArtwork = useUploadKitArtwork();
   const [step, setStep] = useState<SendKitStep>(0);
   const [sending, setSending] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [selectedWalletId, setSelectedWalletId] = useState("");
   const [curatedLogoPreview, setCuratedLogoPreview] = useState("");
   const logoObjectUrlRef = useRef<string | null>(null);
@@ -531,6 +546,61 @@ export function useSendKitController(): SendKitVm {
     return ensureSpendEntityForWalletApi(walletId);
   }
 
+  function buildKitCampaignPayload(entityId: string, paymentTotal: number) {
+    return {
+      entityId: String(entityId),
+      kitId: String(kit!.id),
+      name: kit!.name,
+      totalBudget: paymentTotal,
+      packaging: draft.pkg,
+      fulfillmentMode:
+        draft.mode === "surprise" ? "surprise" as const : draft.mode === "single" ? "single" as const : "redeem" as const,
+      singleLocation: draft.mode === "single" ? draft.singleLocation : undefined,
+      message: { from: draft.from, body: draft.msg },
+      schedule: toSchedulePayload(draft.when, draft.schedule),
+      contactIds: draft.selRecips,
+      contacts: pickerContacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+      })),
+      recipVariants: draft.recipVariants,
+    };
+  }
+
+  async function onSaveAsDraft() {
+    const walletId = selectedWalletId || checkoutWallets[0]?.id || workspace?.wallets[0]?.id;
+    let entityId: string | undefined;
+    try {
+      entityId = await resolveEntityId(walletId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not resolve wallet budget");
+      return;
+    }
+    if (!entityId) {
+      toast.error("No budget department found for this wallet — allocate funds first");
+      return;
+    }
+    if (!draft.selRecips.length) {
+      toast.error("Select at least one recipient");
+      return;
+    }
+    if (!kit) return;
+    const paymentTotal = Math.round(totals.total);
+    setSavingDraft(true);
+    try {
+      await saveDraft.mutateAsync(buildKitCampaignPayload(entityId, paymentTotal));
+      toast.success("Draft saved");
+      navigate("/app/campaigns");
+      void refreshWorkspace().catch(() => undefined);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save draft");
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   async function onPayAndSend() {
     const walletId = selectedWalletId || checkoutWallets[0]?.id || workspace?.wallets[0]?.id;
     let entityId: string | undefined;
@@ -569,26 +639,7 @@ export function useSendKitController(): SendKitVm {
           status: "live",
         });
       }
-      await launch.mutateAsync({
-        entityId: String(entityId),
-        kitId: String(kit!.id),
-        name: kit!.name,
-        totalBudget: paymentTotal,
-        packaging: draft.pkg,
-        fulfillmentMode:
-          draft.mode === "surprise" ? "surprise" : draft.mode === "single" ? "single" : "redeem",
-        singleLocation: draft.mode === "single" ? draft.singleLocation : undefined,
-        message: { from: draft.from, body: draft.msg },
-        schedule: toSchedulePayload(draft.when, draft.schedule),
-        contactIds: draft.selRecips,
-        contacts: pickerContacts.map((c) => ({
-          id: c.id,
-          name: c.name,
-          email: c.email,
-          phone: c.phone,
-        })),
-        recipVariants: draft.recipVariants,
-      });
+      await launch.mutateAsync(buildKitCampaignPayload(String(entityId), paymentTotal));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send kit");
       return;
@@ -669,6 +720,13 @@ export function useSendKitController(): SendKitVm {
     onNext,
     onBack: () => setStep((s) => Math.max(s - 1, 0) as SendKitStep),
     onPayAndSend,
+    fundsBlockReason: getInsufficientFundsReason(
+      workspace,
+      totals.total,
+      selectedWalletId || checkoutWallets[0]?.id,
+    ),
+    isSavingDraft: savingDraft || saveDraft.isPending,
+    onSaveAsDraft: () => void onSaveAsDraft(),
     kitName,
     setKitName,
     curatedLogoPreview,

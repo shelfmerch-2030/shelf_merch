@@ -12,6 +12,10 @@ import {
 } from "@/services/mutations-api";
 import { entityIdForWallet, spendableForWallet, walletsForCheckout } from "@/services/workspace-api";
 import { pointsSendTotals } from "@/features/send/money";
+import {
+  getInsufficientFundsReason,
+  type SendFlowBlockReason,
+} from "@/features/send/fundsGate";
 import { toSchedulePayload } from "@/features/send/types";
 import {
   addRecipientsUpToLimit,
@@ -71,6 +75,8 @@ export type SendPointsVm = {
   onBack: () => void;
   onPayNow: () => void;
   onSaveAndExit: () => void;
+  /** Set when budget is pending/insufficient — show draft CTA before checkout. */
+  fundsBlockReason: SendFlowBlockReason | null;
   onToggleRecip: (id: string) => void;
   onSelectAllRecips: () => void;
   onAddRecipientEmails: (raw: string) => void;
@@ -606,6 +612,11 @@ export function useSendPointsController(): SendPointsVm {
     onBack: () => setStep((s) => (s - 1) as SendPointsStep),
     onPayNow: payNow,
     onSaveAndExit: saveAndExit,
+    fundsBlockReason: getInsufficientFundsReason(
+      workspace,
+      totals.sub,
+      selectedWalletId || checkoutWallets[0]?.id,
+    ),
     onToggleRecip,
     onSelectAllRecips,
     onAddRecipientEmails,

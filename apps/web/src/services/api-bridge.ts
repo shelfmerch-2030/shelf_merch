@@ -23,6 +23,7 @@ import {
   uploadKitMockupsApi,
   prepareArtworkUploadFile,
   launchKitCampaignApi,
+  saveKitCampaignDraftApi,
   launchPointsCampaignApi,
   linkCollectionToShopApi,
   archiveCollectionApi,
@@ -712,6 +713,51 @@ export async function launchKitCampaignFlow(payload: {
     .map((r) => r!);
   if (!recipients.length) throw new Error("Select at least one recipient");
   return launchKitCampaignApi({
+    entityId: payload.entityId,
+    kitId: payload.kitId,
+    name: payload.name,
+    totalBudget: payload.totalBudget,
+    packaging: payload.packaging,
+    fulfillmentMode: payload.fulfillmentMode,
+    singleLocation: payload.singleLocation,
+    message: payload.message,
+    schedule: payload.schedule,
+    recipients,
+    isSample: payload.isSample,
+    brandingEnabled: payload.brandingEnabled,
+  });
+}
+
+/** Persist a kit campaign as draft without launching/charging. */
+export async function saveKitCampaignDraftFlow(
+  payload: Parameters<typeof launchKitCampaignFlow>[0],
+) {
+  const recipients = payload.contactIds
+    .map((id) => {
+      if (id.startsWith("email:")) {
+        const email = id.slice("email:".length);
+        const extra = payload.contacts.find((c) => c.id === id || c.email === email);
+        return {
+          name: extra?.name || email.split("@")[0] || email,
+          email,
+          phone: extra?.phone,
+          variants: payload.recipVariants?.[id],
+        };
+      }
+      const contact = payload.contacts.find((c) => c.id === id);
+      if (!contact) return null;
+      return {
+        contactId: contact.id,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        variants: payload.recipVariants?.[contact.id],
+      };
+    })
+    .filter(Boolean)
+    .map((r) => r!);
+  if (!recipients.length) throw new Error("Select at least one recipient");
+  return saveKitCampaignDraftApi({
     entityId: payload.entityId,
     kitId: payload.kitId,
     name: payload.name,

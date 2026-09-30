@@ -18,6 +18,10 @@ import {
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import {
+  getSendFlowBlockReason,
+  sendFlowBlockMessage,
+} from "@/features/send/fundsGate";
 import { useUpdateKit, useCreateKit, useEnsureCuratedKit, usePlatformKits, type PlatformKitTemplate, type UiKit } from "../model";
 import { kitPickedIndices } from "../wizard/kitDraft";
 import {
@@ -488,10 +492,20 @@ export function KitsView(vm: KitsVm) {
       toast.error("This kit is no longer available to send.");
       return;
     }
+    const reason = getSendFlowBlockReason(workspace);
+    if (reason) {
+      toast.error(sendFlowBlockMessage(reason));
+      return;
+    }
     navigate(`/app/kits/${kit.id}/send`);
   };
 
   const handleSendCuratedKit = async (kit: PlatformKitTemplate, existing?: UiKit) => {
+    const reason = getSendFlowBlockReason(workspace);
+    if (reason) {
+      toast.error(sendFlowBlockMessage(reason));
+      return;
+    }
     if (existing?.id) {
       navigate(`/app/kits/${existing.id}/send`);
       return;

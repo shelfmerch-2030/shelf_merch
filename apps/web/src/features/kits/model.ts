@@ -3,6 +3,7 @@ import {
   createKitFlow,
   ensureCuratedKitFlow,
   launchKitCampaignFlow,
+  saveKitCampaignDraftFlow,
   refreshPlatformKits,
   updateKitFlow,
   uploadKitArtworkFlow,
@@ -101,6 +102,14 @@ export function useLaunchKitCampaign() {
   const invalidate = useInvalidateWorkspace();
   return useMutation({
     mutationFn: (input: LaunchKitCampaignInput) => launchKitCampaignFlow(input),
+    onSuccess: () => invalidate(),
+  });
+}
+
+export function useSaveKitCampaignDraft() {
+  const invalidate = useInvalidateWorkspace();
+  return useMutation({
+    mutationFn: (input: LaunchKitCampaignInput) => saveKitCampaignDraftFlow(input),
     onSuccess: () => invalidate(),
   });
 }
