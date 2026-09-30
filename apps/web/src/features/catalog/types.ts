@@ -6,12 +6,8 @@ export const CATALOG_CATEGORIES = [
   "All Products",
   "Apparel",
   "Accessories",
-  "Bags",
-  "Drinkware",
-  "Technology",
-  "Office Supplies",
+  "Food & Beverage",
   "Kits",
-  // "Health & Wellness",
 ] as const;
 
 export const ALL_PRODUCTS = "All Products";
@@ -22,7 +18,16 @@ export const CUSTOMISED_KITS_SUBCATEGORY = "Customised kits";
 /** Subcategories shown on each category browse page. */
 export const CATALOG_SUBCATEGORIES: Record<string, readonly string[]> = {
   Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps", "Others"],
-  Accessories: ["Lanyards", "Key Chains", "Badges", "Travel Accessories", "Lifestyle Accessories", "Others"],
+  Accessories: [
+    "Stationery",
+    "Drinkware",
+    "Bags",
+    "Travel Accessories",
+    "Electronics & Gadgets",
+    "Others",
+  ],
+  "Food & Beverage": ["Coffee", "Snacks", "Chocolates"],
+  // Kept so storefronts can still order products whose category string is the old parent name.
   Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags", "Others"],
   Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers", "Others"],
   "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders", "Others"],
@@ -35,30 +40,41 @@ const LEGACY_SUBCATEGORY_SLUGS: Record<string, { parent: string; subcategory: st
   keys: { parent: "Accessories", subcategory: "Key Chains" },
   "key-chains": { parent: "Accessories", subcategory: "Key Chains" },
   "key chains": { parent: "Accessories", subcategory: "Key Chains" },
-  cardholders: { parent: "Office Supplies", subcategory: "Card Holders" },
-  "card-holders": { parent: "Office Supplies", subcategory: "Card Holders" },
-  "card holders": { parent: "Office Supplies", subcategory: "Card Holders" },
+  cardholders: { parent: "Accessories", subcategory: "Card Holders" },
+  "card-holders": { parent: "Accessories", subcategory: "Card Holders" },
+  "card holders": { parent: "Accessories", subcategory: "Card Holders" },
+  bags: { parent: "Accessories", subcategory: "Bags" },
+  "bags & travel": { parent: "Accessories", subcategory: "Bags" },
+  "bags-travel": { parent: "Accessories", subcategory: "Bags" },
+  drinkware: { parent: "Accessories", subcategory: "Drinkware" },
+  technology: { parent: "Accessories", subcategory: "Electronics & Gadgets" },
+  office: { parent: "Accessories", subcategory: "Stationery" },
+  "office supplies": { parent: "Accessories", subcategory: "Stationery" },
+  "office-supplies": { parent: "Accessories", subcategory: "Stationery" },
 };
 
 const CATEGORY_ALIASES: Record<string, (typeof CATALOG_CATEGORIES)[number]> = {
   apparel: "Apparel",
   accessories: "Accessories",
-  bags: "Bags",
-  "bags & travel": "Bags",
-  "bags-travel": "Bags",
-  drinkware: "Drinkware",
-  technology: "Technology",
-  office: "Office Supplies",
-  "office-supplies": "Office Supplies",
+  bags: "Accessories",
+  "bags & travel": "Accessories",
+  "bags-travel": "Accessories",
+  drinkware: "Accessories",
+  technology: "Accessories",
+  office: "Accessories",
+  "office supplies": "Accessories",
+  "office-supplies": "Accessories",
+  "food & beverage": "Food & Beverage",
+  "food-beverage": "Food & Beverage",
+  "food-and-beverage": "Food & Beverage",
   all: "All Products",
   kits: "Kits",
-  // Legacy / subcategory URLs → parent category pages
   keys: "Accessories",
   "key-chains": "Accessories",
   "key chains": "Accessories",
-  cardholders: "Office Supplies",
-  "card-holders": "Office Supplies",
-  "card holders": "Office Supplies",
+  cardholders: "Accessories",
+  "card-holders": "Accessories",
+  "card holders": "Accessories",
 };
 
 /** Stable URL slug for a catalog category page. */
@@ -71,15 +87,40 @@ export function catalogCategorySlug(category: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export type CatalogCategoryNode = {
+  name: string;
+  slug: string;
+  children: { name: string; slug: string }[];
+};
+
+/** Used when the category API has not been seeded yet. Live browse prefers the API tree. */
+export const FALLBACK_CATALOG_NODES: CatalogCategoryNode[] = CATALOG_CATEGORIES.filter(
+  (category) => category !== ALL_PRODUCTS,
+).map((name) => ({
+  name,
+  slug: catalogCategorySlug(name),
+  children: (CATALOG_SUBCATEGORIES[name] ?? []).map((child) => ({
+    name: child,
+    slug: catalogCategorySlug(child),
+  })),
+}));
+
 /** Map a landing/query category string onto a catalog tab. */
-export function resolveCatalogCategory(raw: string | null | undefined): string {
+export function resolveCatalogCategory(
+  raw: string | null | undefined,
+  nodes: readonly { name: string; slug: string }[] = FALLBACK_CATALOG_NODES,
+): string {
   const key = String(raw || "").trim().toLowerCase();
   if (!key) return ALL_PRODUCTS;
-  const exact = CATALOG_CATEGORIES.find((c) => c.toLowerCase() === key);
-  if (exact) return exact;
   const slug = catalogCategorySlug(key);
-  const bySlug = CATALOG_CATEGORIES.find((c) => catalogCategorySlug(c) === slug);
-  if (bySlug) return bySlug;
+  const list = nodes.length ? nodes : FALLBACK_CATALOG_NODES;
+  const exact = list.find(
+    (category) =>
+      category.name.toLowerCase() === key ||
+      category.slug === slug ||
+      catalogCategorySlug(category.name) === slug,
+  );
+  if (exact) return exact.name;
   return CATEGORY_ALIASES[key] ?? CATEGORY_ALIASES[slug] ?? ALL_PRODUCTS;
 }
 
@@ -87,6 +128,7 @@ export function resolveCatalogCategory(raw: string | null | undefined): string {
 export function resolveCatalogSubcategory(
   raw: string | null | undefined,
   parentCategory: string,
+  options?: readonly string[],
 ): string | null {
   const key = String(raw || "").trim().toLowerCase();
   if (!key || !parentCategory || parentCategory === ALL_PRODUCTS) return null;
@@ -95,10 +137,10 @@ export function resolveCatalogSubcategory(
   const legacy = LEGACY_SUBCATEGORY_SLUGS[key] ?? LEGACY_SUBCATEGORY_SLUGS[slug];
   if (legacy && legacy.parent === parentCategory) return legacy.subcategory;
 
-  const options = CATALOG_SUBCATEGORIES[parentCategory] ?? [];
-  const exact = options.find((s) => s.toLowerCase() === key);
+  const list = options ?? CATALOG_SUBCATEGORIES[parentCategory] ?? [];
+  const exact = list.find((item) => item.toLowerCase() === key);
   if (exact) return exact;
-  return options.find((s) => catalogCategorySlug(s) === slug) ?? null;
+  return list.find((item) => catalogCategorySlug(item) === slug) ?? null;
 }
 
 /** Match a product to a subcategory (incl. legacy rows where category was the subcategory name). */

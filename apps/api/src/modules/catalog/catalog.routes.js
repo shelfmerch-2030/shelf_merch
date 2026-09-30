@@ -7,6 +7,7 @@ import { validate } from '../../middleware/validate.middleware.js';
 import { objectId } from '../users/users.validation.js';
 import { categoryFilter, tenantCatalogFilter, withEnabledVariants } from './catalogFilters.js';
 import { CatalogProduct } from './catalogProduct.model.js';
+import { listPublicCategories } from './platformCatalog.service.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
 import { withNormalizedVariantImages } from '../kits/kitVariantImages.js';
 import { NotFoundError } from '../../utils/errors.js';
@@ -47,6 +48,14 @@ router.get(
     const product = await CatalogProduct.findById(req.params.id);
     if (!product) throw new NotFoundError('Product not found');
     res.json(withEnabledVariants(product));
+  }),
+);
+
+// Active category tree for public catalog browse. No auth — same as product browse.
+router.get(
+  '/categories',
+  asyncHandler(async (_req, res) => {
+    res.json(await listPublicCategories());
   }),
 );
 

@@ -31,6 +31,7 @@ import {
 } from './demoReference.js';
 import { seedTenantDemo } from './seedTenantDemo.js';
 import { seedPlatformDemo } from './seedPlatformDemo.js';
+import { ensureCatalogCategories, remapCatalogProductCategories } from './catalogCategories.js';
 
 export { DEMO_REDEMPTION_TOKEN, DEMO_PASSWORD, PLATFORM_LOGINS, TENANT_LOGINS };
 
@@ -41,7 +42,7 @@ async function wipe() {
     'campaigns', 'recipients', 'orders', 'importjobs', 'notifications',
     'idempotencykeys', 'shipments', 'supporttickets', 'vendors', 'productiontasks',
     'platformsettings', 'categories', 'inventorytransactions', 'platformkits',
-    'invoices', 'payments', 'creditnotes',
+    'invoices', 'payments', 'creditnotes', 'categorymigrationbackups',
   ];
   await Promise.all(cols.map((c) => mongoose.connection.collection(c).deleteMany({})));
 }
@@ -51,6 +52,7 @@ async function seed() {
   await connectDb();
   logger.warn('Wiping existing data…');
   await wipe();
+  await ensureCatalogCategories();
 
   const password = await hashPassword(DEMO_PASSWORD);
   const platformUsersByRole = {};
@@ -331,6 +333,8 @@ async function seed() {
     orders: tenantDemo.orders,
     products,
   });
+
+  await remapCatalogProductCategories();
 
   logger.info(
     {

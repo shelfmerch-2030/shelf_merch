@@ -280,6 +280,20 @@ export async function refreshCatalogKitsPublic(): Promise<PlatformKitTemplate[]>
   return publicFetch<PlatformKitTemplate[]>("/catalog/kits/public");
 }
 
+export type PublicCatalogCategory = {
+  _id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  description?: string;
+  children: { _id: string; name: string; slug: string; sortOrder: number }[];
+};
+
+/** Active parent/child categories for public catalog browse. */
+export async function fetchPublicCatalogCategories(): Promise<PublicCatalogCategory[]> {
+  return publicFetch<PublicCatalogCategory[]>("/catalog/categories");
+}
+
 /** Apply a workspace snapshot onto the legacy shelf-merch.js global state object. */
 export function applyWorkspaceToState(S: Record<string, unknown>, data: WorkspaceSnapshot) {
   const prevOrg = (S.org ?? {}) as {

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchCatalogProduct,
+  fetchPublicCatalogCategories,
   refreshCatalogKitsPublic,
   refreshCatalogProducts,
   type CatalogProductsResult,
@@ -11,9 +12,20 @@ import { ALL_PRODUCTS } from "./types";
 // Ui types re-exported here so views/controllers never import services/ directly.
 export type { UiProduct } from "@/services/mappers";
 export type { CatalogProductsResult } from "@/services/api-bridge";
+export type { PublicCatalogCategory } from "@/services/api-bridge";
 
 export const CATALOG_QUERY_KEY = "catalog";
 export const CATALOG_KITS_QUERY_KEY = [CATALOG_QUERY_KEY, "kits"] as const;
+export const CATALOG_CATEGORIES_QUERY_KEY = [CATALOG_QUERY_KEY, "categories"] as const;
+
+/** Active category tree. Empty until the API responds; callers keep the fallback list. */
+export function useCatalogCategoryTree() {
+  return useQuery({
+    queryKey: CATALOG_CATEGORIES_QUERY_KEY,
+    queryFn: fetchPublicCatalogCategories,
+    staleTime: 60_000,
+  });
+}
 
 /**
  * Catalog products for a category. Mirrors the legacy server-side filtering

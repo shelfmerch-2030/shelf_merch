@@ -66,6 +66,11 @@ export async function getProduct(productId) {
 
 export async function createProduct(data) {
   const { sellingPriceInr, ...rest } = data;
+  await assertCatalogTaxonomy({
+    category: rest.category,
+    subcategory: rest.subcategory,
+    childCategory: rest.childCategory,
+  });
   const skuPrefix = data.skuPrefix || 'SM';
   const sku = data.sku || `${skuPrefix}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   const slug = data.slug || slugify(data.name);
@@ -97,6 +102,13 @@ export async function updateProduct(productId, patch, reason) {
   }
 
   const { sellingPriceInr, ...rest } = patch;
+  if (rest.category !== undefined || rest.subcategory !== undefined || rest.childCategory !== undefined) {
+    await assertCatalogTaxonomy({
+      category: rest.category !== undefined ? rest.category : product.category,
+      subcategory: rest.subcategory !== undefined ? rest.subcategory : product.subcategory,
+      childCategory: rest.childCategory !== undefined ? rest.childCategory : product.childCategory,
+    });
+  }
   const before = platformProductDto(product);
   Object.assign(product, rest);
   if (rest.category !== undefined && product.source?.provider === 'shopify') {
@@ -284,19 +296,236 @@ export async function setPrintAreas(productId, printAreas, extras = {}) {
 
 // ---- Categories ----
 
-export async function listCategories() {
-  return Category.find({}).sort({ name: 1 });
+function categorySort(a, b) {
+  const order = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  if (order !== 0) return order;
+  return String(a.name).localeCompare(String(b.name));
 }
 
-export async function createCategory({ name, description = '' }) {
-  const slug = slugify(name);
-  const existing = await Category.findOne({ $or: [{ name }, { slug }] });
+function publicCategoryNode(doc) {
+  return {
+    _id: doc._id,
+    name: doc.name,
+    slug: doc.slug,
+    sortOrder: doc.sortOrder ?? 0,
+    description: doc.description || '',
+  };
+}
+
+function nestCategoryTree(rows) {
+  const childrenByParent = new Map();
+  for (const row of rows) {
+    if (!row.parentId) continue;
+    const key = String(row.parentId);
+    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+    childrenByParent.get(key).push(row);
+  }
+  const withChildren = (row) => ({
+    ...row,
+    children: (childrenByParent.get(String(row._id)) || []).sort(categorySort).map(withChildren),
+  });
+  return rows.filter((row) => !row.parentId).sort(categorySort).map(withChildren);
+}
+
+/** Full tree. `parentId` returns that node's direct children. `roots` returns depth-0 rows only. */
+export async function listCategories({ parentId, roots } = {}) {
+  if (parentId) {
+    return Category.find({ parentId }).sort({ sortOrder: 1, name: 1 }).lean();
+  }
+  if (roots) {
+    return Category.find({ parentId: null }).sort({ sortOrder: 1, name: 1 }).lean();
+  }
+  const all = await Category.find({}).sort({ sortOrder: 1, name: 1 }).lean();
+  return nestCategoryTree(all);
+}
+
+/** Active tree for the public catalog. Kits stays a normal parent row; browse still special-cases it. */
+export async function listPublicCategories() {
+  const all = await Category.find({ status: 'active' }).sort({ sortOrder: 1, name: 1 }).lean();
+  const childrenByParent = new Map();
+  for (const row of all) {
+    if (!row.parentId) continue;
+    const key = String(row.parentId);
+    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+    childrenByParent.get(key).push(row);
+  }
+  return all
+    .filter((row) => !row.parentId)
+    .sort(categorySort)
+    .map((parent) => ({
+      ...publicCategoryNode(parent),
+      children: (childrenByParent.get(String(parent._id)) || []).sort(categorySort).map(publicCategoryNode),
+    }));
+}
+
+export async function createCategory({ name, description = '', parentId = null, sortOrder }) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new ApiError(422, 'Category name is required', 'CATEGORY_REQUIRED');
+
+  let parent = null;
+  if (parentId) {
+    parent = await Category.findById(parentId);
+    if (!parent) throw new NotFoundError('Parent category not found');
+  }
+
+  const slug = slugify(trimmed);
+  const scopeParentId = parent ? parent._id : null;
+  const existing = await Category.findOne({
+    parentId: scopeParentId,
+    $or: [{ name: trimmed }, { slug }],
+  });
   if (existing) throw new ConflictError('Category already exists');
-  return Category.create({ name, slug, description });
+
+  let order = sortOrder;
+  if (order == null) {
+    const last = await Category.findOne({ parentId: scopeParentId }).sort({ sortOrder: -1 }).select('sortOrder').lean();
+    order = (last?.sortOrder ?? -1) + 1;
+  }
+
+  return Category.create({
+    name: trimmed,
+    slug,
+    description,
+    parentId: scopeParentId,
+    depth: parent ? (parent.depth ?? 0) + 1 : 0,
+    sortOrder: order,
+    status: 'active',
+  });
+}
+
+async function categoryNamePath(category) {
+  const names = [category.name];
+  let current = category;
+  const seen = new Set([String(category._id)]);
+  while (current.parentId) {
+    const parent = await Category.findById(current.parentId).select('name parentId').lean();
+    if (!parent || seen.has(String(parent._id))) break;
+    seen.add(String(parent._id));
+    names.unshift(parent.name);
+    current = parent;
+  }
+  return names;
+}
+
+async function activeProductCount(category) {
+  const path = await categoryNamePath(category);
+  if (path.length === 1) {
+    return CatalogProduct.countDocuments({ status: 'active', category: path[0] });
+  }
+  if (path.length === 2) {
+    return CatalogProduct.countDocuments({ status: 'active', category: path[0], subcategory: path[1] });
+  }
+  return CatalogProduct.countDocuments({
+    status: 'active',
+    category: path[0],
+    subcategory: path[1],
+    childCategory: category.name,
+  });
+}
+
+async function assertCanArchive(category) {
+  const activeChildren = await Category.countDocuments({ parentId: category._id, status: 'active' });
+  if (activeChildren) {
+    throw new ConflictError('Archive child categories before archiving this parent');
+  }
+  const used = await activeProductCount(category);
+  if (used) {
+    throw new ConflictError(
+      `${used} active product${used === 1 ? '' : 's'} still use "${category.name}". Reassign them before archiving.`,
+    );
+  }
+}
+
+async function renameProductLabels(category, oldName, newName) {
+  if (oldName === newName) return;
+  const path = await categoryNamePath({ ...category.toObject(), name: oldName });
+  if (path.length === 1) {
+    await CatalogProduct.updateMany({ category: oldName }, { $set: { category: newName } });
+    return;
+  }
+  if (path.length === 2) {
+    await CatalogProduct.updateMany(
+      { category: path[0], subcategory: oldName },
+      { $set: { subcategory: newName } },
+    );
+    return;
+  }
+  await CatalogProduct.updateMany(
+    { category: path[0], subcategory: path[1], childCategory: oldName },
+    { $set: { childCategory: newName } },
+  );
 }
 
 export async function updateCategory(categoryId, patch) {
-  const category = await Category.findByIdAndUpdate(categoryId, patch, { new: true });
+  const category = await Category.findById(categoryId);
   if (!category) throw new NotFoundError('Category not found');
+
+  const nextName = patch.name !== undefined ? String(patch.name).trim() : category.name;
+  if (patch.name !== undefined && !nextName) {
+    throw new ApiError(422, 'Category name is required', 'CATEGORY_REQUIRED');
+  }
+  const nextStatus = patch.status || category.status;
+  // Check the current name before any product relabel, so a rename cannot
+  // archive a category that active products still use.
+  if (nextStatus === 'archived' && category.status !== 'archived') {
+    await assertCanArchive(category);
+  }
+
+  if (nextName !== category.name) {
+    const slug = slugify(nextName);
+    const dupe = await Category.findOne({
+      _id: { $ne: category._id },
+      parentId: category.parentId ?? null,
+      $or: [{ name: nextName }, { slug }],
+    });
+    if (dupe) throw new ConflictError('Category already exists');
+    const oldName = category.name;
+    category.name = nextName;
+    category.slug = slug;
+    await renameProductLabels(category, oldName, nextName);
+  }
+
+  if (patch.description !== undefined) category.description = patch.description;
+  if (patch.sortOrder !== undefined) category.sortOrder = patch.sortOrder;
+  if (patch.status) category.status = patch.status;
+
+  await category.save();
   return category;
+}
+
+/**
+ * Category, subcategory, and child category stay strings on the product.
+ * Subcategory must be an active child of the selected root.
+ * childCategory is optional. When set, it must be an active child of that subcategory.
+ */
+export async function assertCatalogTaxonomy({ category, subcategory, childCategory }) {
+  const categoryName = String(category || '').trim();
+  if (!categoryName) throw new ApiError(422, 'Category must be selected', 'CATEGORY_REQUIRED');
+
+  const parent = await Category.findOne({ name: categoryName, parentId: null, status: 'active' });
+  if (!parent) {
+    throw new ApiError(422, 'Category must be an active parent category', 'INVALID_CATEGORY');
+  }
+
+  const subName = String(subcategory || '').trim();
+  const childCount = await Category.countDocuments({ parentId: parent._id, status: 'active' });
+  if (!subName) {
+    if (childCount > 0) {
+      throw new ApiError(422, 'Subcategory must be selected', 'SUBCATEGORY_REQUIRED');
+    }
+    return;
+  }
+
+  const child = await Category.findOne({ name: subName, parentId: parent._id, status: 'active' });
+  if (!child) {
+    throw new ApiError(422, 'Subcategory must belong to the selected category', 'INVALID_SUBCATEGORY');
+  }
+
+  const leafName = String(childCategory || '').trim();
+  if (!leafName) return;
+
+  const leaf = await Category.findOne({ name: leafName, parentId: child._id, status: 'active' });
+  if (!leaf) {
+    throw new ApiError(422, 'Child category must belong to the selected subcategory', 'INVALID_CHILD_CATEGORY');
+  }
 }

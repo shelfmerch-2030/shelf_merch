@@ -31,6 +31,7 @@ const catalogProductSchema = new mongoose.Schema(
     sizeGuide: { type: String, default: '' },
     category: { type: String, default: '', index: true },
     subcategory: { type: String, default: '', index: true },
+    childCategory: { type: String, default: '', index: true },
     group: { type: String, default: '' }, // icon group, e.g. "tee", "mug", "hoodie"
     // basePriceInr is the tenant-facing selling price (kept as the historical
     // field name; the platform API exposes it as sellingPriceInr).

@@ -25,6 +25,10 @@ export function ProductWizardView({
   imageView,
   categoryOptions,
   subcategoryOptions,
+  childCategoryOptions,
+  categoriesLoading,
+  subcategoriesLoading,
+  childCategoriesLoading,
   colorSwatches,
   activeSwatch,
   firstHex,
@@ -110,9 +114,14 @@ export function ProductWizardView({
               </div>
               <div className="field" style={{ flex: 1 }}>
                 <label className="lbl">Category</label>
-                <select className="inp" value={details.category} onChange={(e) => onSet("category", e.target.value)}>
+                <select
+                  className="inp"
+                  value={details.category}
+                  disabled={categoriesLoading}
+                  onChange={(e) => onSet("category", e.target.value)}
+                >
                   <option value="" disabled>
-                    Select a category
+                    {categoriesLoading ? "Loading categories" : "Select a category"}
                   </option>
                   {categoryOptions.map((category) => (
                     <option key={category} value={category}>
@@ -126,15 +135,33 @@ export function ProductWizardView({
                 <select
                   className="inp"
                   value={details.subcategory || ""}
-                  disabled={!details.category}
+                  disabled={!details.category || subcategoriesLoading}
                   onChange={(e) => onSet("subcategory", e.target.value)}
                 >
                   <option value="" disabled>
-                    Select a subcategory
+                    {subcategoriesLoading ? "Loading subcategories" : "Select a subcategory"}
                   </option>
                   {subcategoryOptions.map((subcategory) => (
                     <option key={subcategory} value={subcategory}>
                       {subcategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label className="lbl">Child category</label>
+                <select
+                  className="inp"
+                  value={details.childCategory || ""}
+                  disabled={!details.subcategory || childCategoriesLoading}
+                  onChange={(e) => onSet("childCategory", e.target.value)}
+                >
+                  <option value="">
+                    {childCategoriesLoading ? "Loading child categories" : "None"}
+                  </option>
+                  {childCategoryOptions.map((childCategory) => (
+                    <option key={childCategory} value={childCategory}>
+                      {childCategory}
                     </option>
                   ))}
                 </select>
@@ -227,7 +254,16 @@ export function ProductWizardView({
             <button
               type="button"
               className="btn btn-brand"
-              disabled={busy || !details.name || !details.category || !details.subcategory || !details.sellingPriceInr}
+              disabled={
+                busy ||
+                categoriesLoading ||
+                subcategoriesLoading ||
+                childCategoriesLoading ||
+                !details.name ||
+                !details.category ||
+                (subcategoryOptions.length > 0 && !details.subcategory) ||
+                !details.sellingPriceInr
+              }
               onClick={onSaveDetails}
             >
               {id ? "Save & continue" : "Create draft & continue"}

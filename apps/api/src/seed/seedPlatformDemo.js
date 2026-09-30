@@ -8,7 +8,6 @@ import { CreditNote } from '../modules/invoices/creditNote.model.js';
 import { AuditLog } from '../modules/auditLogs/auditLog.model.js';
 import { PlatformSetting, PLATFORM_SETTING_DEFAULTS } from '../modules/platform/platformSetting.model.js';
 import { Notification } from '../modules/notifications/notification.model.js';
-import { Category } from '../modules/catalog/category.model.js';
 import { InventoryTransaction } from '../modules/catalog/inventoryTransaction.model.js';
 import { CatalogProduct } from '../modules/catalog/catalogProduct.model.js';
 import { PLATFORM_LOGINS, TENANT_LOGINS } from './demoReference.js';
@@ -54,14 +53,6 @@ export async function seedPlatformDemo({
     },
   ]);
   const printVendor = vendors[0];
-
-  await Category.insertMany([
-    { name: 'Apparel', slug: 'apparel', description: 'Tees, hoodies, caps' },
-    { name: 'Drinkware', slug: 'drinkware', description: 'Bottles and mugs' },
-    { name: 'Bags', slug: 'bags', description: 'Backpacks and totes' },
-    { name: 'Office Supplies', slug: 'office-supplies', description: 'Notebooks and desk items' },
-    { name: 'Technology', slug: 'technology', description: 'Power banks and gadgets' },
-  ]);
 
   const lowStockProduct = products.find((p) => p.group === 'cap') || products[0];
   await InventoryTransaction.create({

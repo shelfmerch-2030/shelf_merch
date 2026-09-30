@@ -183,6 +183,10 @@ const platformChildren: RouteObject[] = [
         lazy: page(() => import("@/components/platform/pages/shopify-import"), "ShopifyImport"),
       },
       {
+        path: "categories",
+        lazy: page(() => import("@/components/platform/pages/catalog-categories"), "CatalogCategoriesPage"),
+      },
+      {
         path: ":id",
         lazy: page(() => import("@/components/platform/pages/product-wizard"), "ProductWizard"),
       },

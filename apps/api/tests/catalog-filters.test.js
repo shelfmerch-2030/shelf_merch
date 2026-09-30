@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  categoryFilter,
   productSearchFilter,
   productSourceLabel,
   sourceProviderFilter,
@@ -40,5 +41,22 @@ describe('catalogFilters', () => {
     expect(f.$or[0]).toEqual({ name: { $regex: 'hm', $options: 'i' } });
     expect(f.$or[1]).toEqual({ sku: { $regex: 'hm', $options: 'i' } });
     expect(f.$or[2]).toEqual({ brand: { $regex: 'hm', $options: 'i' } });
+  });
+
+  it('expands Accessories to former parent category names', () => {
+    expect(categoryFilter('Accessories')).toEqual({
+      category: {
+        $in: [
+          'Accessories',
+          'Key Chains',
+          'Bags',
+          'Drinkware',
+          'Office Supplies',
+          'Technology',
+          'Card Holders',
+        ],
+      },
+    });
+    expect(categoryFilter('Apparel')).toEqual({ category: 'Apparel' });
   });
 });

@@ -60,6 +60,9 @@ export function CatalogView({
         actions={
           canWrite ? (
             <>
+              <Link to="/platform/catalog/categories" className="btn btn-ghost btn-sm">
+                Categories
+              </Link>
               <Link to="/platform/catalog/import" className="btn btn-ghost btn-sm">
                 Import from Shopify
               </Link>
@@ -67,7 +70,11 @@ export function CatalogView({
                 + New product
               </Link>
             </>
-          ) : null
+          ) : (
+            <Link to="/platform/catalog/categories" className="btn btn-ghost btn-sm">
+              Categories
+            </Link>
+          )
         }
       />
       {loading && <PlatformLoading />}

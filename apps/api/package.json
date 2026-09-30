@@ -10,6 +10,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed/seed.js",
+    "seed:categories": "node src/scripts/seed-catalog-categories.js",
     "worker": "node src/jobs/index.js",
     "test": "vitest run --exclude tests/super-admin-layer.test.js && vitest run tests/super-admin-layer.test.js",
     "test:watch": "vitest"

@@ -9,10 +9,10 @@ import {
   emptyProductDetails,
   emptyVariant,
   getPlatformProduct,
-  MANUAL_CATEGORIES,
+  listCategories,
   PRODUCT_WIZARD_STEPS,
-  SUBCATEGORIES_BY_CATEGORY,
   publishProduct,
+  type PlatformCategory,
   pngHasTransparency,
   setPrintAreas,
   setProductRoleImageByUrl,
@@ -83,18 +83,94 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const [imageView, setImageView] = useState<ProductImageView>("front");
   const [marketingIndex, setMarketingIndex] = useState(0);
   const [maskTintableByView, setMaskTintableByView] = useState<Partial<Record<ProductImageView, boolean>>>({});
+  const [parents, setParents] = useState<PlatformCategory[]>([]);
+  const [children, setChildren] = useState<PlatformCategory[]>([]);
+  const [grandchildren, setGrandchildren] = useState<PlatformCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
+  const [childCategoriesLoading, setChildCategoriesLoading] = useState(false);
 
-  const categoryOptions = useMemo(
-    () =>
-      Array.from(new Set([...MANUAL_CATEGORIES, ...(details.category ? [details.category] : [])])).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [details.category],
-  );
+  const categoryOptions = useMemo(() => {
+    const names = parents.filter((parent) => parent.status === "active").map((parent) => parent.name);
+    if (details.category && !names.includes(details.category)) names.push(details.category);
+    return names;
+  }, [parents, details.category]);
   const subcategoryOptions = useMemo(() => {
-    const mapped = SUBCATEGORIES_BY_CATEGORY[details.category as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? [];
-    return Array.from(new Set([...mapped, ...(details.subcategory ? [details.subcategory] : [])]));
-  }, [details.category, details.subcategory]);
+    const names = children.filter((child) => child.status === "active").map((child) => child.name);
+    if (details.subcategory && !names.includes(details.subcategory)) names.push(details.subcategory);
+    return names;
+  }, [children, details.subcategory]);
+  const childCategoryOptions = useMemo(() => {
+    const names = grandchildren.filter((child) => child.status === "active").map((child) => child.name);
+    if (details.childCategory && !names.includes(details.childCategory)) names.push(details.childCategory);
+    return names;
+  }, [grandchildren, details.childCategory]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCategoriesLoading(true);
+    listCategories({ roots: true })
+      .then((rows) => {
+        if (!cancelled) setParents(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load categories");
+      })
+      .finally(() => {
+        if (!cancelled) setCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const parent = parents.find((row) => row.name === details.category && row.status === "active");
+    if (!details.category || !parent) {
+      setChildren([]);
+      setSubcategoriesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSubcategoriesLoading(true);
+    listCategories({ parentId: parent._id })
+      .then((rows) => {
+        if (!cancelled) setChildren(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load subcategories");
+      })
+      .finally(() => {
+        if (!cancelled) setSubcategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [details.category, parents]);
+
+  useEffect(() => {
+    const subcategory = children.find((row) => row.name === details.subcategory && row.status === "active");
+    if (!details.subcategory || !subcategory) {
+      setGrandchildren([]);
+      setChildCategoriesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setChildCategoriesLoading(true);
+    listCategories({ parentId: subcategory._id })
+      .then((rows) => {
+        if (!cancelled) setGrandchildren(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load child categories");
+      })
+      .finally(() => {
+        if (!cancelled) setChildCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [details.subcategory, children]);
 
   useEffect(() => {
     if (mode !== "edit" || !productId) return;
@@ -110,6 +186,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
           name: p.name,
           category: categoryRequiresAdminChoice ? "" : p.category,
           subcategory: categoryRequiresAdminChoice ? "" : (p.subcategory ?? ""),
+          childCategory: categoryRequiresAdminChoice ? "" : (p.childCategory ?? ""),
           sellingPriceInr: p.sellingPriceInr,
           costPriceInr: p.costPriceInr,
           brand: p.brand ?? "",
@@ -129,10 +206,11 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) =>
     setDetails((d) => {
       const next = { ...d, [k]: v };
-      if (k === "category") {
-        const mapped = SUBCATEGORIES_BY_CATEGORY[String(v) as keyof typeof SUBCATEGORIES_BY_CATEGORY] ?? [];
-        if (!mapped.includes(String(d.subcategory || ""))) next.subcategory = "";
+      if (k === "category" && String(v) !== String(d.category)) {
+        next.subcategory = "";
+        next.childCategory = "";
       }
+      if (k === "subcategory" && String(v) !== String(d.subcategory)) next.childCategory = "";
       return next;
     });
 
@@ -531,6 +609,10 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     imageView,
     categoryOptions,
     subcategoryOptions,
+    childCategoryOptions,
+    categoriesLoading,
+    subcategoriesLoading,
+    childCategoriesLoading,
     colorSwatches,
     activeSwatch,
     firstHex,
