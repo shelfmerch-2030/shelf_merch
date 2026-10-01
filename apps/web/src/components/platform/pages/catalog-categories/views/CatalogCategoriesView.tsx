@@ -160,7 +160,6 @@ export function CatalogCategoriesView({
             <select
               className="inp"
               value={parentId}
-              disabled={Boolean(editingId)}
               onChange={(e) => onParentId(e.target.value)}
             >
               <option value="">None — parent category</option>

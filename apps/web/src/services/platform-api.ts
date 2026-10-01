@@ -1005,7 +1005,13 @@ export function createCategory(body: {
 
 export function updateCategory(
   id: string,
-  body: { name?: string; description?: string; status?: "active" | "archived"; sortOrder?: number },
+  body: {
+    name?: string;
+    description?: string;
+    parentId?: string | null;
+    status?: "active" | "archived";
+    sortOrder?: number;
+  },
 ) {
   return apiFetch<PlatformCategory>(`/platform/categories/${id}`, {
     method: "PATCH",

@@ -9,7 +9,7 @@ import { ApiError } from '../../../utils/errors.js';
 import { encryptToken } from '../../../utils/tokenEncryption.js';
 import { ZohoIntegration } from './zohoIntegration.model.js';
 import { generateOAuthState, storeOAuthState } from './zohoOAuthState.service.js';
-import { fetchZohoOrganization } from './zohoPeople.service.js';
+import { fetchZohoOrganization, formatZohoOrgLastError } from './zohoPeople.service.js';
 import { normalizeZohoLocation } from './zohoPeopleBaseUrl.js';
 
 const ZOHO_SCOPES = 'ZOHOPEOPLE.forms.READ,ZOHOPEOPLE.organization.READ';
@@ -109,6 +109,7 @@ export async function completeZohoConnection({
 
   let org = { id: '', name: '', needsAttention: false };
   let orgVerified = false;
+  let orgFailure = 'Could not verify Zoho organisation';
   try {
     org = await fetchZohoOrganization({
       location,
@@ -116,8 +117,9 @@ export async function completeZohoConnection({
       accessToken: tokens.accessToken,
     });
     orgVerified = true;
-  } catch {
+  } catch (error) {
     orgVerified = false;
+    orgFailure = formatZohoOrgLastError(error?.details);
   }
 
   const encryptedAccessToken = encryptToken(tokens.accessToken);
@@ -140,7 +142,7 @@ export async function completeZohoConnection({
         zohoLocation: location,
         status,
         connectedAt,
-        lastError: status === 'error' ? 'Could not verify Zoho organisation' : '',
+        lastError: status === 'error' ? orgFailure : '',
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },

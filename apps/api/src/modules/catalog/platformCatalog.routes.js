@@ -497,6 +497,7 @@ platformCategoriesRouter.patch(
     body: z.object({
       name: z.string().min(1).optional(),
       description: z.string().optional(),
+      parentId: objectId.nullable().optional(),
       status: z.enum(['active', 'archived']).optional(),
       sortOrder: z.number().int().nonnegative().optional(),
     }),

@@ -8,6 +8,7 @@
 import mongoose from 'mongoose';
 import { Category } from '../modules/catalog/category.model.js';
 import { CatalogProduct } from '../modules/catalog/catalogProduct.model.js';
+import { updateCategory } from '../modules/catalog/platformCatalog.service.js';
 
 /** Former top-level categories that stay in the database and sit under Accessories. */
 export const MOVED_UNDER_ACCESSORIES = ['Bags', 'Drinkware', 'Office Supplies', 'Technology'];
@@ -413,4 +414,140 @@ export async function moveLifestyleAccessoryDraftsToOthers() {
     { $set: { subcategory: 'Others' } },
   );
   return { draftsUpdated: result.modifiedCount };
+}
+
+export const APPAREL_REPARENT_NAMES = [
+  'T-Shirts',
+  'Polo Shirts',
+  'Hoodies & Sweatshirts',
+  'Jackets',
+  'Caps',
+  'Others',
+];
+
+/**
+ * Move the listed Apparel rows under the child Apparel category.
+ * Writes a parent/depth/sortOrder backup first. Does not change product strings.
+ * Archives the empty "sus" row when it is still an active child of root Apparel.
+ */
+export async function reparentApparelUnderChild() {
+  const root = await Category.findOne({ name: 'Apparel', parentId: null });
+  if (!root) throw new Error('Root Apparel category is missing');
+  const child = await Category.findOne({ name: 'Apparel', parentId: root._id });
+  if (!child) throw new Error('Child Apparel category is missing');
+
+  const movedNames = [];
+  for (const name of APPAREL_REPARENT_NAMES) {
+    const row = await Category.findOne({ name, parentId: root._id });
+    if (!row) continue;
+    await insertBackupOnce(
+      { kind: 'category-reparent', categoryId: row._id },
+      {
+        kind: 'category-reparent',
+        categoryId: row._id,
+        name: row.name,
+        previousParentId: row.parentId ?? null,
+        previousDepth: row.depth ?? 0,
+        previousSortOrder: row.sortOrder ?? 0,
+      },
+    );
+    await updateCategory(row._id, { parentId: child._id });
+    movedNames.push(name);
+  }
+
+  const sus = await Category.findOne({ name: 'sus', parentId: root._id, status: 'active' });
+  if (sus) await updateCategory(sus._id, { status: 'archived' });
+
+  return { moved: movedNames.length, movedNames, susArchived: Boolean(sus) };
+}
+
+/** Old Apparel subcategory strings that become childCategory. Others is not included. */
+export const APPAREL_PRODUCT_MIGRATION = [
+  'T-Shirts',
+  'Polo Shirts',
+  'Hoodies & Sweatshirts',
+  'Jackets',
+  'Caps',
+];
+
+function emptyChildCategoryFilter() {
+  return {
+    $or: [{ childCategory: '' }, { childCategory: null }, { childCategory: { $exists: false } }],
+  };
+}
+
+/**
+ * Move Apparel / <leaf> / "" to Apparel / Apparel / <leaf>.
+ * Only the listed subcategory names are updated. A second run changes nothing.
+ */
+export async function migrateApparelProductLabels() {
+  const root = await Category.findOne({ name: 'Apparel', parentId: null, status: 'active' });
+  const child = root
+    ? await Category.findOne({ name: 'Apparel', parentId: root._id, status: 'active' })
+    : null;
+  if (!root || !child) throw new Error('Apparel subcategory row is missing');
+
+  const byChildCategory = {};
+  let productsUpdated = 0;
+
+  for (const leafName of APPAREL_PRODUCT_MIGRATION) {
+    const products = await CatalogProduct.find({
+      category: 'Apparel',
+      subcategory: leafName,
+      ...emptyChildCategoryFilter(),
+    }).select('_id category subcategory childCategory');
+    if (!products.length) continue;
+
+    const leaf = await Category.findOne({ name: leafName, parentId: child._id, status: 'active' });
+    if (!leaf) throw new Error(`Apparel child category "${leafName}" is missing`);
+
+    for (const product of products) {
+      await insertBackupOnce(
+        { kind: 'apparel-product', productId: product._id },
+        {
+          kind: 'apparel-product',
+          productId: product._id,
+          category: product.category,
+          subcategory: product.subcategory ?? '',
+          childCategory: product.childCategory ?? '',
+        },
+      );
+      await CatalogProduct.updateOne(
+        { _id: product._id },
+        { $set: { category: 'Apparel', subcategory: 'Apparel', childCategory: leafName } },
+      );
+      productsUpdated += 1;
+      byChildCategory[leafName] = (byChildCategory[leafName] || 0) + 1;
+    }
+  }
+
+  return { productsUpdated, byChildCategory };
+}
+
+/** Restore Apparel product strings from unrestored apparel-product backups. */
+export async function rollbackApparelProductLabels() {
+  const pending = await backupCollection()
+    .find({ kind: 'apparel-product', restored: { $ne: true } })
+    .toArray();
+  let productsRestored = 0;
+
+  for (const row of pending) {
+    await CatalogProduct.updateOne(
+      { _id: row.productId },
+      {
+        $set: {
+          category: row.category,
+          subcategory: row.subcategory ?? '',
+          childCategory: row.childCategory ?? '',
+        },
+      },
+    );
+    await backupCollection().updateOne(
+      { _id: row._id },
+      { $set: { restored: true, restoredAt: new Date() } },
+    );
+    productsRestored += 1;
+  }
+
+  return { productsRestored };
 }

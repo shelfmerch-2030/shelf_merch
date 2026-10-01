@@ -436,6 +436,69 @@ async function assertCanArchive(category) {
   }
 }
 
+async function collectDescendantIds(categoryId) {
+  const ids = new Set();
+  const queue = [String(categoryId)];
+  while (queue.length) {
+    const id = queue.shift();
+    const children = await Category.find({ parentId: id }).select('_id');
+    for (const child of children) {
+      const childId = String(child._id);
+      if (ids.has(childId)) continue;
+      ids.add(childId);
+      queue.push(childId);
+    }
+  }
+  return ids;
+}
+
+async function cascadeDescendantDepth(parentId, parentDepth) {
+  const children = await Category.find({ parentId });
+  for (const child of children) {
+    const depth = parentDepth + 1;
+    if (child.depth !== depth) {
+      child.depth = depth;
+      await child.save();
+    }
+    await cascadeDescendantDepth(child._id, depth);
+  }
+}
+
+/**
+ * Move a category under a new parent, or to the root when nextParentId is null.
+ * Rejects a move under itself or under one of its descendants.
+ */
+async function applyParentChange(category, nextParentId) {
+  const current = category.parentId ? String(category.parentId) : null;
+  const next = nextParentId ? String(nextParentId) : null;
+  if (current === next) return;
+
+  if (next && next === String(category._id)) {
+    throw new ApiError(422, 'A category cannot be moved under itself', 'INVALID_PARENT');
+  }
+
+  let parent = null;
+  if (next) {
+    parent = await Category.findById(next);
+    if (!parent) throw new NotFoundError('Parent category not found');
+    const descendants = await collectDescendantIds(category._id);
+    if (descendants.has(next)) {
+      throw new ApiError(422, 'A category cannot be moved under its own descendant', 'INVALID_PARENT');
+    }
+  }
+
+  const scopeParentId = parent ? parent._id : null;
+  const dupe = await Category.findOne({
+    _id: { $ne: category._id },
+    parentId: scopeParentId,
+    $or: [{ name: category.name }, { slug: category.slug }],
+  });
+  if (dupe) throw new ConflictError('Category already exists');
+
+  category.parentId = scopeParentId;
+  category.depth = parent ? (parent.depth ?? 0) + 1 : 0;
+}
+
 async function renameProductLabels(category, oldName, newName) {
   if (oldName === newName) return;
   const path = await categoryNamePath({ ...category.toObject(), name: oldName });
@@ -471,6 +534,10 @@ export async function updateCategory(categoryId, patch) {
     await assertCanArchive(category);
   }
 
+  if (patch.parentId !== undefined) {
+    await applyParentChange(category, patch.parentId);
+  }
+
   if (nextName !== category.name) {
     const slug = slugify(nextName);
     const dupe = await Category.findOne({
@@ -489,7 +556,9 @@ export async function updateCategory(categoryId, patch) {
   if (patch.sortOrder !== undefined) category.sortOrder = patch.sortOrder;
   if (patch.status) category.status = patch.status;
 
+  const parentChanged = category.isModified('parentId') || category.isModified('depth');
   await category.save();
+  if (parentChanged) await cascadeDescendantDepth(category._id, category.depth ?? 0);
   return category;
 }
 

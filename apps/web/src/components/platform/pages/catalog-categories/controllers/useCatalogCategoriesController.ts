@@ -11,6 +11,21 @@ import {
 
 export type CatalogCategoriesVm = ReturnType<typeof useCatalogCategoriesController>;
 
+function findCategory(nodes: PlatformCategory[], id: string): PlatformCategory | null {
+  for (const node of nodes) {
+    if (node._id === id) return node;
+    const found = node.children?.length ? findCategory(node.children, id) : null;
+    if (found) return found;
+  }
+  return null;
+}
+
+function descendantIds(node: PlatformCategory): string[] {
+  const ids = [node._id];
+  for (const child of node.children ?? []) ids.push(...descendantIds(child));
+  return ids;
+}
+
 function flattenActiveCategories(nodes: PlatformCategory[], depth = 0): { category: PlatformCategory; depth: number }[] {
   const options: { category: PlatformCategory; depth: number }[] = [];
   for (const node of nodes) {
@@ -32,7 +47,14 @@ export function useCatalogCategoriesController() {
   const [busy, setBusy] = useState(false);
 
   const tree = load.data ?? [];
-  const parentOptions = flattenActiveCategories(tree);
+  const excludedParentIds = new Set<string>();
+  if (editingId) {
+    const current = findCategory(tree, editingId);
+    if (current) for (const id of descendantIds(current)) excludedParentIds.add(id);
+  }
+  const parentOptions = flattenActiveCategories(tree).filter(
+    (option) => !excludedParentIds.has(option.category._id),
+  );
 
   function refresh() {
     setVersion((value) => value + 1);
@@ -65,7 +87,11 @@ export function useCatalogCategoriesController() {
     setFormError("");
     try {
       if (editingId) {
-        await updateCategory(editingId, { name: trimmed, description });
+        await updateCategory(editingId, {
+          name: trimmed,
+          description,
+          parentId: parentId || null,
+        });
       } else {
         await createCategory({
           name: trimmed,
