@@ -1137,9 +1137,24 @@ type KitCampaignPayload = {
   }>;
   isSample?: boolean;
   brandingEnabled?: boolean;
+  paymentMode?: "wallet" | "upi" | "card";
+  razorpay?: {
+    orderId: string;
+    paymentId: string;
+    signature?: string;
+  };
 };
 
 async function createKitCampaignDraft(payload: KitCampaignPayload) {
+  const paymentMode = payload.paymentMode ?? "wallet";
+  const razorpayBody =
+    payload.razorpay && paymentMode !== "wallet"
+      ? {
+          razorpay_order_id: payload.razorpay.orderId,
+          razorpay_payment_id: payload.razorpay.paymentId,
+        }
+      : {};
+
   const campaign = await apiFetch<Record<string, unknown>>("/campaigns", {
     method: "POST",
     body: JSON.stringify({
@@ -1172,25 +1187,36 @@ async function createKitCampaignDraft(payload: KitCampaignPayload) {
         ...(payload.packaging === "none" || payload.packaging === "box" || payload.packaging === "wrap"
           ? { packaging: payload.packaging }
           : {}),
+        paymentMode,
+        ...razorpayBody,
       }),
     });
   }
 
-  return { campaign, campaignId };
+  return { campaign, campaignId, paymentMode, razorpayBody };
 }
 
 /** Create a kit campaign draft (and import recipients) without launching. */
 export async function saveKitCampaignDraftApi(payload: KitCampaignPayload) {
-  const { campaign } = await createKitCampaignDraft(payload);
+  const { campaign } = await createKitCampaignDraft({
+    ...payload,
+    // Drafts always attach as wallet-mode; payment is collected at launch.
+    paymentMode: "wallet",
+    razorpay: undefined,
+  });
   return mapCampaign(campaign);
 }
 
 export async function launchKitCampaignApi(payload: KitCampaignPayload) {
-  const { campaignId } = await createKitCampaignDraft(payload);
+  const { campaignId, paymentMode, razorpayBody } = await createKitCampaignDraft(payload);
 
   const launched = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}/launch`, {
     method: "POST",
     idempotencyKey: `launch-kit-${campaignId}-${Date.now()}`,
+    body: JSON.stringify({
+      paymentMode,
+      ...razorpayBody,
+    }),
   });
   return mapCampaign(launched);
 }

@@ -303,6 +303,8 @@ export async function fetchPlatformKits() {
 export type KitRules = {
   fixedComposition: boolean;
   customizationAllowed: boolean;
+  /** When true (default), tenants must upload a logo when sending this curated kit. */
+  requireLogo: boolean;
   minQtyPerRecipient: number;
   maxQtyPerRecipient: number;
 };

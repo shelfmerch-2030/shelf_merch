@@ -71,6 +71,7 @@ export async function moveProductToKit(productId) {
       rules: {
         fixedComposition: true,
         customizationAllowed: true,
+        requireLogo: true,
         minQtyPerRecipient: 1,
         maxQtyPerRecipient: 1,
       },

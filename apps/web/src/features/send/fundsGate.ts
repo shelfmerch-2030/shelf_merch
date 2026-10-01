@@ -55,3 +55,19 @@ export function isInsufficientFundsForSend(
 ): boolean {
   return getInsufficientFundsReason(workspace, required, walletId) !== null;
 }
+
+/**
+ * Whether kit checkout may debit the wallet for `required`.
+ * Pending funding approval or insufficient spendable balance → pay via UPI/card instead.
+ */
+export function canPayKitWithWallet(
+  workspace: WorkspaceSnapshot | undefined,
+  required: number,
+  walletId?: string,
+): boolean {
+  if (!workspace?.wallets.length) return false;
+  if (workspace.org.wallet.fundingApproval === "pending") return false;
+  const id = walletId || walletsForCheckout(workspace)[0]?.id;
+  if (!id) return false;
+  return spendableForWallet(workspace, id) >= Math.round(required);
+}

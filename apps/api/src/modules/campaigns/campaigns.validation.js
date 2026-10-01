@@ -86,6 +86,10 @@ export const importRecipientsSchema = z.object({
   totalBudget: z.number().positive().optional(),
   /** Packaging choice for kit sends — used to recompute server-side totals. */
   packaging: z.enum(['none', 'box', 'wrap']).optional(),
+  /** Kit/items may pay via UPI/card when wallet cannot cover the order. */
+  paymentMode: z.enum(['wallet', 'upi', 'card']).optional().default('wallet'),
+  razorpay_order_id: z.string().min(1).optional(),
+  razorpay_payment_id: z.string().min(1).optional(),
 });
 
 export const allocateCreditsSchema = z.object({

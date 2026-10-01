@@ -30,6 +30,7 @@ const rulesSchema = z
   .object({
     fixedComposition: z.boolean(),
     customizationAllowed: z.boolean(),
+    requireLogo: z.boolean(),
     minQtyPerRecipient: z.number().int().positive(),
     maxQtyPerRecipient: z.number().int().positive(),
   })
@@ -254,6 +255,13 @@ platformKitsRouter.patch(
       if (key === 'itemImages' && Array.isArray(value) && !value.length && (kit.itemImages?.length ?? 0) > 0) continue;
       if (key === 'variantImages' && Array.isArray(value) && !value.length && (kit.variantImages?.length ?? 0) > 0) continue;
       if (key === 'galleryImages' && Array.isArray(value) && !value.length && (kit.galleryImages?.length ?? 0) > 0) continue;
+      // Nested rules: merge + markModified so boolean false (e.g. requireLogo) persists.
+      if (key === 'rules' && value && typeof value === 'object') {
+        const current = kit.toObject().rules || {};
+        kit.rules = { ...current, ...value };
+        kit.markModified('rules');
+        continue;
+      }
       kit[key] = value;
     }
     await kit.save();

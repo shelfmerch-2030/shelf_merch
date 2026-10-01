@@ -39,6 +39,9 @@ export async function importRecipients(req, res) {
     recipients: req.body.recipients,
     totalBudget: req.body.totalBudget,
     packaging: req.body.packaging,
+    paymentMode: req.body.paymentMode,
+    razorpayOrderId: req.body.razorpay_order_id,
+    razorpayPaymentId: req.body.razorpay_payment_id,
   });
   writeAudit({
     req,

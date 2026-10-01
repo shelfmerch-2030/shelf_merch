@@ -7,6 +7,7 @@ import {
   SAMPLE_BRANDING_PER_KIT,
   SAMPLE_SHIP_PER_KIT,
 } from "@/features/send/money";
+import { PaymentPanel } from "@/features/send/PaymentPanel";
 import { KitPackagingStep } from "./KitPackagingStep";
 import type { RequestSampleVm, SampleProductItem } from "../controllers/useRequestSampleController";
 import "./request-sample.css";
@@ -54,13 +55,13 @@ function CostRows({
   );
 }
 
-function CostRow({ label, value }: { label: string; value: string }) {
+function CostRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="row" style={{ justifyContent: "space-between", padding: "7px 0" }}>
-      <span className="muted" style={{ fontSize: 13 }}>
+      <span className="muted" style={{ fontSize: 13, ...(bold ? { color: "var(--ink)", fontWeight: 700 } : {}) }}>
         {label}
       </span>
-      <span className="num" style={{ fontWeight: 600, fontSize: 13 }}>
+      <span className="num" style={{ fontWeight: bold ? 700 : 600, fontSize: bold ? 15 : 13 }}>
         {value}
       </span>
     </div>
@@ -582,9 +583,23 @@ function ReviewStep({ vm }: { vm: RequestSampleVm }) {
           </div>
         </div>
 
-        <aside className="card sample-cost">
-          <h3>Cost breakup</h3>
-          <CostRows vm={vm} />
+        <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <PaymentPanel
+            wallet={vm.wallet}
+            wallets={vm.wallets}
+            selected={vm.pay}
+            onSelect={vm.onPay}
+            selectedWalletId={vm.selectedWalletId}
+            onWalletSelect={vm.onWalletSelect}
+            walletAvailable={vm.walletAvailable}
+            walletPayEnabled={vm.walletPayEnabled}
+            walletDisabledHint={vm.walletDisabledHint}
+            walletDisabledBadge={vm.walletDisabledBadge}
+          />
+          <div className="card sample-cost">
+            <h3>Cost breakup</h3>
+            <CostRows vm={vm} />
+          </div>
         </aside>
       </div>
     </>

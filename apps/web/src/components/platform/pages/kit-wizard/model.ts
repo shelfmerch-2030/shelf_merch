@@ -42,6 +42,7 @@ export const emptyKitDetails: KitInput = {
   rules: {
     fixedComposition: true,
     customizationAllowed: true,
+    requireLogo: true,
     minQtyPerRecipient: 1,
     maxQtyPerRecipient: 1,
   },

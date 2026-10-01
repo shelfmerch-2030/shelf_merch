@@ -324,6 +324,9 @@ export async function importRecipients({
   recipients,
   totalBudget,
   packaging,
+  paymentMode = 'wallet',
+  razorpayOrderId,
+  razorpayPaymentId,
 }) {
   const campaign = await Campaign.findOne({ _id: campaignId, tenantId });
   if (!campaign) throw new NotFoundError('Campaign not found');
@@ -424,16 +427,31 @@ export async function importRecipients({
       campaign.packaging = packaging;
     }
 
+    const externalPay = isExternalPay(paymentMode);
     if (budget > 0) {
-      await assertWalletCanSpend({
-        tenantId,
-        entityId: campaign.entityId,
-        amount: budget,
-        user,
-      });
+      if (externalPay) {
+        await assertCampaignSpendPayment({
+          tenantId,
+          expectedAmountInr: budget,
+          razorpayOrderId,
+          razorpayPaymentId,
+          campaignId: campaign._id,
+        });
+        campaign.paymentMode = paymentMode;
+        if (razorpayPaymentId) campaign.razorpayPaymentId = razorpayPaymentId;
+      } else {
+        await assertWalletCanSpend({
+          tenantId,
+          entityId: campaign.entityId,
+          amount: budget,
+          user,
+        });
+        campaign.paymentMode = 'wallet';
+      }
       campaign.totalBudget = budget;
     } else {
       campaign.totalBudget = 0;
+      campaign.paymentMode = externalPay ? paymentMode : 'wallet';
     }
     transitionState('campaign', campaign, 'credits_allocated', { userId: user.userId });
     transitionState('campaign', campaign, 'approved', { userId: user.userId });

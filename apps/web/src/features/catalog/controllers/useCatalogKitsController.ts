@@ -12,11 +12,6 @@ import {
   buildKitPreviewFromWorkspace,
   type KitPreviewData,
 } from "@/features/kits/KitPreviewDialog";
-import { gateWalletForCuratedKitSend } from "@/features/kits/curatedKitWalletGate";
-import {
-  getSendFlowBlockReason,
-  sendFlowBlockMessage,
-} from "@/features/send/fundsGate";
 import { useStartSampleOrder } from "@/features/kits/sample/useStartSampleOrder";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiKit } from "@/services/mappers";
@@ -209,12 +204,6 @@ export function useCatalogKitsController(
         toast.error("Workspace is still loading — try again in a moment.");
         return;
       }
-      const blockReason = getSendFlowBlockReason(workspace);
-      if (blockReason) {
-        toast.error(sendFlowBlockMessage(blockReason));
-        return;
-      }
-
       if (kit.workspaceKit?.id) {
         navigate(`/app/kits/${kit.workspaceKit.id}/send`);
         return;
@@ -222,18 +211,6 @@ export function useCatalogKitsController(
 
       const platformKit = kit.platformKit;
       if (!platformKit) return;
-
-      const gate = gateWalletForCuratedKitSend(workspace, curatedPricePerKit(platformKit));
-      if (!gate.allowed) {
-        const reason =
-          gate.reason === "pending_approval"
-            ? "pending_approval"
-            : gate.reason === "no_wallet"
-              ? "no_wallet"
-              : "insufficient_funds";
-        toast.error(sendFlowBlockMessage(reason));
-        return;
-      }
 
       const productRefs = buildProductRefs(platformKit, catalog);
       try {

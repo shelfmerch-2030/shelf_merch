@@ -17,6 +17,9 @@ export function PaymentPanel({
   selectedWalletId,
   onWalletSelect,
   walletAvailable = defaultWalletAvailable,
+  walletPayEnabled = true,
+  walletDisabledHint = "Pay via UPI or card",
+  walletDisabledBadge = "Unavailable",
 }: {
   wallet: UiWallet | undefined;
   wallets?: UiWallet[];
@@ -26,6 +29,12 @@ export function PaymentPanel({
   onWalletSelect?: (walletId: string) => void;
   /** Spendable balance for checkout — unallocated for admins, dept budget for managers. */
   walletAvailable?: (wallet: UiWallet) => number;
+  /** When false, wallet debit is disabled (pending approval or insufficient funds). */
+  walletPayEnabled?: boolean;
+  /** Short reason shown under the wallet option when disabled. */
+  walletDisabledHint?: string;
+  /** Pill label when wallet pay is disabled (e.g. Under review / Insufficient funds). */
+  walletDisabledBadge?: string;
 }) {
   const walletOptions = useMemo(
     () => (wallets?.length ? wallets : wallet ? [wallet] : []),
@@ -42,6 +51,12 @@ export function PaymentPanel({
     }
   }, [activeWalletId, onWalletSelect, walletOptions]);
 
+  useEffect(() => {
+    if (!walletPayEnabled && selected === "wallet") {
+      onSelect("upi");
+    }
+  }, [walletPayEnabled, selected, onSelect]);
+
   const selectedWallet =
     walletOptions.find((item) => item.id === activeWalletId) ?? walletOptions[0];
 
@@ -51,6 +66,7 @@ export function PaymentPanel({
   }
 
   function selectWalletPayment() {
+    if (!walletPayEnabled) return;
     onSelect("wallet");
     if (walletOptions.length && !activeWalletId) {
       pickWallet(walletOptions[0].id);
@@ -82,22 +98,33 @@ export function PaymentPanel({
       </p>
 
       {walletOptions.length ? (
-        <div className={`pay-wallet-group ${selected === "wallet" ? "is-active" : ""}`}>
+        <div
+          className={`pay-wallet-group ${selected === "wallet" ? "is-active" : ""}${
+            walletPayEnabled ? "" : " is-disabled"
+          }`}
+        >
           <button
             type="button"
             className={`pay-opt pay-opt--wallet ${selected === "wallet" ? "on" : ""}`}
             onClick={selectWalletPayment}
+            disabled={!walletPayEnabled}
+            aria-disabled={!walletPayEnabled}
+            title={walletPayEnabled ? undefined : walletDisabledHint}
+            style={walletPayEnabled ? undefined : { opacity: 0.55, cursor: "not-allowed" }}
           >
             <div className="rd" />
             <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>Select from wallet</div>
               <div className="mut3" style={{ fontSize: 11.5 }}>
-                Choose the wallet to use for this send
+                {walletPayEnabled ? "Choose the wallet to use for this send" : walletDisabledHint}
               </div>
             </div>
+            {!walletPayEnabled ? (
+              <span className="tag tag-draft">{walletDisabledBadge}</span>
+            ) : null}
           </button>
 
-          {selected === "wallet" ? (
+          {selected === "wallet" && walletPayEnabled ? (
             <div className="pay-wallet-picker">
               <div className="pay-wallet-picker-head">
                 <span>Choose wallet</span>

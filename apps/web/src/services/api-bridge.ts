@@ -270,10 +270,23 @@ export type PlatformKitTemplate = {
   approxValueInr?: number;
   items?: Array<{ catalogProductId: string; qty?: number }>;
   status?: string;
+  rules?: {
+    fixedComposition?: boolean;
+    customizationAllowed?: boolean;
+    /** Default true — when false, Send Kit skips the logo step for this curated kit. */
+    requireLogo?: boolean;
+    minQtyPerRecipient?: number;
+    maxQtyPerRecipient?: number;
+  };
 };
 
 export async function refreshPlatformKits(): Promise<PlatformKitTemplate[]> {
   return apiFetch<PlatformKitTemplate[]>("/catalog/kits");
+}
+
+/** Single active platform kit (includes rules.requireLogo) — fresh read for send flow. */
+export async function refreshPlatformKit(id: string): Promise<PlatformKitTemplate> {
+  return apiFetch<PlatformKitTemplate>(`/catalog/kits/${encodeURIComponent(id)}`);
 }
 
 /** Active platform kits for public catalog browse (no tenant auth required). */
@@ -686,6 +699,12 @@ export async function launchKitCampaignFlow(payload: {
   recipVariants?: Record<string, Record<string, { size?: string; color?: string; variantImage?: string }>>;
   isSample?: boolean;
   brandingEnabled?: boolean;
+  paymentMode?: "wallet" | "upi" | "card";
+  razorpay?: {
+    orderId: string;
+    paymentId: string;
+    signature?: string;
+  };
 }) {
   const recipients = payload.contactIds
     .map((id) => {
@@ -725,6 +744,8 @@ export async function launchKitCampaignFlow(payload: {
     recipients,
     isSample: payload.isSample,
     brandingEnabled: payload.brandingEnabled,
+    paymentMode: payload.paymentMode,
+    razorpay: payload.razorpay,
   });
 }
 
