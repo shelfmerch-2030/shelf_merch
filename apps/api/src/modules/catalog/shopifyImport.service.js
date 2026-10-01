@@ -903,7 +903,13 @@ export function mapShopifyKit(p, domain, mapped, kindOverride = null) {
     approxValueInr: mapped.basePriceInr || 0,
     imageUrls: mapped.imageUrls || [],
     items: [],
-    rules: { fixedComposition: true, customizationAllowed: true, minQtyPerRecipient: 1, maxQtyPerRecipient: 1 },
+    rules: {
+      fixedComposition: true,
+      customizationAllowed: true,
+      requireLogo: true,
+      minQtyPerRecipient: 1,
+      maxQtyPerRecipient: 1,
+    },
     status: 'active',
     source: {
       provider: 'shopify',

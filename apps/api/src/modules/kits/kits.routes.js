@@ -103,6 +103,11 @@ function parseCuratedMeta(designNotes) {
   return null;
 }
 
+/** Default true when unset — matches historical Send Kit logo requirement. */
+function requireLogoFromPlatform(platformKit) {
+  return platformKit?.rules?.requireLogo !== false;
+}
+
 router.get(
   '/',
   canRead,
@@ -132,17 +137,27 @@ router.post(
   }),
   asyncHandler(async (req, res) => {
     const platformKitId = String(req.params.platformKitId);
+    const platformKit = await PlatformKit.findOne({ _id: platformKitId, status: 'active' });
+    if (!platformKit) throw new NotFoundError('Curated kit not found');
+
     const existing = await Kit.find({ tenantId: req.tenantId }).sort({ createdAt: -1 });
     const reuse = existing.find((k) => {
       const meta = parseCuratedMeta(k.designNotes);
       return meta && String(meta.originalId) === platformKitId;
     });
     if (reuse) {
+      // Keep clone in sync with live requireLogo so toggles apply to existing clones.
+      const requireLogo = requireLogoFromPlatform(platformKit);
+      const meta = parseCuratedMeta(reuse.designNotes) || {
+        curated: true,
+        originalId: platformKitId,
+      };
+      if (meta.requireLogo !== requireLogo) {
+        reuse.designNotes = JSON.stringify({ ...meta, requireLogo });
+        await reuse.save();
+      }
       return res.json(reuse);
     }
-
-    const platformKit = await PlatformKit.findOne({ _id: platformKitId, status: 'active' });
-    if (!platformKit) throw new NotFoundError('Curated kit not found');
 
     let productRefs = Array.isArray(req.body?.productRefs) ? [...req.body.productRefs] : [];
 
@@ -192,6 +207,7 @@ router.post(
       galleryImages,
       itemImages,
       variantImages,
+      requireLogo: requireLogoFromPlatform(platformKit),
     });
 
     const curatedPrice = Math.round(Number(platformKit.approxValueInr) || 0);

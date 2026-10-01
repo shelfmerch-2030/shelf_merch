@@ -23,11 +23,18 @@ import {
   type SamplePackaging,
 } from "@/features/send/money";
 import { useWorkspace, useInvalidateWorkspace } from "@/hooks/useWorkspace";
-import { formatWalletAmount } from "@/lib/walletFormat";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { getStoredUser } from "@/services/auth-store";
-import { ensureSpendEntityForWalletApi } from "@/services/mutations-api";
+import {
+  createRazorpayOrderApi,
+  ensureSpendEntityForWalletApi,
+  verifyRazorpayPaymentApi,
+} from "@/services/mutations-api";
 import { entityIdForWallet, spendableForWallet, walletsForCheckout } from "@/services/workspace-api";
+import { canPayKitWithWallet } from "@/features/send/fundsGate";
+import type { PaymentMethod } from "@/features/send/types";
+import type { UiWallet } from "@/services/mappers";
 
 export type SampleStep = 0 | 1 | 2 | 3;
 
@@ -86,6 +93,16 @@ export type RequestSampleVm = {
   showAddressErrors: boolean;
   totals: SampleKitSendTotals;
   success: SampleSuccess | null;
+  wallet: UiWallet | undefined;
+  wallets: UiWallet[];
+  selectedWalletId: string | undefined;
+  onWalletSelect: (walletId: string) => void;
+  walletAvailable: (wallet: UiWallet) => number;
+  pay: PaymentMethod;
+  onPay: (method: PaymentMethod) => void;
+  walletPayEnabled: boolean;
+  walletDisabledHint: string;
+  walletDisabledBadge: string;
   onExit: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -134,6 +151,8 @@ export function useRequestSampleController(): RequestSampleVm {
   const [showAddressErrors, setShowAddressErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<SampleSuccess | null>(null);
+  const [pay, setPay] = useState<PaymentMethod>("wallet");
+  const [selectedWalletId, setSelectedWalletId] = useState("");
   const logoObjectUrlRef = useRef<string | null>(null);
   const seededKitId = useRef<string | null>(null);
 
@@ -219,6 +238,20 @@ export function useRequestSampleController(): RequestSampleVm {
 
   const packagingPrice = PREMIUM_BOX_PER_RECIP;
   const wrapPrice = SAMPLE_WRAP_PER_KIT;
+
+  const checkoutWallets = useMemo(
+    () => (workspace ? walletsForCheckout(workspace) : []),
+    [workspace],
+  );
+  const activeWalletId = selectedWalletId || checkoutWallets[0]?.id;
+  const wallet =
+    checkoutWallets.find((w) => w.id === activeWalletId) ?? checkoutWallets[0];
+  const walletPayEnabled = canPayKitWithWallet(workspace, totals.total, activeWalletId);
+  const walletDisabledHint = "Pay via UPI or card";
+  const walletDisabledBadge =
+    workspace?.org.wallet.fundingApproval === "pending"
+      ? "Wallet under review"
+      : "Insufficient funds";
 
   useEffect(() => {
     if (!kit?.id) return;
@@ -345,11 +378,10 @@ export function useRequestSampleController(): RequestSampleVm {
       return;
     }
 
-    const checkoutWallets = workspace ? walletsForCheckout(workspace) : [];
-    const wallet = checkoutWallets[0];
+    const walletId = activeWalletId || checkoutWallets[0]?.id || workspace?.wallets[0]?.id;
     let entityId: string | undefined;
     try {
-      entityId = await resolveEntityId(wallet?.id);
+      entityId = await resolveEntityId(walletId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not resolve wallet budget");
       return;
@@ -360,11 +392,16 @@ export function useRequestSampleController(): RequestSampleVm {
     }
 
     const paymentTotal = Math.round(totals.total);
-    const available = wallet && workspace ? spendableForWallet(workspace, wallet.id) : 0;
-    if (available < paymentTotal) {
-      toast.error(
-        `Insufficient wallet balance. ${formatWalletAmount(available, wallet?.cur)} available, ${formatWalletAmount(paymentTotal, wallet?.cur)} required.`,
-      );
+    const walletPayOk = canPayKitWithWallet(workspace, paymentTotal, walletId);
+    const payingWithWallet = pay === "wallet" && walletPayOk;
+    const paymentMode = payingWithWallet ? "wallet" : pay === "card" ? "card" : "upi";
+
+    if (pay === "wallet" && !walletPayOk) {
+      toast.error("Wallet payment is unavailable — choose UPI or card to continue.");
+      return;
+    }
+    if (!payingWithWallet && !walletId) {
+      toast.error("Select a wallet to attach this order to before paying online");
       return;
     }
 
@@ -376,8 +413,41 @@ export function useRequestSampleController(): RequestSampleVm {
       recipVariants[recipientId] = productVariants;
     }
 
-    setSubmitting(true);
+    let razorpay:
+      | { orderId: string; paymentId: string; signature: string }
+      | undefined;
+
     try {
+      if (!payingWithWallet) {
+        const order = await createRazorpayOrderApi(walletId!, paymentTotal, "campaign_spend");
+        const response = await new Promise<{
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }>((resolve, reject) => {
+          void openRazorpayCheckout({
+            order,
+            description: `Pay ₹${paymentTotal.toLocaleString("en-IN")} for sample kit`,
+            preferredMethod: paymentMode === "card" ? "card" : "upi",
+            onSuccess: resolve,
+            onDismiss: () => reject(new Error("Payment cancelled")),
+          }).catch(reject);
+        });
+
+        await verifyRazorpayPaymentApi({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+
+        razorpay = {
+          orderId: response.razorpay_order_id,
+          paymentId: response.razorpay_payment_id,
+          signature: response.razorpay_signature,
+        };
+      }
+
+      setSubmitting(true);
       if (kit && kit.status !== "live") {
         await updateKit.mutateAsync({
           id: kit.id,
@@ -420,6 +490,8 @@ export function useRequestSampleController(): RequestSampleVm {
           },
         ],
         recipVariants,
+        paymentMode,
+        razorpay,
       });
 
       setSuccess({
@@ -531,6 +603,16 @@ export function useRequestSampleController(): RequestSampleVm {
     showAddressErrors,
     totals,
     success,
+    wallet,
+    wallets: checkoutWallets,
+    selectedWalletId: activeWalletId,
+    onWalletSelect: setSelectedWalletId,
+    walletAvailable: (w) => (workspace ? spendableForWallet(workspace, w.id) : 0),
+    pay,
+    onPay: setPay,
+    walletPayEnabled,
+    walletDisabledHint,
+    walletDisabledBadge,
     onExit,
     onBack: () => setStep((s) => Math.max(0, s - 1) as SampleStep),
     onNext,

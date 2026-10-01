@@ -8,7 +8,6 @@ import { LocField, CountrySelect } from "@/features/send/RecipientPicker";
 import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
-import { InsufficientFundsDraftBanner } from "@/features/send/InsufficientFundsDraftBanner";
 import type { SendKitVm } from "../controllers/useSendKitController";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
@@ -201,7 +200,7 @@ export function SendKitView(vm: SendKitVm) {
   const customisedProductPerKit = totals.itemsSubtotal ?? totals.unitPrice ?? 0;
   const customisedKitsLineTotal = customisedProductPerKit * totals.qty;
   const customisedSubtotal = customisedKitsLineTotal + totals.pkgCost;
-  const payingWithWallet = draft.pay === "wallet";
+  const payingWithWallet = draft.pay === "wallet" && vm.walletPayEnabled;
   const checkoutWallets = vm.wallets?.length ? vm.wallets : vm.wallet ? [vm.wallet] : [];
   const activeCheckoutWallet =
     checkoutWallets.find((w) => w.id === vm.selectedWalletId) ?? checkoutWallets[0];
@@ -396,91 +395,93 @@ export function SendKitView(vm: SendKitVm) {
                 </div>
               </div>
 
-              {/* Brand logo — required before continuing */}
-              <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
-                  Add logo <span style={{ color: "var(--danger)" }}>*</span>
-                </label>
-                <div
-                  className="card"
-                  style={{
-                    padding: 16,
-                    borderRadius: 12,
-                    display: "flex",
-                    gap: 16,
-                    alignItems: "stretch",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}>
-                    <div
-                      style={{
-                        width: 140,
-                        height: 140,
-                        borderRadius: 12,
-                        border: "1px dashed var(--line)",
-                        background: "var(--gray-50)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        padding: 12,
-                      }}
-                    >
-                      {vm.curatedLogoPreview ? (
-                        <img
-                          src={vm.curatedLogoPreview}
-                          alt="Logo preview"
-                          style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                        />
-                      ) : (
-                        <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: 8 }}>
-                          Logo preview
-                        </span>
-                      )}
-                    </div>
-                    <label
-                      className="btn btn-ghost btn-sm"
-                      style={{
-                        cursor: vm.isUploadingCuratedLogo ? "wait" : "pointer",
-                        textAlign: "center",
-                        opacity: vm.isUploadingCuratedLogo ? 0.7 : 1,
-                      }}
-                    >
-                      {vm.isUploadingCuratedLogo
-                        ? "Uploading…"
-                        : vm.curatedLogoPreview
-                          ? "Replace logo"
-                          : "Upload logo"}
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                        hidden
-                        disabled={vm.isUploadingCuratedLogo}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          vm.onCuratedLogoFile(file);
-                          e.target.value = "";
+              {/* Brand logo — only when platform kit rules.requireLogo is on (default). */}
+              {vm.curatedRequiresLogo ? (
+                <div>
+                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                    Add logo <span style={{ color: "var(--danger)" }}>*</span>
+                  </label>
+                  <div
+                    className="card"
+                    style={{
+                      padding: 16,
+                      borderRadius: 12,
+                      display: "flex",
+                      gap: 16,
+                      alignItems: "stretch",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}>
+                      <div
+                        style={{
+                          width: 140,
+                          height: 140,
+                          borderRadius: 12,
+                          border: "1px dashed var(--line)",
+                          background: "var(--gray-50)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          overflow: "hidden",
+                          padding: 12,
                         }}
-                      />
-                    </label>
+                      >
+                        {vm.curatedLogoPreview ? (
+                          <img
+                            src={vm.curatedLogoPreview}
+                            alt="Logo preview"
+                            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                          />
+                        ) : (
+                          <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: 8 }}>
+                            Logo preview
+                          </span>
+                        )}
+                      </div>
+                      <label
+                        className="btn btn-ghost btn-sm"
+                        style={{
+                          cursor: vm.isUploadingCuratedLogo ? "wait" : "pointer",
+                          textAlign: "center",
+                          opacity: vm.isUploadingCuratedLogo ? 0.7 : 1,
+                        }}
+                      >
+                        {vm.isUploadingCuratedLogo
+                          ? "Uploading…"
+                          : vm.curatedLogoPreview
+                            ? "Replace logo"
+                            : "Upload logo"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          hidden
+                          disabled={vm.isUploadingCuratedLogo}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            vm.onCuratedLogoFile(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div style={{ flex: "1 1 220px", minWidth: 200, display: "flex", alignItems: "center" }}>
+                      <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
+                        This logo will be printed on the items in the designated placeholders.
+                        {!vm.hasCuratedLogo ? (
+                          <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
+                            Upload a logo to continue.
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
                   </div>
-                  <div style={{ flex: "1 1 220px", minWidth: 200, display: "flex", alignItems: "center" }}>
-                    <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
-                      This logo will be printed on the items in the designated placeholders.
-                      {!vm.hasCuratedLogo ? (
-                        <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
-                          Upload a logo to continue.
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
+                  <p className="muted" style={{ margin: "10px 0 0", fontSize: 12, lineHeight: 1.5 }}>
+                    This logo will be printed in the design area as shown in the images; there may be slight
+                    variation in colour when printed.
+                  </p>
                 </div>
-                <p className="muted" style={{ margin: "10px 0 0", fontSize: 12, lineHeight: 1.5 }}>
-                  This logo will be printed in the design area as shown in the images; there may be slight
-                  variation in colour when printed.
-                </p>
-              </div>
+              ) : null}
 
               {curatedVariantImages.length > 0 ? (
                 <div>
@@ -1046,13 +1047,6 @@ export function SendKitView(vm: SendKitVm) {
       {/* ── Step 2: Experience ── */}
       {vm.step === 2 && (
         <>
-          {vm.fundsBlockReason ? (
-            <InsufficientFundsDraftBanner
-              reason={vm.fundsBlockReason}
-              saving={vm.isSavingDraft}
-              onSave={vm.onSaveAsDraft}
-            />
-          ) : null}
           <RecipientExperience
             shopName={vm.shopName}
             mode={draft.mode}
@@ -1107,6 +1101,9 @@ export function SendKitView(vm: SendKitVm) {
               selectedWalletId={vm.selectedWalletId}
               onWalletSelect={vm.onWalletSelect}
               walletAvailable={vm.walletAvailable}
+              walletPayEnabled={vm.walletPayEnabled}
+              walletDisabledHint={vm.walletDisabledHint}
+              walletDisabledBadge={vm.walletDisabledBadge}
             />
             <div className="card" style={{ padding: 22, height: "fit-content" }}>
               <h3 style={{ fontSize: 18, marginBottom: 12 }}>Order summary</h3>
@@ -1214,11 +1211,16 @@ function KitCheckoutPaymentSummary({
   }
 
   return (
-    <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-      <b style={{ fontSize: 18 }}>You pay</b>
-      <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>
-        {inr(total)}
-      </b>
+    <div style={{ marginTop: 4 }}>
+      <div
+        className="row"
+        style={{ justifyContent: "space-between", alignItems: "baseline", paddingTop: 8 }}
+      >
+        <b style={{ fontSize: 18 }}>Amount to be paid now</b>
+        <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>
+          {inr(total)}
+        </b>
+      </div>
     </div>
   );
 }

@@ -160,9 +160,9 @@ export function useCampaignsController(): CampaignsVm {
 
   function onResumeCampaign(campaign: UiCampaign) {
     if (!isIncompleteCampaign(campaign)) return;
-    if (!assertCanStartSend()) return;
 
     if (isPointsCampaign(campaign)) {
+      if (!assertCanStartSend()) return;
       if (!campaign.shopId) return;
       const params = new URLSearchParams({
         shop: campaign.shopId,
@@ -213,7 +213,6 @@ export function useCampaignsController(): CampaignsVm {
     },
     onPage: setPage,
     onSendGift: () => {
-      if (!assertCanStartSend()) return;
       setGiftOpen(true);
     },
     onSendPointsCampaign: () => {
@@ -226,7 +225,7 @@ export function useCampaignsController(): CampaignsVm {
       setGiftView("points");
     },
     onSendKitCampaign: () => {
-      if (!assertCanStartSend()) return;
+      // Kit checkout allows UPI/card when wallet is pending or underfunded.
       setGiftOpen(true);
       setGiftView("kit");
     },
@@ -241,7 +240,6 @@ export function useCampaignsController(): CampaignsVm {
         if (!o) setGiftView("choose");
       },
       onPickKitView: () => {
-        if (!assertCanStartSend()) return;
         setGiftView("kit");
       },
       onStartSendPoints: () => {
@@ -255,7 +253,6 @@ export function useCampaignsController(): CampaignsVm {
       onSelectShopForPoints: goToSendPoints,
       onBackToChoose: () => setGiftView("choose"),
       onSelectKit: (kitId) => {
-        if (!assertCanStartSend()) return;
         closeGift();
         navigate(`/app/kits/${kitId}/send`);
       },

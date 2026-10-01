@@ -62,11 +62,18 @@ describe('platform kit creation (predefined curated kits)', () => {
         packaging: 'premium_box',
         eligibleCampaignTypes: ['Employee onboarding'],
         approxValueInr: 1500,
-        rules: { fixedComposition: true, customizationAllowed: false, minQtyPerRecipient: 1, maxQtyPerRecipient: 2 },
+        rules: {
+          fixedComposition: true,
+          customizationAllowed: false,
+          requireLogo: true,
+          minQtyPerRecipient: 1,
+          maxQtyPerRecipient: 2,
+        },
       });
     expect(created.status).toBe(201);
     const kitId = created.body._id;
     expect(created.body.rules.customizationAllowed).toBe(false);
+    expect(created.body.rules.requireLogo).toBe(true);
     expect(created.body.rules.maxQtyPerRecipient).toBe(2);
 
     // Cannot publish an empty kit.
@@ -91,6 +98,47 @@ describe('platform kit creation (predefined curated kits)', () => {
       .set(auth(catalogToken));
     expect(publish.status).toBe(200);
     expect(publish.body.status).toBe('active');
+  });
+
+  it('persists requireLogo: false across patch and publish', async () => {
+    const created = await request(app)
+      .post('/api/v1/platform/kits')
+      .set(auth(catalogToken))
+      .send({
+        name: 'No-logo kit',
+        packaging: 'box',
+        approxValueInr: 500,
+        rules: {
+          fixedComposition: true,
+          customizationAllowed: true,
+          requireLogo: true,
+          minQtyPerRecipient: 1,
+          maxQtyPerRecipient: 1,
+        },
+      });
+    expect(created.status).toBe(201);
+    const kitId = created.body._id;
+
+    const patched = await request(app)
+      .patch(`/api/v1/platform/kits/${kitId}`)
+      .set(auth(catalogToken))
+      .send({
+        rules: {
+          fixedComposition: true,
+          customizationAllowed: true,
+          requireLogo: false,
+          minQtyPerRecipient: 1,
+          maxQtyPerRecipient: 1,
+        },
+      });
+    expect(patched.status).toBe(200);
+    expect(patched.body.rules.requireLogo).toBe(false);
+
+    const fetched = await request(app)
+      .get(`/api/v1/platform/kits/${kitId}`)
+      .set(auth(catalogToken));
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.rules.requireLogo).toBe(false);
   });
 
   it('publishes an imported (curated) kit without items', async () => {

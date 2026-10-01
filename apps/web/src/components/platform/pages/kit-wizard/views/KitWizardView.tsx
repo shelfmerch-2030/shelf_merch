@@ -199,13 +199,41 @@ export function KitWizardView({
                 />
                 Fixed composition — tenants must use this kit as-is
               </label>
-              <label className="row" style={{ gap: 9, alignItems: "center", marginBottom: 14, fontSize: 13.5 }}>
+              <label className="row" style={{ gap: 9, alignItems: "center", marginBottom: 10, fontSize: 13.5 }}>
                 <input
                   type="checkbox"
                   checked={!!rules.customizationAllowed}
                   onChange={(e) => onSetRule("customizationAllowed", e.target.checked)}
                 />
                 Customization allowed — tenants may add their logo/branding
+              </label>
+              <label
+                className="row"
+                style={{
+                  gap: 12,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 14,
+                  fontSize: 13.5,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                }}
+              >
+                <span style={{ flex: 1, lineHeight: 1.4 }}>
+                  <span style={{ fontWeight: 600, display: "block" }}>Require logo</span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    On — tenants must upload a logo. Off — hide the logo step (for kits that do not need one).
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={rules.requireLogo === true}
+                  onChange={(e) => onSetRule("requireLogo", e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: "var(--brand, #111)" }}
+                />
               </label>
               <div className="row" style={{ gap: 14 }}>
                 <div className="field" style={{ flex: 1, marginBottom: 0 }}>

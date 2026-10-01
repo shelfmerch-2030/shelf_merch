@@ -6,11 +6,6 @@ import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { buildKitPreviewFromPlatform, type KitPreviewData } from "../KitPreviewDialog";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import { gateWalletForCuratedKitSend } from "../curatedKitWalletGate";
-import {
-  getSendFlowBlockReason,
-  sendFlowBlockMessage,
-} from "@/features/send/fundsGate";
 import { useStartSampleOrder } from "../sample/useStartSampleOrder";
 import noKitsYetImg from "../../../../assets/no-kits-yet.png";
 
@@ -30,10 +25,6 @@ export type PreDesignedKitsVm = {
 function templateImage(kit: PlatformKitTemplate): string {
   if (kit.heroImage) return resolveMediaUrl(kit.heroImage) || noKitsYetImg;
   return resolveMediaUrl(kit.imageUrls?.[0]) || noKitsYetImg;
-}
-
-function curatedPricePerKit(kit: PlatformKitTemplate): number {
-  return Math.max(0, Math.round(Number(kit.approxValueInr) || 0));
 }
 
 function buildProductRefs(
@@ -86,7 +77,6 @@ export function usePreDesignedKitsController(options?: {
   const ensureCuratedKit = useEnsureCuratedKit();
   const sampleOrder = useStartSampleOrder();
   const [kitPreview, setKitPreview] = useState<KitPreviewData | null>(null);
-  const skipWalletGate = options?.skipWalletGate === true;
   const onBeforeSend = options?.onBeforeSend;
 
   const catalog = workspace?.catalogProducts ?? [];
@@ -105,25 +95,6 @@ export function usePreDesignedKitsController(options?: {
         return;
       }
 
-      if (!skipWalletGate) {
-        const blockReason = getSendFlowBlockReason(workspace);
-        if (blockReason) {
-          toast.error(sendFlowBlockMessage(blockReason));
-          return;
-        }
-        const gate = gateWalletForCuratedKitSend(workspace, curatedPricePerKit(kit));
-        if (!gate.allowed) {
-          const reason =
-            gate.reason === "pending_approval"
-              ? "pending_approval"
-              : gate.reason === "no_wallet"
-                ? "no_wallet"
-                : "insufficient_funds";
-          toast.error(sendFlowBlockMessage(reason));
-          return;
-        }
-      }
-
       const productRefs = buildProductRefs(kit, catalog);
       try {
         const ensured = await ensureCuratedKit.mutateAsync({
@@ -136,7 +107,7 @@ export function usePreDesignedKitsController(options?: {
         toast.error(err instanceof Error ? err.message : "Failed to prepare curated kit for send");
       }
     },
-    [workspace, catalog, ensureCuratedKit, navigate, skipWalletGate, onBeforeSend],
+    [workspace, catalog, ensureCuratedKit, navigate, onBeforeSend],
   );
 
   const onRequestSample = useCallback(

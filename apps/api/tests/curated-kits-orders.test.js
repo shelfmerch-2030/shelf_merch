@@ -126,6 +126,7 @@ describe('curated kits — clone, pricing, surprise fulfillment', () => {
     expect(meta.curated).toBe(true);
     expect(meta.originalId).toBe(String(platformKit._id));
     expect(meta.itemImages).toHaveLength(2);
+    expect(meta.requireLogo).toBe(true);
 
     const reuse = await request(app)
       .post(`/api/v1/kits/from-platform/${platformKit._id}`)
@@ -133,6 +134,47 @@ describe('curated kits — clone, pricing, surprise fulfillment', () => {
       .send({});
     expect(reuse.status).toBe(200);
     expect(reuse.body._id).toBe(cloned.body._id);
+  });
+
+  it('snapshots requireLogo:false and syncs it onto an existing curated clone', async () => {
+    const platformKit = await PlatformKit.create({
+      name: 'No Logo Bundle',
+      approxValueInr: 999,
+      status: 'active',
+      items: [],
+      heroImage: '/uploads/kits/nologo.png',
+      rules: {
+        fixedComposition: true,
+        customizationAllowed: true,
+        requireLogo: false,
+        minQtyPerRecipient: 1,
+        maxQtyPerRecipient: 1,
+      },
+      source: { provider: 'shopify', externalId: 'gid://shopify/Product/nologo', handle: 'nologo' },
+    });
+
+    const cloned = await request(app)
+      .post(`/api/v1/kits/from-platform/${platformKit._id}`)
+      .set(auth(managerToken))
+      .send({});
+    expect(cloned.status).toBe(201);
+    expect(JSON.parse(cloned.body.designNotes).requireLogo).toBe(false);
+
+    // Simulate a legacy clone that never stored requireLogo.
+    const meta = JSON.parse(cloned.body.designNotes);
+    delete meta.requireLogo;
+    await Kit.updateOne(
+      { _id: cloned.body._id, tenantId: tenant._id },
+      { designNotes: JSON.stringify(meta) },
+    );
+
+    const synced = await request(app)
+      .post(`/api/v1/kits/from-platform/${platformKit._id}`)
+      .set(auth(managerToken))
+      .send({});
+    expect(synced.status).toBe(200);
+    expect(synced.body._id).toBe(cloned.body._id);
+    expect(JSON.parse(synced.body.designNotes).requireLogo).toBe(false);
   });
 
   it('surprise launch creates curated order lines and charges approxValueInr', async () => {

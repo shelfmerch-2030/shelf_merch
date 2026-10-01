@@ -1,11 +1,17 @@
 import { useMemo, useReducer, useState, useEffect, useRef, type Dispatch } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { useWorkspace, useInvalidateWorkspace } from "@/hooks/useWorkspace";
-import { formatWalletAmount } from "@/lib/walletFormat";
 import type { UiContact, UiProduct } from "@/services/mappers";
 import type { UiWallet } from "@/services/mappers";
-import { ensureSpendEntityForWalletApi } from "@/services/mutations-api";
+import { openRazorpayCheckout } from "@/lib/razorpay";
+import {
+  createRazorpayOrderApi,
+  ensureSpendEntityForWalletApi,
+  verifyRazorpayPaymentApi,
+} from "@/services/mutations-api";
+import { refreshPlatformKit } from "@/services/api-bridge";
 import { entityIdForWallet, spendableForWallet, walletsForCheckout } from "@/services/workspace-api";
 import {
   curatedKitSendTotals,
@@ -31,13 +37,11 @@ import {
   useUploadKitArtwork,
   usePlatformKits,
 } from "../model";
-import {
-  getInsufficientFundsReason,
-  type SendFlowBlockReason,
-} from "@/features/send/fundsGate";
+import { canPayKitWithWallet } from "@/features/send/fundsGate";
 import type { UiKit } from "../model";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { variantImageUrls, type KitVariantImage } from "@/lib/kitVariantImages";
+import { curatedKitRequiresLogo } from "../curatedRequireLogo";
 import {
   initialSendKitDraft,
   sendKitReducer,
@@ -168,6 +172,8 @@ export type CuratedKitMeta = {
   variantImages?: Array<string | KitVariantImage>;
   brandLogoUploaded?: boolean;
   brandLogoUrl?: string;
+  /** Snapshotted from platform rules.requireLogo (default true when unset). */
+  requireLogo?: boolean;
 };
 
 export function getCuratedKitMeta(kit: UiKit | undefined): CuratedKitMeta | null {
@@ -230,7 +236,10 @@ export type SendKitVm = {
   onNext: () => void;
   onBack: () => void;
   onPayAndSend: () => void;
-  fundsBlockReason: SendFlowBlockReason | null;
+  /** False when wallet is pending approval or cannot cover the order total. */
+  walletPayEnabled: boolean;
+  walletDisabledHint: string;
+  walletDisabledBadge: string;
   isSavingDraft: boolean;
   onSaveAsDraft: () => void;
   kitName: string;
@@ -238,6 +247,8 @@ export type SendKitVm = {
   /** Curated kits: logo upload on Items step. */
   curatedLogoPreview: string;
   hasCuratedLogo: boolean;
+  /** From platform kit rules.requireLogo (default true). */
+  curatedRequiresLogo: boolean;
   isUploadingCuratedLogo: boolean;
   onCuratedLogoFile: (file: File | null) => void;
 };
@@ -330,7 +341,19 @@ export function useSendKitController(): SendKitVm {
 
   const { data: platformKits } = usePlatformKits();
 
-  const isCuratedKit = !!getCuratedKitMeta(kit);
+  const curatedMetaForRules = getCuratedKitMeta(kit);
+  const isCuratedKit = !!curatedMetaForRules;
+  const curatedOriginalId = curatedMetaForRules?.originalId
+    ? String(curatedMetaForRules.originalId)
+    : "";
+
+  // Fresh platform kit read so requireLogo toggles are not stuck behind list cache.
+  const { data: livePlatformKit } = useQuery({
+    queryKey: ["platform-kit", curatedOriginalId],
+    queryFn: () => refreshPlatformKit(curatedOriginalId),
+    enabled: Boolean(isCuratedKit && curatedOriginalId),
+    staleTime: 0,
+  });
 
   useEffect(() => {
     if (!kit || !isCuratedKit) return;
@@ -347,6 +370,13 @@ export function useSendKitController(): SendKitVm {
   }, []);
 
   const hasCuratedLogo = curatedKitHasBrandLogo(kit) || Boolean(curatedLogoPreview);
+
+  const curatedRequiresLogo = useMemo(() => {
+    const meta = getCuratedKitMeta(kit);
+    const fromList = platformKits?.find((k) => String(k._id) === String(meta?.originalId));
+    const platform = livePlatformKit || fromList;
+    return curatedKitRequiresLogo(meta, platform?.rules);
+  }, [kit, livePlatformKit, platformKits]);
 
   const pickedProducts = useMemo(
     () => draft.picked.map((idx) => catalog[idx]).filter(Boolean) as UiProduct[],
@@ -460,7 +490,7 @@ export function useSendKitController(): SendKitVm {
 
   function onNext() {
     if (step === 0) {
-      if (isCuratedKit && !hasCuratedLogo) {
+      if (isCuratedKit && curatedRequiresLogo && !hasCuratedLogo) {
         toast.error("Please upload a logo before continuing");
         return;
       }
@@ -619,18 +649,59 @@ export function useSendKitController(): SendKitVm {
       return;
     }
     const paymentTotal = Math.round(totals.total);
-    if (draft.pay === "wallet") {
-      const available = walletId && workspace ? spendableForWallet(workspace, walletId) : 0;
-      const payWallet = walletId ? workspace?.wallets.find((w) => w.id === walletId) : undefined;
-      if (available < paymentTotal) {
-        toast.error(
-          `Insufficient wallet balance — add more funds to continue. ${formatWalletAmount(available, payWallet?.cur)} available, ${formatWalletAmount(paymentTotal, payWallet?.cur)} required.`,
-        );
-        return;
-      }
+    const walletPayOk = canPayKitWithWallet(workspace, paymentTotal, walletId);
+    const payingWithWallet = draft.pay === "wallet" && walletPayOk;
+    const paymentMode = payingWithWallet
+      ? "wallet"
+      : draft.pay === "card"
+        ? "card"
+        : "upi";
+
+    if (draft.pay === "wallet" && !walletPayOk) {
+      toast.error("Wallet payment is unavailable — choose UPI or card to continue.");
+      return;
     }
-    setSending(true);
+
+    if (!payingWithWallet && !walletId) {
+      toast.error("Select a wallet to attach this order to before paying online");
+      return;
+    }
+
+    let razorpay:
+      | { orderId: string; paymentId: string; signature: string }
+      | undefined;
+
     try {
+      if (!payingWithWallet) {
+        const order = await createRazorpayOrderApi(walletId!, paymentTotal, "campaign_spend");
+        const response = await new Promise<{
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }>((resolve, reject) => {
+          void openRazorpayCheckout({
+            order,
+            description: `Pay ₹${paymentTotal.toLocaleString("en-IN")} for kit send`,
+            preferredMethod: paymentMode === "card" ? "card" : "upi",
+            onSuccess: resolve,
+            onDismiss: () => reject(new Error("Payment cancelled")),
+          }).catch(reject);
+        });
+
+        await verifyRazorpayPaymentApi({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+
+        razorpay = {
+          orderId: response.razorpay_order_id,
+          paymentId: response.razorpay_payment_id,
+          signature: response.razorpay_signature,
+        };
+      }
+
+      setSending(true);
       if (kit && kit.status !== "live") {
         await updateKit.mutateAsync({
           id: kit.id,
@@ -639,7 +710,11 @@ export function useSendKitController(): SendKitVm {
           status: "live",
         });
       }
-      await launch.mutateAsync(buildKitCampaignPayload(String(entityId), paymentTotal));
+      await launch.mutateAsync({
+        ...buildKitCampaignPayload(String(entityId), paymentTotal),
+        paymentMode,
+        razorpay,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send kit");
       return;
@@ -649,7 +724,9 @@ export function useSendKitController(): SendKitVm {
 
     toast.success(
       draft.when === "sched"
-        ? `Kit scheduled — wallet debited. Recipients will be notified at the scheduled time.`
+        ? payingWithWallet
+          ? `Kit scheduled — wallet debited. Recipients will be notified at the scheduled time.`
+          : `Kit scheduled — payment received. Recipients will be notified at the scheduled time.`
         : draft.mode === "redeem"
           ? `Invites sent to ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}. Orders will appear when they accept.`
           : `Order placed for ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}! 📦`,
@@ -720,17 +797,23 @@ export function useSendKitController(): SendKitVm {
     onNext,
     onBack: () => setStep((s) => Math.max(s - 1, 0) as SendKitStep),
     onPayAndSend,
-    fundsBlockReason: getInsufficientFundsReason(
+    walletPayEnabled: canPayKitWithWallet(
       workspace,
       totals.total,
       selectedWalletId || checkoutWallets[0]?.id,
     ),
+    walletDisabledHint: "Pay via UPI or card",
+    walletDisabledBadge:
+      workspace?.org.wallet.fundingApproval === "pending"
+        ? "Wallet under review"
+        : "Insufficient funds",
     isSavingDraft: savingDraft || saveDraft.isPending,
     onSaveAsDraft: () => void onSaveAsDraft(),
     kitName,
     setKitName,
     curatedLogoPreview,
     hasCuratedLogo,
+    curatedRequiresLogo,
     isUploadingCuratedLogo: uploadArtwork.isPending,
     onCuratedLogoFile,
   };

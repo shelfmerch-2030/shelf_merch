@@ -69,7 +69,12 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
           packaging: k.packaging,
           eligibleCampaignTypes: k.eligibleCampaignTypes ?? [],
           approxValueInr: k.approxValueInr ?? 0,
-          rules: k.rules,
+          rules: {
+            ...emptyKitDetails.rules,
+            ...(k.rules || {}),
+            // Existing kits without the field stay required until turned off.
+            requireLogo: k.rules?.requireLogo !== false,
+          },
         });
         setHeroImage(k.heroImage || "");
         setGalleryImages(k.galleryImages || []);
@@ -88,7 +93,16 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
   const set = <K extends keyof KitInput>(k: K, v: KitInput[K]) =>
     setDetails((d) => ({ ...d, [k]: v }));
   const setRule = (k: keyof NonNullable<KitInput["rules"]>, v: boolean | number) =>
-    setDetails((d) => ({ ...d, rules: { ...d.rules, [k]: v } }));
+    setDetails((d) => ({
+      ...d,
+      rules: { ...emptyKitDetails.rules, ...d.rules, [k]: v },
+    }));
+
+  /** Always send an explicit requireLogo boolean so false is never dropped. */
+  function rulesPayload() {
+    const r = { ...emptyKitDetails.rules!, ...details.rules };
+    return { ...r, requireLogo: r.requireLogo === true };
+  }
 
   function syncImageRolesFromKit(k: PlatformKit) {
     setHeroImage(k.heroImage || "");
@@ -113,6 +127,9 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
     setBusy(true);
     setError("");
     try {
+      const rules = rulesPayload();
+      // Keep local state in sync with the explicit boolean we persist.
+      setDetails((d) => ({ ...d, rules }));
       if (id) {
         // Only patch fields the details step edits — never send gallery/image defaults.
         await updateKit(id, {
@@ -121,11 +138,11 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
           packaging: details.packaging,
           eligibleCampaignTypes: details.eligibleCampaignTypes,
           approxValueInr: details.approxValueInr,
-          rules: details.rules,
+          rules,
         });
         await refresh();
       } else {
-        const created = await createKit(details);
+        const created = await createKit({ ...details, rules });
         setId(created._id);
         setKit(created);
       }
@@ -317,12 +334,23 @@ export function useKitWizardController(mode: "create" | "edit", kitId?: string) 
     setError("");
     setProblems([]);
     try {
+      // Persist details/rules before publish — step chips can skip "Continue" on step 0,
+      // which would otherwise leave toggles like requireLogo unsaved.
+      const rules = rulesPayload();
+      setDetails((d) => ({ ...d, rules }));
+      await updateKit(id, {
+        name: details.name,
+        description: details.description,
+        packaging: details.packaging,
+        eligibleCampaignTypes: details.eligibleCampaignTypes,
+        approxValueInr: details.approxValueInr,
+        rules,
+      });
       // Save image roles if user jumped to review without pressing Continue on step 2.
       const urls = kit?.imageUrls ?? [];
       if (urls.length > 0 && heroImage) {
         await persistImageRoles();
       }
-      // Publish only flips status — no other fields are written.
       await publishKit(id);
       navigate("/platform/kits");
     } catch (e) {

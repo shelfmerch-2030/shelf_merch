@@ -40,6 +40,8 @@ const platformKitSchema = new mongoose.Schema(
     rules: {
       fixedComposition: { type: Boolean, default: true }, // tenants use as-is vs may edit
       customizationAllowed: { type: Boolean, default: true }, // logo branding permitted
+      // When true (default), tenants must upload a logo on Send Kit for this curated kit.
+      requireLogo: { type: Boolean, default: true },
       minQtyPerRecipient: { type: Number, default: 1 },
       maxQtyPerRecipient: { type: Number, default: 1 },
     },
