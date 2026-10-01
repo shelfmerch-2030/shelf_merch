@@ -29,6 +29,7 @@ const EXPECTED_STATIC_URLS = [
   'https://shelfmerch.io/careers',
   'https://shelfmerch.io/platform',
   'https://shelfmerch.io/resources',
+  'https://shelfmerch.io/blog',
   'https://shelfmerch.io/resources/hr',
   'https://shelfmerch.io/resources/sales',
   'https://shelfmerch.io/resources/events',
@@ -95,6 +96,7 @@ describe('SEO sitemap index + static', () => {
     expect(body).toContain('<sitemapindex');
     expect(body).toContain('https://shelfmerch.io/sitemap-static.xml');
     expect(body).toContain('https://shelfmerch.io/sitemap-catalog.xml');
+    expect(body).toContain('https://shelfmerch.io/sitemap-blog.xml');
     expect(body).not.toContain('<html');
   });
 

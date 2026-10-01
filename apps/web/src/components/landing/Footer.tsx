@@ -122,6 +122,7 @@ export function Footer() {
         </div>
         <div className="footer-col">
           <h4>Resources</h4>
+          <a href="/blog">Blog</a>
           <Link to="/resources/hr">HR</Link>
           <Link to="/resources/sales">Sales &amp; Marketing</Link>
           <Link to="/resources/events">Events</Link>

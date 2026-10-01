@@ -1,19 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { ALL_PRODUCTS } from "../types";
+import {
+  ALL_PRODUCTS,
+  buildStyleTaxonomyTiles,
+  pickStyleTileImage,
+  type CatalogCategoryNode,
+} from "../types";
 import type { CatalogVm } from "../controllers/useCatalogController";
+import type { UiProduct } from "../model";
 import { ProductCard } from "./ProductCard";
 import { CategoryCarousel, type CategoryTile } from "./CategoryCarousel";
 import { CatalogMarketingFooter } from "./CatalogMarketingFooter";
 import "./catalog-view.css";
 import catalogHeroImg from "../../../../assets/catalog_banner.png";
 import apparelImg from "../../../../assets/catalog/apparel-shelfmerch.png";
-import bagsImg from "../../../../assets/catalog/bags-shelfmerch.png";
-import drinkwareImg from "../../../../assets/catalog/drinkware-shelfmerch.png";
-import keyChainsImg from "../../../../assets/catalog/key-chains.webp";
-import officeImg from "../../../../assets/catalog/office-supplies-shelfmerch.png";
-import technologyImg from "../../../../assets/catalog/technology-shelfmerch.png";
+import accessoriesImg from "../../../../assets/catalog/key-chains.webp";
 import overviewCorporateGiftsImg from "../../../../assets/catalog-overview/corporate-gifts.png";
 import overviewSustainableImg from "../../../../assets/catalog-overview/sustainability-new.png";
 import overviewBuiltForImpactImg from "../../../../assets/catalog-overview/bag-generated.png";
@@ -52,60 +54,47 @@ const TEAM_LOGOS = [
   { name: "Apollo", mark: "APOLLO", className: "sm-cat-team-logo--apollo" },
 ];
 
-const STYLE_CATEGORIES: CategoryTile[] = [
-  {
-    label: "Apparel",
-    image: apparelImg,
-    imageAlt: "Branded hoodie",
-    category: "Apparel",
-  },
-  {
-    label: "Drinkware",
-    image: drinkwareImg,
-    imageAlt: "Insulated tumbler",
-    category: "Drinkware",
-  },
-  {
-    label: "Bags",
-    image: bagsImg,
-    imageAlt: "Tote bag",
-    category: "Bags",
-  },
-  {
-    label: "Office Supplies",
-    image: officeImg,
-    imageAlt: "Notebook and pen",
-    category: "Office Supplies",
-  },
-  {
-    label: "Technology",
-    image: technologyImg,
-    imageAlt: "Tech accessories",
-    category: "Technology",
-  },
-  // {
-  //   label: "Events & Tradeshows",
-  //   image: "/images/landing/catalog/festival-hampers.png",
-  //   imageAlt: "Event merch hamper",
-  // },
-  {
-    label: "Accessories",
-    image: keyChainsImg,
-    imageAlt: "Branded accessories",
-    category: "Accessories",
-  },
-  {
-    label: "Kits",
-    image: styleKitsImg,
-    imageAlt: "Pre-designed swag kits",
-    category: "Kits",
-  },
-  // {
-  //   label: "Festival Hampers",
-  //   image: "/images/landing/catalog/ready-to-order.png",
-  //   imageAlt: "Ready-to-order gift set",
-  // },
-];
+/** Fallback art for parent-category carousel tiles (same set as category page). */
+const PARENT_CATEGORY_IMAGES: Record<string, string> = {
+  Apparel: apparelImg,
+  Accessories: accessoriesImg,
+  "Food & Beverage": overviewSustainableImg,
+  Kits: styleKitsImg,
+};
+
+/** Parent categories only — same list CatalogCategoryView prev/next uses. */
+function buildParentCategoryTiles(
+  categories: readonly string[],
+  nodes: readonly CatalogCategoryNode[],
+  products: readonly UiProduct[],
+): CategoryTile[] {
+  return categories
+    .filter((category) => category !== ALL_PRODUCTS)
+    .map((category) => ({
+      label: category,
+      category,
+      imageAlt: category,
+      image: pickStyleTileImage(
+        products,
+        category,
+        PARENT_CATEGORY_IMAGES[category] ?? apparelImg,
+        nodes,
+      ),
+    }));
+}
+
+/** Spotlight collage: Apparel as category, other roots expand to subcategories. */
+// function buildSpotlightTiles(
+//   nodes: readonly CatalogCategoryNode[],
+//   products: readonly UiProduct[],
+// ): CategoryTile[] {
+//   return buildStyleTaxonomyTiles(nodes).map((tile) => ({
+//     label: tile.label,
+//     category: tile.browseKey,
+//     imageAlt: tile.label,
+//     image: pickStyleTileImage(products, tile.browseKey, apparelImg, nodes),
+//   }));
+// }
 
 const PRINT_TYPES = [
   {
@@ -487,6 +476,15 @@ export function CatalogView(vm: CatalogVm) {
 
   const showNoCategoryPlaceholder = vm.category === ALL_PRODUCTS && !vm.isCategorySelected;
 
+  const styleCategories = useMemo(
+    () => buildParentCategoryTiles(vm.categories, vm.categoryNodes, vm.stylePreviewProducts),
+    [vm.categories, vm.categoryNodes, vm.stylePreviewProducts],
+  );
+  // const spotlightTiles = useMemo(
+  //   () => buildSpotlightTiles(vm.categoryNodes, vm.stylePreviewProducts),
+  //   [vm.categoryNodes, vm.stylePreviewProducts],
+  // );
+
   function selectCategory(next = ALL_PRODUCTS) {
     vm.onCategory(next);
     scrollToProducts();
@@ -516,7 +514,7 @@ export function CatalogView(vm: CatalogVm) {
           title="Choose your style. Make it yours."
           titleId="sm-cat-style-title"
           viewAllLabel="View all categories"
-          items={STYLE_CATEGORIES}
+          items={styleCategories}
           onViewAll={() => selectCategory(ALL_PRODUCTS)}
           onSelect={(item) => selectCategory(item.category ?? ALL_PRODUCTS)}
         />

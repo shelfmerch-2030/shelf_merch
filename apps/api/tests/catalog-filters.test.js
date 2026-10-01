@@ -43,20 +43,42 @@ describe('catalogFilters', () => {
     expect(f.$or[2]).toEqual({ brand: { $regex: 'hm', $options: 'i' } });
   });
 
-  it('expands Accessories to former parent category names', () => {
+  it('matches subcategory first, then category (with Accessories expansions)', () => {
     expect(categoryFilter('Accessories')).toEqual({
-      category: {
-        $in: [
-          'Accessories',
-          'Key Chains',
-          'Bags',
-          'Drinkware',
-          'Office Supplies',
-          'Technology',
-          'Card Holders',
-        ],
-      },
+      $or: [
+        {
+          subcategory: {
+            $in: [
+              'Accessories',
+              'Key Chains',
+              'Bags',
+              'Drinkware',
+              'Office Supplies',
+              'Technology',
+              'Card Holders',
+            ],
+          },
+        },
+        {
+          category: {
+            $in: [
+              'Accessories',
+              'Key Chains',
+              'Bags',
+              'Drinkware',
+              'Office Supplies',
+              'Technology',
+              'Card Holders',
+            ],
+          },
+        },
+      ],
     });
-    expect(categoryFilter('Apparel')).toEqual({ category: 'Apparel' });
+    expect(categoryFilter('Apparel')).toEqual({
+      $or: [{ subcategory: { $in: ['Apparel'] } }, { category: 'Apparel' }],
+    });
+    expect(categoryFilter('Drinkware')).toEqual({
+      $or: [{ subcategory: { $in: ['Drinkware'] } }, { category: 'Drinkware' }],
+    });
   });
 });

@@ -143,6 +143,80 @@ export function resolveCatalogSubcategory(
   return list.find((item) => catalogCategorySlug(item) === slug) ?? null;
 }
 
+/**
+ * Style-carousel / browse target: prefer subcategory (wizard taxonomy), else parent category.
+ * Resolves legacy aliases and any subcategory name from the live category tree.
+ */
+export function resolveCatalogBrowseTarget(
+  raw: string | null | undefined,
+  nodes: readonly CatalogCategoryNode[] = FALLBACK_CATALOG_NODES,
+): { category: string; subcategory: string | null; query: string } {
+  const key = String(raw || "").trim().toLowerCase();
+  const slug = catalogCategorySlug(key);
+  const list = nodes.length ? nodes : FALLBACK_CATALOG_NODES;
+
+  if (!key) {
+    return { category: ALL_PRODUCTS, subcategory: null, query: ALL_PRODUCTS };
+  }
+
+  // Match a subcategory anywhere in the tree first (same labels as the product wizard).
+  for (const node of list) {
+    const child = node.children.find(
+      (entry) =>
+        entry.name.toLowerCase() === key ||
+        entry.slug === slug ||
+        catalogCategorySlug(entry.name) === slug,
+    );
+    if (child) {
+      return { category: node.name, subcategory: child.name, query: child.name };
+    }
+  }
+
+  const parent = resolveCatalogCategory(raw, list);
+  if (parent === ALL_PRODUCTS) {
+    return { category: ALL_PRODUCTS, subcategory: null, query: ALL_PRODUCTS };
+  }
+
+  const options =
+    list.find((node) => node.name === parent)?.children.map((child) => child.name) ??
+    CATALOG_SUBCATEGORIES[parent] ??
+    [];
+  const subcategory = resolveCatalogSubcategory(raw, parent, options);
+  return {
+    category: parent,
+    subcategory,
+    query: subcategory ?? parent,
+  };
+}
+
+/**
+ * Landing style tiles from the wizard taxonomy:
+ * Apparel stays a parent category; every other root expands to its subcategories.
+ */
+export function buildStyleTaxonomyTiles(
+  nodes: readonly CatalogCategoryNode[],
+): { label: string; browseKey: string; parentCategory: string }[] {
+  const list = nodes.length ? nodes : FALLBACK_CATALOG_NODES;
+  const tiles: { label: string; browseKey: string; parentCategory: string }[] = [];
+
+  for (const node of list) {
+    if (node.name === "Apparel") {
+      tiles.push({ label: "Apparel", browseKey: "Apparel", parentCategory: "Apparel" });
+      continue;
+    }
+    for (const child of node.children) {
+      if (child.name === "Others") continue;
+      tiles.push({
+        label: child.name,
+        browseKey: child.name,
+        parentCategory: node.name,
+      });
+    }
+  }
+
+  return tiles;
+}
+
 /** Match a product to a subcategory (incl. legacy rows where category was the subcategory name). */
 export function productMatchesSubcategory(product: UiProduct, subcategory: string): boolean {
   const target = String(subcategory || "").trim().toLowerCase();
@@ -150,6 +224,37 @@ export function productMatchesSubcategory(product: UiProduct, subcategory: strin
   const sub = String(product.subcategory || "").trim().toLowerCase();
   const cat = String(product.category || "").trim().toLowerCase();
   return sub === target || cat === target;
+}
+
+/** Best display photo for a catalog product. */
+export function productPhotoUrl(product: UiProduct): string | undefined {
+  return product.photoUrl || product.imageUrls?.[0] || product.imgUrl || undefined;
+}
+
+/**
+ * Style-carousel tile image: prefer a product in the subcategory (wizard taxonomy),
+ * otherwise fall back to a product in the parent category (e.g. Apparel).
+ */
+export function pickStyleTileImage(
+  products: readonly UiProduct[],
+  browseKey: string,
+  fallback: string,
+  nodes: readonly CatalogCategoryNode[] = FALLBACK_CATALOG_NODES,
+): string {
+  const { category, subcategory } = resolveCatalogBrowseTarget(browseKey, nodes);
+  const withPhoto = (product: UiProduct) => Boolean(productPhotoUrl(product));
+
+  if (subcategory) {
+    const bySub = products.find((product) => productMatchesSubcategory(product, subcategory) && withPhoto(product));
+    const subUrl = bySub ? productPhotoUrl(bySub) : undefined;
+    if (subUrl) return subUrl;
+  }
+
+  const byCategory = products.find((product) => {
+    const cat = String(product.category || "").trim().toLowerCase();
+    return cat === category.toLowerCase() && withPhoto(product);
+  });
+  return (byCategory && productPhotoUrl(byCategory)) || fallback;
 }
 
 /** Parse a "Label: value" newline block into rows (key features / size guide). */

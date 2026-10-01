@@ -56,11 +56,19 @@ const CATEGORY_INCLUDES = {
   'Office Supplies': ['Office Supplies', 'Card Holders'],
 };
 
-/** Mongo category filter; expands parents to include nested legacy category names. */
+/**
+ * Mongo category filter.
+ * Prefers subcategory (wizard taxonomy / remapped products), then falls back to
+ * category (legacy top-level names). Parent queries still expand via CATEGORY_INCLUDES.
+ */
 export function categoryFilter(category) {
   if (!category) return {};
   const values = CATEGORY_INCLUDES[category] || [category];
-  return values.length === 1 ? { category: values[0] } : { category: { $in: values } };
+  const categoryMatch =
+    values.length === 1 ? { category: values[0] } : { category: { $in: values } };
+  return {
+    $or: [{ subcategory: { $in: values } }, categoryMatch],
+  };
 }
 
 export function productSourceLabel(source) {

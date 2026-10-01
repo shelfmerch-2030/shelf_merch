@@ -6,4 +6,7 @@
   <sitemap>
     <loc>https://shelfmerch.io/sitemap-catalog.xml</loc>
   </sitemap>
+  <sitemap>
+    <loc>https://shelfmerch.io/sitemap-blog.xml</loc>
+  </sitemap>
 </sitemapindex>

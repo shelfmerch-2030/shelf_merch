@@ -49,6 +49,16 @@ const CATEGORY_IMAGES: Record<string, string> = {
   Kits: kitsImg,
 };
 
+/** Style-carousel labels → browse URL names that resolve subcategory-first (wizard taxonomy). */
+const SUBCATEGORY_BROWSE_NAME: Record<string, string> = {
+  Drinkware: "Drinkware",
+  Bags: "Bags",
+  Stationery: "Office Supplies",
+  "Electronics & Gadgets": "Technology",
+  "Key Chains": "Key Chains",
+  "Card Holders": "Card Holders",
+};
+
 function CategoryPageSkeleton() {
   return (
     <div className="sm-cat-grid" aria-busy="true" aria-label="Loading category products">
@@ -83,15 +93,30 @@ export function CatalogCategoryView(vm: CatalogVm) {
     "Browse curated products in this category and open any item to see full details.";
 
   const definedSubs = vm.subcategoriesByCategory[vm.category] ?? [];
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
-    resolveCatalogSubcategory(categoryParam, vm.category, definedSubs),
-  );
+  const urlSubcategory =
+    vm.subcategory ?? resolveCatalogSubcategory(categoryParam, vm.category, definedSubs);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() => urlSubcategory);
   useEffect(() => {
-    setSelectedSubcategory(
-      resolveCatalogSubcategory(categoryParam, vm.category, vm.subcategoriesByCategory[vm.category]),
-    );
-  }, [categoryParam, vm.category, vm.subcategoriesByCategory]);
+    setSelectedSubcategory(urlSubcategory);
+  }, [urlSubcategory]);
   const kitsVm = useCatalogKitsController(isKitsCategory ? selectedSubcategory : null);
+
+  /**
+   * Style-tile / legacy URLs fetch a single subcategory slice. Switching away requires a
+   * new browse URL (subcategory-first) or the parent category for the full list.
+   */
+  function selectSubcategory(next: string | null) {
+    if (urlSubcategory && next !== urlSubcategory) {
+      if (next == null) {
+        vm.onCategory(vm.category);
+        return;
+      }
+      const browseName = SUBCATEGORY_BROWSE_NAME[next];
+      vm.onCategory(browseName ?? vm.category);
+      return;
+    }
+    setSelectedSubcategory(next);
+  }
 
   const subcategories = useMemo(() => {
     const defined = [...(vm.subcategoriesByCategory[vm.category] ?? [])];
@@ -207,7 +232,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
                 <button
                   type="button"
                   className={`sm-cat-page__sub${!selectedSubcategory ? " sm-cat-page__sub--active" : ""}`}
-                  onClick={() => setSelectedSubcategory(null)}
+                  onClick={() => selectSubcategory(null)}
                 >
                   All {vm.category}
                 </button>
@@ -218,7 +243,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
                     className={`sm-cat-page__sub${
                       selectedSubcategory === subcategory ? " sm-cat-page__sub--active" : ""
                     }`}
-                    onClick={() => setSelectedSubcategory(subcategory)}
+                    onClick={() => selectSubcategory(subcategory)}
                   >
                     {subcategory}
                   </button>

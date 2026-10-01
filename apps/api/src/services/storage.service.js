@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { env, s3Configured } from '../config/env.js';
@@ -22,6 +23,7 @@ const ALLOWED_TYPES = {
   // Support-ticket attachments: images + PDF only. Deliberately no SVG — the
   // multer layer blocks it too, this is defense in depth against stored XSS.
   attachment: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif', 'application/pdf'],
+  blog: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'],
 };
 
 const r2Configured = () => Boolean(env.R2_ENDPOINT && env.R2_ACCESS_KEY && env.R2_SECRET_KEY);
@@ -99,7 +101,7 @@ async function uploadLocal(key, buffer) {
   const target = path.join(LOCAL_UPLOAD_DIR, key.replaceAll('/', path.sep));
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.writeFile(target, buffer);
-  return { key, url: `/uploads/${key}` };
+  return { key, url: `/uploads/${key}`, driver: 'local' };
 }
 
 export function validateUpload(file, kind) {
@@ -138,7 +140,7 @@ export async function uploadFile({ tenantId, kind, file }) {
         ContentType: file.mimetype,
       }),
     );
-    return { key, url: `${env.R2_ENDPOINT}/${env.R2_BUCKET}/${key}` };
+    return { key, url: `${env.R2_ENDPOINT}/${env.R2_BUCKET}/${key}`, driver: 'r2' };
   }
 
   if (useS3()) {
@@ -152,13 +154,35 @@ export async function uploadFile({ tenantId, kind, file }) {
           ContentType: file.mimetype,
         }),
       );
-      return { key, url: s3PublicUrl(key) };
+      return { key, url: s3PublicUrl(key), driver: 's3' };
     } catch (err) {
       mapS3Error(err);
     }
   }
 
   return uploadLocal(key, file.buffer);
+}
+
+/** Read an immutable uploaded asset from the driver used when it was created. */
+export async function readStoredFile({ key, driver }) {
+  if (driver === 'local') {
+    const absolute = path.resolve(LOCAL_UPLOAD_DIR, key);
+    if (!absolute.startsWith(`${LOCAL_UPLOAD_DIR}${path.sep}`)) {
+      throw new ApiError(400, 'Invalid storage key', 'INVALID_STORAGE_KEY');
+    }
+    await fs.access(absolute);
+    return createReadStream(absolute);
+  }
+  const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+  if (driver === 'r2') {
+    const result = await (await getR2()).send(new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+    return result.Body;
+  }
+  if (driver === 's3') {
+    const result = await (await getS3()).send(new GetObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: key }));
+    return result.Body;
+  }
+  throw new ApiError(500, 'Unknown storage driver', 'STORAGE_DRIVER_UNKNOWN');
 }
 
 /** Upload a raw buffer (e.g. generated PDF) to configured storage. */

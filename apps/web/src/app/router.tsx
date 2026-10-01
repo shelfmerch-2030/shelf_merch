@@ -220,6 +220,11 @@ const platformChildren: RouteObject[] = [
   { path: "production", lazy: page(platformPages, "ProductionPage") },
   { path: "shipments", lazy: page(platformPages, "ShipmentsPage") },
   { path: "sales", lazy: page(platformPages, "SalesPage") },
+  { path: "blog", children: [
+    { index: true, lazy: page(() => import("@/components/platform/BlogPages"), "BlogListPage") },
+    { path: "new", lazy: page(() => import("@/components/platform/BlogPages"), "BlogEditorPage") },
+    { path: ":id", lazy: page(() => import("@/components/platform/BlogPages"), "BlogEditorPage") },
+  ] },
   { path: "support", lazy: page(platformPages, "SupportPage") },
   { path: "team", lazy: page(platformPages, "TeamPage") },
   { path: "audit", lazy: page(platformPages, "AuditPage") },

@@ -33,6 +33,7 @@ export type PlatformArea =
   | "shipments"
   | "finance"
   | "sales"
+  | "blog"
   | "support"
   | "team"
   | "settings"
@@ -49,6 +50,7 @@ const MATRIX: Record<PlatformArea, { write: string[]; read: string[] }> = {
   shipments: { write: [OPS, LOGISTICS], read: PLATFORM_ROLES },
   finance: { write: [FINANCE], read: [FINANCE] },
   sales: { write: [SALES], read: [SALES] },
+  blog: { write: [SALES], read: [SALES] },
   support: { write: [OPS, SUPPORT], read: PLATFORM_ROLES },
   // Ops + support need a read-only roster to assign tickets; invite/role
   // changes stay super-admin-only (write: []).
@@ -90,6 +92,7 @@ export const PLATFORM_NAV: PlatformNavItem[] = [
   { area: "inventory", label: "Inventory", path: "/platform/inventory", section: "Supply" },
   { area: "support", label: "Support", path: "/platform/support", section: "Service" },
   { area: "sales", label: "Sales", path: "/platform/sales", section: "Marketing" },
+  { area: "blog", label: "Blog", path: "/platform/blog", section: "Marketing" },
   { area: "finance", label: "Finance", path: "/platform/finance", section: "Money" },
   { area: "team", label: "Platform Users", path: "/platform/team", section: "Admin" },
   { area: "auditLogs", label: "Audit Logs", path: "/platform/audit", section: "Admin" },

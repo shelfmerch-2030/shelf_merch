@@ -50,6 +50,9 @@ export function ResourceDropdown({ onNavigate }: ResourceDropdownProps) {
             <strong>↗</strong>
           </Link>
         ))}
+        <a href="/blog" onClick={onNavigate}>
+          <i>✎</i><span><b>Blog</b><em>Ideas, guides and stories</em></span><strong>↗</strong>
+        </a>
       </div>
     </div>
   );

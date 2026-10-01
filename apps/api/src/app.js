@@ -73,7 +73,10 @@ import {
 import { sendPrivacyPolicy } from './modules/legal/privacyPolicy.controller.js';
 import { sendTermsOfService } from './modules/legal/termsOfService.controller.js';
 import { sendDocsPage, DOCS_PUBLIC_ROUTES } from './modules/docs/docs.controller.js';
+import blogRoutes from './modules/blog/blog.routes.js';
+import { sendBlogArticle, sendBlogIndex, sendBlogMedia } from './modules/blog/blogPublic.controller.js';
 import {
+  sendBlogSitemap,
   sendCatalogSitemap,
   sendSeoPublicFile,
 } from './modules/seo/sitemap.controller.js';
@@ -300,6 +303,7 @@ export function createApp() {
   api.use('/platform/production', platformProductionRouter);
   api.use('/platform/finance', platformFinanceRoutes);
   api.use('/platform/demo-leads', platformDemoLeadsRouter);
+  api.use('/platform/blog-posts', blogRoutes);
   api.use('/platform/audit-logs', platformAuditRouter);
   api.use('/platform/reports', platformReportsRouter);
   api.use('/platform/support-tickets', platformSupportRouter);
@@ -366,6 +370,10 @@ export function createApp() {
     app.get(routePath, sendDocsPage(routePath));
   }
 
+  app.get('/blog', asyncHandler(sendBlogIndex));
+  app.get('/blog/media/:id', asyncHandler(sendBlogMedia));
+  app.get('/blog/:slug', asyncHandler(sendBlogArticle));
+
   /**
    * SEO: robots + sitemap index/static from apps/web/public (also copied into
    * web/dist by Vite). Catalog child sitemap is runtime from Mongo.
@@ -376,6 +384,7 @@ export function createApp() {
   app.get('/sitemap.xml', sendSeoPublicFile('sitemap.xml'));
   app.get('/sitemap-static.xml', sendSeoPublicFile('sitemap-static.xml'));
   app.get('/sitemap-catalog.xml', asyncHandler(sendCatalogSitemap));
+  app.get('/sitemap-blog.xml', asyncHandler(sendBlogSitemap));
 
   // Production: serve the Vite SPA from the same origin as the API.
   if (env.NODE_ENV === 'production' && existsSync(WEB_DIST)) {
@@ -389,7 +398,8 @@ export function createApp() {
         req.path === '/robots.txt' ||
         req.path === '/sitemap.xml' ||
         req.path === '/sitemap-static.xml' ||
-        req.path === '/sitemap-catalog.xml'
+        req.path === '/sitemap-catalog.xml' ||
+        req.path === '/sitemap-blog.xml'
       ) {
         return next();
       }

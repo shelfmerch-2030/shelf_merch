@@ -2,6 +2,7 @@ import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
+import { BlogPost } from '../blog/blogPost.model.js';
 import { tenantCatalogFilter } from '../catalog/catalogFilters.js';
 import { NotFoundError } from '../../utils/errors.js';
 
@@ -81,4 +82,19 @@ export async function sendCatalogSitemap(_req, res) {
     .type('application/xml')
     .set('Cache-Control', CACHE_CONTROL)
     .send(xml);
+}
+
+export function buildBlogSitemapXml(posts) {
+  const body = posts.map((post) => `  <url>\n    <loc>${escapeXml(`${SITE_ORIGIN}/blog/${post.slug}`)}</loc>\n    <lastmod>${new Date(post.updatedAt).toISOString()}</lastmod>\n  </url>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+}
+
+/** Queried on every request so publish/unpublish is reflected immediately. */
+export async function sendBlogSitemap(_req, res) {
+  const posts = await BlogPost.find({ status: 'published' })
+    .select('slug updatedAt')
+    .sort({ slug: 1 })
+    .limit(SITEMAP_URL_LIMIT)
+    .lean();
+  res.status(200).type('application/xml').set('Cache-Control', 'no-store').send(buildBlogSitemapXml(posts));
 }

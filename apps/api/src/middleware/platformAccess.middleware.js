@@ -30,6 +30,7 @@ const MATRIX = {
   shipments: { write: [OPS, LOGISTICS], read: PLATFORM_ROLES },
   finance: { write: [FINANCE], read: [FINANCE] },
   sales: { write: [SALES], read: [SALES] },
+  blog: { write: [SALES], read: [SALES] },
   support: { write: [OPS, SUPPORT], read: PLATFORM_ROLES },
   // Ops + support need a read-only roster to assign tickets; invite/role
   // changes stay super-admin-only (write: []).
