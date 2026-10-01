@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -52,7 +52,27 @@ import campaignArtImg from "../../../assets/dash-campaign-art.png";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { EntityManagerKitsSection } from "./EntityManagerKitsSection";
+import { NewUserWelcomeDialog } from "./NewUserWelcomeDialog";
 import "./dashboard.css";
+
+/** Cleared on logout in auth-store so the popup returns on the next login. */
+const NEW_USER_WELCOME_DISMISS_KEY = "sm-new-user-welcome-dismissed";
+
+function wasNewUserWelcomeDismissed() {
+  try {
+    return sessionStorage.getItem(NEW_USER_WELCOME_DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissNewUserWelcome() {
+  try {
+    sessionStorage.setItem(NEW_USER_WELCOME_DISMISS_KEY, "1");
+  } catch {
+    /* ignore storage failures */
+  }
+}
 
 function formatInr(amount: number) {
   return `₹ ${Math.round(amount).toLocaleString("en-IN")}`;
@@ -841,6 +861,7 @@ export function DashboardPage() {
   const { canWrite } = useTenantAccess();
   const canCreateShop = canWrite("shops");
   const sessionUser = getStoredUser();
+  const [welcomeOpen, setWelcomeOpen] = useState(true);
 
   if (isLoading && !workspace) {
     return <DashboardLoadingSkeleton />;
@@ -877,9 +898,19 @@ export function DashboardPage() {
   const activeShopCount = workspace.shops.filter((s) => s.live).length || workspace.shops.length;
   const showOnboarding = wallets.length === 0;
   const isEntityManager = workspace.userPatch.role === "entity_manager";
+  const showWelcome = showOnboarding && welcomeOpen && !wasNewUserWelcomeDismissed();
+
+  function closeWelcome() {
+    dismissNewUserWelcome();
+    setWelcomeOpen(false);
+  }
 
   return (
     <div className="dash-page fade-in">
+      {showWelcome ? (
+        <NewUserWelcomeDialog open onClose={closeWelcome} />
+      ) : null}
+
       <section className="dash-welcome card">
         <div className="dash-welcome__left">
           <div className="dash-welcome__avatar" aria-hidden="true">{initials}</div>

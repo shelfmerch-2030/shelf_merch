@@ -2965,3 +2965,280 @@
     display: none;
   }
 }
+
+/* New-user welcome onboarding modal */
+.sm-new-user-welcome {
+  max-width: min(900px, calc(100vw - 32px)) !important;
+  width: 100% !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  overflow: hidden;
+  border: none !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  z-index: 10040 !important;
+}
+
+.sm-new-user-welcome > button.absolute {
+  top: 12px !important;
+  right: 12px !important;
+  color: var(--ink) !important;
+  opacity: 0.55;
+  z-index: 3;
+}
+
+.sm-new-user-welcome > button.absolute:hover {
+  opacity: 1;
+}
+
+.sm-new-user-welcome__layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 48%) minmax(0, 52%);
+  align-items: stretch;
+  max-height: min(620px, calc(100vh - 40px));
+}
+
+.sm-new-user-welcome__visual {
+  position: relative;
+  background: #1f4fd8;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sm-new-user-welcome__visual-img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+}
+
+.sm-new-user-welcome__panel {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px 16px;
+  background: #fff;
+  min-width: 0;
+  overflow: auto;
+}
+
+.sm-new-user-welcome__intro {
+  padding-right: 24px;
+  margin-bottom: 12px;
+}
+
+.sm-new-user-welcome__intro h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink, #0f172a);
+}
+
+.sm-new-user-welcome__intro p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2, #64748b);
+}
+
+.sm-new-user-welcome__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  position: relative;
+}
+
+.sm-new-user-welcome__step {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  align-items: stretch;
+  position: relative;
+}
+
+.sm-new-user-welcome__step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 26px;
+  bottom: -9px;
+  width: 2px;
+  background: #e8edf5;
+}
+
+.sm-new-user-welcome__num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: #eef2f7;
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+}
+
+.sm-new-user-welcome__step.is-active .sm-new-user-welcome__num {
+  color: #fff;
+  background: var(--brand, #3d5fd9);
+}
+
+.sm-new-user-welcome__card {
+  display: grid;
+  grid-template-columns: 34px 1fr 14px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #e8edf5;
+  border-radius: 10px;
+  background: #fff;
+  min-width: 0;
+}
+
+.sm-new-user-welcome__step.is-active .sm-new-user-welcome__card {
+  border-color: color-mix(in srgb, var(--brand, #3d5fd9) 28%, #e8edf5);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+.sm-new-user-welcome__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.sm-new-user-welcome__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sm-new-user-welcome__icon--green {
+  background: #e8f8ef;
+  color: #16a34a;
+}
+
+.sm-new-user-welcome__icon--blue {
+  background: #e8f1ff;
+  color: #2563eb;
+}
+
+.sm-new-user-welcome__icon--orange {
+  background: #fff1e8;
+  color: #ea580c;
+}
+
+.sm-new-user-welcome__icon--violet {
+  background: #f0eaff;
+  color: #7c3aed;
+}
+
+.sm-new-user-welcome__icon--pink {
+  background: #ffe8f1;
+  color: #db2777;
+}
+
+.sm-new-user-welcome__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sm-new-user-welcome__text strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+  line-height: 1.25;
+}
+
+.sm-new-user-welcome__text small {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-2, #64748b);
+}
+
+.sm-new-user-welcome__chevron {
+  color: #cbd5e1;
+  width: 14px;
+  height: 14px;
+}
+
+.sm-new-user-welcome__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.sm-new-user-welcome__cta {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 180px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: var(--brand, #3d5fd9);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(61, 95, 217, 0.2);
+}
+
+.sm-new-user-welcome__cta:hover {
+  background: var(--brand-d, #2f4bb8);
+}
+
+.sm-new-user-welcome__eta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-2, #94a3b8);
+}
+
+@media (max-width: 760px) {
+  .sm-new-user-welcome__layout {
+    grid-template-columns: 1fr;
+    max-height: min(680px, calc(100vh - 24px));
+    overflow: auto;
+  }
+
+  .sm-new-user-welcome__visual {
+    min-height: 180px;
+    max-height: 200px;
+  }
+
+  .sm-new-user-welcome__visual-img {
+    position: absolute;
+  }
+
+  .sm-new-user-welcome__panel {
+    padding: 18px 16px 14px;
+  }
+
+  .sm-new-user-welcome__footer {
+    align-items: stretch;
+  }
+
+  .sm-new-user-welcome__cta {
+    width: 100%;
+  }
+
+  .sm-new-user-welcome__eta {
+    text-align: center;
+  }
+}

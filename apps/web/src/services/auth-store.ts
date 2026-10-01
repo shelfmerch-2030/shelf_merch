@@ -97,6 +97,11 @@ export function clearSession() {
   removeAuthItem(ACCESS_KEY);
   removeAuthItem(REFRESH_KEY);
   removeAuthItem(USER_KEY);
+  try {
+    sessionStorage.removeItem("sm-new-user-welcome-dismissed");
+  } catch {
+    /* ignore storage failures */
+  }
   notifyAuthChange();
 }
 
