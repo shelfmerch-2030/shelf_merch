@@ -3,25 +3,48 @@ import { ApiError } from '../../../utils/errors.js';
 import { decryptToken } from '../../../utils/tokenEncryption.js';
 import { Contact } from '../../contacts/contact.model.js';
 import {
+  MERGE_FULL_RECONCILE_MS,
   MERGE_HRIS_EMPLOYEES_URL,
   MERGE_HRIS_EMPLOYMENTS_URL,
   MERGE_HRIS_GROUPS_URL,
   MERGE_HRIS_LOCATIONS_URL,
+  MERGE_INCREMENTAL_OVERLAP_MS,
 } from './merge.constants.js';
 import { MergeHrisDepartment } from './models/mergeHrisDepartment.model.js';
 import { MergeHrisLocation } from './models/mergeHrisLocation.model.js';
 import { MergeHrisEmployee } from './models/mergeHrisEmployee.model.js';
 import { MergeHrisEmployment } from './models/mergeHrisEmployment.model.js';
 import { MergeConnection } from './mergeConnection.model.js';
-import { mergePaginateAll, requireMergeConfigured } from './mergeHttp.js';
+import { mergePaginateEach, requireMergeConfigured } from './mergeHttp.js';
+import {
+  beginMergeSyncRun,
+  finishMergeSyncRun,
+  noteMergeSyncPage,
+  noteMergeSyncRateLimit,
+  touchMergeSyncRun,
+  safeMergeSyncRunError,
+} from './mergeSyncRun.service.js';
 import { getOwnedMergeConnection } from './merge.service.js';
+import {
+  getMergeSyncStatus,
+  isMergeModelSnapshotAuthoritative,
+  isMergeModelSyncInProgress,
+  mergeModelSyncLogFields,
+  storedMergeModelSync,
+} from './mergeSyncStatus.js';
 import { deriveEffectiveEmploymentStatus } from './effectiveEmploymentStatus.js';
+import { isMergeSyncAttemptTerminal } from './mergeSyncErrors.js';
+import {
+  connectionStatusAfterSyncSuccess,
+  scopeFailureChangesConnection,
+} from './mergeConnectionState.js';
 import {
   MERGE_SYNC_LOCK_LEASE_MS,
   MERGE_SYNC_LOCK_RENEW_EVERY_MS,
   acquireMergeSyncLock,
   assertMergeSyncLockOwned,
   completeMergeSyncLock,
+  releaseMergeSyncLock,
   mergeSyncInProgressError,
   mergeSyncLockLostError,
   startMergeSyncLockHeartbeat,
@@ -223,6 +246,7 @@ async function pruneByMergeIds({
   mergeIdField,
   seenIds,
   snapshotComplete,
+  allowPrune = false,
   rawItemCount,
   counts,
   logContext,
@@ -232,8 +256,17 @@ async function pruneByMergeIds({
   if (!snapshotComplete) {
     counts.pruneSkippedReason = 'incomplete';
     logger.warn(
-      { ...logContext, rawItemCount, seenCount: seenIds.length },
+      { ...logContext, rawItemCount, seenCount: seenIds.length, pruneAllowed: false },
       'Merge snapshot incomplete — skipped prune',
+    );
+    return;
+  }
+
+  if (!allowPrune) {
+    counts.pruneSkippedReason = 'merge_sync_not_ready';
+    logger.warn(
+      { ...logContext, rawItemCount, seenCount: seenIds.length, pruneAllowed: false },
+      'Merge common model is not a complete successful sync — skipped prune',
     );
     return;
   }
@@ -324,105 +357,327 @@ async function upsertByMergeId({
   }
 }
 
-async function syncDepartments({ tenantId, connection, accountToken, now }) {
-  const counts = emptyCounts();
-  const snapshot = await mergePaginateAll(MERGE_HRIS_GROUPS_URL, {
-    accountToken,
-    query: { page_size: 100 },
-    logContext: {
-      organizationId: String(tenantId),
-      connectionId: String(connection._id),
-      model: 'departments',
-    },
-  });
-
-  for (const row of snapshot.items) {
-    const mergeId = asString(row?.id);
-    if (!mergeId) continue;
-
-    await upsertByMergeId({
-      Model: MergeHrisDepartment,
-      tenantId,
-      connectionId: connection._id,
-      mergeIdField: 'mergeDepartmentId',
-      mergeId,
-      counts,
-      fields: {
-        provider: connection.provider,
-        remoteId: asString(row.remote_id),
-        name: asString(row.name),
-        groupType: normalizeGroupType(row),
-        parentDepartmentMergeId: asString(row.parent_group),
-        lastSyncedAt: now,
-        source: 'merge',
-      },
-    });
-  }
-
-  return counts;
+/**
+ * manual/initial always pull every page.
+ * webhook/scheduled stay incremental until the last full import is 24h old,
+ * or until this connection has never completed a full import.
+ */
+export function resolveMergeSyncMode({ reason = 'manual', lastFullSyncAt, now = new Date() } = {}) {
+  if (reason !== 'webhook' && reason !== 'scheduled') return 'full';
+  if (!lastFullSyncAt) return 'full';
+  const age = now.getTime() - new Date(lastFullSyncAt).getTime();
+  if (!Number.isFinite(age) || age >= MERGE_FULL_RECONCILE_MS) return 'full';
+  return 'incremental';
 }
 
-async function syncLocations({ tenantId, connection, accountToken, now }) {
-  const counts = emptyCounts();
-  const snapshot = await mergePaginateAll(MERGE_HRIS_LOCATIONS_URL, {
-    accountToken,
-    query: { page_size: 100 },
-    logContext: {
-      organizationId: String(tenantId),
-      connectionId: String(connection._id),
-      model: 'locations',
-    },
-  });
-
-  for (const row of snapshot.items) {
-    const mergeId = asString(row?.id);
-    if (!mergeId) continue;
-
-    await upsertByMergeId({
-      Model: MergeHrisLocation,
-      tenantId,
-      connectionId: connection._id,
-      mergeIdField: 'mergeLocationId',
-      mergeId,
-      counts,
-      fields: {
-        provider: connection.provider,
-        remoteId: asString(row.remote_id),
-        name: asString(row.name),
-        street1: asString(row.street_1),
-        street2: asString(row.street_2),
-        city: asString(row.city),
-        state: asString(row.state),
-        zipCode: asString(row.zip_code),
-        country: asString(row.country),
-        lastSyncedAt: now,
-        source: 'merge',
-      },
-    });
-  }
-
-  return counts;
+/** Stored boundary minus the overlap. Null means this model has no cursor yet. */
+export function effectiveModifiedAfter(watermark, overlapMs = MERGE_INCREMENTAL_OVERLAP_MS) {
+  if (!watermark) return null;
+  const at = new Date(watermark).getTime();
+  if (!Number.isFinite(at)) return null;
+  return new Date(at - overlapMs);
 }
 
-async function syncEmployees({ tenantId, connection, accountToken, now, groupTypeById, assertLock }) {
+function cursorUpdates(cursors) {
+  const fields = {};
+  for (const [key, value] of Object.entries(cursors || {})) {
+    if (value) fields[`mergeSyncCursors.${key}`] = value;
+  }
+  return fields;
+}
+
+function describeModel(counts) {
+  return {
+    mode: counts?.mode || 'full',
+    processed: counts?.processed || 0,
+    fallback: counts?.fallback || null,
+  };
+}
+
+function valuesEqual(key, prev, next) {
+  if (key === 'departmentMergeIds') return arraysEqual(prev || [], next || []);
+  if (prev instanceof Date || next instanceof Date) return String(prev || '') === String(next || '');
+  return prev === next;
+}
+
+/**
+ * One page, one bulkWrite. created/updated/unchanged match the previous per-row upsert.
+ * lastSyncedAt is refreshed without counting as a data change.
+ */
+async function bulkUpsertPage({ Model, tenantId, connectionId, mergeIdField, rows, counts }) {
+  const usable = rows.filter((row) => row?.mergeId);
+  if (!usable.length) return;
+  const existing = await Model.find({
+    tenantId,
+    connectionId,
+    [mergeIdField]: { $in: usable.map((row) => row.mergeId) },
+  });
+  const byId = new Map(existing.map((doc) => [doc[mergeIdField], doc]));
+  const ops = [];
+  for (const row of usable) {
+    const prev = byId.get(row.mergeId);
+    if (!prev) {
+      counts.created += 1;
+      ops.push({
+        insertOne: {
+          document: {
+            tenantId,
+            connectionId,
+            [mergeIdField]: row.mergeId,
+            ...row.fields,
+          },
+        },
+      });
+      continue;
+    }
+    const $set = {};
+    let changed = false;
+    for (const [key, value] of Object.entries(row.fields)) {
+      if (key === 'lastSyncedAt') {
+        $set[key] = value;
+        continue;
+      }
+      if (!valuesEqual(key, prev[key], value)) {
+        $set[key] = value;
+        changed = true;
+      }
+    }
+    if (changed) counts.updated += 1;
+    else counts.unchanged += 1;
+    if (Object.keys($set).length) {
+      ops.push({
+        updateOne: {
+          filter: { _id: prev._id, tenantId },
+          update: { $set },
+        },
+      });
+    }
+  }
+  if (ops.length) await Model.bulkWrite(ops, { ordered: true });
+}
+
+/**
+ * Page-at-a-time Merge read. The cursor is used only inside this walk.
+ * A rejected modified_after restarts that model from page 1 without the filter.
+ */
+async function walkMergeModel({
+  url,
+  accountToken,
+  query,
+  logContext,
+  modifiedAfter,
+  onPage,
+  onRateLimit,
+  onRestart,
+}) {
+  const once = async (after) => {
+    const pageQuery = after instanceof Date ? { ...query, modified_after: after.toISOString() } : { ...query };
+    return mergePaginateEach(url, {
+      accountToken,
+      query: pageQuery,
+      logContext,
+      onRateLimit,
+      onPage,
+    });
+  };
+  if (!(modifiedAfter instanceof Date)) {
+    const snapshot = await once(null);
+    return { ...snapshot, mode: 'full', fallback: null };
+  }
+  try {
+    const snapshot = await once(modifiedAfter);
+    return { ...snapshot, mode: 'incremental', fallback: null };
+  } catch (err) {
+    if (err?.code !== 'MERGE_REQUEST_REJECTED') throw err;
+    logger.warn(
+      { ...logContext, code: err.code, event: 'merge_modified_after_rejected' },
+      'merge_modified_after_rejected',
+    );
+    // Earlier incremental pages may already be upserted. Restart the model
+    // from page 1 and drop in-memory id lists so prune sees only the full walk.
+    onRestart?.();
+    const snapshot = await once(null);
+    return { ...snapshot, mode: 'full', fallback: 'modified_after_rejected' };
+  }
+}
+
+async function syncDepartments({
+  tenantId,
+  connection,
+  accountToken,
+  now,
+  modifiedAfter = null,
+  onPageDone,
+  onRateLimit,
+}) {
   const counts = emptyCounts();
   const logContext = {
     organizationId: String(tenantId),
     connectionId: String(connection._id),
-    model: 'employees',
+    model: 'group',
   };
-  const snapshot = await mergePaginateAll(MERGE_HRIS_EMPLOYEES_URL, {
+  let pages = 0;
+  let records = 0;
+  const walked = await walkMergeModel({
+    url: MERGE_HRIS_GROUPS_URL,
     accountToken,
-    // Common Model Employee.team — not provider-specific; used whenever Merge fills it.
+    query: { page_size: 100 },
+    logContext,
+    modifiedAfter,
+    onRateLimit,
+    onRestart: () => {
+      pages = 0;
+      records = 0;
+    },
+    onPage: async (rows) => {
+      const prepared = [];
+      for (const row of rows) {
+        const mergeId = asString(row?.id);
+        if (!mergeId) continue;
+        prepared.push({
+          mergeId,
+          fields: {
+            provider: connection.provider,
+            remoteId: asString(row.remote_id),
+            name: asString(row.name),
+            groupType: normalizeGroupType(row),
+            parentDepartmentMergeId: asString(row.parent_group),
+            lastSyncedAt: now,
+            source: 'merge',
+          },
+        });
+      }
+      await bulkUpsertPage({
+        Model: MergeHrisDepartment,
+        tenantId,
+        connectionId: connection._id,
+        mergeIdField: 'mergeDepartmentId',
+        rows: prepared,
+        counts,
+      });
+      pages += 1;
+      records += rows.length;
+      await onPageDone?.({ pagesProcessed: pages, recordsProcessed: records });
+    },
+  });
+  counts.mode = walked.mode;
+  counts.fallback = walked.fallback;
+  counts.processed = records;
+  counts.fetchComplete = Boolean(walked.complete);
+  return counts;
+}
+
+async function syncLocations({
+  tenantId,
+  connection,
+  accountToken,
+  now,
+  modifiedAfter = null,
+  onPageDone,
+  onRateLimit,
+}) {
+  const counts = emptyCounts();
+  const logContext = {
+    organizationId: String(tenantId),
+    connectionId: String(connection._id),
+    model: 'location',
+  };
+  let pages = 0;
+  let records = 0;
+  const walked = await walkMergeModel({
+    url: MERGE_HRIS_LOCATIONS_URL,
+    accountToken,
+    query: { page_size: 100 },
+    logContext,
+    modifiedAfter,
+    onRateLimit,
+    onRestart: () => {
+      pages = 0;
+      records = 0;
+    },
+    onPage: async (rows) => {
+      const prepared = [];
+      for (const row of rows) {
+        const mergeId = asString(row?.id);
+        if (!mergeId) continue;
+        prepared.push({
+          mergeId,
+          fields: {
+            provider: connection.provider,
+            remoteId: asString(row.remote_id),
+            name: asString(row.name),
+            street1: asString(row.street_1),
+            street2: asString(row.street_2),
+            city: asString(row.city),
+            state: asString(row.state),
+            zipCode: asString(row.zip_code),
+            country: asString(row.country),
+            lastSyncedAt: now,
+            source: 'merge',
+          },
+        });
+      }
+      await bulkUpsertPage({
+        Model: MergeHrisLocation,
+        tenantId,
+        connectionId: connection._id,
+        mergeIdField: 'mergeLocationId',
+        rows: prepared,
+        counts,
+      });
+      pages += 1;
+      records += rows.length;
+      await onPageDone?.({ pagesProcessed: pages, recordsProcessed: records });
+    },
+  });
+  counts.mode = walked.mode;
+  counts.fallback = walked.fallback;
+  counts.processed = records;
+  counts.fetchComplete = Boolean(walked.complete);
+  return counts;
+}
+
+async function syncEmployees({
+  tenantId,
+  connection,
+  accountToken,
+  now,
+  groupTypeById,
+  assertLock,
+  allowPrune = false,
+  modifiedAfter = null,
+  onPageDone,
+  onRateLimit,
+  onEmployeesWritten,
+}) {
+  const counts = emptyCounts();
+  const logContext = {
+    organizationId: String(tenantId),
+    connectionId: String(connection._id),
+    model: 'employee',
+  };
+  const seenMergeEmployeeIds = [];
+  let pages = 0;
+  let records = 0;
+  const walked = await walkMergeModel({
+    url: MERGE_HRIS_EMPLOYEES_URL,
+    accountToken,
     query: { page_size: 100, expand: 'team' },
     logContext,
-  });
-
-  const seenMergeEmployeeIds = [];
-  for (const row of snapshot.items) {
+    modifiedAfter,
+    onRateLimit,
+    onRestart: () => {
+      pages = 0;
+      records = 0;
+      seenMergeEmployeeIds.length = 0;
+    },
+    onPage: async (pageRows) => {
+      const prepared = [];
+      const pageIds = [];
+      for (const row of pageRows) {
     const mergeId = asString(row?.id);
     if (!mergeId) continue;
-    seenMergeEmployeeIds.push(mergeId);
+    pageIds.push(mergeId);
 
     const groupIds = Array.isArray(row.groups)
       ? row.groups.map((g) => (typeof g === 'object' && g ? asString(g.id) : asString(g))).filter(Boolean)
@@ -465,13 +720,8 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
       groupTypeById,
     });
 
-    await upsertByMergeId({
-      Model: MergeHrisEmployee,
-      tenantId,
-      connectionId: connection._id,
-      mergeIdField: 'mergeEmployeeId',
+    prepared.push({
       mergeId,
-      counts,
       fields: {
         provider: connection.provider,
         remoteEmployeeId: asString(row.remote_id),
@@ -492,7 +742,27 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
         source: 'merge',
       },
     });
-  }
+      }
+      await bulkUpsertPage({
+        Model: MergeHrisEmployee,
+        tenantId,
+        connectionId: connection._id,
+        mergeIdField: 'mergeEmployeeId',
+        rows: prepared,
+        counts,
+      });
+      seenMergeEmployeeIds.push(...pageIds);
+      pages += 1;
+      records += pageRows.length;
+      await onPageDone?.({ pagesProcessed: pages, recordsProcessed: records });
+      if (onEmployeesWritten && pageIds.length) await onEmployeesWritten(pageIds);
+    },
+  });
+  const pruneThisSnapshot = allowPrune && walked.mode === 'full' && !walked.fallback;
+  counts.mode = walked.mode;
+  counts.fallback = walked.fallback;
+  counts.processed = records;
+  counts.fetchComplete = Boolean(walked.complete);
 
   await pruneByMergeIds({
     Model: MergeHrisEmployee,
@@ -500,8 +770,9 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
     connectionId: connection._id,
     mergeIdField: 'mergeEmployeeId',
     seenIds: seenMergeEmployeeIds,
-    snapshotComplete: snapshot.complete,
-    rawItemCount: snapshot.items.length,
+    snapshotComplete: walked.complete,
+    allowPrune: pruneThisSnapshot,
+    rawItemCount: records,
     counts,
     logContext,
     assertLock,
@@ -516,63 +787,97 @@ async function syncEmployees({ tenantId, connection, accountToken, now, groupTyp
     );
   }
 
-  counts.snapshotComplete = Boolean(snapshot.complete && !counts.pruneSkippedReason);
+  counts.snapshotComplete = Boolean(walked.complete && !counts.pruneSkippedReason);
+  counts.seenIds = seenMergeEmployeeIds;
   return counts;
 }
 
-async function syncEmployments({ tenantId, connection, accountToken, now, assertLock }) {
+async function syncEmployments({
+  tenantId,
+  connection,
+  accountToken,
+  now,
+  assertLock,
+  allowPrune = false,
+  modifiedAfter = null,
+  onPageDone,
+  onRateLimit,
+}) {
   const counts = emptyCounts();
   const logContext = {
     organizationId: String(tenantId),
     connectionId: String(connection._id),
-    model: 'employments',
+    model: 'employment',
   };
-  const snapshot = await mergePaginateAll(MERGE_HRIS_EMPLOYMENTS_URL, {
+  const latestTitleByEmployee = new Map();
+  const seenEmploymentIds = [];
+  let pages = 0;
+  let records = 0;
+  const walked = await walkMergeModel({
+    url: MERGE_HRIS_EMPLOYMENTS_URL,
     accountToken,
     query: { page_size: 100 },
     logContext,
-  });
-
-  const latestTitleByEmployee = new Map();
-  const seenEmploymentIds = [];
-
-  for (const row of snapshot.items) {
-    const mergeId = asString(row?.id);
-    if (!mergeId) continue;
-    seenEmploymentIds.push(mergeId);
-    const mergeEmployeeId = asString(row.employee);
-    const jobTitle = asString(row.job_title);
-    const effectiveDate = asDate(row.effective_date);
-
-    await upsertByMergeId({
-      Model: MergeHrisEmployment,
-      tenantId,
-      connectionId: connection._id,
-      mergeIdField: 'mergeEmploymentId',
-      mergeId,
-      counts,
-      fields: {
-        provider: connection.provider,
-        mergeEmployeeId,
-        jobTitle,
-        employmentType: asString(row.employment_type),
-        effectiveDate,
-        payFrequency: asString(row.pay_frequency),
-        payPeriod: asString(row.pay_period),
-        lastSyncedAt: now,
-        source: 'merge',
-      },
-    });
-
-    if (mergeEmployeeId) {
-      const prev = latestTitleByEmployee.get(mergeEmployeeId);
-      if (!prev) {
-        latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
-      } else if (effectiveDate && (!prev.at || effectiveDate > prev.at)) {
-        latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
+    modifiedAfter,
+    onRateLimit,
+    onRestart: () => {
+      pages = 0;
+      records = 0;
+      seenEmploymentIds.length = 0;
+      latestTitleByEmployee.clear();
+    },
+    onPage: async (pageRows) => {
+      const prepared = [];
+      const pageIds = [];
+      for (const row of pageRows) {
+        const mergeId = asString(row?.id);
+        if (!mergeId) continue;
+        pageIds.push(mergeId);
+        const mergeEmployeeId = asString(row.employee);
+        const jobTitle = asString(row.job_title);
+        const effectiveDate = asDate(row.effective_date);
+        prepared.push({
+          mergeId,
+          fields: {
+            provider: connection.provider,
+            mergeEmployeeId,
+            jobTitle,
+            employmentType: asString(row.employment_type),
+            effectiveDate,
+            payFrequency: asString(row.pay_frequency),
+            payPeriod: asString(row.pay_period),
+            lastSyncedAt: now,
+            source: 'merge',
+          },
+        });
+        if (mergeEmployeeId) {
+          const prev = latestTitleByEmployee.get(mergeEmployeeId);
+          if (!prev) {
+            latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
+          } else if (effectiveDate && (!prev.at || effectiveDate > prev.at)) {
+            latestTitleByEmployee.set(mergeEmployeeId, { title: jobTitle, at: effectiveDate });
+          }
+        }
       }
-    }
-  }
+      await bulkUpsertPage({
+        Model: MergeHrisEmployment,
+        tenantId,
+        connectionId: connection._id,
+        mergeIdField: 'mergeEmploymentId',
+        rows: prepared,
+        counts,
+      });
+      seenEmploymentIds.push(...pageIds);
+      pages += 1;
+      records += pageRows.length;
+      await onPageDone?.({ pagesProcessed: pages, recordsProcessed: records });
+    },
+  });
+  const pruneThisSnapshot = allowPrune && walked.mode === 'full' && !walked.fallback;
+  counts.mode = walked.mode;
+  counts.fallback = walked.fallback;
+  counts.processed = records;
+  counts.fetchComplete = Boolean(walked.complete);
 
   await pruneByMergeIds({
     Model: MergeHrisEmployment,
@@ -580,37 +885,36 @@ async function syncEmployments({ tenantId, connection, accountToken, now, assert
     connectionId: connection._id,
     mergeIdField: 'mergeEmploymentId',
     seenIds: seenEmploymentIds,
-    snapshotComplete: snapshot.complete,
-    rawItemCount: snapshot.items.length,
+    snapshotComplete: walked.complete,
+    allowPrune: pruneThisSnapshot,
+    rawItemCount: records,
     counts,
     logContext,
     assertLock,
   });
 
-  if (snapshot.complete) {
-    const employees = await MergeHrisEmployee.find({
-      tenantId,
-      connectionId: connection._id,
-    })
-      .select('mergeEmployeeId')
-      .lean();
-    for (const emp of employees) {
-      const latest = latestTitleByEmployee.get(emp.mergeEmployeeId);
-      const title = latest ? latest.title : '';
-      await MergeHrisEmployee.updateOne(
-        { tenantId, connectionId: connection._id, mergeEmployeeId: emp.mergeEmployeeId },
-        { $set: { jobTitle: title } },
-      );
-    }
-  } else {
-    for (const [mergeEmployeeId, { title }] of latestTitleByEmployee.entries()) {
-      await MergeHrisEmployee.updateOne(
-        { tenantId, connectionId: connection._id, mergeEmployeeId },
-        { $set: { jobTitle: title } },
-      );
-    }
+  const titleIds = [...latestTitleByEmployee.keys()];
+  const titleOps = titleIds.map((mergeEmployeeId) => ({
+    updateOne: {
+      filter: { tenantId, connectionId: connection._id, mergeEmployeeId },
+      update: { $set: { jobTitle: latestTitleByEmployee.get(mergeEmployeeId).title } },
+    },
+  }));
+  for (let i = 0; i < titleOps.length; i += 100) {
+    await MergeHrisEmployee.bulkWrite(titleOps.slice(i, i + 100), { ordered: false });
+  }
+  if (walked.complete && allowPrune) {
+    await MergeHrisEmployee.updateMany(
+      {
+        tenantId,
+        connectionId: connection._id,
+        ...(titleIds.length ? { mergeEmployeeId: { $nin: titleIds } } : {}),
+      },
+      { $set: { jobTitle: '' } },
+    );
   }
 
+  counts.seenEmployeeIds = titleIds;
   return counts;
 }
 
@@ -643,14 +947,16 @@ async function syncContactsFromHrisEmployees({
   connection,
   employeeSnapshotComplete = false,
   assertLock,
+  onlyMergeEmployeeIds = null,
 }) {
   if (assertLock) await assertLock();
-  const counts = { ...emptyCounts(), conflicts: 0 };
+  const counts = { ...emptyCounts(), conflicts: 0, mode: onlyMergeEmployeeIds ? 'incremental' : 'full' };
   const mergeConnectionId = connection._id;
-  const employees = await MergeHrisEmployee.find({
-    tenantId,
-    connectionId: mergeConnectionId,
-  }).lean();
+  const employeeFilter = { tenantId, connectionId: mergeConnectionId };
+  if (Array.isArray(onlyMergeEmployeeIds)) {
+    employeeFilter.mergeEmployeeId = { $in: onlyMergeEmployeeIds };
+  }
+  const employees = await MergeHrisEmployee.find(employeeFilter).lean();
 
   const liveIds = employees.map((e) => asString(e.mergeEmployeeId)).filter(Boolean);
 
@@ -826,7 +1132,9 @@ async function syncContactsFromHrisEmployees({
     }
   }
 
-  if (employeeSnapshotComplete) {
+  counts.processed = employees.length;
+  counts.fetchComplete = true;
+  if (employeeSnapshotComplete && !Array.isArray(onlyMergeEmployeeIds)) {
     if (assertLock) await assertLock();
     await Contact.updateMany(
       {
@@ -841,27 +1149,210 @@ async function syncContactsFromHrisEmployees({
   return counts;
 }
 
+async function persistMergeModelSync({ tenantId, connectionId, token, models, listComplete }) {
+  const updated = await MergeConnection.findOneAndUpdate(
+    { _id: connectionId, tenantId, syncLockToken: token },
+    { $set: { mergeModelSync: storedMergeModelSync(models, { listComplete }) } },
+    { new: true },
+  );
+  if (!updated) throw mergeSyncLockLostError();
+  return updated;
+}
+
+/**
+ * Read Merge /sync-status. A failure or an incomplete page list is not authoritative
+ * and must not be used to prune local rows.
+ */
+async function readMergeModelSync({ accountToken, logContext }) {
+  try {
+    const fetched = await getMergeSyncStatus(accountToken, { logContext });
+    if (!fetched.listComplete) {
+      logger.warn(logContext, 'Merge sync status list incomplete — destructive prune disabled');
+      return { known: false, models: null };
+    }
+    logger.info(
+      { ...logContext, ...mergeModelSyncLogFields(fetched.models) },
+      'Merge sync status fetched',
+    );
+    logger.info(
+      {
+        ...logContext,
+        status: fetched.models.employee?.status || null,
+        lastSyncResult: fetched.models.employee?.lastSyncResult || null,
+        isInitialSync:
+          typeof fetched.models.employee?.isInitialSync === 'boolean'
+            ? fetched.models.employee.isInitialSync
+            : null,
+      },
+      'Merge employee model status',
+    );
+    logger.info(
+      {
+        ...logContext,
+        status: fetched.models.employment?.status || null,
+        lastSyncResult: fetched.models.employment?.lastSyncResult || null,
+        isInitialSync:
+          typeof fetched.models.employment?.isInitialSync === 'boolean'
+            ? fetched.models.employment.isInitialSync
+            : null,
+      },
+      'Merge employment model status',
+    );
+    return { known: true, models: fetched.models };
+  } catch (err) {
+    logger.warn(
+      { ...logContext, code: err?.code || err?.name },
+      'Merge sync status fetch failed — destructive prune disabled',
+    );
+    return { known: false, models: null };
+  }
+}
+
+function safeSyncErrorCode(err) {
+  const code = typeof err?.code === 'string' ? err.code : '';
+  if (/^[A-Z0-9_]{1,80}$/.test(code)) return code;
+  return 'SYNC_FAILED';
+}
+
+async function reportProgress(onProgress, value) {
+  if (typeof onProgress !== 'function') return;
+  try {
+    await onProgress(value);
+  } catch (err) {
+    logger.warn({ code: err?.code || err?.name }, 'Merge sync progress update failed');
+  }
+}
+
+/** A queued job that cannot start must not stay queued. Does not change connection status. */
+async function failIfQueued(tenantId, connectionId, code) {
+  if (!tenantId || !connectionId) return;
+  try {
+    await MergeConnection.updateOne(
+      { _id: connectionId, tenantId, lastSyncStatus: 'queued' },
+      {
+        $set: {
+          lastSyncStatus: 'failed',
+          lastError: safeSyncErrorCode({ code }),
+          lastSyncFinishedAt: new Date(),
+        },
+      },
+    );
+  } catch (err) {
+    logger.warn({ code: err?.code || err?.name }, 'Could not mark queued Merge sync failed');
+  }
+}
+
+function assertSyncableConnection(connection) {
+  if (!connection || (connection.status !== 'connected' && connection.status !== 'needs_attention')) {
+    throw new ApiError(400, 'Merge connection is not active', 'MERGE_CONNECTION_INACTIVE');
+  }
+  if (!connection.encryptedAccountToken) {
+    throw new ApiError(400, 'Merge account token is missing', 'MERGE_TOKEN_MISSING');
+  }
+}
+
+function absorbContactCounts(target, part) {
+  target.created += part.created || 0;
+  target.updated += part.updated || 0;
+  target.unchanged += part.unchanged || 0;
+  target.conflicts = (target.conflicts || 0) + (part.conflicts || 0);
+  target.processed += part.processed || 0;
+  target.fetchComplete = true;
+}
+
+/**
+ * Contact rows follow local employees in pages of 100.
+ * Titles are already applied, so one pass keeps created/updated counts stable.
+ * Stale marking uses the completed employee id list and does not load every employee document.
+ */
+async function mirrorContactsByIds({
+  tenantId,
+  connection,
+  ids,
+  employeeSnapshotComplete,
+  assertLock,
+}) {
+  const counts = {
+    ...emptyCounts(),
+    conflicts: 0,
+    mode: employeeSnapshotComplete ? 'full' : 'incremental',
+  };
+  const list = Array.isArray(ids) ? ids : [];
+  let pages = 0;
+  for (let i = 0; i < list.length; i += 100) {
+    const part = await syncContactsFromHrisEmployees({
+      tenantId,
+      connection,
+      employeeSnapshotComplete: false,
+      assertLock,
+      onlyMergeEmployeeIds: list.slice(i, i + 100),
+    });
+    absorbContactCounts(counts, part);
+    pages += 1;
+  }
+  if (employeeSnapshotComplete) {
+    if (assertLock) await assertLock();
+    await Contact.updateMany(
+      {
+        tenantId,
+        mergeConnectionId: connection._id,
+        mergeEmployeeId: { $gt: '', $nin: list },
+      },
+      { $set: { hrisLinkStatus: 'stale' } },
+    );
+  }
+  counts.fetchComplete = true;
+  counts.pages = Math.max(pages, list.length ? pages : 0);
+  return counts;
+}
+
 /**
  * Full paginated HRIS sync for a tenant-owned Merge connection.
  * Updates Merge HRIS models and mirrors employees into Workspace Contacts.
  * Never creates ShelfMerch Users/logins.
- * `lock` lease/renew overrides are for tests only.
+ * Called by the merge-hris-sync worker. `lock` lease/renew overrides are for tests only.
  */
-export async function syncMergeConnection({ tenantId, connectionId, lock } = {}) {
+export async function syncMergeConnection({
+  tenantId,
+  connectionId,
+  lock,
+  onProgress,
+  reason = 'manual',
+  requestedByUserId = null,
+  now: nowInput = null,
+  jobId = '',
+  attempt = 1,
+  maxAttempts = 1,
+} = {}) {
   requireMergeConfigured();
 
-  const owned = await getOwnedMergeConnection({ tenantId, connectionId });
-  if (owned.status !== 'connected' && owned.status !== 'needs_attention') {
-    throw new ApiError(400, 'Merge connection is not active', 'MERGE_CONNECTION_INACTIVE');
-  }
-  if (!owned.encryptedAccountToken) {
-    throw new ApiError(400, 'Merge account token is missing', 'MERGE_TOKEN_MISSING');
+  logger.info(
+    {
+      event: 'merge_sync_started',
+      organizationId: String(tenantId),
+      connectionId: String(connectionId),
+      jobId: jobId ? String(jobId) : null,
+      reason,
+      attempt: Math.max(1, Number(attempt) || 1),
+      requestedByUserId: requestedByUserId ? String(requestedByUserId) : null,
+    },
+    'merge_sync_started',
+  );
+
+  let owned;
+  try {
+    owned = await getOwnedMergeConnection({ tenantId, connectionId });
+    assertSyncableConnection(owned);
+  } catch (err) {
+    await failIfQueued(tenantId, connectionId, err?.code);
+    throw err;
   }
 
   let accountToken;
   try {
     accountToken = decryptToken(owned.encryptedAccountToken);
-  } catch {
+  } catch (err) {
+    await failIfQueued(tenantId, connectionId, 'MERGE_TOKEN_DECRYPT_FAILED');
     throw new ApiError(500, 'Could not decrypt Merge account token', 'MERGE_TOKEN_DECRYPT_FAILED');
   }
 
@@ -884,6 +1375,9 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
     onLost: () => {
       lockLost = true;
     },
+    onRenewed: () => {
+      if (syncRun) void touchMergeSyncRun(syncRun);
+    },
   });
 
   const assertLock = async () => {
@@ -891,7 +1385,11 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
     await assertMergeSyncLockOwned({ tenantId, connectionId: connection._id, token });
   };
 
-  const now = new Date();
+  let syncRun = null;
+  let failedModel = '';
+  const now = nowInput instanceof Date ? new Date(nowInput.getTime()) : new Date();
+  const syncBoundaryAt = now;
+  const completedWatermarks = {};
   const summary = {
     employees: emptyCounts(),
     departments: emptyCounts(),
@@ -901,13 +1399,106 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
   };
 
   try {
+    await reportProgress(onProgress, 10);
+    const fresh = await MergeConnection.findOne({ _id: connection._id, tenantId });
+    assertSyncableConnection(fresh);
+    try {
+      accountToken = decryptToken(fresh.encryptedAccountToken);
+    } catch {
+      throw new ApiError(500, 'Could not decrypt Merge account token', 'MERGE_TOKEN_DECRYPT_FAILED');
+    }
+
     await assertLock();
-    summary.departments = await syncDepartments({
-      tenantId,
-      connection,
-      accountToken,
+    const statusLog = {
+      organizationId: String(tenantId),
+      connectionId: String(connection._id),
+      provider: connection.provider,
+    };
+    const governed = await readMergeModelSync({ accountToken, logContext: statusLog });
+    if (governed.known) {
+      await persistMergeModelSync({
+        tenantId,
+        connectionId: connection._id,
+        token,
+        models: governed.models,
+        listComplete: true,
+      });
+    }
+    const employeeModelReady =
+      governed.known && isMergeModelSnapshotAuthoritative(governed.models.employee);
+    const employmentSnapshotAuthoritative =
+      governed.known && isMergeModelSnapshotAuthoritative(governed.models.employment);
+    const jobMode = resolveMergeSyncMode({
+      reason,
+      lastFullSyncAt: fresh.lastFullSyncAt,
       now,
     });
+    const cursors = fresh.mergeSyncCursors || {};
+    const modifiedAfterFor = (key) =>
+      jobMode === 'incremental' ? effectiveModifiedAfter(cursors[key]) : null;
+    summary.mode = jobMode;
+    summary.reason = reason;
+    syncRun = await beginMergeSyncRun({
+      tenantId,
+      connectionId: connection._id,
+      jobId,
+      reason,
+      mode: jobMode,
+      attempt,
+    });
+    const runLog = {
+      connectionId: String(connection._id),
+      syncRunId: String(syncRun._id),
+      jobId: jobId ? String(jobId) : null,
+      reason,
+      mode: jobMode,
+      attempt: Math.max(1, Number(attempt) || 1),
+    };
+    const onRateLimit = () => noteMergeSyncRateLimit(syncRun);
+    const runModel = async (model, fn) => {
+      failedModel = model;
+      logger.info({ ...runLog, event: 'merge_model_started', model }, 'merge_model_started');
+      try {
+        const result = await fn();
+        logger.info(
+          {
+            ...runLog,
+            event: 'merge_model_completed',
+            model,
+            records: result?.processed || 0,
+          },
+          'merge_model_completed',
+        );
+        failedModel = '';
+        return result;
+      } catch (err) {
+        if (err?.code === 'MERGE_SCOPES_DISABLED' && !scopeFailureChangesConnection(model)) {
+          logger.warn(
+            { ...runLog, event: 'merge_optional_scope_disabled', model, code: err.code },
+            'merge_optional_scope_disabled',
+          );
+          summary.optionalScopeLimited = true;
+          await noteMergeSyncPage(syncRun, model, { pagesProcessed: 0, recordsProcessed: 0 });
+          failedModel = '';
+          return { ...emptyCounts(), fetchComplete: false, fallback: 'scope_disabled', processed: 0 };
+        }
+        throw err;
+      }
+    };
+    await reportProgress(onProgress, 20);
+
+    summary.departments = await runModel('group', () =>
+      syncDepartments({
+        tenantId,
+        connection,
+        accountToken,
+        now,
+        modifiedAfter: modifiedAfterFor('group'),
+        onRateLimit,
+        onPageDone: (progress) => noteMergeSyncPage(syncRun, 'group', progress),
+      }),
+    );
+    if (summary.departments.fetchComplete) completedWatermarks.group = syncBoundaryAt;
 
     await assertLock();
     const departments = await MergeHrisDepartment.find({
@@ -920,43 +1511,138 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
       departments.map((d) => [d.mergeDepartmentId, d.groupType || 'UNKNOWN']),
     );
 
+    await reportProgress(onProgress, 30);
     await assertLock();
-    summary.locations = await syncLocations({
-      tenantId,
-      connection,
-      accountToken,
-      now,
-    });
+    summary.locations = await runModel('location', () =>
+      syncLocations({
+        tenantId,
+        connection,
+        accountToken,
+        now,
+        modifiedAfter: modifiedAfterFor('location'),
+        onRateLimit,
+        onPageDone: (progress) => noteMergeSyncPage(syncRun, 'location', progress),
+      }),
+    );
+    if (summary.locations.fetchComplete) completedWatermarks.location = syncBoundaryAt;
 
+    await reportProgress(onProgress, 40);
     await assertLock();
-    summary.employees = await syncEmployees({
-      tenantId,
-      connection,
-      accountToken,
-      now,
-      groupTypeById,
-      assertLock,
-    });
+    summary.employees = await runModel('employee', () =>
+      syncEmployees({
+        tenantId,
+        connection,
+        accountToken,
+        now,
+        groupTypeById,
+        assertLock,
+        allowPrune: jobMode === 'full' && employeeModelReady,
+        modifiedAfter: modifiedAfterFor('employee'),
+        onRateLimit,
+        onPageDone: (progress) => noteMergeSyncPage(syncRun, 'employee', progress),
+      }),
+    );
 
+    await reportProgress(onProgress, 50);
     await assertLock();
-    summary.employments = await syncEmployments({
-      tenantId,
-      connection,
-      accountToken,
-      now,
-      assertLock,
-    });
+    summary.employments = await runModel('employment', () =>
+      syncEmployments({
+        tenantId,
+        connection,
+        accountToken,
+        now,
+        assertLock,
+        allowPrune: jobMode === 'full' && employmentSnapshotAuthoritative,
+        modifiedAfter: modifiedAfterFor('employment'),
+        onRateLimit,
+        onPageDone: (progress) => noteMergeSyncPage(syncRun, 'employment', progress),
+      }),
+    );
+    if (
+      summary.employments.fetchComplete &&
+      (jobMode === 'incremental' || !summary.employments.pruneSkippedReason)
+    ) {
+      completedWatermarks.employment = syncBoundaryAt;
+    }
 
+    await reportProgress(onProgress, 70);
     await assertLock();
-    summary.contacts = await syncContactsFromHrisEmployees({
-      tenantId,
-      connection,
-      employeeSnapshotComplete: Boolean(summary.employees.snapshotComplete),
-      assertLock,
+    const contactIds =
+      jobMode === 'incremental'
+        ? [...new Set([...(summary.employees.seenIds || []), ...(summary.employments.seenEmployeeIds || [])])]
+        : summary.employees.seenIds || [];
+    summary.contacts = await runModel('contact', async () => {
+      const counts = await mirrorContactsByIds({
+        tenantId,
+        connection,
+        ids: contactIds,
+        employeeSnapshotComplete: jobMode === 'full' && Boolean(summary.employees.snapshotComplete),
+        assertLock,
+      });
+      await noteMergeSyncPage(syncRun, 'contact', {
+        pagesProcessed: counts.pages || 0,
+        recordsProcessed: counts.processed || 0,
+      });
+      return counts;
     });
+    const employeeCursorReady =
+      summary.employees.fetchComplete &&
+      (jobMode === 'incremental' || !summary.employees.pruneSkippedReason);
+    if (employeeCursorReady) completedWatermarks.employee = syncBoundaryAt;
+    if (employeeCursorReady && summary.contacts.fetchComplete) {
+      completedWatermarks.contact = syncBoundaryAt;
+    }
+
+    logger.info(
+      {
+        ...statusLog,
+        employeePruneAllowed: employeeModelReady,
+        employeePruneSkippedReason: summary.employees.pruneSkippedReason || null,
+        employmentPruneAllowed: employmentSnapshotAuthoritative,
+        employmentPruneSkippedReason: summary.employments.pruneSkippedReason || null,
+      },
+      'Merge employee prune decision',
+    );
+
+    await reportProgress(onProgress, 85);
+    const refreshed = await readMergeModelSync({ accountToken, logContext: statusLog });
+    const latest = refreshed.known ? refreshed : governed;
+    if (refreshed.known) {
+      await persistMergeModelSync({
+        tenantId,
+        connectionId: connection._id,
+        token,
+        models: refreshed.models,
+        listComplete: true,
+      });
+    }
+    await reportProgress(onProgress, 95);
 
     stopHeartbeat();
     await assertLock();
+
+    const stillConnected = await MergeConnection.findOne({ _id: connection._id, tenantId }).select(
+      'status encryptedAccountToken',
+    );
+    assertSyncableConnection(stillConnected);
+
+    if (jobMode === 'incremental') {
+      await MergeHrisEmployee.updateMany(
+        { tenantId, connectionId: connection._id },
+        { $set: { lastSyncedAt: now } },
+      );
+    }
+
+    const fullModelsComplete = ['departments', 'locations', 'employees', 'employments'].every(
+      (key) => summary[key]?.fetchComplete,
+    );
+    summary.models = {
+      employees: describeModel(summary.employees),
+      employments: describeModel(summary.employments),
+      groups: describeModel(summary.departments),
+      locations: describeModel(summary.locations),
+      contacts: describeModel(summary.contacts),
+    };
 
     const completed = await completeMergeSyncLock({
       tenantId,
@@ -965,31 +1651,56 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
       fields: {
         lastSyncAt: now,
         lastSyncStatus: 'success',
-        lastError: '',
-        status: 'connected',
+        lastSyncFinishedAt: new Date(),
+        lastError: summary.optionalScopeLimited ? 'MERGE_OPTIONAL_SCOPE_DISABLED' : '',
+        status: connectionStatusAfterSyncSuccess(stillConnected.status),
+        ...cursorUpdates(completedWatermarks),
+        ...(jobMode === 'full' &&
+        fullModelsComplete &&
+        !summary.employees.pruneSkippedReason &&
+        !summary.employments.pruneSkippedReason
+          ? { lastFullSyncAt: syncBoundaryAt }
+          : {}),
       },
     });
     if (!completed) throw mergeSyncLockLostError();
     connection = completed;
 
+    await finishMergeSyncRun(syncRun, { status: 'success', mode: jobMode });
     logger.info(
       {
-        organizationId: String(tenantId),
+        event: 'merge_sync_completed',
         connectionId: String(connection._id),
-        provider: connection.provider,
+        syncRunId: syncRun ? String(syncRun._id) : null,
+        jobId: jobId ? String(jobId) : null,
+        reason,
+        mode: jobMode,
+        attempt: Math.max(1, Number(attempt) || 1),
         contactsCreated: summary.contacts.created,
         contactsUpdated: summary.contacts.updated,
         contactsConflicts: summary.contacts.conflicts || 0,
       },
-      'Merge HRIS sync completed',
+      'merge_sync_completed',
     );
+
+    const mergeSyncInProgress = Boolean(
+      latest.known && isMergeModelSyncInProgress(latest.models?.employee),
+    );
+    const employeeSnapshotAuthoritative =
+      employeeModelReady && !summary.employees.pruneSkippedReason;
+
+    await reportProgress(onProgress, 100);
 
     return {
       connection: connection.toPublicJSON(),
       sync: summary,
+      mergeSyncInProgress,
+      employeeSnapshotAuthoritative,
+      mergeSyncStateKnown: Boolean(latest.known),
     };
   } catch (err) {
     stopHeartbeat();
+    const terminal = isMergeSyncAttemptTerminal(err, { attempt, maxAttempts });
     if (err?.code === 'MERGE_SYNC_LOCK_LOST') {
       logger.warn(
         {
@@ -1000,15 +1711,42 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
         },
         'Merge HRIS sync aborted — lock lost',
       );
+      if (terminal && syncRun) {
+        await finishMergeSyncRun(syncRun, {
+          status: 'failed',
+          errorCode: 'MERGE_SYNC_LOCK_LOST',
+          failedModel,
+        });
+      }
+      throw err;
+    }
+
+    if (!terminal) {
+      const released = await releaseMergeSyncLock({ tenantId, connectionId: connection._id, token });
+      if (released) {
+        await MergeConnection.updateOne(
+          { _id: connection._id, tenantId, syncLockToken: '' },
+          { $set: { lastError: safeSyncErrorCode(err) } },
+        );
+      }
+      if (syncRun) await touchMergeSyncRun(syncRun, { errorCode: safeMergeSyncRunError(err) });
       throw err;
     }
 
     const failedFields = {
       lastSyncStatus: 'failed',
-      lastError: err?.code || err?.message || 'SYNC_FAILED',
+      lastError: safeSyncErrorCode(err),
+      lastSyncFinishedAt: new Date(),
     };
-    if (err?.code === 'MERGE_SCOPES_DISABLED') {
-      failedFields.status = 'connected';
+    const blockWatermarks =
+      err?.code === 'MERGE_CONNECTION_INACTIVE' ||
+      err?.code === 'MERGE_TOKEN_MISSING' ||
+      err?.code === 'MERGE_TOKEN_DECRYPT_FAILED';
+    if (!blockWatermarks) {
+      Object.assign(failedFields, cursorUpdates(completedWatermarks));
+    }
+    if (err?.code === 'MERGE_SCOPES_DISABLED' && scopeFailureChangesConnection(failedModel)) {
+      failedFields.status = 'needs_attention';
       failedFields.lastError = 'MERGE_SCOPES_DISABLED';
     } else if (err?.code === 'MERGE_AUTH_FAILED') {
       failedFields.status = 'needs_attention';
@@ -1021,20 +1759,34 @@ export async function syncMergeConnection({ tenantId, connectionId, lock } = {})
       fields: failedFields,
     });
 
+    if (syncRun) {
+      await finishMergeSyncRun(syncRun, {
+        status: 'failed',
+        errorCode: safeMergeSyncRunError(err),
+        failedModel,
+      });
+    }
     logger.warn(
       {
-        organizationId: String(tenantId),
+        event: 'merge_sync_failed',
         connectionId: String(connection._id),
-        provider: connection.provider,
-        code: err?.code,
+        syncRunId: syncRun ? String(syncRun._id) : null,
+        jobId: jobId ? String(jobId) : null,
+        reason,
+        attempt: Math.max(1, Number(attempt) || 1),
+        model: failedModel || null,
+        code: safeMergeSyncRunError(err),
       },
-      'Merge HRIS sync failed',
+      'merge_sync_failed',
     );
     throw err;
   } finally {
     stopHeartbeat();
   }
 }
+
+/** Canonical Merge HRIS import. The HTTP handler only enqueues this. */
+export const runMergeHrisSync = syncMergeConnection;
 
 /** List synced HRIS employees for the tenant (safe fields only). */
 export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 100 }) {

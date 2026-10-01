@@ -29,6 +29,26 @@ export function isMergeHrisIntegration(id: string): id is MergeHrisIntegration {
   return (MERGE_HRIS_INTEGRATIONS as readonly string[]).includes(id);
 }
 
+export type MergeCommonModelSyncPublic = {
+  modelId: string | null;
+  status: string | null;
+  lastSyncResult: string | null;
+  lastSyncStart: string | null;
+  lastSyncFinished: string | null;
+  dataFreshAsOf: string | null;
+  syncStatusReason: string | null;
+  isInitialSync: boolean | null;
+};
+
+export type MergeModelSyncPublic = {
+  employee: MergeCommonModelSyncPublic | null;
+  employment: MergeCommonModelSyncPublic | null;
+  group: MergeCommonModelSyncPublic | null;
+  location: MergeCommonModelSyncPublic | null;
+  fetchedAt: string | null;
+  listComplete: boolean;
+};
+
 export type MergeConnectionPublic = {
   id: string;
   provider: string;
@@ -43,25 +63,45 @@ export type MergeConnectionPublic = {
   lastError?: string | null;
   connectedByUserId: string | null;
   updatedAt: string | null;
+  mergeModelSync?: MergeModelSyncPublic | null;
 };
+
+export function mergeSafeErrorMessage(
+  code: string | null | undefined,
+  providerName = "your HRMS",
+): string | null {
+  switch (code) {
+    case "MERGE_AUTH_FAILED":
+      return `ShelfMerch can no longer fully access employee data from ${providerName}. Reconnect your account to restore automatic syncing.`;
+    case "MERGE_SCOPES_DISABLED":
+      return "Employee access is not enabled for this connection. Reconnect or update your HRMS permissions so ShelfMerch can access employees.";
+    case "MERGE_OPTIONAL_SCOPE_DISABLED":
+      return "Connected with limited access. Some optional HRMS data is unavailable, but employee syncing is still working.";
+    case "MERGE_RATE_LIMITED":
+    case "MERGE_UNREACHABLE":
+    case "MERGE_UPSTREAM_ERROR":
+    case "MERGE_SYNC_LOCK_LOST":
+      return "Latest sync could not complete. Your HRMS connection is still active and ShelfMerch will retry automatically.";
+    case "MERGE_QUEUE_UNAVAILABLE":
+      return "Sync could not be started right now. Please try again shortly.";
+    case "MERGE_SYNC_STALE":
+      return "A previous sync stopped unexpectedly. You can try syncing again. Automatic syncing will continue.";
+    default:
+      return code ? "The latest sync could not complete." : null;
+  }
+}
 
 export function mergeSyncErrorMessage(err: unknown): string {
   if (err && typeof err === "object" && "code" in err) {
     const code = String((err as { code?: string }).code || "");
-    if (code === "MERGE_SCOPES_DISABLED") {
-      return "Required permissions are not enabled for this connection.";
-    }
-    if (code === "MERGE_AUTH_FAILED") {
-      return "This connection needs to be reconnected.";
-    }
-    if (code === "MERGE_RATE_LIMITED") {
-      return "Sync is temporarily rate limited. Try again in a few minutes.";
+    if (code === "MERGE_SYNC_IN_PROGRESS" || code === "MERGE_SYNC_LOCK_LOST") {
+      return "Sync already in progress";
     }
     if (code === "MERGE_PROVIDER_ERROR") {
       return "The provider could not complete sync. Try again.";
     }
-    if (code === "MERGE_SYNC_IN_PROGRESS" || code === "MERGE_SYNC_LOCK_LOST") {
-      return "Sync already in progress";
+    if (code.startsWith("MERGE_")) {
+      return mergeSafeErrorMessage(code) || "The latest sync could not complete.";
     }
   }
   if (err instanceof Error && err.message) return err.message;
@@ -192,22 +232,98 @@ export async function fetchMergeConnections(): Promise<MergeConnectionPublic[]> 
   return Array.isArray(res?.connections) ? res.connections : [];
 }
 
-export async function syncMergeConnection(connectionId: string): Promise<{
-  connection: MergeConnectionPublic;
-  sync: MergeSyncSummary;
-}> {
+export type MergeSyncEnqueueResult = {
+  queued: boolean;
+  alreadyQueuedOrRunning: boolean;
+  connectionId: string;
+  jobId: string;
+  syncStatus: string;
+};
+
+export async function syncMergeConnection(connectionId: string): Promise<MergeSyncEnqueueResult> {
   const res = await mergeFetch<{
     success: boolean;
-    connection: MergeConnectionPublic;
-    sync: MergeSyncSummary;
+    queued?: boolean;
+    alreadyQueuedOrRunning?: boolean;
+    connectionId?: string;
+    jobId?: string;
+    syncStatus?: string;
   }>(`/connections/${encodeURIComponent(connectionId)}/sync`, {
     method: "POST",
     body: JSON.stringify({}),
   });
-  if (!res?.connection || !res?.sync) {
-    throw new ApiError(502, "Merge sync returned an incomplete response", "MERGE_SYNC_INVALID");
-  }
-  return { connection: res.connection, sync: res.sync };
+  return {
+    queued: res?.queued === true,
+    alreadyQueuedOrRunning: res?.alreadyQueuedOrRunning === true,
+    connectionId: res?.connectionId || connectionId,
+    jobId: res?.jobId || "",
+    syncStatus: res?.syncStatus || "",
+  };
+}
+
+export type MergeSyncRunModelProgress = {
+  status: string;
+  pagesProcessed: number;
+  recordsProcessed: number;
+  lastPageCompletedAt?: string | null;
+  errorCode?: string | null;
+};
+
+export type MergeSyncRunPublic = {
+  id: string;
+  connectionId: string;
+  reason: string;
+  mode?: string | null;
+  status: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  lastProgressAt?: string | null;
+  durationMs?: number | null;
+  retryCount: number;
+  workerAttempt: number;
+  rateLimitCount: number;
+  errorCode?: string | null;
+  failedModel?: string | null;
+  models: {
+    employee: MergeSyncRunModelProgress | null;
+    employment: MergeSyncRunModelProgress | null;
+    group: MergeSyncRunModelProgress | null;
+    location: MergeSyncRunModelProgress | null;
+    contact: MergeSyncRunModelProgress | null;
+  };
+};
+
+export type MergeSyncStatusPublic = {
+  connectionId: string;
+  connectionStatus: string;
+  lastSyncStatus: string;
+  lastSyncAt?: string | null;
+  lastSyncRequestedAt?: string | null;
+  lastSyncStartedAt?: string | null;
+  lastSyncFinishedAt?: string | null;
+  lastFullSyncAt?: string | null;
+  lastError?: string | null;
+  activeRun: MergeSyncRunPublic | null;
+  runs: MergeSyncRunPublic[];
+};
+
+export async function fetchMergeSyncStatus(connectionId: string): Promise<MergeSyncStatusPublic> {
+  const res = await mergeFetch<MergeSyncStatusPublic & { success: boolean }>(
+    `/connections/${encodeURIComponent(connectionId)}/sync-runs`,
+  );
+  return {
+    connectionId: res.connectionId,
+    connectionStatus: res.connectionStatus,
+    lastSyncStatus: res.lastSyncStatus,
+    lastSyncAt: res.lastSyncAt ?? null,
+    lastSyncRequestedAt: res.lastSyncRequestedAt ?? null,
+    lastSyncStartedAt: res.lastSyncStartedAt ?? null,
+    lastSyncFinishedAt: res.lastSyncFinishedAt ?? null,
+    lastFullSyncAt: res.lastFullSyncAt ?? null,
+    lastError: res.lastError ?? null,
+    activeRun: res.activeRun ?? null,
+    runs: Array.isArray(res.runs) ? res.runs : [],
+  };
 }
 
 export async function disconnectMergeConnection(

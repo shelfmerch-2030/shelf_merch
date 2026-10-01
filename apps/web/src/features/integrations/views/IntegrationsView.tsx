@@ -208,6 +208,9 @@ export function IntegrationsView(vm: IntegrationsVm) {
           onSelect={vm.onSelect}
           onSupport={vm.onSupport}
           connection={connection}
+          syncStatus={vm.mergeSyncStatus}
+          syncStatusLoading={vm.mergeSyncStatusLoading}
+          syncStatusError={vm.mergeSyncStatusError}
           busy={vm.mergeLinking || vm.mergeExchanging || vm.zoho.connecting || vm.slack.connecting}
           syncing={Boolean(connection && vm.mergeSyncingId === connection.id)}
           disconnecting={Boolean(connection && vm.mergeDisconnectingId === connection.id)}
@@ -250,9 +253,9 @@ export function IntegrationsView(vm: IntegrationsVm) {
             const mergeConn = isMergeHrisIntegration(tile.id)
               ? vm.mergeConnectionsByProvider[tile.id]
               : undefined;
-            const needsAttention = Boolean(mergeConn?.status === "needs_attention");
+            const needsAttention = mergeConn?.status === "needs_attention";
             const connected =
-              (isMergeHrisIntegration(tile.id) && Boolean(mergeConn)) ||
+              mergeConn?.status === "connected" ||
               (tile.id === "zoho-people" && zohoConnected);
             return (
               <HrisLogoCard

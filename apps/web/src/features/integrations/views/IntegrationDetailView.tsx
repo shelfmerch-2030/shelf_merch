@@ -15,7 +15,9 @@ import {
 import type { Tile } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
 import { isMergeHrisIntegration } from "@/services/merge-api";
-import type { MergeConnectionPublic } from "@/services/merge-api";
+import type { MergeConnectionPublic, MergeSyncStatusPublic } from "@/services/merge-api";
+import { deriveHrisSyncView, usesHrisAutomaticSyncUi } from "../hrisSyncUi";
+import { HrisSyncPanel } from "./HrisSyncPanel";
 import {
   canSaveSlackChannel,
   canSendSlackTestMessage,
@@ -482,6 +484,9 @@ export function IntegrationDetailView({
   disconnecting = false,
   onSync,
   onDisconnect,
+  syncStatus = null,
+  syncStatusLoading = false,
+  syncStatusError = false,
   canManage = false,
   zoho = null,
   slack = null,
@@ -497,14 +502,33 @@ export function IntegrationDetailView({
   disconnecting?: boolean;
   onSync?: (connectionId: string) => void;
   onDisconnect?: (connectionId: string) => void;
+  syncStatus?: MergeSyncStatusPublic | null;
+  syncStatusLoading?: boolean;
+  syncStatusError?: boolean;
   canManage?: boolean;
   zoho?: IntegrationsVm["zoho"] | null;
   slack?: IntegrationsVm["slack"] | null;
 }) {
   const isMergeProvider = isMergeHrisIntegration(tile.id);
+  const hrisAuto = usesHrisAutomaticSyncUi(tile.id, connection?.category);
+  const hrisView =
+    hrisAuto && connection
+      ? deriveHrisSyncView({
+          providerName: tile.name,
+          connection,
+          syncStatus,
+          enqueuePending: syncing,
+        })
+      : null;
   const mergeHealthy = Boolean(connection && connection.status === "connected");
   const mergeNeedsReconnect = Boolean(connection && connection.status === "needs_attention");
   const syncFailed = connection?.lastSyncStatus === "failed";
+  const syncPhase =
+    connection?.lastSyncStatus === "syncing"
+      ? "syncing"
+      : connection?.lastSyncStatus === "queued" || syncing
+        ? "queued"
+        : null;
   const syncFailureMessage = connection ? mergeSyncFailureCopy(connection) : null;
   const zohoConnected = Boolean(
     zoho &&
@@ -557,6 +581,48 @@ export function IntegrationDetailView({
         </MetaPanel>
       </>
     );
+  } else if (hrisView && connection) {
+    body = (
+      <>
+        <HrisSyncPanel
+          view={hrisView}
+          providerName={tile.name}
+          canManage={canManage}
+          busy={busy}
+          disconnecting={disconnecting}
+          syncStatusLoading={syncStatusLoading}
+          syncStatusError={syncStatusError}
+          onSync={onSync ? () => onSync(connection.id) : undefined}
+          onReconnect={() => onInstall(tile)}
+          onDisconnect={onDisconnect ? () => onDisconnect(connection.id) : undefined}
+        />
+        {connection.status !== "disconnected" ? (
+          <section className="bonus-integ-quick-links" aria-labelledby="integ-people-heading">
+            <p id="integ-people-heading" className="bonus-integ-quick-links__label">People</p>
+            <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
+              <span className="bonus-integ-directory-icon bonus-integ-directory-icon--people" aria-hidden="true">
+                <Users size={16} />
+              </span>
+              <span className="bonus-integ-directory-copy">
+                <strong>Employee directory</strong>
+                <span>Browse everyone synced from {tile.name}</span>
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+            <Link to="/app/contacts" className="bonus-integ-directory-link">
+              <span className="bonus-integ-directory-icon bonus-integ-directory-icon--contacts" aria-hidden="true">
+                <Contact size={16} />
+              </span>
+              <span className="bonus-integ-directory-copy">
+                <strong>Workspace Contacts</strong>
+                <span>Use them for gifting after each sync</span>
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </section>
+        ) : null}
+      </>
+    );
   } else if (isMergeProvider && mergeHealthy && connection) {
     body = (
       <>
@@ -567,13 +633,13 @@ export function IntegrationDetailView({
             <button
               type="button"
               className="bonus-integ-btn bonus-integ-btn--primary"
-              disabled={syncing || busy || disconnecting}
+              disabled={Boolean(syncPhase) || busy || disconnecting}
               onClick={() => onSync(connection.id)}
             >
-              {syncing ? (
+              {syncPhase ? (
                 <>
                   <Loader2 size={15} className="auth-spin" aria-hidden="true" />
-                  <span>Syncing…</span>
+                  <span>{syncPhase === "syncing" ? "Syncing…" : "Queued"}</span>
                 </>
               ) : (
                 <>
@@ -587,7 +653,7 @@ export function IntegrationDetailView({
             <DisconnectConfirm
               title={`Disconnect ${tile.name}?`}
               description={mergeDisconnectCopy(tile.name, connection.category === "directory")}
-              disabled={disconnecting || syncing || busy}
+              disabled={disconnecting || Boolean(syncPhase) || busy}
               label={disconnecting ? "Disconnecting…" : "Disconnect"}
               onConfirm={() => onDisconnect?.(connection.id)}
             />
@@ -749,7 +815,12 @@ export function IntegrationDetailView({
   }
 
   const headerStatus =
-    isMergeProvider && mergeHealthy && connection
+    hrisView
+      ? ({
+          tone: hrisView.connectionWord === "Connected" ? "success" : hrisView.connectionWord === "Disconnected" ? "neutral" : "warning",
+          label: `${hrisView.connectionMark} ${hrisView.connectionWord}`,
+        } as const)
+      : isMergeProvider && mergeHealthy && connection
       ? syncFailed
         ? ({ tone: "warning", label: "Sync failed" } as const)
         : ({ tone: "success", label: "Connected" } as const)
@@ -783,8 +854,8 @@ export function IntegrationDetailView({
               ) : null}
             </div>
             <h1>{tile.name}</h1>
-            <p className="bonus-integ-detail-lead">{detailCopy(tile)}</p>
-            {isMergeProvider && mergeHealthy && connection?.lastSyncAt ? (
+            <p className="bonus-integ-detail-lead">{hrisView ? hrisView.lead : detailCopy(tile)}</p>
+            {isMergeProvider && mergeHealthy && connection?.lastSyncAt && !hrisView ? (
               <p className="bonus-integ-detail-meta">
                 <Clock size={13} aria-hidden="true" />
                 Last synced {formatDate(connection.lastSyncAt)}

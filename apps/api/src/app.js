@@ -16,6 +16,7 @@ import { sanitizeMongoInput } from './middleware/sanitize.middleware.js';
 import { requestContextMiddleware } from './middleware/requestContext.middleware.js';
 import { globalHttpRateLimit } from './middleware/globalRateLimit.middleware.js';
 import { razorpayWebhook } from './modules/payments/payments.controller.js';
+import { mergeWebhook } from './modules/integrations/merge/merge.controller.js';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
@@ -180,6 +181,13 @@ export function createApp() {
     '/api/v1/payments/razorpay/webhook',
     express.raw({ type: 'application/json' }),
     asyncHandler(razorpayWebhook),
+  );
+
+  // Merge signs the raw body. Verify before JSON parsing, and do not import HRIS here.
+  app.post(
+    '/api/integrations/merge/webhook',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    asyncHandler(mergeWebhook),
   );
 
   app.use(express.json({ limit: '1mb' }));

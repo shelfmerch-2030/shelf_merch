@@ -39,6 +39,23 @@ let managerToken;
 let otherAdminToken;
 let fetchMock;
 
+async function importSync(connOrId, { tenantId: forTenant = tenant._id } = {}) {
+  const connectionId = connOrId && connOrId._id ? connOrId._id : connOrId;
+  try {
+    const result = await syncMergeConnection({
+      tenantId: forTenant,
+      connectionId,
+      reason: 'manual',
+    });
+    return { status: 200, body: { success: true, ...result } };
+  } catch (err) {
+    return {
+      status: err?.status || 500,
+      body: { success: false, error: { code: err?.code, message: err?.message } },
+    };
+  }
+}
+
 async function makeUser(role, scopeType, forTenant = tenant) {
   const user = await User.create({
     tenantId: forTenant._id,
@@ -61,6 +78,34 @@ function mockJson(data, status = 200) {
     status,
     json: async () => data,
   };
+}
+
+/** Finished common models — existing sync tests expect an authoritative snapshot. */
+function authoritativeMergeSyncStatusBody() {
+  const row = (modelId, modelName) => ({
+    model_id: modelId,
+    model_name: modelName,
+    status: 'DONE',
+    last_sync_result: 'DONE',
+    is_initial_sync: false,
+    last_sync_start: '2024-06-01T00:00:00.000Z',
+    last_sync_finished: '2024-06-01T00:05:00.000Z',
+    data_fresh_as_of: '2024-06-01T00:00:00.000Z',
+    sync_status_reason: null,
+  });
+  return {
+    next: null,
+    results: [
+      row('hris.Employee', 'Employee'),
+      row('hris.Employment', 'Employment'),
+      row('hris.Group', 'Group'),
+      row('hris.Location', 'Location'),
+    ],
+  };
+}
+
+function isMergeSyncStatusUrl(url) {
+  return String(url).includes('/hris/v1/sync-status');
 }
 
 beforeAll(async () => {
@@ -393,6 +438,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
   function mockSyncPages() {
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
         return mockJson({
           next: null,
@@ -481,9 +527,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
 
   it('rejects wrong-tenant connection', async () => {
     const conn = await seedConnection(otherTenant);
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(404);
   });
 
@@ -491,9 +535,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     const conn = await seedConnection();
     conn.status = 'disconnected';
     await conn.save();
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(400);
     expect(res.body.error?.code).toBe('MERGE_CONNECTION_INACTIVE');
   });
@@ -510,9 +552,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     const usersBefore = await User.countDocuments({ tenantId: tenant._id });
     mockSyncPages();
 
-    const first = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const first = await importSync(conn._id);
 
     expect(first.status).toBe(200);
     expect(first.body.success).toBe(true);
@@ -583,9 +623,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
 
     // Second sync is idempotent for Merge models and updates existing Contacts
     mockSyncPages();
-    const second = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const second = await importSync(conn._id);
     expect(second.status).toBe(200);
     expect(second.body.sync.contacts.created).toBe(0);
     expect(second.body.sync.contacts.updated).toBe(2);
@@ -622,9 +660,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     });
     mockSyncPages();
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
 
@@ -800,9 +836,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     const conn = await seedConnection();
     fetchMock.mockResolvedValue(mockJson({ detail: 'boom-secret' }, 500));
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(502);
     expect(JSON.stringify(res.body)).not.toContain('boom-secret');
@@ -816,7 +850,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     expect(refreshed.status).toBe('connected');
   });
 
-  it('maps Merge scope 403 to MERGE_SCOPES_DISABLED and keeps connection connected', async () => {
+  it('maps a required-scope 403 to MERGE_SCOPES_DISABLED and needs_attention', async () => {
     const conn = await seedConnection();
     fetchMock.mockResolvedValue(
       mockJson(
@@ -829,9 +863,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
       ),
     );
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(502);
     expect(res.body.error?.code).toBe('MERGE_SCOPES_DISABLED');
@@ -842,7 +874,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
       _id: conn._id,
       tenantId: tenant._id,
     });
-    expect(refreshed.status).toBe('connected');
+    expect(refreshed.status).toBe('needs_attention');
     expect(refreshed.lastSyncStatus).toBe('failed');
     expect(refreshed.lastError).toBe('MERGE_SCOPES_DISABLED');
   });
@@ -851,9 +883,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     const conn = await seedConnection();
     fetchMock.mockResolvedValue(mockJson({ detail: 'Invalid account token secret-xyz' }, 401));
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(502);
     expect(res.body.error?.code).toBe('MERGE_AUTH_FAILED');
@@ -890,6 +920,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
           account_type: 'TEST',
         });
       }
+      if (String(url).includes('/hris/v1/issues')) return mockJson({ next: null, results: [] });
       return mockJson({}, 404);
     });
 
@@ -917,9 +948,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     await conn.save();
     mockSyncPages();
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.connection.status).toBe('connected');
@@ -932,9 +961,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
     const conn = await seedConnection();
     mockSyncPages();
 
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const employeeCall = fetchMock.mock.calls.find(([url]) =>
       String(url).startsWith(MERGE_HRIS_EMPLOYEES_URL),
@@ -954,6 +981,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
 
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
         return mockJson({ next: null, results: [] });
       }
@@ -969,9 +997,7 @@ describe('POST /api/integrations/merge/connections/:connectionId/sync', () => {
       return mockJson({}, 404);
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${deel._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(deel._id);
 
     expect(res.status).toBe(200);
     const accountTokens = fetchMock.mock.calls.map(([, opts]) => opts?.headers?.['X-Account-Token']);
@@ -1180,6 +1206,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
   } = {}) {
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
         return mockJson({
           next: null,
@@ -1234,9 +1261,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
     const conn = await seedConnection();
     mockHrisSnapshot();
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.contacts.created).toBe(1);
@@ -1257,9 +1282,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
   it('second sync of unchanged employee updates the same Contact (created = 0)', async () => {
     const conn = await seedConnection();
     mockHrisSnapshot();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const before = await Contact.findOne({
       tenantId: tenant._id,
@@ -1268,9 +1291,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
     });
 
     mockHrisSnapshot();
-    const second = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const second = await importSync(conn._id);
 
     expect(second.status).toBe(200);
     expect(second.body.sync.contacts.created).toBe(0);
@@ -1288,9 +1309,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
   it('work-email change updates the same Contact and does not create a duplicate', async () => {
     const conn = await seedConnection();
     mockHrisSnapshot();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const before = await Contact.findOne({
       tenantId: tenant._id,
@@ -1315,9 +1334,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
       ],
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.contacts.created).toBe(0);
@@ -1337,9 +1354,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
   it('name/title/location changes update the same Contact', async () => {
     const conn = await seedConnection();
     mockHrisSnapshot({ jobTitle: 'Ranger' });
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const before = await Contact.findOne({
       tenantId: tenant._id,
@@ -1364,9 +1379,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
       ],
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.contacts.created).toBe(0);
@@ -1391,9 +1404,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
     });
 
     mockHrisSnapshot();
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.contacts.created).toBe(0);
@@ -1414,14 +1425,10 @@ describe('Merge HRIS → Contact identity upsert', () => {
     const connB = await seedConnection(otherTenant, 'workday');
 
     mockHrisSnapshot();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${connA._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(connA._id);
 
     mockHrisSnapshot();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${connB._id}/sync`)
-      .set('Authorization', `Bearer ${otherAdminToken}`);
+    await importSync(connB._id, { tenantId: otherTenant._id });
 
     const contactA = await Contact.findOne({
       tenantId: tenant._id,
@@ -1460,9 +1467,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
         },
       ],
     });
-    await request(app)
-      .post(`/api/integrations/merge/connections/${connWorkday._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(connWorkday._id);
 
     mockHrisSnapshot({
       employees: [
@@ -1479,9 +1484,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
         },
       ],
     });
-    await request(app)
-      .post(`/api/integrations/merge/connections/${connDeel._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(connDeel._id);
 
     const workdayContact = await Contact.findOne({
       tenantId: tenant._id,
@@ -1504,9 +1507,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
   it('logs a controlled conflict when new email is already owned by another Contact', async () => {
     const conn = await seedConnection();
     mockHrisSnapshot();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const linked = await Contact.findOne({
       tenantId: tenant._id,
@@ -1544,9 +1545,7 @@ describe('Merge HRIS → Contact identity upsert', () => {
       ],
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.contacts.created).toBe(0);
@@ -1624,6 +1623,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
   } = {}) {
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href.startsWith(MERGE_HRIS_GROUPS_URL)) {
         return mockJson({ next: null, results: groups });
       }
@@ -1645,15 +1645,11 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
   it('does not prune when the employee snapshot is malformed', async () => {
     const conn = await seedConnection();
     mockPages();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
 
     mockPages({ employeesPayload: { next: null } });
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
     expect(res.body.sync.employees.pruneSkippedReason).toBe('incomplete');
     expect(res.body.sync.employees.pruned).toBe(0);
@@ -1663,14 +1659,10 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
   it('does not prune when employee rows exist but none have ids', async () => {
     const conn = await seedConnection();
     mockPages();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     mockPages({ employees: [{ first_name: 'Nameless' }] });
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
     expect(res.body.sync.employees.pruneSkippedReason).toBe('no_usable_ids');
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
@@ -1689,15 +1681,11 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
       source: 'merge',
     });
     mockPages();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(1);
 
     mockPages({ employees: [] });
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
     expect(res.body.sync.employees.pruned).toBe(1);
     expect(await MergeHrisEmployee.countDocuments({ tenantId: tenant._id })).toBe(0);
@@ -1718,15 +1706,14 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
 
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href.startsWith(MERGE_HRIS_EMPLOYEES_URL)) {
         return mockJson({ results: [{ id: 'emp-page', first_name: 'Paged' }], next: 'cursor-next' });
       }
       return mockJson({ next: null, results: [] });
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(200);
     expect(res.body.sync.employees.pruneSkippedReason).toBe('incomplete');
@@ -1741,9 +1728,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
   it('clears job title when upstream employment title is removed', async () => {
     const conn = await seedConnection();
     mockPages();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
     expect(
       (await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' })).jobTitle,
     ).toBe('Engineer');
@@ -1759,9 +1744,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
         },
       ],
     });
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
 
     const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
@@ -1773,14 +1756,10 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
   it('clears job title when a complete employment snapshot has no rows for the employee', async () => {
     const conn = await seedConnection();
     mockPages();
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     mockPages({ employments: [] });
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
     expect(emp.jobTitle).toBe('');
@@ -1810,9 +1789,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
       employments: [],
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
 
     const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
@@ -1854,9 +1831,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
       ],
       employments: [],
     });
-    await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    await importSync(conn._id);
 
     const emp = await MergeHrisEmployee.findOne({ tenantId: tenant._id, mergeEmployeeId: 'emp-1' });
     expect(emp.departmentMergeIds).toEqual(['team-deel']);
@@ -1883,9 +1858,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
       employments: [],
       locations: [],
     });
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
     expect(res.body.sync.employees.created).toBe(1);
     expect(res.body.sync.contacts.created).toBe(0);
@@ -1909,9 +1882,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
       locations: [],
       groups: [],
     });
-    let res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    let res = await importSync(conn._id);
     expect(res.body.sync.employees.created).toBe(1);
     expect(res.body.sync.contacts.created).toBe(0);
 
@@ -1943,9 +1914,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
         },
       ],
     });
-    res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    res = await importSync(conn._id);
     expect(res.body.sync.employees.created).toBe(0);
     expect(res.body.sync.employees.updated).toBe(1);
     expect(res.body.sync.contacts.created).toBe(1);
@@ -1981,9 +1950,7 @@ describe('Merge HRIS snapshot prune, titles, org units, optional fields', () => 
         },
       ],
     });
-    res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    res = await importSync(conn._id);
     expect(res.body.sync.contacts.created).toBe(0);
     expect(res.body.sync.contacts.updated).toBe(1);
 
@@ -2039,6 +2006,7 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
   } = {}) {
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (href === MERGE_DELETE_ACCOUNT_URL) {
         return mockJson({});
       }
@@ -2085,9 +2053,8 @@ describe('Merge HRIS contact lifecycle, reclaim, and isolation', () => {
   }
 
   async function sync(conn, token = adminToken) {
-    return request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${token}`);
+    const forTenant = token === otherAdminToken ? otherTenant._id : tenant._id;
+    return importSync(conn, { tenantId: forTenant });
   }
 
   it('reclaims the same Contact when the old Merge UUID is pruned and a new UUID shares the email', async () => {
@@ -2790,6 +2757,7 @@ describe('Merge sync lock', () => {
     const pages = hrisPages();
     fetchMock.mockImplementation(async (url) => {
       const href = String(url);
+      if (isMergeSyncStatusUrl(href)) return mockJson(authoritativeMergeSyncStatusBody());
       if (gate && href.startsWith(MERGE_HRIS_GROUPS_URL)) await gate;
       if (href.startsWith(MERGE_HRIS_GROUPS_URL)) return mockJson(pages.groups);
       if (href.startsWith(MERGE_HRIS_LOCATIONS_URL)) return mockJson(pages.locations);
@@ -2817,15 +2785,11 @@ describe('Merge sync lock', () => {
     });
     mockHrisFetch(gate);
 
-    const firstStarted = request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`)
+    const firstStarted = importSync(conn._id)
       .then((res) => res);
     await waitForLock(conn);
 
-    const second = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const second = await importSync(conn._id);
     expect(second.status).toBe(409);
     expect(second.body.error?.code).toBe('MERGE_SYNC_IN_PROGRESS');
     expect(second.body.error?.message).toMatch(/already in progress/i);
@@ -2844,21 +2808,15 @@ describe('Merge sync lock', () => {
   it('allows another sync after success and after failure', async () => {
     const conn = await seedConnection();
     mockHrisFetch();
-    const ok = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const ok = await importSync(conn._id);
     expect(ok.status).toBe(200);
 
     mockHrisFetch();
-    const again = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const again = await importSync(conn._id);
     expect(again.status).toBe(200);
 
     fetchMock.mockResolvedValue(mockJson({ detail: 'upstream' }, 500));
-    const failed = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const failed = await importSync(conn._id);
     expect(failed.status).toBe(502);
 
     const afterFail = await MergeConnection.findOne({ _id: conn._id, tenantId: tenant._id });
@@ -2866,9 +2824,7 @@ describe('Merge sync lock', () => {
     expect(afterFail.syncLockToken).toBe('');
 
     mockHrisFetch();
-    const recovered = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const recovered = await importSync(conn._id);
     expect(recovered.status).toBe(200);
   });
 
@@ -2880,9 +2836,7 @@ describe('Merge sync lock', () => {
     await conn.save();
     mockHrisFetch();
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(200);
     expect(res.body.connection.lastSyncStatus).toBe('success');
   });
@@ -2895,9 +2849,7 @@ describe('Merge sync lock', () => {
     await conn.save();
     mockHrisFetch();
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
     expect(res.status).toBe(409);
     expect(res.body.error?.code).toBe('MERGE_SYNC_IN_PROGRESS');
     expect(fetchMock).not.toHaveBeenCalled();
@@ -2912,12 +2864,8 @@ describe('Merge sync lock', () => {
     mockHrisFetch();
 
     const [a, b] = await Promise.all([
-      request(app)
-        .post(`/api/integrations/merge/connections/${workday._id}/sync`)
-        .set('Authorization', `Bearer ${adminToken}`),
-      request(app)
-        .post(`/api/integrations/merge/connections/${deel._id}/sync`)
-        .set('Authorization', `Bearer ${adminToken}`),
+      importSync(workday._id),
+      importSync(deel._id),
     ]);
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
@@ -2929,12 +2877,8 @@ describe('Merge sync lock', () => {
     mockHrisFetch();
 
     const [a, b] = await Promise.all([
-      request(app)
-        .post(`/api/integrations/merge/connections/${mine._id}/sync`)
-        .set('Authorization', `Bearer ${adminToken}`),
-      request(app)
-        .post(`/api/integrations/merge/connections/${theirs._id}/sync`)
-        .set('Authorization', `Bearer ${otherAdminToken}`),
+      importSync(mine._id),
+      importSync(theirs._id, { tenantId: otherTenant._id }),
     ]);
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);

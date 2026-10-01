@@ -9,12 +9,18 @@ import {
   MERGE_ACCOUNT_TOKEN_URL,
   MERGE_ACCOUNT_DETAILS_URL,
   MERGE_DELETE_ACCOUNT_URL,
+  MERGE_HRIS_ISSUES_URL,
+  MERGE_HRIS_EMPLOYEES_URL,
+  MERGE_ACCOUNT_STATUS_HEALTHY,
+  MERGE_ACCOUNT_STATUS_RELINK,
   MERGE_HRIS_INTEGRATIONS,
   mergeProviderOriginSegment,
   mergeProviderSourceCategory,
 } from './merge.constants.js';
 import { MergeConnection } from './mergeConnection.model.js';
 import { mergeRequest, requireMergeConfigured } from './mergeHttp.js';
+import { enqueueMergeHrisSync } from '../../../jobs/queues.js';
+import { applyMergeConnected, applyMergeNeedsAttention } from './mergeConnectionState.js';
 
 async function resolveEndUserContext({ tenantId, userId }) {
   if (!tenantId) {
@@ -66,6 +72,28 @@ export function buildMergeEndUserOriginId({ tenantId, integration, existingOrigi
     return `${tenantId}:${segment}:${integration}`;
   }
   return `${tenantId}:hris:${randomUUID()}`;
+}
+
+/** True when a stored or Merge-returned origin id belongs to this ShelfMerch tenant. */
+export function mergeOriginBelongsToTenant(originId, tenantId) {
+  const origin = String(originId || '').trim();
+  const id = String(tenantId || '');
+  if (!origin || !id) return false;
+  if (origin === id) return true;
+  return origin.startsWith(`${id}:`);
+}
+
+/** Short, secret-free Issue text. Not the webhook body. */
+export function sanitizeMergeIssueText(value) {
+  const text = String(value || '')
+    .replace(/[\u0000-\u001f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!text) return '';
+  const redacted = text
+    .replace(/[A-Za-z0-9+/=_-]{24,}/g, '[redacted]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]');
+  return redacted.slice(0, 160);
 }
 
 /**
@@ -240,12 +268,45 @@ export async function exchangeMergePublicToken({
 
   const encryptedAccountToken = encryptToken(accountToken);
   const now = new Date();
+  const category = mergeProviderSourceCategory(provider);
+  const linkedAccountId = String(accountDetails?.id || tokenPayload?.id || '').trim();
 
-  const existing = await MergeConnection.findOne({ tenantId, provider })
-    .select('endUserOriginId')
-    .lean();
+  const existing = await MergeConnection.findOne({ tenantId, provider });
+  const reportedOrigin = String(accountDetails?.end_user_origin_id || '').trim();
+  if (reportedOrigin && !mergeOriginBelongsToTenant(reportedOrigin, tenantId)) {
+    throw new ApiError(
+      400,
+      'Linked account does not belong to this organization',
+      'MERGE_ORIGIN_MISMATCH',
+    );
+  }
+  if (existing?.endUserOriginId && reportedOrigin && reportedOrigin !== existing.endUserOriginId) {
+    throw new ApiError(
+      400,
+      'Linked account origin does not match this connection',
+      'MERGE_ORIGIN_MISMATCH',
+    );
+  }
+
+  if (linkedAccountId) {
+    const holders = await MergeConnection.find({ mergeLinkedAccountId: linkedAccountId })
+      .setOptions({ skipTenantGuard: true })
+      .select('_id tenantId provider')
+      .limit(3);
+    const conflict = holders.find(
+      (row) => String(row.tenantId) !== String(tenantId) || row.provider !== provider,
+    );
+    if (conflict) {
+      throw new ApiError(
+        409,
+        'This Merge Linked Account is already connected',
+        'MERGE_LINKED_ACCOUNT_AMBIGUOUS',
+      );
+    }
+  }
+
   const endUserOriginId =
-    String(accountDetails?.end_user_origin_id || '').trim() ||
+    reportedOrigin ||
     existing?.endUserOriginId ||
     buildMergeEndUserOriginId({
       tenantId,
@@ -254,24 +315,36 @@ export async function exchangeMergePublicToken({
       hasLegacyConnection: Boolean(existing && !existing.endUserOriginId),
     });
 
+  const mergeStatus = String(accountDetails?.status || '').toUpperCase();
+  const needsRelink = MERGE_ACCOUNT_STATUS_RELINK.includes(mergeStatus);
   const doc = await MergeConnection.findOneAndUpdate(
     { tenantId, provider },
     {
       $set: {
         connectedByUserId: userId,
         provider,
-        category: mergeProviderSourceCategory(provider),
-        mergeLinkedAccountId: String(accountDetails?.id || tokenPayload?.id || ''),
+        category,
+        mergeLinkedAccountId: linkedAccountId,
         integrationName: String(
           accountDetails?.integration || tokenPayload?.integration?.name || provider,
         ),
         endUserOriginId,
         endUserOrganizationName: String(accountDetails?.end_user_organization_name || ''),
         encryptedAccountToken,
-        status: 'connected',
-        connectedAt: now,
-        lastError: '',
-        lastSyncStatus: 'idle',
+        status: needsRelink ? 'needs_attention' : 'connected',
+        disconnectedByUser: false,
+        connectedAt: existing?.connectedAt || now,
+        lastError: needsRelink ? mergeStatus : '',
+        ...(needsRelink
+          ? {
+              mergeIssueStatus: 'ONGOING',
+              mergeIssueError: sanitizeMergeIssueText(accountDetails?.status_detail),
+              mergeIssueLastSeenAt: now,
+            }
+          : {
+              mergeIssueStatus: '',
+              mergeIssueError: '',
+            }),
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
@@ -282,19 +355,76 @@ export async function exchangeMergePublicToken({
       organizationId: String(tenantId),
       integration: provider,
       connectionId: String(doc._id),
+      status: doc.status,
     },
     'Merge connection stored',
   );
 
-  return { connection: doc.toPublicJSON() };
+  let queued = null;
+  if (category === 'hris' && doc.status === 'connected' && doc.encryptedAccountToken) {
+    const reason = doc.lastSyncAt ? 'manual' : 'initial';
+    queued = await enqueueMergeConnectionSync(doc, { reason, requestedByUserId: userId });
+  }
+
+  const fresh = await MergeConnection.findOne({ _id: doc._id, tenantId });
+  return { connection: (fresh || doc).toPublicJSON(), sync: queued };
 }
 
 /**
- * If a connection was marked needs_attention but Merge still reports COMPLETE,
- * restore status to connected (e.g. after a mistaken scope-403 auth mapping).
+ * One background import for this connection. Deduped by the existing job id.
+ * Queue failure does not undo a stored connection and does not import inline.
  */
-export async function reconcileMergeConnectionIfHealthy(connection) {
-  if (!connection || connection.status !== 'needs_attention') return connection;
+export async function enqueueMergeConnectionSync(connection, { reason, requestedByUserId = null, enqueue = enqueueMergeHrisSync } = {}) {
+  try {
+    return await enqueue({
+      tenantId: String(connection.tenantId),
+      connectionId: String(connection._id),
+      requestedByUserId: requestedByUserId ? String(requestedByUserId) : null,
+      reason,
+    });
+  } catch (err) {
+    logger.warn(
+      {
+        organizationId: String(connection.tenantId),
+        connectionId: String(connection._id),
+        reason,
+        code: err?.code || err?.name,
+      },
+      'Merge connection sync was not queued',
+    );
+    return { queued: false, alreadyQueuedOrRunning: false, queueError: err?.code || 'MERGE_QUEUE_UNAVAILABLE' };
+  }
+}
+
+async function rememberIssue(connection, { status, description, code }) {
+  connection.mergeIssueStatus = status || connection.mergeIssueStatus || '';
+  if (description != null) connection.mergeIssueError = sanitizeMergeIssueText(description);
+  connection.mergeIssueLastSeenAt = new Date();
+  if (code && /^[A-Z0-9_]{1,80}$/.test(code)) connection.lastError = code;
+  await connection.save();
+  return connection;
+}
+
+function blockingIssues(payload) {
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  return results.filter(
+    (issue) => String(issue?.status || 'ONGOING').toUpperCase() === 'ONGOING' && issue?.is_muted !== true,
+  );
+}
+
+/**
+ * Canonical connection-health check. Does not import employees.
+ * User-disconnected and deleted rows are never moved back to connected.
+ * Rate limits and upstream 5xx do not change connection status.
+ *
+ * requireIssues is retained for callers. Any Issues API failure leaves
+ * needs_attention in place. A connection is restored to connected only when
+ * account details are healthy and the Issues list succeeds with no blocking issue.
+ */
+export async function reconcileMergeConnectionHealth(connection, { requireIssues = false } = {}) {
+  if (!connection) return connection;
+  if (connection.disconnectedByUser || connection.status === 'disconnected') return connection;
+  if (connection.status !== 'needs_attention' && !requireIssues) return connection;
   if (!connection.encryptedAccountToken) return connection;
 
   let accountToken;
@@ -304,45 +434,124 @@ export async function reconcileMergeConnectionIfHealthy(connection) {
     return connection;
   }
 
+  const logContext = {
+    organizationId: String(connection.tenantId),
+    connectionId: String(connection._id),
+  };
+
+  let details;
   try {
-    const details = await mergeRequest(MERGE_ACCOUNT_DETAILS_URL, {
+    details = await mergeRequest(MERGE_ACCOUNT_DETAILS_URL, {
       method: 'GET',
       accountToken,
-      logContext: {
-        organizationId: String(connection.tenantId),
-        connectionId: String(connection._id),
-        action: 'reconcile-account-details',
-      },
+      logContext: { ...logContext, action: 'reconcile-account-details' },
     });
-    const mergeStatus = String(details?.status || '').toUpperCase();
-    if (mergeStatus === 'COMPLETE') {
-      connection.status = 'connected';
-      if (connection.lastError === 'MERGE_AUTH_FAILED') {
-        connection.lastError = '';
-      }
-      await connection.save();
-      logger.info(
-        {
-          organizationId: String(connection.tenantId),
-          connectionId: String(connection._id),
-          provider: connection.provider,
-        },
-        'Restored Merge connection to connected after account-details COMPLETE',
-      );
-    }
   } catch (err) {
-    // Auth/relink failures remain needs_attention — do not restore.
-    logger.warn(
-      {
-        organizationId: String(connection.tenantId),
-        connectionId: String(connection._id),
-        code: err?.code,
-      },
-      'Merge connection reconcile skipped',
-    );
+    if (err?.code === 'MERGE_AUTH_FAILED') {
+      applyMergeNeedsAttention(connection, { code: 'MERGE_AUTH_FAILED' });
+      await rememberIssue(connection, { status: 'ONGOING', code: 'MERGE_AUTH_FAILED' });
+      return connection;
+    }
+    logger.warn({ ...logContext, code: err?.code }, 'Merge connection reconcile skipped');
+    return connection;
   }
 
+  const mergeStatus = String(details?.status || '').toUpperCase();
+  if (MERGE_ACCOUNT_STATUS_RELINK.includes(mergeStatus)) {
+    applyMergeNeedsAttention(connection, { code: mergeStatus });
+    await rememberIssue(connection, {
+      status: 'ONGOING',
+      description: details?.status_detail,
+      code: mergeStatus,
+    });
+    return connection;
+  }
+  if (mergeStatus !== MERGE_ACCOUNT_STATUS_HEALTHY) {
+    return connection;
+  }
+
+  let blocking = null;
+  try {
+    const issues = await mergeRequest(MERGE_HRIS_ISSUES_URL, {
+      method: 'GET',
+      accountToken,
+      query: {
+        linked_account_id: connection.mergeLinkedAccountId || undefined,
+        status: 'ONGOING',
+        page_size: 20,
+        include_muted: 'false',
+      },
+      logContext: { ...logContext, action: 'reconcile-issues' },
+    });
+    blocking = blockingIssues(issues);
+  } catch (err) {
+    if (err?.code === 'MERGE_AUTH_FAILED') {
+      applyMergeNeedsAttention(connection, { code: 'MERGE_AUTH_FAILED' });
+      await rememberIssue(connection, { status: 'ONGOING', code: 'MERGE_AUTH_FAILED' });
+      return connection;
+    }
+    if (
+      err?.code === 'MERGE_RATE_LIMITED' ||
+      err?.code === 'MERGE_UPSTREAM_ERROR' ||
+      err?.code === 'MERGE_UNREACHABLE'
+    ) {
+      logger.warn({ ...logContext, code: err.code }, 'Merge issues reconcile skipped');
+      return connection;
+    }
+    logger.warn({ ...logContext, code: err?.code }, 'Merge issues reconcile incomplete');
+    return connection;
+  }
+
+  if (blocking.length > 0) {
+    applyMergeNeedsAttention(connection);
+    await rememberIssue(connection, {
+      status: 'ONGOING',
+      description: blocking[0]?.error_description,
+    });
+    return connection;
+  }
+
+  if (connection.lastError === 'MERGE_SCOPES_DISABLED') {
+    try {
+      await mergeRequest(MERGE_HRIS_EMPLOYEES_URL, {
+        method: 'GET',
+        accountToken,
+        query: { page_size: 1 },
+        logContext: { ...logContext, action: 'reconcile-employee-scope' },
+      });
+    } catch (err) {
+      if (err?.code === 'MERGE_SCOPES_DISABLED' || err?.code === 'MERGE_AUTH_FAILED') {
+        applyMergeNeedsAttention(connection, { code: err.code });
+        await rememberIssue(connection, { status: 'ONGOING', code: err.code });
+        return connection;
+      }
+      logger.warn({ ...logContext, code: err?.code }, 'Merge employee scope check skipped');
+      return connection;
+    }
+  }
+
+  if (!applyMergeConnected(connection)) return connection;
+  if (
+    connection.lastError === 'MERGE_AUTH_FAILED' ||
+    connection.lastError === 'MERGE_SCOPES_DISABLED' ||
+    connection.lastError === 'MERGE_OPTIONAL_SCOPE_DISABLED' ||
+    MERGE_ACCOUNT_STATUS_RELINK.includes(connection.lastError)
+  ) {
+    connection.lastError = '';
+  }
+  connection.mergeIssueStatus = '';
+  connection.mergeIssueError = '';
+  await connection.save();
+  logger.info(
+    { ...logContext, provider: connection.provider },
+    'Restored Merge connection to connected after health check',
+  );
   return connection;
+}
+
+/** List/schedule path: restore needs_attention only when Merge still looks healthy. */
+export async function reconcileMergeConnectionIfHealthy(connection) {
+  return reconcileMergeConnectionHealth(connection, { requireIssues: false });
 }
 
 /** List safe connection records for the authenticated tenant. */
@@ -425,8 +634,9 @@ export async function disconnectMergeConnection({ tenantId, connectionId }) {
   connection.encryptedAccountToken = '';
   connection.mergeLinkedAccountId = '';
   connection.status = 'disconnected';
+  connection.disconnectedByUser = true;
   connection.lastError = '';
-  // Keep endUserOriginId, lastSyncAt, and provider for reconnect + audit.
+  // Keep endUserOriginId, cursors, lastSyncAt, and provider for reconnect + audit.
   await connection.save();
 
   logger.info(

@@ -5,6 +5,7 @@ import { startCsvImportWorker } from './csvImport.worker.js';
 import { startNotificationWorker } from './notification.worker.js';
 import { startAnalyticsWorker } from './analytics.worker.js';
 import { startScheduledCampaignWorker } from './scheduledCampaign.worker.js';
+import { startMergeHrisSyncWorker } from './mergeHrisSync.worker.js';
 
 async function main() {
   await connectDb();
@@ -13,8 +14,11 @@ async function main() {
     startNotificationWorker(),
     await startAnalyticsWorker(),
     await startScheduledCampaignWorker(),
+    startMergeHrisSyncWorker(),
   ];
-  logger.info('Background workers running (csv-import, notifications, analytics, scheduled-campaigns)');
+  logger.info(
+    'Background workers running (csv-import, notifications, analytics, scheduled-campaigns, merge-hris-sync)',
+  );
 
   const shutdown = async () => {
     await Promise.all(workers.map((w) => w.close()));

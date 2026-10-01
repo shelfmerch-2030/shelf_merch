@@ -171,6 +171,8 @@ const envSchema = z.object({
 
   /** Merge.dev test/production API key — server-only; never expose to the frontend. */
   MERGE_API_KEY: z.string().optional().default(''),
+  /** Merge webhook signing key. HMAC-SHA256 of the raw body. Server-only. */
+  MERGE_WEBHOOK_SECRET: z.string().optional().default(''),
 
   /** Slack OAuth (server-only) — Client Secret never exposed to the frontend. */
   SLACK_CLIENT_ID: z.string().optional().default(''),
@@ -296,6 +298,28 @@ export const zohoPeopleConfigured = () =>
   Boolean(env.ZOHO_CLIENT_ID && env.ZOHO_CLIENT_SECRET && env.ZOHO_REDIRECT_URI && env.TOKEN_ENCRYPTION_KEY);
 
 export const mergeConfigured = () => Boolean(env.MERGE_API_KEY);
+
+/**
+ * Merge is optional. When MERGE_API_KEY is set, webhook verification and token
+ * encryption must also be configured. Production and test refuse to start if
+ * they are missing. Development keeps the API up so login still works, and
+ * webhooks stay disabled until the keys are set. The error names keys only.
+ */
+export function validateMergeEnvironment(source = env) {
+  const apiKey = String(source?.MERGE_API_KEY || '');
+  if (!apiKey) return { enabled: false };
+  const missing = [];
+  if (!source?.MERGE_WEBHOOK_SECRET) missing.push('MERGE_WEBHOOK_SECRET');
+  if (!source?.TOKEN_ENCRYPTION_KEY) missing.push('TOKEN_ENCRYPTION_KEY');
+  if (missing.length) {
+    const nodeEnv = source?.NODE_ENV || process.env.NODE_ENV;
+    if (nodeEnv === 'development') {
+      return { enabled: true, environment: 'development', missing };
+    }
+    throw new Error(`Merge is enabled but missing configuration: ${missing.join(', ')}`);
+  }
+  return { enabled: true, environment: 'deployment' };
+}
 
 export const slackConfigured = () =>
   Boolean(env.SLACK_CLIENT_ID && env.SLACK_CLIENT_SECRET && env.TOKEN_ENCRYPTION_KEY);

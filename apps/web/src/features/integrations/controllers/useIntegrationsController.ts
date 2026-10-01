@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { Tile } from "../data";
+import { USER_MANAGEMENT_TOOLS, type Tile } from "../data";
+import { HRIS_SYNC_POLL_MS, shouldPollHrisSync, usesHrisAutomaticSyncUi } from "../hrisSyncUi";
 import {
   disconnectZoho,
   fetchZohoStatus,
@@ -16,11 +17,13 @@ import {
   exchangeMergePublicToken,
   fetchMergeConnections,
   disconnectMergeConnection,
+  fetchMergeSyncStatus,
   isMergeHrisIntegration,
   syncMergeConnection,
   mergeSyncErrorMessage,
   type MergeConnectionPublic,
   type MergeHrisIntegration,
+  type MergeSyncStatusPublic,
 } from "@/services/merge-api";
 import {
   disconnectSlack,
@@ -55,6 +58,9 @@ export type IntegrationsVm = {
   mergeSyncingId: string | null;
   mergeDisconnectingId: string | null;
   mergeConnectionsByProvider: Record<string, MergeConnectionPublic>;
+  mergeSyncStatus: MergeSyncStatusPublic | null;
+  mergeSyncStatusLoading: boolean;
+  mergeSyncStatusError: boolean;
   onMergeSync: (connectionId: string) => void;
   onMergeDisconnect: (connectionId: string) => void;
   zoho: {
@@ -145,12 +151,77 @@ export function useIntegrationsController(): IntegrationsVm {
   const mergeConnectionsByProvider = useMemo(() => {
     const map: Record<string, MergeConnectionPublic> = {};
     for (const conn of mergeConnectionsQuery.data ?? []) {
-      if (conn.status === "connected" || conn.status === "needs_attention") {
-        map[conn.provider] = conn;
-      }
+      if (!map[conn.provider]) map[conn.provider] = conn;
     }
     return map;
   }, [mergeConnectionsQuery.data]);
+
+  const selectedConnection =
+    selected && isMergeHrisIntegration(selected.id)
+      ? mergeConnectionsByProvider[selected.id] ?? null
+      : null;
+  const pollHrisSync = Boolean(
+    selectedConnection &&
+      usesHrisAutomaticSyncUi(selectedConnection.provider, selectedConnection.category),
+  );
+
+  const syncStatusQuery = useQuery({
+    queryKey: ["integrations", "merge", "sync-runs", selectedConnection?.id ?? "none"],
+    queryFn: () => fetchMergeSyncStatus(selectedConnection!.id),
+    enabled: Boolean(pollHrisSync && selectedConnection?.id),
+    staleTime: 0,
+    refetchInterval: (query) => {
+      if (shouldPollHrisSync(query.state.data)) return HRIS_SYNC_POLL_MS;
+      const status = selectedConnection?.lastSyncStatus;
+      if (status === "queued" || status === "syncing") return HRIS_SYNC_POLL_MS;
+      return false;
+    },
+  });
+
+  useEffect(() => {
+    const data = syncStatusQuery.data;
+    if (!data) return;
+    queryClient.setQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY, (current) => {
+      if (!Array.isArray(current)) return current;
+      let changed = false;
+      const next = current.map((row) => {
+        if (row.id !== data.connectionId) return row;
+        const lastSyncAt = data.lastSyncAt ?? null;
+        const lastError = data.lastError ?? null;
+        if (
+          row.status === data.connectionStatus &&
+          row.lastSyncStatus === data.lastSyncStatus &&
+          (row.lastSyncAt ?? null) === lastSyncAt &&
+          (row.lastError ?? null) === lastError
+        ) {
+          return row;
+        }
+        changed = true;
+        return {
+          ...row,
+          status: data.connectionStatus,
+          lastSyncStatus: data.lastSyncStatus,
+          lastSyncAt,
+          lastError,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [syncStatusQuery.data, queryClient]);
+
+  const seenSyncStatus = useRef<string | null>(null);
+  useEffect(() => {
+    const data = syncStatusQuery.data;
+    if (!data) return;
+    const key = `${data.connectionId}:${data.lastSyncStatus}:${data.lastSyncFinishedAt ?? ""}`;
+    const prev = seenSyncStatus.current;
+    seenSyncStatus.current = key;
+    if (!prev || !prev.startsWith(`${data.connectionId}:`)) return;
+    const prevStatus = prev.split(":")[1];
+    if ((prevStatus === "queued" || prevStatus === "syncing") && data.lastSyncStatus === "success") {
+      void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
+    }
+  }, [syncStatusQuery.data, queryClient]);
 
   useEffect(() => {
     const zoho = searchParams.get("zoho");
@@ -209,8 +280,18 @@ export function useIntegrationsController(): IntegrationsVm {
         toast.success(
           `${connection.integrationName || connection.provider} connected successfully`,
         );
+        queryClient.setQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY, (current) => {
+          const rows = Array.isArray(current)
+            ? current.filter((row) => row.id !== connection.id && row.provider !== connection.provider)
+            : [];
+          return [connection, ...rows];
+        });
         void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
-        setSelected(null);
+        void queryClient.invalidateQueries({ queryKey: ["integrations", "merge", "sync-runs"] });
+        const linkedTile = integration
+          ? USER_MANAGEMENT_TOOLS.find((tile) => tile.id === integration)
+          : null;
+        if (linkedTile) setSelected(linkedTile);
       } catch (err) {
         toast.error(err instanceof ApiError ? err.message : "Could not complete Merge connection");
       } finally {
@@ -257,12 +338,25 @@ export function useIntegrationsController(): IntegrationsVm {
   const mergeSyncMutation = useMutation({
     mutationFn: syncMergeConnection,
     onSuccess: (result) => {
-      const s = result.sync;
-      toast.success(
-        `Synced HRIS — employees +${s.employees.created}/${s.employees.updated}, contacts +${s.contacts?.created ?? 0}/${s.contacts?.updated ?? 0}`,
-      );
+      toast.success(result.alreadyQueuedOrRunning ? "Sync already in progress" : "Sync queued");
+      const rows = queryClient.getQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY);
+      const row = rows?.find((item) => item.id === result.connectionId);
+      queryClient.setQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY, (current) => {
+        if (!Array.isArray(current)) return current;
+        return current.map((item) =>
+          item.id === result.connectionId
+            ? { ...item, lastSyncStatus: result.syncStatus || "queued", lastError: null }
+            : item,
+        );
+      });
       void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
-      void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["integrations", "merge", "sync-runs"] });
+      if (row?.category === "directory") {
+        window.setTimeout(() => {
+          void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
+          void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
+        }, 4000);
+      }
     },
     onError: (err) => {
       toast.error(mergeSyncErrorMessage(err));
@@ -446,8 +540,13 @@ export function useIntegrationsController(): IntegrationsVm {
       ? (mergeDisconnectMutation.variables as string | undefined) || null
       : null,
     mergeConnectionsByProvider,
+    mergeSyncStatus: pollHrisSync ? syncStatusQuery.data ?? null : null,
+    mergeSyncStatusLoading: pollHrisSync && syncStatusQuery.isLoading,
+    mergeSyncStatusError: pollHrisSync && syncStatusQuery.isError,
     onMergeSync: (connectionId: string) => {
       if (mergeSyncMutation.isPending || mergeDisconnectMutation.isPending) return;
+      const existing = Object.values(mergeConnectionsByProvider).find((row) => row.id === connectionId);
+      if (existing?.lastSyncStatus === "queued" || existing?.lastSyncStatus === "syncing") return;
       mergeSyncMutation.mutate(connectionId);
     },
     onMergeDisconnect: (connectionId: string) => {

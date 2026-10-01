@@ -41,6 +41,7 @@ export async function acquireMergeSyncLock({
         syncLockToken: token,
         syncLockUntil: leaseUntil(now, leaseMs),
         lastSyncStatus: 'syncing',
+        lastSyncStartedAt: now,
         lastError: '',
       },
     },
@@ -113,6 +114,7 @@ export function startMergeSyncLockHeartbeat({
   leaseMs = MERGE_SYNC_LOCK_LEASE_MS,
   renewEveryMs = MERGE_SYNC_LOCK_RENEW_EVERY_MS,
   onLost,
+  onRenewed,
 }) {
   let stopped = false;
   let inFlight = false;
@@ -127,7 +129,9 @@ export function startMergeSyncLockHeartbeat({
           stopped = true;
           clearInterval(timer);
           onLost?.();
+          return;
         }
+        onRenewed?.();
       })
       .catch((err) => {
         logger.warn(
