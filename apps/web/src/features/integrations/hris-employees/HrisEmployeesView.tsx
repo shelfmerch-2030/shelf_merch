@@ -178,7 +178,7 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
           <Users size={16} aria-hidden="true" />
           <p>
             No active directory connection.{" "}
-            <Link to="/app/integrations">Connect a provider</Link> and run Sync now.
+            <Link to="/app/integrations">Connect a provider</Link>. Employee data syncs automatically.
           </p>
         </div>
       ) : null}

@@ -2,6 +2,14 @@ import { Queue } from 'bullmq';
 import { ensureRedisReady, getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
 import { processCsvImport } from '../modules/imports/imports.service.js';
+import {
+  MERGE_HRIS_SYNC_QUEUE,
+  MERGE_SYNC_JOB_ATTEMPTS,
+  MERGE_SYNC_JOB_BACKOFF_MS,
+  MERGE_SYNC_REASONS,
+} from '../modules/integrations/merge/merge.constants.js';
+import { MergeConnection } from '../modules/integrations/merge/mergeConnection.model.js';
+import { ApiError } from '../utils/errors.js';
 
 export const SCHEDULED_CAMPAIGN_QUEUE = 'scheduled-campaigns';
 const MAX_IN_PROCESS_DELAY_MS = 2_147_483_647;
@@ -9,6 +17,18 @@ const MAX_IN_PROCESS_DELAY_MS = 2_147_483_647;
 let csvImportQueue = null;
 let notificationQueue = null;
 let scheduledCampaignQueue = null;
+let mergeHrisSyncQueue = null;
+
+const MERGE_SYNC_IN_FLIGHT_STATES = new Set([
+  'waiting',
+  'active',
+  'delayed',
+  'paused',
+  'waiting-children',
+  'prioritized',
+]);
+
+const MERGE_SYNC_PAYLOAD_KEYS = ['tenantId', 'connectionId', 'requestedByUserId', 'reason'];
 const localDeliveryTimers = new Map();
 
 function makeQueue(name) {
@@ -32,6 +52,124 @@ export function getNotificationQueue() {
 export function getScheduledCampaignQueue() {
   if (!scheduledCampaignQueue) scheduledCampaignQueue = makeQueue(SCHEDULED_CAMPAIGN_QUEUE);
   return scheduledCampaignQueue;
+}
+
+export function mergeHrisSyncJobId(connectionId) {
+  return `merge-hris-sync:${String(connectionId)}`;
+}
+
+export function getMergeHrisSyncQueue() {
+  if (!mergeHrisSyncQueue) mergeHrisSyncQueue = makeQueue(MERGE_HRIS_SYNC_QUEUE);
+  return mergeHrisSyncQueue;
+}
+
+function mergeSyncJobPayload(input) {
+  const tenantId = input?.tenantId ? String(input.tenantId) : '';
+  const connectionId = input?.connectionId ? String(input.connectionId) : '';
+  const reason = input?.reason || 'manual';
+  if (!tenantId || !connectionId || !MERGE_SYNC_REASONS.includes(reason)) {
+    throw new ApiError(400, 'Sync job is missing identifiers', 'MERGE_SYNC_JOB_INVALID');
+  }
+  for (const key of Object.keys(input || {})) {
+    if (!MERGE_SYNC_PAYLOAD_KEYS.includes(key)) {
+      throw new ApiError(400, 'Sync job must not carry credentials', 'MERGE_SYNC_JOB_INVALID');
+    }
+  }
+  return {
+    tenantId,
+    connectionId,
+    requestedByUserId: input.requestedByUserId ? String(input.requestedByUserId) : null,
+    reason,
+  };
+}
+
+/**
+ * Enqueue one Merge HRIS import. Payload is identifiers only.
+ * A live job for the same connection is not enqueued again.
+ * Redis-down does not run the import inside the HTTP request.
+ */
+export async function enqueueMergeHrisSync(input, deps = {}) {
+  const payload = mergeSyncJobPayload(input);
+  const ready = deps.ensureReady ? await deps.ensureReady() : await ensureRedisReady();
+  if (!ready) {
+    throw new ApiError(503, 'Sync queue is unavailable', 'MERGE_QUEUE_UNAVAILABLE');
+  }
+
+  const queue = deps.queue || getMergeHrisSyncQueue();
+  const jobId = mergeHrisSyncJobId(payload.connectionId);
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (MERGE_SYNC_IN_FLIGHT_STATES.has(state)) {
+      const row = await MergeConnection.findOne({
+        _id: payload.connectionId,
+        tenantId: payload.tenantId,
+      })
+        .select('lastSyncStatus')
+        .lean();
+      const syncStatus =
+        row?.lastSyncStatus === 'syncing' || state === 'active' ? 'syncing' : 'queued';
+      return {
+        queued: false,
+        alreadyQueuedOrRunning: true,
+        connectionId: payload.connectionId,
+        jobId,
+        syncStatus,
+      };
+    }
+    await existing.remove().catch(() => {});
+  }
+
+  let job;
+  try {
+    job = await queue.add('sync', payload, {
+      jobId,
+      attempts: MERGE_SYNC_JOB_ATTEMPTS,
+      backoff: { type: 'exponential', delay: MERGE_SYNC_JOB_BACKOFF_MS },
+      removeOnComplete: true,
+      removeOnFail: 50,
+    });
+  } catch (err) {
+    if (/already exists|JobId/i.test(String(err?.message || ''))) {
+      return {
+        queued: false,
+        alreadyQueuedOrRunning: true,
+        connectionId: payload.connectionId,
+        jobId,
+        syncStatus: 'queued',
+      };
+    }
+    throw err;
+  }
+
+  await MergeConnection.updateOne(
+    { _id: payload.connectionId, tenantId: payload.tenantId },
+    {
+      $set: {
+        lastSyncStatus: 'queued',
+        lastError: '',
+        lastSyncRequestedAt: new Date(),
+      },
+    },
+  );
+
+  logger.info(
+    {
+      jobId: String(job.id || jobId),
+      connectionId: payload.connectionId,
+      organizationId: payload.tenantId,
+      reason: payload.reason,
+    },
+    'Merge HRIS sync queued',
+  );
+
+  return {
+    queued: true,
+    alreadyQueuedOrRunning: false,
+    connectionId: payload.connectionId,
+    jobId: String(job.id || jobId),
+    syncStatus: 'queued',
+  };
 }
 
 function clearLocalDeliveryTimer(campaignId) {

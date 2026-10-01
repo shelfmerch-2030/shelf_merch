@@ -14,7 +14,7 @@ import {
   mergeProviderOriginSegment,
 } from '../src/modules/integrations/merge/merge.constants.js';
 import { buildMergeEndUserOriginId } from '../src/modules/integrations/merge/merge.service.js';
-import { normalizeMergeEmploymentStatus } from '../src/modules/integrations/merge/mergeSync.service.js';
+import { normalizeMergeEmploymentStatus, syncMergeConnection } from '../src/modules/integrations/merge/mergeSync.service.js';
 import { MergeConnection } from '../src/modules/integrations/merge/mergeConnection.model.js';
 import { MergeHrisEmployee } from '../src/modules/integrations/merge/models/mergeHrisEmployee.model.js';
 import {
@@ -33,6 +33,23 @@ let admin;
 let adminToken;
 let managerToken;
 let fetchMock;
+
+async function importSync(connOrId, { tenantId: forTenant = tenant._id } = {}) {
+  const connectionId = connOrId && connOrId._id ? connOrId._id : connOrId;
+  try {
+    const result = await syncMergeConnection({
+      tenantId: forTenant,
+      connectionId,
+      reason: 'manual',
+    });
+    return { status: 200, body: { success: true, ...result } };
+  } catch (err) {
+    return {
+      status: err?.status || 500,
+      body: { success: false, error: { code: err?.code, message: err?.message } },
+    };
+  }
+}
 
 async function makeUser(tenantDoc, role, scopeType) {
   const user = await User.create({
@@ -237,16 +254,10 @@ describe('Google Workspace connection + sync', () => {
       return { ok: true, status: 200, json: async () => ({ results: [], next: null }) };
     });
 
-    const sync1 = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({});
+    const sync1 = await importSync(conn._id);
     expect(sync1.status).toBe(200);
 
-    const sync2 = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({});
+    const sync2 = await importSync(conn._id);
     expect(sync2.status).toBe(200);
 
     const mine = await MergeHrisEmployee.find({
@@ -397,9 +408,7 @@ describe('Google Workspace connection + sync', () => {
       json: async () => ({ detail: 'Invalid account token gw-auth-fail-token' }),
     });
 
-    const res = await request(app)
-      .post(`/api/integrations/merge/connections/${conn._id}/sync`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await importSync(conn._id);
 
     expect(res.status).toBe(502);
     expect(res.body.error?.code).toBe('MERGE_AUTH_FAILED');
@@ -428,7 +437,8 @@ describe('Google Workspace connection + sync', () => {
     });
 
     fetchMock.mockImplementation(async (url) => {
-      if (String(url).startsWith(MERGE_ACCOUNT_DETAILS_URL) || String(url).includes('/account-details')) {
+      const href = String(url);
+      if (href.startsWith(MERGE_ACCOUNT_DETAILS_URL) || href.includes('/account-details')) {
         return {
           ok: true,
           status: 200,
@@ -439,6 +449,9 @@ describe('Google Workspace connection + sync', () => {
             integration: 'Google Workspace',
           }),
         };
+      }
+      if (href.includes('/hris/v1/issues')) {
+        return { ok: true, status: 200, json: async () => ({ next: null, results: [] }) };
       }
       return { ok: false, status: 404, json: async () => ({}) };
     });

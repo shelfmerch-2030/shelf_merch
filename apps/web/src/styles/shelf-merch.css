@@ -20039,3 +20039,64 @@ tr:hover .camp-avatar {
     grid-template-columns: 1fr;
   }
 }
+
+.bonus-integ-hris {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bonus-integ-hris-connection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 650;
+}
+.bonus-integ-hris-mark {
+  width: 1.25rem;
+  text-align: center;
+}
+.bonus-integ-hris-headline {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.bonus-integ-hris-lead,
+.bonus-integ-hris-sync-line,
+.bonus-integ-hris-auto p,
+.bonus-integ-hris-last {
+  margin: 0;
+}
+.bonus-integ-hris-auto,
+.bonus-integ-hris-sync-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.bonus-integ-hris-progress {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.bonus-integ-hris-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bonus-integ-hris-run {
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.bonus-integ-hris-run__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  cursor: pointer;
+}
+.bonus-integ-hris-run__details {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}

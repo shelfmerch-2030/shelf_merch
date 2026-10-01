@@ -115,6 +115,13 @@ router.post(
   asyncHandler(controller.disconnectConnection),
 );
 
+router.get(
+  '/connections/:connectionId/sync-runs',
+  ...adminRead,
+  validate({ params: connectionIdParamsSchema }),
+  asyncHandler(controller.getConnectionSyncRuns),
+);
+
 router.get('/employees', ...adminRead, asyncHandler(controller.listEmployees));
 
 export default router;

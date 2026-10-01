@@ -1,4 +1,4 @@
-import { env } from './config/env.js';
+import { env, validateMergeEnvironment } from './config/env.js';
 import { logger, logActiveLoggerConfig } from './config/logger.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { initObservability } from './config/observability.js';
@@ -8,6 +8,13 @@ import { startNotificationWorker } from './jobs/notification.worker.js';
 import { ensureRedisReady } from './config/redis.js';
 
 async function main() {
+  const mergeEnv = validateMergeEnvironment();
+  if (mergeEnv.missing?.length) {
+    logger.warn(
+      { missing: mergeEnv.missing },
+      'Merge is enabled without webhook configuration. Webhooks stay disabled until these keys are set.',
+    );
+  }
   await initObservability();
   // Prove which logger module production is running (no secrets / env dumps).
   logActiveLoggerConfig();
