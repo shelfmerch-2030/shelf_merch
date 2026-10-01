@@ -343,7 +343,7 @@ describe('Merge webhooks', () => {
     expect(res.status).toBe(200);
     expect(res.body.queued).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
-    const job = jobs.get(`merge-hris-sync:${conn._id}`);
+    const job = jobs.get(`merge-hris-sync-${conn._id}`);
     expect(job.data).toEqual({
       tenantId: String(tenant._id),
       connectionId: String(conn._id),
@@ -444,7 +444,7 @@ describe('Merge webhooks', () => {
       const changed = await postWebhook(webhookRaw('Employee.changed', conn.mergeLinkedAccountId));
       expect(changed.body.queued || changed.body.alreadyQueuedOrRunning).toBe(true);
       const res = await postWebhook(raw);
-      const job = jobs.get(`merge-hris-sync:${conn._id}`);
+      const job = jobs.get(`merge-hris-sync-${conn._id}`);
       const blob = JSON.stringify({ body: res.body, data: job.data, lines });
       expect(blob).not.toContain(ACCOUNT_TOKEN);
       expect(blob).not.toContain(WEBHOOK_SECRET);
@@ -517,10 +517,10 @@ describe('scheduled Merge sync', () => {
 
     await processMergeHrisSyncJob({ name: 'schedule', data: {}, id: 'merge-hris-schedule' });
 
-    expect(jobs.has(`merge-hris-sync:${ready._id}`)).toBe(true);
-    expect(jobs.get(`merge-hris-sync:${ready._id}`).data.reason).toBe('scheduled');
-    expect(jobs.has(`merge-hris-sync:${recovered._id}`)).toBe(true);
-    expect(jobs.has(`merge-hris-sync:${stillBroken._id}`)).toBe(false);
+    expect(jobs.has(`merge-hris-sync-${ready._id}`)).toBe(true);
+    expect(jobs.get(`merge-hris-sync-${ready._id}`).data.reason).toBe('scheduled');
+    expect(jobs.has(`merge-hris-sync-${recovered._id}`)).toBe(true);
+    expect(jobs.has(`merge-hris-sync-${stillBroken._id}`)).toBe(false);
     expect(jobs.size).toBe(2);
     const broken = await MergeConnection.findOne({ _id: stillBroken._id, tenantId: tenant._id });
     expect(broken.status).toBe('needs_attention');
@@ -599,7 +599,7 @@ describe('incremental Merge import', () => {
     });
     await expect(
       processMergeHrisSyncJob({
-        id: `merge-hris-sync:${conn._id}`,
+        id: `merge-hris-sync-${conn._id}`,
         name: 'sync',
         data: {
           tenantId: String(tenant._id),

@@ -236,7 +236,7 @@ describe('Phase 4 Merge connection lifecycle', () => {
     expect(res.body.connection.status).toBe('connected');
     expect(JSON.stringify(res.body)).not.toContain(ACCOUNT_TOKEN);
     const stored = await MergeConnection.findOne({ tenantId: tenant._id, provider: 'deel' });
-    const job = jobs.get(`merge-hris-sync:${stored._id}`);
+    const job = jobs.get(`merge-hris-sync-${stored._id}`);
     expect(job.data).toEqual({
       tenantId: String(tenant._id),
       connectionId: String(stored._id),
@@ -392,8 +392,8 @@ describe('Phase 4 Merge connection lifecycle', () => {
     expect(second.status).toBe(200);
     expect(second.body.alreadyQueuedOrRunning).toBe(true);
     expect(jobs.size).toBe(1);
-    expect(jobs.get(`merge-hris-sync:${conn._id}`).data.reason).toBe('manual');
-    expect(JSON.stringify(jobs.get(`merge-hris-sync:${conn._id}`).data)).not.toContain('webhook-account-token');
+    expect(jobs.get(`merge-hris-sync-${conn._id}`).data.reason).toBe('manual');
+    expect(JSON.stringify(jobs.get(`merge-hris-sync-${conn._id}`).data)).not.toContain('webhook-account-token');
 
     const stored = await reload(conn._id);
     expect(await MergeConnection.countDocuments({ tenantId: tenant._id })).toBe(before);
@@ -429,8 +429,8 @@ describe('Phase 4 Merge connection lifecycle', () => {
 
     fetchMock.mockImplementation(async () => mockJson({ status: 'COMPLETE' }));
     await processMergeHrisSyncJob({ name: 'schedule', data: {}, id: 'merge-hris-schedule' });
-    expect(jobs.has(`merge-hris-sync:${conn._id}`)).toBe(false);
-    expect(jobs.has(`merge-hris-sync:${other._id}`)).toBe(true);
+    expect(jobs.has(`merge-hris-sync-${conn._id}`)).toBe(false);
+    expect(jobs.has(`merge-hris-sync-${other._id}`)).toBe(true);
   });
 
   it('17. a running import cannot mark a deleted connection connected', async () => {
@@ -563,7 +563,7 @@ describe('Phase 4 Merge connection lifecycle', () => {
       });
       const linkedRes = await postWebhook(linked);
       const issueRes = await postWebhook(issue);
-      const job = jobs.get(`merge-hris-sync:${conn._id}`);
+      const job = jobs.get(`merge-hris-sync-${conn._id}`);
       const blob = JSON.stringify({ linked: linkedRes.body, issue: issueRes.body, data: job?.data, lines });
       expect(blob).not.toContain(ACCOUNT_TOKEN);
       expect(blob).not.toContain(ISSUE_SECRET);

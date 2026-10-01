@@ -318,7 +318,7 @@ describe("HRIS sync status UX", () => {
       }),
       accountToken: "token-should-not-render",
       employees: [{ email: "person@example.com", name: "Hidden Person" }],
-      jobId: "merge-hris-sync:conn-1",
+      jobId: "merge-hris-sync-conn-1",
     };
     const lines = safeRunDetailLines(secretRun);
     const blob = lines.join("\n");

@@ -48,6 +48,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { SlackMarketplaceDetailView } from "./SlackMarketplaceDetailView";
+import { HrisMarketplaceDetailView } from "./HrisMarketplaceDetailView";
+import { isHrisMarketplaceTile } from "../hrisMarketplaceCopy";
 
 export function IntegrationMark({
   tile,
@@ -555,6 +557,29 @@ export function IntegrationDetailView({
           if (related.id === tile.id) return;
           (onSelect ?? onInstall)(related);
         }}
+      />
+    );
+  }
+
+  if (isHrisMarketplaceTile(tile.id)) {
+    return (
+      <HrisMarketplaceDetailView
+        tile={tile}
+        onBack={onBack}
+        onInstall={onInstall}
+        onSelectRelated={(related) => {
+          if (related.id === tile.id) return;
+          (onSelect ?? onInstall)(related);
+        }}
+        connection={connection}
+        busy={busy}
+        syncing={syncing}
+        disconnecting={disconnecting}
+        onSync={onSync}
+        onDisconnect={onDisconnect}
+        canManage={canManage}
+        zoho={tile.id === "zoho-people" ? zoho : null}
+        hrisView={hrisView}
       />
     );
   }
