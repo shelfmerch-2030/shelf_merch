@@ -21,6 +21,7 @@ import { Invoice } from '../src/modules/invoices/invoice.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
 import { refreshTokenFromResponse } from './helpers.js';
 import { appendEmailAllowlist, BUILT_IN_PLATFORM_ALLOWLIST_EMAILS } from '../src/modules/auth/workEmail.js';
+import { ensureCatalogCategories } from '../src/seed/catalogCategories.js';
 
 let app;
 let tenant;
@@ -112,6 +113,7 @@ beforeEach(async () => {
   ]) {
     ({ token: tokens[role] } = await makeUser(null, role, 'platform'));
   }
+  await ensureCatalogCategories();
 });
 
 // ---------------------------------------------------------------------------
@@ -155,6 +157,7 @@ describe('catalog (§3.1)', () => {
       .send({
         name: 'Classic Tee',
         category: 'Apparel',
+        subcategory: 'T-Shirts',
         sellingPriceInr: 599,
         costPriceInr: 250,
         gstRate: 5,

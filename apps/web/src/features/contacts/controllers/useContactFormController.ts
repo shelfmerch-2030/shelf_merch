@@ -23,6 +23,8 @@ export type ContactFormProps = {
   canManageContactRoles?: boolean;
   /** When opening add dialog, start on manual or CSV import tab. */
   initialTab?: "manual" | "csv";
+  /** Fired after a successful manual add or file import (count of contacts added). */
+  onAddedSuccess?: (count: number) => void;
 };
 
 export type ContactFormVm = {
@@ -41,6 +43,7 @@ export type ContactFormVm = {
   onSubmit: React.FormEventHandler;
   onCancel: () => void;
   onImportDone: () => void;
+  onImportSuccess: (count: number) => void;
 };
 
 /** Controller for the add/edit contact dialog: react-hook-form + add/update flows. */
@@ -52,6 +55,7 @@ export function useContactFormController({
   canImportContacts = true,
   canManageContactRoles = true,
   initialTab = "manual",
+  onAddedSuccess,
 }: ContactFormProps): ContactFormVm {
   const [tab, setTab] = useState<"manual" | "csv">("manual");
   const addContact = useAddContact();
@@ -93,11 +97,13 @@ export function useContactFormController({
       if (mode === "edit" && contact) {
         await updateContact.mutateAsync({ id: contact.id, values: payload });
         toast.success("Recipient details saved");
+        onOpenChange(false);
       } else {
         await addContact.mutateAsync(payload);
         toast.success("Added contact successfully");
+        onOpenChange(false);
+        onAddedSuccess?.(1);
       }
-      onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save contact");
     }
@@ -119,5 +125,10 @@ export function useContactFormController({
     onSubmit: handleSubmit(submit),
     onCancel: () => onOpenChange(false),
     onImportDone: () => onOpenChange(false),
+    onImportSuccess: (count) => {
+      if (count <= 0) return;
+      onOpenChange(false);
+      onAddedSuccess?.(count);
+    },
   };
 }

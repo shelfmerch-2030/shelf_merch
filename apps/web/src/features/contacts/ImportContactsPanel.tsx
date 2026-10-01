@@ -2,7 +2,13 @@ import { useImportContactsController } from "./controllers/useImportContactsCont
 import { ImportContactsPanelView } from "./views/ImportContactsPanelView";
 
 /** Thin binding for the CSV import panel widget. */
-export function ImportContactsPanel({ onDone }: { onDone: () => void }) {
-  const vm = useImportContactsController(onDone);
+export function ImportContactsPanel({
+  onDone,
+  onImportSuccess,
+}: {
+  onDone: () => void;
+  onImportSuccess?: (count: number) => void;
+}) {
+  const vm = useImportContactsController(onDone, onImportSuccess);
   return <ImportContactsPanelView {...vm} />;
 }

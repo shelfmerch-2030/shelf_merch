@@ -778,6 +778,7 @@ export type PlatformProduct = {
   slug?: string;
   category: string;
   subcategory?: string;
+  childCategory?: string;
   brand?: string;
   description?: string;
   keyFeatures?: string;
@@ -819,6 +820,7 @@ export type ProductInput = {
   name: string;
   category: string;
   subcategory?: string;
+  childCategory?: string;
   sellingPriceInr: number;
   costPriceInr?: number;
   brand?: string;
@@ -969,8 +971,46 @@ export function moveKitToCatalog(id: string) {
   );
 }
 
-export function listCategories() {
-  return apiFetch<{ _id: string; name: string }[]>("/platform/categories");
+export type PlatformCategory = {
+  _id: string;
+  name: string;
+  slug: string;
+  description: string;
+  status: "active" | "archived";
+  parentId: string | null;
+  depth?: number;
+  sortOrder: number;
+  children?: PlatformCategory[];
+};
+
+export function listCategories(query?: { parentId?: string; roots?: boolean }) {
+  const params = new URLSearchParams();
+  if (query?.parentId) params.set("parentId", query.parentId);
+  if (query?.roots) params.set("roots", "1");
+  const qs = params.toString();
+  return apiFetch<PlatformCategory[]>(`/platform/categories${qs ? `?${qs}` : ""}`);
+}
+
+export function createCategory(body: {
+  name: string;
+  description?: string;
+  parentId?: string | null;
+  sortOrder?: number;
+}) {
+  return apiFetch<PlatformCategory>("/platform/categories", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateCategory(
+  id: string,
+  body: { name?: string; description?: string; status?: "active" | "archived"; sortOrder?: number },
+) {
+  return apiFetch<PlatformCategory>(`/platform/categories/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export type ShopifyImportBreakdown = { imported: number; updated: number; skipped: number };

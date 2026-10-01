@@ -18,6 +18,7 @@ import {
   normalizeAccessToken,
   normalizeDomain,
 } from '../src/modules/catalog/shopifyImport.service.js';
+import { ensureCatalogCategories } from '../src/seed/catalogCategories.js';
 
 let app;
 let catalogToken;
@@ -182,6 +183,7 @@ afterEach(() => vi.restoreAllMocks());
 
 beforeEach(async () => {
   await clearTestDb();
+  await ensureCatalogCategories();
   catalogToken = await makeUser(null, 'platform_catalog_admin', 'platform');
   const tenant = await Tenant.create({ name: 'Rubix', slug: 'rubix' });
   tenantToken = await makeUser(tenant, 'company_admin', 'tenant');

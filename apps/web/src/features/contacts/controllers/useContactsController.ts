@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -57,6 +58,12 @@ export type ContactsVm = {
   onEditOpenChange: (open: boolean) => void;
   onRestrict: () => void;
   onFooterLink: (link: string) => void;
+  contactsAddedOpen: boolean;
+  contactsAddedCount: number;
+  onContactsAddedSuccess: (count: number) => void;
+  onContactsAddedPrimary: () => void;
+  onContactsAddedLater: () => void;
+  onConnectIntegration: () => void;
 };
 
 function roleCounts(contacts: UiContact[]): RoleCounts {
@@ -82,6 +89,7 @@ function sortContacts(list: UiContact[], key: SortKey, dir: SortDir) {
 
 /** Controller for the contacts screen: list query, table state, role mutation, dialogs. */
 export function useContactsController(): ContactsVm {
+  const navigate = useNavigate();
   const workspace = useWorkspace();
   const { canManageContacts, canManageUsers } = useTenantAccess();
   const { data: contacts, isLoading, isError, error } = useContacts(workspace.data?.contacts);
@@ -100,6 +108,8 @@ export function useContactsController(): ContactsVm {
   const [deleting, setDeleting] = useState<UiContact | null>(null);
   const [filterOpen, setFilterOpen] = useState<FilterOpen>(null);
   const [statusFilter, setStatusFilter] = useState<WorkerStatusFilter>("all");
+  const [contactsAddedOpen, setContactsAddedOpen] = useState(false);
+  const [contactsAddedCount, setContactsAddedCount] = useState(0);
 
   const counts = useMemo(() => roleCounts(contacts ?? []), [contacts]);
 
@@ -271,5 +281,21 @@ export function useContactsController(): ContactsVm {
     onDeleteConfirm,
     onRestrict: () => toast.message("Contact restrictions — coming soon"),
     onFooterLink: (link) => toast.message(`${link} — coming soon`),
+    contactsAddedOpen,
+    contactsAddedCount,
+    onContactsAddedSuccess: (count) => {
+      setContactsAddedCount(count);
+      setContactsAddedOpen(true);
+    },
+    onContactsAddedPrimary: () => {
+      setContactsAddedOpen(false);
+      navigate("/app/campaigns");
+    },
+    onContactsAddedLater: () => {
+      setContactsAddedOpen(false);
+    },
+    onConnectIntegration: () => {
+      navigate("/app/integrations");
+    },
   };
 }

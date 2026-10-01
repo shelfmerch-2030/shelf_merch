@@ -4,13 +4,11 @@ import { Link } from "react-router";
 import {
   ArrowRight,
   Backpack,
-  BarChart3,
   Box,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Coffee,
-  Gift,
   GlassWater,
   Globe2,
   Headphones,
@@ -57,7 +55,7 @@ import { EntityManagerKitsSection } from "./EntityManagerKitsSection";
 import "./dashboard.css";
 
 function formatInr(amount: number) {
-  return `Rs ${Math.round(amount).toLocaleString("en-IN")}`;
+  return `₹ ${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
 function formatRole(role: string) {
@@ -89,9 +87,9 @@ const HELP_LINKS = [
 ] as const;
 
 const WHY_CARDS = [
-  { label: "Gift Employees", body: "Celebrate, reward & motivate your team", icon: Gift },
-  { label: "Create Shops", body: "Build beautiful shops for teams & events", icon: Store },
-  { label: "Track & Manage", body: "Track orders, budgets and approvals", icon: BarChart3 },
+  { label: "Gift Employees", body: "Celebrate, reward & motivate your team", icon: "/images/landing/why-gift-employees.png" },
+  { label: "Create Shops", body: "Build beautiful shops for teams & events", icon: "/images/landing/why-create-shops.png" },
+  { label: "Track & Manage", body: "Track orders, budgets and approvals", icon: "/images/landing/why-track-manage.png" },
 ] as const;
 
 const SHORTCUTS = [
@@ -100,7 +98,7 @@ const SHORTCUTS = [
     body: "Bundle apparel, drinkware and stationery into ready-to-ship kits.",
     feature: "Curated combos. Zero hassle.",
     href: "/app/kits",
-    icon: "/images/landing/operations/icons/kits.png",
+    icon: "/images/landing/gifting.png",
     tone: "coral",
   },
   {
@@ -108,7 +106,7 @@ const SHORTCUTS = [
     body: "Let teams spend an approved budget, fully tracked and controlled.",
     feature: "Real-time balance. Total visibility.",
     href: "/app/wallets",
-    icon: "/images/landing/operations/icons/wallet.png",
+    icon: "/images/landing/wallet-db.png",
     tone: "blue",
   },
   {
@@ -116,7 +114,7 @@ const SHORTCUTS = [
     body: "Send a gift the moment it matters. No operational back-and-forth.",
     feature: "Quick, thoughtful & on-brand.",
     href: "/app/campaigns",
-    icon: "/images/landing/operations/icons/spot-gifting.png",
+    icon: "/images/landing/on-spot.png",
     tone: "yellow",
   },
   {
@@ -124,7 +122,7 @@ const SHORTCUTS = [
     body: "Set the rule once. Birthdays and milestones run automatically.",
     feature: "Always on. Always personal.",
     href: "/app/integrations",
-    icon: "/images/landing/operations/icons/automated-gifting.png",
+    icon: "/images/landing/spot-gifting.png",
     tone: "lilac",
   },
 ] as const;
@@ -298,41 +296,28 @@ function WorkspaceSettingsCard({
 }
 
 function ShortcutGrid() {
-  const icons: Record<string, LucideIcon> = {
-    Kits: Gift,
-    Wallet: Landmark,
-    "Spot gifting": Gift,
-    "Automated gifting": CalendarDays,
-  };
-
   return (
     <section className="dash-shortcuts card">
       <SectionHead title="Everything you can do" />
       <div className="dash-shortcut-grid">
-        {SHORTCUTS.map((item) => {
-          const Icon = icons[item.label] ?? Box;
-          return (
-            <Link
-              key={item.label}
-              to={item.href}
-              className={`dash-shortcut dash-shortcut--${item.tone}`}
-            >
-              <span className="dash-shortcut__icon" aria-hidden="true">
-                <Icon size={18} strokeWidth={2.2} />
+        {SHORTCUTS.map((item) => (
+          <Link
+            key={item.label}
+            to={item.href}
+            className={`dash-shortcut dash-shortcut--${item.tone}`}
+          >
+            <span className="dash-shortcut__icon" aria-hidden="true">
+              <img src={item.icon} alt="" />
+            </span>
+            <strong className="dash-shortcut__title">{item.label}</strong>
+            <span className="dash-shortcut__body">{item.body}</span>
+            <span className="dash-shortcut__foot">
+              <span className="dash-shortcut__go" aria-hidden="true">
+                <ArrowRight size={15} strokeWidth={2.2} />
               </span>
-              <strong className="dash-shortcut__title">{item.label}</strong>
-              <span className="dash-shortcut__body">{item.body}</span>
-              <span className="dash-shortcut__foot">
-                {"badge" in item ? (
-                  <span className="dash-shortcut__badge">{item.badge}</span>
-                ) : null}
-                <span className="dash-shortcut__go" aria-hidden="true">
-                  <ArrowRight size={15} strokeWidth={2.2} />
-                </span>
-              </span>
-            </Link>
-          );
-        })}
+            </span>
+          </Link>
+        ))}
       </div>
     </section>
   );
@@ -354,7 +339,7 @@ function QuickTipsCard() {
           <Lightbulb size={16} />
         </span>
         <h2>Quick actions & tips</h2>
-        <Sparkles className="dash-tip-card__spark" size={18} aria-hidden="true" />
+        {/* <Sparkles className="dash-tip-card__spark" size={18} aria-hidden="true" /> */}
       </header>
       <ul className="dash-tip-card__list">
         {QUICK_ACTIONS.map((item) => {
@@ -465,18 +450,17 @@ function OnboardingDashboard({
         <section className="dash-why-panel card">
           <SectionHead title="Why Shelf Merch?" />
           <ul className="dash-why-list">
-            {WHY_CARDS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.label}>
-                  <span className="dash-why-list__icon"><Icon size={18} aria-hidden="true" /></span>
-                  <span>
-                    <strong>{item.label}</strong>
-                    <p>{item.body}</p>
-                  </span>
-                </li>
-              );
-            })}
+            {WHY_CARDS.map((item) => (
+              <li key={item.label}>
+                <span className="dash-why-list__icon" aria-hidden="true">
+                  <img src={item.icon} alt="" />
+                </span>
+                <span>
+                  <strong>{item.label}</strong>
+                  <p>{item.body}</p>
+                </span>
+              </li>
+            ))}
           </ul>
         </section>
 

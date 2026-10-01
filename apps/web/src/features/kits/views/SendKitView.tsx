@@ -8,6 +8,7 @@ import { LocField, CountrySelect } from "@/features/send/RecipientPicker";
 import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
+import { InsufficientFundsDraftBanner } from "@/features/send/InsufficientFundsDraftBanner";
 import type { SendKitVm } from "../controllers/useSendKitController";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
@@ -1044,33 +1045,42 @@ export function SendKitView(vm: SendKitVm) {
 
       {/* ── Step 2: Experience ── */}
       {vm.step === 2 && (
-        <RecipientExperience
-          shopName={vm.shopName}
-          mode={draft.mode}
-          itemCount={draft.picked.length}
-          from={draft.from}
-          message={draft.msg}
-          onFrom={from => dispatch({ type: "setFrom", from })}
-          onMessage={msg => dispatch({ type: "setMsg", msg })}
-          when={draft.when}
-          onWhen={when => dispatch({ type: "setWhen", when })}
-          schedule={draft.schedule}
-          onSchedule={(key, value) => dispatch({ type: "setSchedule", key, value })}
-          preview={draft.preview}
-          onPreview={preview => dispatch({ type: "setPreview", preview })}
-          extraLeft={
-            <div className="card" style={{ padding: 20 }}>
-              <h3 style={{ fontSize: 15, marginBottom: 6 }}>Printed card note</h3>
-              <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
-              <textarea className="inp" rows={3} value={draft.note} onChange={e => dispatch({ type: "setNote", note: e.target.value })} />
-              <div className="card" style={{ padding: 14, background: "var(--surface-2)", marginTop: 12 }}>
-                <div className="mut3" style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>Card preview</div>
-                <div style={{ fontFamily: "var(--disp)", fontStyle: "italic", fontSize: 14 }}>{draft.note}</div>
-                <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>The {vm.account} team</div>
+        <>
+          {vm.fundsBlockReason ? (
+            <InsufficientFundsDraftBanner
+              reason={vm.fundsBlockReason}
+              saving={vm.isSavingDraft}
+              onSave={vm.onSaveAsDraft}
+            />
+          ) : null}
+          <RecipientExperience
+            shopName={vm.shopName}
+            mode={draft.mode}
+            itemCount={draft.picked.length}
+            from={draft.from}
+            message={draft.msg}
+            onFrom={from => dispatch({ type: "setFrom", from })}
+            onMessage={msg => dispatch({ type: "setMsg", msg })}
+            when={draft.when}
+            onWhen={when => dispatch({ type: "setWhen", when })}
+            schedule={draft.schedule}
+            onSchedule={(key, value) => dispatch({ type: "setSchedule", key, value })}
+            preview={draft.preview}
+            onPreview={preview => dispatch({ type: "setPreview", preview })}
+            extraLeft={
+              <div className="card" style={{ padding: 20 }}>
+                <h3 style={{ fontSize: 15, marginBottom: 6 }}>Printed card note</h3>
+                <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
+                <textarea className="inp" rows={3} value={draft.note} onChange={e => dispatch({ type: "setNote", note: e.target.value })} />
+                <div className="card" style={{ padding: 14, background: "var(--surface-2)", marginTop: 12 }}>
+                  <div className="mut3" style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>Card preview</div>
+                  <div style={{ fontFamily: "var(--disp)", fontStyle: "italic", fontSize: 14 }}>{draft.note}</div>
+                  <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>The {vm.account} team</div>
+                </div>
               </div>
-            </div>
-          }
-        />
+            }
+          />
+        </>
       )}
 
       {/* ── Step 3: Packaging ── */}

@@ -43,7 +43,16 @@ export function tenantCatalogFilter() {
  * Parent browse queries should still return legacy rows under the old name.
  */
 const CATEGORY_INCLUDES = {
-  Accessories: ['Accessories', 'Key Chains'],
+  Accessories: [
+    'Accessories',
+    'Key Chains',
+    'Bags',
+    'Drinkware',
+    'Office Supplies',
+    'Technology',
+    'Card Holders',
+  ],
+  // Direct filters and older links still match products stored under these names.
   'Office Supplies': ['Office Supplies', 'Card Holders'],
 };
 

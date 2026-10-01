@@ -3,8 +3,11 @@ import { usePreDesignedKitsController } from "./controllers/usePreDesignedKitsCo
 import { PreDesignedKitsView } from "./views/PreDesignedKits";
 
 /** Thin binding for the pre-designed kits widget. */
-export function PreDesignedKits() {
-  const vm = usePreDesignedKitsController();
+export function PreDesignedKits(props?: {
+  skipWalletGate?: boolean;
+  onBeforeSend?: () => void;
+}) {
+  const vm = usePreDesignedKitsController(props);
   return (
     <>
       <PreDesignedKitsView {...vm} />

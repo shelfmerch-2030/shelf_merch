@@ -81,7 +81,7 @@ export function ContactFormDialogView(vm: ContactFormVm) {
         )}
 
         {vm.mode === "add" && vm.tab === "csv" ? (
-          <ImportContactsPanel onDone={vm.onImportDone} />
+          <ImportContactsPanel onDone={vm.onImportDone} onImportSuccess={vm.onImportSuccess} />
         ) : (
           <form className="contact-form" onSubmit={vm.onSubmit} noValidate>
             <div className="contact-form-row">

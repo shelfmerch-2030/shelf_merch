@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
+import { getCuratedKitMeta } from "@/features/kits/controllers/useSendKitController";
+import {
+  getSendFlowBlockReason,
+  sendFlowBlockMessage,
+} from "@/features/send/fundsGate";
 import {
   isCompletedCampaign,
   isIncompleteCampaign,
@@ -139,13 +145,22 @@ export function useCampaignsController(): CampaignsVm {
     setGiftView("choose");
   }
 
+  function assertCanStartSend(): boolean {
+    const reason = getSendFlowBlockReason(workspace);
+    if (!reason) return true;
+    toast.error(sendFlowBlockMessage(reason));
+    return false;
+  }
+
   function goToSendPoints(shopId: string) {
+    if (!assertCanStartSend()) return;
     closeGift();
     navigate(`/app/campaigns/send-points?shop=${encodeURIComponent(shopId)}`);
   }
 
   function onResumeCampaign(campaign: UiCampaign) {
     if (!isIncompleteCampaign(campaign)) return;
+    if (!assertCanStartSend()) return;
 
     if (isPointsCampaign(campaign)) {
       if (!campaign.shopId) return;
@@ -197,8 +212,12 @@ export function useCampaignsController(): CampaignsVm {
       setPage(1);
     },
     onPage: setPage,
-    onSendGift: () => setGiftOpen(true),
+    onSendGift: () => {
+      if (!assertCanStartSend()) return;
+      setGiftOpen(true);
+    },
     onSendPointsCampaign: () => {
+      if (!assertCanStartSend()) return;
       setGiftOpen(true);
       if (availableShops.length === 1) {
         goToSendPoints(availableShops[0].id);
@@ -207,6 +226,7 @@ export function useCampaignsController(): CampaignsVm {
       setGiftView("points");
     },
     onSendKitCampaign: () => {
+      if (!assertCanStartSend()) return;
       setGiftOpen(true);
       setGiftView("kit");
     },
@@ -214,14 +234,18 @@ export function useCampaignsController(): CampaignsVm {
     gift: {
       open: giftOpen,
       view: giftView,
-      availableKits: (workspace?.kits ?? []).filter((k) => k.id),
+      availableKits: (workspace?.kits ?? []).filter((k) => k.id && !getCuratedKitMeta(k)),
       availableShops,
       onOpenChange: (o) => {
         setGiftOpen(o);
         if (!o) setGiftView("choose");
       },
-      onPickKitView: () => setGiftView("kit"),
+      onPickKitView: () => {
+        if (!assertCanStartSend()) return;
+        setGiftView("kit");
+      },
       onStartSendPoints: () => {
+        if (!assertCanStartSend()) return;
         if (availableShops.length === 1) {
           goToSendPoints(availableShops[0].id);
           return;
@@ -231,6 +255,7 @@ export function useCampaignsController(): CampaignsVm {
       onSelectShopForPoints: goToSendPoints,
       onBackToChoose: () => setGiftView("choose"),
       onSelectKit: (kitId) => {
+        if (!assertCanStartSend()) return;
         closeGift();
         navigate(`/app/kits/${kitId}/send`);
       },

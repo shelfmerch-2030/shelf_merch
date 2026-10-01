@@ -28,6 +28,7 @@ const createProductSchema = z.object({
   sizeGuide: z.string().optional().default(''),
   category: z.string().min(1),
   subcategory: z.string().optional().default(''),
+  childCategory: z.string().optional().default(''),
   brand: z.string().optional().default(''),
   group: z.string().optional().default(''),
   sku: z.string().optional(),
@@ -52,7 +53,16 @@ const createProductSchema = z.object({
   dpi: z.number().int().positive().optional(),
 });
 
-const updateProductSchema = createProductSchema
+/** Partial updates must not apply create-schema defaults, or a price/HSN patch would clear subcategory. */
+function withoutDefaults(schema) {
+  const shape = {};
+  for (const [key, field] of Object.entries(schema.shape)) {
+    shape[key] = field instanceof z.ZodDefault ? field.unwrap() : field;
+  }
+  return z.object(shape);
+}
+
+const updateProductSchema = withoutDefaults(createProductSchema)
   .partial()
   .extend({ reason: z.string().optional() });
 
@@ -444,15 +454,35 @@ platformProductsRouter.put(
 export const platformCategoriesRouter = Router();
 platformCategoriesRouter.use(authenticate, resolveTenant);
 
+const listCategoriesQuery = z.object({
+  parentId: objectId.optional(),
+  roots: z.enum(['1', 'true']).optional(),
+});
+
+const categoryWriteBody = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  parentId: objectId.nullable().optional(),
+  sortOrder: z.number().int().nonnegative().optional(),
+});
+
 platformCategoriesRouter.get(
   '/',
   catalogRead,
-  asyncHandler(async (_req, res) => res.json(await catalogService.listCategories())),
+  validate({ query: listCategoriesQuery }),
+  asyncHandler(async (req, res) =>
+    res.json(
+      await catalogService.listCategories({
+        parentId: req.query.parentId,
+        roots: Boolean(req.query.roots),
+      }),
+    ),
+  ),
 );
 platformCategoriesRouter.post(
   '/',
   catalogWrite,
-  validate({ body: z.object({ name: z.string().min(1), description: z.string().optional() }) }),
+  validate({ body: categoryWriteBody }),
   asyncHandler(async (req, res) => {
     const category = await catalogService.createCategory(req.body);
     writeAudit({ req, action: 'category.create', entityType: 'Category', entityId: category._id, after: { name: category.name } });
@@ -468,6 +498,7 @@ platformCategoriesRouter.patch(
       name: z.string().min(1).optional(),
       description: z.string().optional(),
       status: z.enum(['active', 'archived']).optional(),
+      sortOrder: z.number().int().nonnegative().optional(),
     }),
   }),
   asyncHandler(async (req, res) => {

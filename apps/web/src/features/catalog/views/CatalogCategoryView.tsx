@@ -4,7 +4,6 @@ import { Link, useLocation, useParams } from "react-router";
 import type { CatalogVm } from "../controllers/useCatalogController";
 import {
   ALL_PRODUCTS,
-  CATALOG_SUBCATEGORIES,
   CUSTOMISED_KITS_SUBCATEGORY,
   KITS_CATEGORY,
   PREDESIGNED_KITS_SUBCATEGORY,
@@ -83,13 +82,19 @@ export function CatalogCategoryView(vm: CatalogVm) {
     CATEGORY_COPY[vm.category] ??
     "Browse curated products in this category and open any item to see full details.";
 
+  const definedSubs = vm.subcategoriesByCategory[vm.category] ?? [];
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(() =>
-    resolveCatalogSubcategory(categoryParam, vm.category),
+    resolveCatalogSubcategory(categoryParam, vm.category, definedSubs),
   );
+  useEffect(() => {
+    setSelectedSubcategory(
+      resolveCatalogSubcategory(categoryParam, vm.category, vm.subcategoriesByCategory[vm.category]),
+    );
+  }, [categoryParam, vm.category, vm.subcategoriesByCategory]);
   const kitsVm = useCatalogKitsController(isKitsCategory ? selectedSubcategory : null);
 
   const subcategories = useMemo(() => {
-    const defined = [...(CATALOG_SUBCATEGORIES[vm.category] ?? [])];
+    const defined = [...(vm.subcategoriesByCategory[vm.category] ?? [])];
     if (isKitsCategory) {
       return defined.filter((sub) => {
         if (sub === PREDESIGNED_KITS_SUBCATEGORY) {
@@ -117,11 +122,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
     const withoutOthers = withProducts.filter((sub) => sub !== "Others");
     if (withProducts.includes("Others")) withoutOthers.push("Others");
     return withoutOthers;
-  }, [vm.category, vm.items, isKitsCategory, kitsVm.allKits]);
-
-  useEffect(() => {
-    setSelectedSubcategory(resolveCatalogSubcategory(categoryParam, vm.category));
-  }, [categoryParam, vm.category]);
+  }, [vm.category, vm.items, vm.subcategoriesByCategory, isKitsCategory, kitsVm.allKits]);
 
   const filteredItems = useMemo(() => {
     if (!selectedSubcategory) return vm.items;
