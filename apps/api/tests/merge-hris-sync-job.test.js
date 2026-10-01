@@ -148,7 +148,7 @@ function employeeRow(id = 'emp-1', email = 'ada@phase2.test') {
 function jobFor(conn) {
   const progress = [];
   const job = {
-    id: `merge-hris-sync:${conn._id}`,
+    id: `merge-hris-sync-${conn._id}`,
     data: {
       tenantId: String(tenant._id),
       connectionId: String(conn._id),
@@ -238,7 +238,7 @@ describe('POST /sync enqueues a Merge HRIS job', () => {
       connectionId: String(conn._id),
       syncStatus: 'queued',
     });
-    expect(res.body.jobId).toBe(`merge-hris-sync:${conn._id}`);
+    expect(res.body.jobId).toBe(`merge-hris-sync-${conn._id}`);
     expect(res.body.sync).toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
 
@@ -247,7 +247,7 @@ describe('POST /sync enqueues a Merge HRIS job', () => {
     expect(stored.lastSyncRequestedAt).toBeTruthy();
     expect(stored.lastError).toBeFalsy();
 
-    const queued = jobs.get(`merge-hris-sync:${conn._id}`);
+    const queued = jobs.get(`merge-hris-sync-${conn._id}`);
     expect(queued.data).toEqual({
       tenantId: String(tenant._id),
       connectionId: String(conn._id),
@@ -635,7 +635,7 @@ describe('secrets stay out of the queue, response, and logs', () => {
       const res = await request(app)
         .post(`/api/integrations/merge/connections/${conn._id}/sync`)
         .set('Authorization', `Bearer ${adminToken}`);
-      const job = jobs.get(`merge-hris-sync:${conn._id}`);
+      const job = jobs.get(`merge-hris-sync-${conn._id}`);
       const blob = JSON.stringify({ body: res.body, data: job.data, lines });
       expect(blob).not.toContain(ACCOUNT_TOKEN);
       expect(blob).not.toContain('test-merge-api-key');

@@ -54,8 +54,9 @@ export function getScheduledCampaignQueue() {
   return scheduledCampaignQueue;
 }
 
+/** BullMQ 5 rejects custom ids containing ":". One queued or running job per connection. */
 export function mergeHrisSyncJobId(connectionId) {
-  return `merge-hris-sync:${String(connectionId)}`;
+  return `merge-hris-sync-${String(connectionId)}`;
 }
 
 export function getMergeHrisSyncQueue() {

@@ -407,7 +407,7 @@ describe('Phase 5 large-directory sync', () => {
     await MergeSyncRun.create({
       tenantId: tenant._id,
       connectionId: stale._id,
-      jobId: `merge-hris-sync:${stale._id}`,
+      jobId: `merge-hris-sync-${stale._id}`,
       reason: 'manual',
       status: 'running',
       startedAt: new Date(Date.now() - 60 * 60 * 1000),
@@ -448,7 +448,7 @@ describe('Phase 5 large-directory sync', () => {
       lastSyncStartedAt: new Date(Date.now() - 60 * 60 * 1000),
       syncLockUntil: new Date(Date.now() - 1000),
     });
-    jobs.set(`merge-hris-sync:${activeJob._id}`, {
+    jobs.set(`merge-hris-sync-${activeJob._id}`, {
       async getState() {
         return 'active';
       },
@@ -515,8 +515,8 @@ describe('Phase 5 large-directory sync', () => {
       lastSyncAt: new Date('2026-05-01T00:00:00.000Z'),
     });
     await processMergeHrisSyncJob({ name: 'schedule', data: {} });
-    expect(jobs.get(`merge-hris-sync:${fresh._id}`).data.reason).toBe('initial');
-    expect(jobs.get(`merge-hris-sync:${seen._id}`).data.reason).toBe('scheduled');
+    expect(jobs.get(`merge-hris-sync-${fresh._id}`).data.reason).toBe('initial');
+    expect(jobs.get(`merge-hris-sync-${seen._id}`).data.reason).toBe('scheduled');
   });
 
   it('schedule enqueue failures do not mark a sync running', async () => {
