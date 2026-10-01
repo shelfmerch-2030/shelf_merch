@@ -278,6 +278,68 @@ export function parseOrganizationResponse(data) {
   return { id: '', name: '' };
 }
 
+function diagnosticPrimitive(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) return value.trim().slice(0, 80);
+  return null;
+}
+
+function capZohoMessage(message) {
+  if (typeof message !== 'string') return null;
+  const cleaned = message
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted]')
+    .replace(/1000\.[A-Za-z0-9._-]{8,}/g, '[redacted]')
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, 200);
+}
+
+/**
+ * HTTP status plus Zoho envelope status/code/message. Never includes the raw body.
+ */
+export function zohoOrgFailureDetails(payload, httpStatus) {
+  const meta = zohoEnvelopeMeta(isPlainObject(payload) ? payload : {});
+  return {
+    httpStatus,
+    zohoStatus: diagnosticPrimitive(meta.zohoStatus),
+    zohoCode: diagnosticPrimitive(meta.zohoCode),
+    zohoMessage: capZohoMessage(meta.zohoMessage),
+  };
+}
+
+/** Sanitized lastError line. Example: `http 403; code 7074; Error occurred`. */
+export function formatZohoOrgLastError(details) {
+  if (!details || details.httpStatus == null) return 'Could not verify Zoho organisation';
+  const parts = [`http ${details.httpStatus}`];
+  if (details.zohoCode != null && String(details.zohoCode) !== '') {
+    parts.push(`code ${details.zohoCode}`);
+  }
+  if (details.zohoMessage) parts.push(details.zohoMessage);
+  return parts.join('; ');
+}
+
+async function readZohoResponsePayload(res) {
+  try {
+    if (typeof res.text === 'function') {
+      const raw = await res.text();
+      if (typeof raw !== 'string' || !raw) return {};
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+    if (typeof res.json === 'function') {
+      const parsed = await res.json();
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
 /**
  * Verify connection via Zoho People organisation API.
  * GET {peopleBaseUrl}/api/v3/organization
@@ -291,25 +353,29 @@ export async function fetchZohoOrganization({ location, apiDomain, accessToken }
   });
 
   if (!res.ok) {
+    const payload = await readZohoResponsePayload(res);
+    const details = zohoOrgFailureDetails(payload, res.status);
     logger.warn(
-      { endpointPath: '/api/v3/organization', httpStatus: res.status },
+      { endpointPath: '/api/v3/organization', ...details },
       'Zoho organisation probe failed',
     );
-    throw new ApiError(502, 'Could not verify Zoho People organisation', 'ZOHO_ORG_FETCH_FAILED');
+    throw new ApiError(
+      502,
+      'Could not verify Zoho People organisation',
+      'ZOHO_ORG_FETCH_FAILED',
+      details,
+    );
   }
 
   const data = await res.json();
   const { id, name } = parseOrganizationResponse(data);
   if (!id && !name) {
+    const details = zohoOrgFailureDetails(data, res.status);
     logger.warn(
-      {
-        endpointPath: '/api/v3/organization',
-        httpStatus: res.status,
-        topLevelKeys: isPlainObject(data) ? Object.keys(data).slice(0, 20) : [],
-      },
+      { endpointPath: '/api/v3/organization', ...details },
       'Zoho organisation response unusable',
     );
-    throw new ApiError(502, 'Zoho organisation response was unusable', 'ZOHO_ORG_UNUSABLE');
+    throw new ApiError(502, 'Zoho organisation response was unusable', 'ZOHO_ORG_UNUSABLE', details);
   }
   // v3 /organization often returns Company id without a display name — that is not actionable.
   return { id, name, peopleBaseUrl, needsAttention: false };

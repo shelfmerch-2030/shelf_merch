@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { makeUser, authHeader } from './helpers.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Category } from '../src/modules/catalog/category.model.js';
+import { updateProduct } from '../src/modules/catalog/platformCatalog.service.js';
 import {
   ensureCatalogCategories,
   recordParentMoves,
@@ -12,6 +13,9 @@ import {
   rollbackCatalogHierarchy,
   archiveLegacyCatalogCategories,
   moveLifestyleAccessoryDraftsToOthers,
+  reparentApparelUnderChild,
+  migrateApparelProductLabels,
+  rollbackApparelProductLabels,
 } from '../src/seed/catalogCategories.js';
 
 let app;
@@ -558,5 +562,212 @@ describe('platform catalog categories', () => {
     const kits = await Category.findOne({ name: 'Kits', parentId: null });
     const kitChildren = await Category.find({ parentId: kits._id }).sort({ sortOrder: 1 });
     expect(kitChildren.map((row) => row.name)).toEqual(['Pre-designed kits', 'Customised kits']);
+  });
+
+  it('reparents a category, updates descendant depth, and leaves product strings', async () => {
+    const apparel = await authed('post', '/api/v1/platform/categories').send({ name: 'Apparel' });
+    const nested = await authed('post', '/api/v1/platform/categories').send({
+      name: 'Apparel',
+      parentId: apparel.body._id,
+    });
+    const shirts = await authed('post', '/api/v1/platform/categories').send({
+      name: 'T-Shirts',
+      parentId: apparel.body._id,
+    });
+    const crew = await authed('post', '/api/v1/platform/categories').send({
+      name: 'Crew',
+      parentId: shirts.body._id,
+    });
+    await CatalogProduct.create({
+      sku: 'SM-TEE-KEEP',
+      name: 'Tee',
+      category: 'Apparel',
+      subcategory: 'T-Shirts',
+      childCategory: '',
+      basePriceInr: 100,
+      status: 'active',
+    });
+
+    const self = await authed('patch', `/api/v1/platform/categories/${apparel.body._id}`).send({
+      parentId: apparel.body._id,
+    });
+    expect(self.status).toBe(422);
+    expect(self.body.error.code).toBe('INVALID_PARENT');
+
+    const cycle = await authed('patch', `/api/v1/platform/categories/${apparel.body._id}`).send({
+      parentId: crew.body._id,
+    });
+    expect(cycle.status).toBe(422);
+    expect(cycle.body.error.code).toBe('INVALID_PARENT');
+
+    const moved = await authed('patch', `/api/v1/platform/categories/${shirts.body._id}`).send({
+      parentId: nested.body._id,
+    });
+    expect(moved.status).toBe(200);
+    expect(moved.body.depth).toBe(2);
+    expect(String(moved.body.parentId)).toBe(String(nested.body._id));
+    expect((await Category.findById(crew.body._id)).depth).toBe(3);
+
+    const product = await CatalogProduct.findOne({ sku: 'SM-TEE-KEEP' });
+    expect(product.category).toBe('Apparel');
+    expect(product.subcategory).toBe('T-Shirts');
+    expect(product.childCategory || '').toBe('');
+
+    const rooted = await authed('patch', `/api/v1/platform/categories/${shirts.body._id}`).send({
+      parentId: null,
+    });
+    expect(rooted.status).toBe(200);
+    expect(rooted.body.parentId).toBeNull();
+    expect(rooted.body.depth).toBe(0);
+    expect((await Category.findById(crew.body._id)).depth).toBe(1);
+  });
+
+  it('moves Apparel subcategories under child Apparel and archives sus', async () => {
+    const root = await Category.create({
+      name: 'Apparel',
+      slug: 'apparel',
+      parentId: null,
+      depth: 0,
+      status: 'active',
+    });
+    const child = await Category.create({
+      name: 'Apparel',
+      slug: 'apparel',
+      parentId: root._id,
+      depth: 1,
+      status: 'active',
+      sortOrder: 6,
+    });
+    await Category.create({
+      name: 'T-Shirts',
+      slug: 't-shirts',
+      parentId: root._id,
+      depth: 1,
+      sortOrder: 0,
+      status: 'active',
+    });
+    await Category.create({
+      name: 'sus',
+      slug: 'sus',
+      parentId: root._id,
+      depth: 1,
+      sortOrder: 7,
+      status: 'active',
+    });
+    await CatalogProduct.create({
+      sku: 'SM-APP-KEEP',
+      name: 'Tee',
+      category: 'Apparel',
+      subcategory: 'T-Shirts',
+      childCategory: '',
+      basePriceInr: 100,
+      status: 'active',
+    });
+
+    const first = await reparentApparelUnderChild();
+    expect(first.movedNames).toEqual(['T-Shirts']);
+    expect(first.susArchived).toBe(true);
+
+    const shirts = await Category.findOne({ name: 'T-Shirts' });
+    expect(String(shirts.parentId)).toBe(String(child._id));
+    expect(shirts.depth).toBe(2);
+    expect((await Category.findOne({ name: 'sus' })).status).toBe('archived');
+
+    const product = await CatalogProduct.findOne({ sku: 'SM-APP-KEEP' });
+    expect(product.category).toBe('Apparel');
+    expect(product.subcategory).toBe('T-Shirts');
+    expect(product.childCategory || '').toBe('');
+
+    const second = await reparentApparelUnderChild();
+    expect(second.moved).toBe(0);
+    expect(second.susArchived).toBe(false);
+  });
+
+  it('migrates Apparel product labels and leaves other products unchanged', async () => {
+    const root = await Category.create({
+      name: 'Apparel',
+      slug: 'apparel-root',
+      parentId: null,
+      depth: 0,
+      status: 'active',
+    });
+    const child = await Category.create({
+      name: 'Apparel',
+      slug: 'apparel-child',
+      parentId: root._id,
+      depth: 1,
+      status: 'active',
+    });
+    await Category.create({
+      name: 'T-Shirts',
+      slug: 't-shirts',
+      parentId: child._id,
+      depth: 2,
+      status: 'active',
+    });
+    await Category.create({
+      name: 'Polo Shirts',
+      slug: 'polo-shirts',
+      parentId: child._id,
+      depth: 2,
+      status: 'active',
+    });
+    await CatalogProduct.create({
+      sku: 'SM-APP-TEE',
+      name: 'Tee',
+      category: 'Apparel',
+      subcategory: 'T-Shirts',
+      childCategory: '',
+      basePriceInr: 100,
+      status: 'active',
+    });
+    await CatalogProduct.create({
+      sku: 'SM-APP-POLO',
+      name: 'Polo',
+      category: 'Apparel',
+      subcategory: 'Polo Shirts',
+      childCategory: '',
+      basePriceInr: 100,
+      status: 'active',
+    });
+    await CatalogProduct.create({
+      sku: 'SM-ACC-KEEP',
+      name: 'Mug',
+      category: 'Accessories',
+      subcategory: 'Drinkware',
+      childCategory: '',
+      basePriceInr: 100,
+      status: 'active',
+    });
+
+    const first = await migrateApparelProductLabels();
+    expect(first.productsUpdated).toBe(2);
+    expect(first.byChildCategory).toEqual({ 'T-Shirts': 1, 'Polo Shirts': 1 });
+
+    const tee = await CatalogProduct.findOne({ sku: 'SM-APP-TEE' });
+    expect(tee.category).toBe('Apparel');
+    expect(tee.subcategory).toBe('Apparel');
+    expect(tee.childCategory).toBe('T-Shirts');
+    const saved = await updateProduct(tee._id, {
+      category: tee.category,
+      subcategory: tee.subcategory,
+      childCategory: tee.childCategory,
+    });
+    expect(saved.product.childCategory).toBe('T-Shirts');
+
+    const mug = await CatalogProduct.findOne({ sku: 'SM-ACC-KEEP' });
+    expect(mug.category).toBe('Accessories');
+    expect(mug.subcategory).toBe('Drinkware');
+    expect(mug.childCategory || '').toBe('');
+
+    const second = await migrateApparelProductLabels();
+    expect(second.productsUpdated).toBe(0);
+
+    const rolled = await rollbackApparelProductLabels();
+    expect(rolled.productsRestored).toBe(2);
+    const restored = await CatalogProduct.findOne({ sku: 'SM-APP-TEE' });
+    expect(restored.category).toBe('Apparel');
+    expect(restored.subcategory).toBe('T-Shirts');
+    expect(restored.childCategory || '').toBe('');
   });
 });
