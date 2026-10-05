@@ -339,7 +339,7 @@ export async function listCategories({ parentId, roots } = {}) {
   return nestCategoryTree(all);
 }
 
-/** Active tree for the public catalog. Kits stays a normal parent row; browse still special-cases it. */
+/** Active tree for the public catalog (Parent → Category → Sub-Category). Kits stays a normal parent. */
 export async function listPublicCategories() {
   const all = await Category.find({ status: 'active' }).sort({ sortOrder: 1, name: 1 }).lean();
   const childrenByParent = new Map();
@@ -349,13 +349,11 @@ export async function listPublicCategories() {
     if (!childrenByParent.has(key)) childrenByParent.set(key, []);
     childrenByParent.get(key).push(row);
   }
-  return all
-    .filter((row) => !row.parentId)
-    .sort(categorySort)
-    .map((parent) => ({
-      ...publicCategoryNode(parent),
-      children: (childrenByParent.get(String(parent._id)) || []).sort(categorySort).map(publicCategoryNode),
-    }));
+  const withChildren = (row) => ({
+    ...publicCategoryNode(row),
+    children: (childrenByParent.get(String(row._id)) || []).sort(categorySort).map(withChildren),
+  });
+  return all.filter((row) => !row.parentId).sort(categorySort).map(withChildren);
 }
 
 export async function createCategory({ name, description = '', parentId = null, sortOrder }) {

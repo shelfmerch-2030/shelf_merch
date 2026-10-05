@@ -113,7 +113,7 @@ export function ProductWizardView({
                 <input className="inp" value={details.name} onChange={(e) => onSet("name", e.target.value)} />
               </div>
               <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Category</label>
+                <label className="lbl">Parent category</label>
                 <select
                   className="inp"
                   value={details.category}
@@ -121,7 +121,7 @@ export function ProductWizardView({
                   onChange={(e) => onSet("category", e.target.value)}
                 >
                   <option value="" disabled>
-                    {categoriesLoading ? "Loading categories" : "Select a category"}
+                    {categoriesLoading ? "Loading parent categories" : "Select a parent category"}
                   </option>
                   {categoryOptions.map((category) => (
                     <option key={category} value={category}>
@@ -131,7 +131,7 @@ export function ProductWizardView({
                 </select>
               </div>
               <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Subcategory</label>
+                <label className="lbl">Category</label>
                 <select
                   className="inp"
                   value={details.subcategory || ""}
@@ -139,7 +139,7 @@ export function ProductWizardView({
                   onChange={(e) => onSet("subcategory", e.target.value)}
                 >
                   <option value="" disabled>
-                    {subcategoriesLoading ? "Loading subcategories" : "Select a subcategory"}
+                    {subcategoriesLoading ? "Loading categories" : "Select a category"}
                   </option>
                   {subcategoryOptions.map((subcategory) => (
                     <option key={subcategory} value={subcategory}>
@@ -149,7 +149,7 @@ export function ProductWizardView({
                 </select>
               </div>
               <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Child category</label>
+                <label className="lbl">Sub-category</label>
                 <select
                   className="inp"
                   value={details.childCategory || ""}
@@ -157,7 +157,7 @@ export function ProductWizardView({
                   onChange={(e) => onSet("childCategory", e.target.value)}
                 >
                   <option value="">
-                    {childCategoriesLoading ? "Loading child categories" : "None"}
+                    {childCategoriesLoading ? "Loading sub-categories" : "None"}
                   </option>
                   {childCategoryOptions.map((childCategory) => (
                     <option key={childCategory} value={childCategory}>

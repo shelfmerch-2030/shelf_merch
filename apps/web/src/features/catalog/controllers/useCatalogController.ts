@@ -7,18 +7,38 @@ import {
   FALLBACK_CATALOG_NODES,
   catalogCategorySlug,
   resolveCatalogBrowseTarget,
+  type CatalogCategoryChild,
   type CatalogCategoryNode,
 } from "../types";
 import type { UiProduct } from "../model";
 
+function mapPublicChildren(
+  children: { name: string; slug: string; children?: unknown[] }[] | undefined,
+): CatalogCategoryChild[] {
+  return (children ?? []).map((child) => ({
+    name: child.name,
+    slug: child.slug,
+    children: mapPublicChildren(
+      child.children as { name: string; slug: string; children?: unknown[] }[] | undefined,
+    ),
+  }));
+}
+
 export type CatalogVm = {
-  category: string;
-  /** Subcategory resolved from the URL slug (style tiles / legacy links), if any. */
+  /** Parent Category (product.category), or All Products on the landing. */
+  parent: string;
+  /** Category under the parent (product.subcategory) from the URL, if any. */
+  category: string | null;
+  /** Sub-Category (product.childCategory) from the URL, if any. */
   subcategory: string | null;
   isCategorySelected: boolean;
+  /** Parent Category names including All Products. */
   categories: readonly string[];
   categoryNodes: readonly CatalogCategoryNode[];
+  /** Parent → Category names (depth 1). */
   subcategoriesByCategory: Record<string, readonly string[]>;
+  /** Parent → Category nodes with nested Sub-Categories. */
+  categoriesByParent: Record<string, readonly CatalogCategoryChild[]>;
   items: UiProduct[];
   /** Product pool for style-carousel tile photos (landing only). */
   stylePreviewProducts: UiProduct[];
@@ -28,7 +48,7 @@ export type CatalogVm = {
   onCategory: (category: string) => void;
 };
 
-/** Controller for the catalog grid: category tabs + per-category product query. */
+/** Controller for the catalog grid: category tabs + per-parent product query. */
 export function useCatalogController(): CatalogVm {
   const { data: workspace } = useWorkspace();
   const navigate = useNavigate();
@@ -41,7 +61,7 @@ export function useCatalogController(): CatalogVm {
       return remote.map((node) => ({
         name: node.name,
         slug: node.slug,
-        children: (node.children ?? []).map((child) => ({ name: child.name, slug: child.slug })),
+        children: mapPublicChildren(node.children),
       }));
     }
     return FALLBACK_CATALOG_NODES;
@@ -52,9 +72,10 @@ export function useCatalogController(): CatalogVm {
     () => resolveCatalogBrowseTarget(rawCategory, categoryNodes),
     [rawCategory, categoryNodes],
   );
+  const parent = browse.parent;
   const category = browse.category;
   const subcategory = browse.subcategory;
-  /** Prefer subcategory (wizard taxonomy), else parent category — matches product tagging. */
+  /** Always fetch by Parent Category; Category / Sub-Category filter client-side. */
   const queryCategory = browse.query;
 
   const workspaceCatalog = useMemo(
@@ -70,7 +91,7 @@ export function useCatalogController(): CatalogVm {
     isCategorySelected ? workspaceCatalog : undefined,
     isCategorySelected,
   );
-  /** Landing carousel: load products so tiles can show subcategory (or Apparel category) photos. */
+  /** Landing carousel: load products so tiles can show Category / Sub-Category photos. */
   const stylePreview = useCatalog(ALL_PRODUCTS, workspaceCatalog, !isCategorySelected);
   const items = data?.items ?? [];
   const stylePreviewProducts = !isCategorySelected
@@ -80,19 +101,27 @@ export function useCatalogController(): CatalogVm {
     () => [ALL_PRODUCTS, ...categoryNodes.map((node) => node.name)],
     [categoryNodes],
   );
+  const categoriesByParent = useMemo(
+    () => Object.fromEntries(categoryNodes.map((node) => [node.name, node.children])),
+    [categoryNodes],
+  );
   const subcategoriesByCategory = useMemo(
     () =>
-      Object.fromEntries(categoryNodes.map((node) => [node.name, node.children.map((child) => child.name)])),
+      Object.fromEntries(
+        categoryNodes.map((node) => [node.name, node.children.map((child) => child.name)]),
+      ),
     [categoryNodes],
   );
 
   return {
+    parent,
     category,
     subcategory,
     isCategorySelected,
     categories,
     categoryNodes,
     subcategoriesByCategory,
+    categoriesByParent,
     items,
     stylePreviewProducts,
     count: data?.total ?? items.length,

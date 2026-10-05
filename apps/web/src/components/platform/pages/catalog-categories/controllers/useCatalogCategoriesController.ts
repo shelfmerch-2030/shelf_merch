@@ -53,7 +53,7 @@ export function useCatalogCategoriesController() {
     if (current) for (const id of descendantIds(current)) excludedParentIds.add(id);
   }
   const parentOptions = flattenActiveCategories(tree).filter(
-    (option) => !excludedParentIds.has(option.category._id),
+    (option) => option.depth <= 1 && !excludedParentIds.has(option.category._id),
   );
 
   function refresh() {

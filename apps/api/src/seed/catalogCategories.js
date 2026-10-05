@@ -1,9 +1,10 @@
 /**
  * Canonical catalog taxonomy. Names match the strings already stored on
- * CatalogProduct.category / subcategory.
+ * CatalogProduct.category / subcategory / childCategory.
  *
- * Kits is included only so existing "Kits" product strings and /category/kits
- * keep resolving. Kit classification and PlatformKit are unchanged.
+ * Level 0 = Parent Category, level 1 = Category, level 2 = Sub-Category.
+ * Kits stays Parent → Category only (no Sub-Categories).
+ * Kits is included so existing "Kits" product strings and /category/kits keep resolving.
  */
 import mongoose from 'mongoose';
 import { Category } from '../modules/catalog/category.model.js';
@@ -15,8 +16,8 @@ export const MOVED_UNDER_ACCESSORIES = ['Bags', 'Drinkware', 'Office Supplies', 
 
 /**
  * Products still stored under an old parent name.
- * The old category string becomes the Accessories subcategory, except Technology
- * and Office Supplies, which use the business subcategory names.
+ * The old category string becomes the Accessories Category, except Technology
+ * and Office Supplies, which use the business Category names.
  */
 export const PRODUCT_CATEGORY_REMAP = {
   Drinkware: { category: 'Accessories', subcategory: 'Drinkware' },
@@ -25,24 +26,37 @@ export const PRODUCT_CATEGORY_REMAP = {
   'Office Supplies': { category: 'Accessories', subcategory: 'Stationery' },
 };
 
-/** Child rows under an Accessories subcategory. Product strings are not rewritten. */
-export const CHILD_CATEGORY_TREE = {
-  Drinkware: ['Mugs', 'Tumblers', 'Bottles'],
-  Stationery: ['Diaries', 'Pens & Pencils', 'Card Holders', 'ID Cards', 'Notepads', 'Desk Organisers'],
-  Bags: ['Totes', 'Laptop Bags', 'Backpacks'],
-};
-
+/**
+ * Parent Category → Category → Sub-Category.
+ * String children are Categories with no Sub-Categories.
+ * Object children may nest Sub-Category name arrays.
+ */
 export const CATALOG_CATEGORY_TREE = [
   {
     name: 'Apparel',
-    children: ['T-Shirts', 'Polo Shirts', 'Hoodies & Sweatshirts', 'Jackets', 'Caps', 'Others'],
+    children: [
+      {
+        name: 'Apparel',
+        children: ['T-Shirts', 'Polo Shirts', 'Hoodies & Sweatshirts', 'Jackets', 'Caps', 'Others'],
+      },
+    ],
   },
   {
     name: 'Accessories',
     children: [
-      'Stationery',
-      'Drinkware',
-      'Bags',
+      {
+        name: 'Stationery',
+        children: [
+          'Diaries',
+          'Pens & Pencils',
+          'Card Holders',
+          'ID Cards',
+          'Notepads',
+          'Desk Organisers',
+        ],
+      },
+      { name: 'Drinkware', children: ['Mugs', 'Tumblers', 'Bottles'] },
+      { name: 'Bags', children: ['Totes', 'Laptop Bags', 'Backpacks'] },
       'Travel Accessories',
       'Electronics & Gadgets',
       'Others',
@@ -57,6 +71,22 @@ export const CATALOG_CATEGORY_TREE = [
     children: ['Pre-designed kits', 'Customised kits'],
   },
 ];
+
+/** @deprecated Prefer nested CATALOG_CATEGORY_TREE; kept for tests / scripts. */
+export const CHILD_CATEGORY_TREE = Object.fromEntries(
+  (CATALOG_CATEGORY_TREE.find((row) => row.name === 'Accessories')?.children ?? [])
+    .filter((entry) => typeof entry === 'object' && Array.isArray(entry.children))
+    .map((entry) => [entry.name, entry.children]),
+);
+
+function normalizeChildSpec(entry) {
+  if (typeof entry === 'string') return { name: entry, children: [] };
+  return { name: entry.name, children: entry.children ?? [] };
+}
+
+function categoryNames(children = []) {
+  return children.map((entry) => normalizeChildSpec(entry).name);
+}
 
 function slugify(value) {
   return String(value)
@@ -116,19 +146,43 @@ async function attachExistingCategory({ name, parentId, sortOrder }) {
   };
 }
 
-async function placeChild({ name, parentId, sortOrder, moveExisting }) {
-  if (!moveExisting) {
-    const existing = await Category.findOne({ parentId, name });
-    if (existing) {
-      if (existing.sortOrder !== sortOrder) {
-        existing.sortOrder = sortOrder;
-        await existing.save();
-      }
-      return { created: false, moved: false };
+/**
+ * Place a named row under parentId. When moveExisting is true, also adopts a
+ * former root with the same name. When moveFromParentId is set, adopts a row
+ * that currently sits under that parent (e.g. Apparel leaves under root Apparel).
+ */
+async function placeChild({ name, parentId, sortOrder, moveExisting, moveFromParentId }) {
+  const existing = await Category.findOne({ parentId, name });
+  if (existing) {
+    if (existing.sortOrder !== sortOrder) {
+      existing.sortOrder = sortOrder;
+      await existing.save();
     }
-    return upsertCategory({ name, parentId, sortOrder });
+    return { created: false, moved: false };
   }
-  return attachExistingCategory({ name, parentId, sortOrder });
+
+  if (moveFromParentId) {
+    const sibling = await Category.findOne({ parentId: moveFromParentId, name });
+    if (sibling) {
+      const previousParentId = sibling.parentId ?? null;
+      sibling.parentId = parentId;
+      sibling.sortOrder = sortOrder;
+      await sibling.save();
+      return {
+        created: false,
+        moved: true,
+        categoryId: sibling._id,
+        name: sibling.name,
+        previousParentId,
+      };
+    }
+  }
+
+  if (moveExisting) {
+    return attachExistingCategory({ name, parentId, sortOrder });
+  }
+
+  return upsertCategory({ name, parentId, sortOrder });
 }
 
 const BACKUP_COLLECTION = 'categorymigrationbackups';
@@ -147,6 +201,50 @@ async function rememberParentMove(parentMoves, result) {
 }
 
 /**
+ * Walk a nested Category / Sub-Category spec under a Parent Category row.
+ */
+async function ensureNestedChildren({
+  parent,
+  children,
+  totals,
+  parentMoves,
+  moveExistingNames = new Set(),
+  moveFromParentId = null,
+}) {
+  for (let j = 0; j < children.length; j += 1) {
+    const spec = normalizeChildSpec(children[j]);
+    const childResult = await placeChild({
+      name: spec.name,
+      parentId: parent._id,
+      sortOrder: j,
+      moveExisting: moveExistingNames.has(spec.name),
+      moveFromParentId,
+    });
+    countResult(totals, childResult);
+    await rememberParentMove(parentMoves, childResult);
+
+    const child = await Category.findOne({ parentId: parent._id, name: spec.name });
+    if (!child || !spec.children.length) continue;
+
+    for (let k = 0; k < spec.children.length; k += 1) {
+      const leafName = typeof spec.children[k] === 'string' ? spec.children[k] : spec.children[k].name;
+      // Apparel leaves may still sit under the Parent; adopt them under the Category row.
+      const leafMoveFrom =
+        parent.name === 'Apparel' && spec.name === 'Apparel' ? parent._id : null;
+      const leafResult = await placeChild({
+        name: leafName,
+        parentId: child._id,
+        sortOrder: k,
+        moveExisting: false,
+        moveFromParentId: leafMoveFrom,
+      });
+      countResult(totals, leafResult);
+      await rememberParentMove(parentMoves, leafResult);
+    }
+  }
+}
+
+/**
  * Insert missing rows and move Bags, Drinkware, Office Supplies, and Technology
  * under Accessories. Does not rename, delete, or rewrite product strings.
  * Kits stays a root. Re-running does not duplicate rows.
@@ -155,6 +253,7 @@ export async function ensureCatalogCategories() {
   await Category.syncIndexes();
   const totals = { created: 0, existing: 0, moved: 0 };
   const parentMoves = [];
+  const moveExistingNames = new Set(MOVED_UNDER_ACCESSORIES);
 
   for (let i = 0; i < CATALOG_CATEGORY_TREE.length; i += 1) {
     const parentSpec = CATALOG_CATEGORY_TREE[i];
@@ -167,22 +266,18 @@ export async function ensureCatalogCategories() {
       await parent.save();
     }
 
-    for (let j = 0; j < parentSpec.children.length; j += 1) {
-      const childName = parentSpec.children[j];
-      const childResult = await placeChild({
-        name: childName,
-        parentId: parent._id,
-        sortOrder: j,
-        moveExisting: MOVED_UNDER_ACCESSORIES.includes(childName),
-      });
-      countResult(totals, childResult);
-      await rememberParentMove(parentMoves, childResult);
-    }
+    await ensureNestedChildren({
+      parent,
+      children: parentSpec.children ?? [],
+      totals,
+      parentMoves,
+      moveExistingNames,
+    });
   }
 
   const accessories = await Category.findOne({ parentId: null, name: 'Accessories' });
   const businessChildren = new Set(
-    CATALOG_CATEGORY_TREE.find((row) => row.name === 'Accessories')?.children ?? [],
+    categoryNames(CATALOG_CATEGORY_TREE.find((row) => row.name === 'Accessories')?.children),
   );
 
   for (const name of MOVED_UNDER_ACCESSORIES) {
@@ -205,20 +300,6 @@ export async function ensureCatalogCategories() {
     if (extras[i].sortOrder !== desired) {
       extras[i].sortOrder = desired;
       await extras[i].save();
-    }
-  }
-
-  for (const [subName, leaves] of Object.entries(CHILD_CATEGORY_TREE)) {
-    const sub = await Category.findOne({ parentId: accessories._id, name: subName });
-    if (!sub) continue;
-    for (let k = 0; k < leaves.length; k += 1) {
-      const leafResult = await placeChild({
-        name: leaves[k],
-        parentId: sub._id,
-        sortOrder: k,
-        moveExisting: false,
-      });
-      countResult(totals, leafResult);
     }
   }
 
@@ -340,8 +421,13 @@ export async function rollbackCatalogHierarchy() {
   return { productsRestored, parentsRestored };
 }
 
-/** Old Accessories children that are not in the business tree. Rows are archived, not deleted. */
-export const LEGACY_CATEGORIES_TO_ARCHIVE = ['Technology', 'Office Supplies', 'Lifestyle Accessories'];
+/** Old Accessories children / retired parents that are not in the business tree. Rows are archived, not deleted. */
+export const LEGACY_CATEGORIES_TO_ARCHIVE = [
+  'Technology',
+  'Office Supplies',
+  'Lifestyle Accessories',
+  'Premium Gifts',
+];
 
 async function activeProductUses(category) {
   if (!category.parentId) {

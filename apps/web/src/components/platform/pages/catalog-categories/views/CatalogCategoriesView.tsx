@@ -8,6 +8,12 @@ import {
 import type { PlatformCategory } from "@/services/platform-api";
 import type { CatalogCategoriesVm } from "../controllers/useCatalogCategoriesController";
 
+function levelLabel(depth: number): string {
+  if (depth <= 0) return "Parent Category";
+  if (depth === 1) return "Category";
+  return "Sub-Category";
+}
+
 function CategoryRow({
   category,
   siblings,
@@ -40,7 +46,10 @@ function CategoryRow({
     >
       <div style={{ flex: 1 }}>
         <strong>{depth ? "├── " : ""}{category.name}</strong>
-        {category.description ? <div className="muted">{category.description}</div> : null}
+        <div className="muted" style={{ fontSize: 12 }}>
+          {levelLabel(depth)}
+          {category.description ? ` · ${category.description}` : ""}
+        </div>
       </div>
       <StatusTag status={category.status} />
       {canWrite ? (
@@ -137,7 +146,7 @@ export function CatalogCategoriesView({
     <>
       <PlatformPageHeader
         title="Categories"
-        subtitle="Categories, subcategories, and child categories used by the catalog and product wizard."
+        subtitle="Parent categories, categories, and sub-categories used by the catalog and product wizard."
         actions={
           <Link to="/platform/catalog" className="btn btn-ghost btn-sm">
             Back to catalog
@@ -162,7 +171,7 @@ export function CatalogCategoriesView({
               value={parentId}
               onChange={(e) => onParentId(e.target.value)}
             >
-              <option value="">None — parent category</option>
+              <option value="">None — top-level parent category</option>
               {parentOptions.map(({ category, depth }) => (
                 <option key={category._id} value={category._id}>
                   {`${"\u00A0".repeat(depth * 2)}${depth ? "↳ " : ""}${category.name}`}

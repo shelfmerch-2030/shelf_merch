@@ -300,10 +300,10 @@ export type PublicCatalogCategory = {
   slug: string;
   sortOrder: number;
   description?: string;
-  children: { _id: string; name: string; slug: string; sortOrder: number }[];
+  children: PublicCatalogCategory[];
 };
 
-/** Active parent/child categories for public catalog browse. */
+/** Active Parent → Category → Sub-Category tree for public catalog browse. */
 export async function fetchPublicCatalogCategories(): Promise<PublicCatalogCategory[]> {
   return publicFetch<PublicCatalogCategory[]>("/catalog/categories");
 }

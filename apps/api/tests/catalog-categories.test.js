@@ -128,6 +128,7 @@ describe('platform catalog categories', () => {
     const pub = await request(app).get('/api/v1/catalog/categories');
     const publicAccessories = pub.body.find((row) => row.name === 'Accessories');
     expect(publicAccessories.children.map((row) => row.name)).toEqual(['Drinkware']);
+    expect(publicAccessories.children[0].children.map((row) => row.name)).toEqual(['Mugs']);
 
     const withoutLeaf = await authed('post', '/api/v1/platform/products').send({
       name: 'Bottle',
@@ -149,6 +150,11 @@ describe('platform catalog categories', () => {
     expect(withLeaf.body.childCategory).toBe('Mugs');
     expect(withLeaf.body.category).toBe('Accessories');
     expect(withLeaf.body.subcategory).toBe('Drinkware');
+
+    await CatalogProduct.updateOne({ _id: withLeaf.body._id }, { $set: { status: 'active' } });
+    const byChild = await request(app).get('/api/v1/catalog/products').query({ category: 'Mugs' });
+    expect(byChild.status).toBe(200);
+    expect(byChild.body.items.some((row) => row.name === 'Mug')).toBe(true);
 
     const invalid = await authed('post', '/api/v1/platform/products').send({
       name: 'Wrong',
@@ -556,8 +562,13 @@ describe('platform catalog categories', () => {
 
     const apparel = await Category.findOne({ name: 'Apparel', parentId: null });
     const apparelChildren = await Category.find({ parentId: apparel._id });
-    expect(apparelChildren.map((row) => row.name)).toContain('Polo Shirts');
-    expect(apparelChildren.map((row) => row.name)).not.toContain('Polos');
+    expect(apparelChildren.map((row) => row.name)).toEqual(['Apparel']);
+    const apparelCategory = apparelChildren[0];
+    const apparelLeaves = await Category.find({ parentId: apparelCategory._id }).sort({ sortOrder: 1 });
+    expect(apparelLeaves.map((row) => row.name)).toContain('Polo Shirts');
+    expect(apparelLeaves.map((row) => row.name)).toContain('T-Shirts');
+    expect(apparelLeaves.map((row) => row.name)).not.toContain('Polos');
+    expect(apparelLeaves.every((row) => row.depth === 2)).toBe(true);
 
     const kits = await Category.findOne({ name: 'Kits', parentId: null });
     const kitChildren = await Category.find({ parentId: kits._id }).sort({ sortOrder: 1 });

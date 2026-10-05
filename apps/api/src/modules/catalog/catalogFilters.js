@@ -58,8 +58,8 @@ const CATEGORY_INCLUDES = {
 
 /**
  * Mongo category filter.
- * Prefers subcategory (wizard taxonomy / remapped products), then falls back to
- * category (legacy top-level names). Parent queries still expand via CATEGORY_INCLUDES.
+ * Matches Parent Category (`category`), Category (`subcategory`), or Sub-Category
+ * (`childCategory`). Parent queries still expand via CATEGORY_INCLUDES.
  */
 export function categoryFilter(category) {
   if (!category) return {};
@@ -67,7 +67,11 @@ export function categoryFilter(category) {
   const categoryMatch =
     values.length === 1 ? { category: values[0] } : { category: { $in: values } };
   return {
-    $or: [{ subcategory: { $in: values } }, categoryMatch],
+    $or: [
+      { childCategory: { $in: values } },
+      { subcategory: { $in: values } },
+      categoryMatch,
+    ],
   };
 }
 

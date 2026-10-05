@@ -62,15 +62,47 @@ const PARENT_CATEGORY_IMAGES: Record<string, string> = {
   Kits: styleKitsImg,
 };
 
-/** Parent categories only — same list CatalogCategoryView prev/next uses. */
+/** Fallback art when Accessories is expanded into its Category tiles. */
+const ACCESSORIES_CATEGORY_IMAGES: Record<string, string> = {
+  Stationery: styleNotebookImg,
+  Drinkware: styleDrinkwareImg,
+  Bags: styleToteImg,
+  "Travel Accessories": styleToteImg,
+  "Electronics & Gadgets": accessoriesImg,
+};
+
+/** Parent categories — Accessories expands to its Categories; others stay as roots. */
 function buildParentCategoryTiles(
   categories: readonly string[],
   nodes: readonly CatalogCategoryNode[],
   products: readonly UiProduct[],
 ): CategoryTile[] {
-  return categories
-    .filter((category) => category !== ALL_PRODUCTS)
-    .map((category) => ({
+  const tiles: CategoryTile[] = [];
+
+  for (const category of categories) {
+    if (category === ALL_PRODUCTS) continue;
+
+    if (category === "Accessories") {
+      const children =
+        nodes.find((node) => node.name === "Accessories")?.children ?? [];
+      for (const child of children) {
+        if (child.name === "Others") continue;
+        tiles.push({
+          label: child.name,
+          category: child.name,
+          imageAlt: child.name,
+          image: pickStyleTileImage(
+            products,
+            child.name,
+            ACCESSORIES_CATEGORY_IMAGES[child.name] ?? accessoriesImg,
+            nodes,
+          ),
+        });
+      }
+      continue;
+    }
+
+    tiles.push({
       label: category,
       category,
       imageAlt: category,
@@ -80,7 +112,10 @@ function buildParentCategoryTiles(
         PARENT_CATEGORY_IMAGES[category] ?? apparelImg,
         nodes,
       ),
-    }));
+    });
+  }
+
+  return tiles;
 }
 
 /** Spotlight collage: Apparel as category, other roots expand to subcategories. */
@@ -474,7 +509,7 @@ export function CatalogView(vm: CatalogVm) {
   const isPublic = pathname.startsWith("/apps/catalog");
   const productBase = isPublic ? "/apps/catalog" : "/app/catalog";
 
-  const showNoCategoryPlaceholder = vm.category === ALL_PRODUCTS && !vm.isCategorySelected;
+  const showNoCategoryPlaceholder = vm.parent === ALL_PRODUCTS && !vm.isCategorySelected;
 
   const styleCategories = useMemo(
     () => buildParentCategoryTiles(vm.categories, vm.categoryNodes, vm.stylePreviewProducts),
@@ -546,7 +581,7 @@ export function CatalogView(vm: CatalogVm) {
           ) : (
             <div className="sm-cat-products-head">
               <h2 className="sm-cat-title" id="sm-cat-products-title">
-                {vm.category}
+                {vm.parent}
               </h2>
               <p className="sm-cat-products-meta">{vm.count} products ready to brand and ship</p>
             </div>

@@ -1,7 +1,7 @@
 import { productVariantSwatches } from "@/lib/variantColors";
 import type { UiProduct } from "@/services/mappers";
 
-/** Category tabs, matching the legacy catalog filter rail. */
+/** Parent Category tabs, matching the legacy catalog filter rail. */
 export const CATALOG_CATEGORIES = [
   "All Products",
   "Apparel",
@@ -15,27 +15,60 @@ export const KITS_CATEGORY = "Kits";
 export const PREDESIGNED_KITS_SUBCATEGORY = "Pre-designed kits";
 export const CUSTOMISED_KITS_SUBCATEGORY = "Customised kits";
 
-/** Subcategories shown on each category browse page. */
-export const CATALOG_SUBCATEGORIES: Record<string, readonly string[]> = {
-  Apparel: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps", "Others"],
+/**
+ * Nested fallback taxonomy: Parent Category → Category → Sub-Category.
+ * String children are Categories with no Sub-Categories.
+ */
+export const CATALOG_TAXONOMY: Record<
+  string,
+  readonly (string | { name: string; children: readonly string[] })[]
+> = {
+  Apparel: [
+    {
+      name: "Apparel",
+      children: ["T-Shirts", "Polo Shirts", "Hoodies & Sweatshirts", "Jackets", "Caps", "Others"],
+    },
+  ],
   Accessories: [
-    "Stationery",
-    "Drinkware",
-    "Bags",
+    {
+      name: "Stationery",
+      children: [
+        "Diaries",
+        "Pens & Pencils",
+        "Card Holders",
+        "ID Cards",
+        "Notepads",
+        "Desk Organisers",
+      ],
+    },
+    { name: "Drinkware", children: ["Mugs", "Tumblers", "Bottles"] },
+    { name: "Bags", children: ["Totes", "Laptop Bags", "Backpacks"] },
     "Travel Accessories",
     "Electronics & Gadgets",
     "Others",
   ],
   "Food & Beverage": ["Coffee", "Snacks", "Chocolates"],
-  // Kept so storefronts can still order products whose category string is the old parent name.
+  Kits: [PREDESIGNED_KITS_SUBCATEGORY, CUSTOMISED_KITS_SUBCATEGORY],
+  // Legacy parent names still used by storefront PLP defaults.
   Bags: ["Backpacks", "Tote Bags", "Laptop Bags", "Duffel Bags", "Messenger Bags", "Others"],
   Drinkware: ["Bottles", "Mugs", "Tumblers", "Flasks", "Sippers", "Others"],
   "Office Supplies": ["Notebooks", "Diaries", "Pens", "Desk Accessories", "Calendars", "Card Holders", "Others"],
   Technology: ["Power Banks", "Wireless Chargers", "Speakers", "Headphones", "USB Drives", "Others"],
-  Kits: [PREDESIGNED_KITS_SUBCATEGORY, CUSTOMISED_KITS_SUBCATEGORY],
 };
 
-/** Legacy subcategory URL slugs that resolve to a parent category + subcategory filter. */
+function taxonomyCategoryNames(
+  entries: readonly (string | { name: string; children: readonly string[] })[] | undefined,
+): string[] {
+  if (!entries) return [];
+  return entries.map((entry) => (typeof entry === "string" ? entry : entry.name));
+}
+
+/** Flat Parent → Category names (StoreShell / legacy). Derived from CATALOG_TAXONOMY. */
+export const CATALOG_SUBCATEGORIES: Record<string, readonly string[]> = Object.fromEntries(
+  Object.entries(CATALOG_TAXONOMY).map(([parent, entries]) => [parent, taxonomyCategoryNames(entries)]),
+);
+
+/** Legacy Category URL slugs that resolve to a Parent + Category filter. */
 const LEGACY_SUBCATEGORY_SLUGS: Record<string, { parent: string; subcategory: string }> = {
   keys: { parent: "Accessories", subcategory: "Key Chains" },
   "key-chains": { parent: "Accessories", subcategory: "Key Chains" },
@@ -87,11 +120,36 @@ export function catalogCategorySlug(category: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export type CatalogCategoryChild = {
+  name: string;
+  slug: string;
+  children?: CatalogCategoryChild[];
+};
+
 export type CatalogCategoryNode = {
   name: string;
   slug: string;
-  children: { name: string; slug: string }[];
+  children: CatalogCategoryChild[];
 };
+
+function buildFallbackChildren(
+  entries: readonly (string | { name: string; children: readonly string[] })[],
+): CatalogCategoryChild[] {
+  return entries.map((entry) => {
+    if (typeof entry === "string") {
+      return { name: entry, slug: catalogCategorySlug(entry), children: [] };
+    }
+    return {
+      name: entry.name,
+      slug: catalogCategorySlug(entry.name),
+      children: entry.children.map((leaf) => ({
+        name: leaf,
+        slug: catalogCategorySlug(leaf),
+        children: [],
+      })),
+    };
+  });
+}
 
 /** Used when the category API has not been seeded yet. Live browse prefers the API tree. */
 export const FALLBACK_CATALOG_NODES: CatalogCategoryNode[] = CATALOG_CATEGORIES.filter(
@@ -99,13 +157,22 @@ export const FALLBACK_CATALOG_NODES: CatalogCategoryNode[] = CATALOG_CATEGORIES.
 ).map((name) => ({
   name,
   slug: catalogCategorySlug(name),
-  children: (CATALOG_SUBCATEGORIES[name] ?? []).map((child) => ({
-    name: child,
-    slug: catalogCategorySlug(child),
-  })),
+  children: buildFallbackChildren(CATALOG_TAXONOMY[name] ?? []),
 }));
 
-/** Map a landing/query category string onto a catalog tab. */
+function matchesNameOrSlug(
+  entry: { name: string; slug?: string },
+  key: string,
+  slug: string,
+): boolean {
+  return (
+    entry.name.toLowerCase() === key ||
+    entry.slug === slug ||
+    catalogCategorySlug(entry.name) === slug
+  );
+}
+
+/** Map a landing/query category string onto a Parent Category tab. */
 export function resolveCatalogCategory(
   raw: string | null | undefined,
   nodes: readonly { name: string; slug: string }[] = FALLBACK_CATALOG_NODES,
@@ -114,17 +181,12 @@ export function resolveCatalogCategory(
   if (!key) return ALL_PRODUCTS;
   const slug = catalogCategorySlug(key);
   const list = nodes.length ? nodes : FALLBACK_CATALOG_NODES;
-  const exact = list.find(
-    (category) =>
-      category.name.toLowerCase() === key ||
-      category.slug === slug ||
-      catalogCategorySlug(category.name) === slug,
-  );
+  const exact = list.find((category) => matchesNameOrSlug(category, key, slug));
   if (exact) return exact.name;
   return CATEGORY_ALIASES[key] ?? CATEGORY_ALIASES[slug] ?? ALL_PRODUCTS;
 }
 
-/** If the URL slug was a nested subcategory, return that filter label. */
+/** If the URL slug was a nested Category, return that filter label. */
 export function resolveCatalogSubcategory(
   raw: string | null | undefined,
   parentCategory: string,
@@ -143,55 +205,107 @@ export function resolveCatalogSubcategory(
   return list.find((item) => catalogCategorySlug(item) === slug) ?? null;
 }
 
+export type CatalogBrowseTarget = {
+  /** Parent Category (product.category). */
+  parent: string;
+  /** Category under the parent (product.subcategory), if resolved from the URL. */
+  category: string | null;
+  /** Sub-Category under the category (product.childCategory), if resolved from the URL. */
+  subcategory: string | null;
+  /**
+   * Product fetch key. Always the Parent Category so the page can filter
+   * Category / Sub-Category client-side.
+   */
+  query: string;
+};
+
 /**
- * Style-carousel / browse target: prefer subcategory (wizard taxonomy), else parent category.
- * Resolves legacy aliases and any subcategory name from the live category tree.
+ * Browse target from a URL slug: match Sub-Category, then Category, then Parent.
+ * Fetch query is always the Parent Category (or All Products).
  */
 export function resolveCatalogBrowseTarget(
   raw: string | null | undefined,
   nodes: readonly CatalogCategoryNode[] = FALLBACK_CATALOG_NODES,
-): { category: string; subcategory: string | null; query: string } {
+): CatalogBrowseTarget {
   const key = String(raw || "").trim().toLowerCase();
   const slug = catalogCategorySlug(key);
   const list = nodes.length ? nodes : FALLBACK_CATALOG_NODES;
 
   if (!key) {
-    return { category: ALL_PRODUCTS, subcategory: null, query: ALL_PRODUCTS };
+    return {
+      parent: ALL_PRODUCTS,
+      category: null,
+      subcategory: null,
+      query: ALL_PRODUCTS,
+    };
   }
 
-  // Match a subcategory anywhere in the tree first (same labels as the product wizard).
-  for (const node of list) {
-    const child = node.children.find(
-      (entry) =>
-        entry.name.toLowerCase() === key ||
-        entry.slug === slug ||
-        catalogCategorySlug(entry.name) === slug,
-    );
-    if (child) {
-      return { category: node.name, subcategory: child.name, query: child.name };
+  // Depth 2: Sub-Category anywhere in the tree.
+  for (const parent of list) {
+    for (const category of parent.children) {
+      for (const leaf of category.children ?? []) {
+        if (matchesNameOrSlug(leaf, key, slug)) {
+          return {
+            parent: parent.name,
+            category: category.name,
+            subcategory: leaf.name,
+            query: parent.name,
+          };
+        }
+      }
     }
+  }
+
+  // Depth 1: Category under a Parent.
+  for (const parent of list) {
+    const child = parent.children.find((entry) => matchesNameOrSlug(entry, key, slug));
+    if (child) {
+      return {
+        parent: parent.name,
+        category: child.name,
+        subcategory: null,
+        query: parent.name,
+      };
+    }
+  }
+
+  // Legacy aliases (bags → Accessories / Bags).
+  const legacy = LEGACY_SUBCATEGORY_SLUGS[key] ?? LEGACY_SUBCATEGORY_SLUGS[slug];
+  if (legacy) {
+    return {
+      parent: legacy.parent,
+      category: legacy.subcategory,
+      subcategory: null,
+      query: legacy.parent,
+    };
   }
 
   const parent = resolveCatalogCategory(raw, list);
   if (parent === ALL_PRODUCTS) {
-    return { category: ALL_PRODUCTS, subcategory: null, query: ALL_PRODUCTS };
+    return {
+      parent: ALL_PRODUCTS,
+      category: null,
+      subcategory: null,
+      query: ALL_PRODUCTS,
+    };
   }
 
   const options =
     list.find((node) => node.name === parent)?.children.map((child) => child.name) ??
     CATALOG_SUBCATEGORIES[parent] ??
     [];
-  const subcategory = resolveCatalogSubcategory(raw, parent, options);
+  const category = resolveCatalogSubcategory(raw, parent, options);
   return {
-    category: parent,
-    subcategory,
-    query: subcategory ?? parent,
+    parent,
+    category,
+    subcategory: null,
+    query: parent,
   };
 }
 
 /**
  * Landing style tiles from the wizard taxonomy:
- * Apparel stays a parent category; every other root expands to its subcategories.
+ * Apparel stays a Parent Category; every other root expands to its Categories.
  */
 export function buildStyleTaxonomyTiles(
   nodes: readonly CatalogCategoryNode[],
@@ -217,13 +331,38 @@ export function buildStyleTaxonomyTiles(
   return tiles;
 }
 
-/** Match a product to a subcategory (incl. legacy rows where category was the subcategory name). */
+/** Match a product to a Category (product.subcategory) or legacy category string. */
 export function productMatchesSubcategory(product: UiProduct, subcategory: string): boolean {
   const target = String(subcategory || "").trim().toLowerCase();
   if (!target) return true;
   const sub = String(product.subcategory || "").trim().toLowerCase();
   const cat = String(product.category || "").trim().toLowerCase();
-  return sub === target || cat === target;
+  const child = String(product.childCategory || "").trim().toLowerCase();
+  return sub === target || cat === target || child === target;
+}
+
+/**
+ * Match a product against a taxonomy level.
+ * - parent → product.category
+ * - category → product.subcategory (or legacy category / childCategory)
+ * - subcategory → product.childCategory (or legacy subcategory)
+ */
+export function productMatchesLevel(
+  product: UiProduct,
+  level: "parent" | "category" | "subcategory",
+  name: string,
+): boolean {
+  const target = String(name || "").trim().toLowerCase();
+  if (!target) return true;
+  const parent = String(product.category || "").trim().toLowerCase();
+  const category = String(product.subcategory || "").trim().toLowerCase();
+  const subcategory = String(product.childCategory || "").trim().toLowerCase();
+
+  if (level === "parent") return parent === target;
+  if (level === "category") {
+    return category === target || parent === target || subcategory === target;
+  }
+  return subcategory === target || category === target;
 }
 
 /** Best display photo for a catalog product. */
@@ -232,8 +371,8 @@ export function productPhotoUrl(product: UiProduct): string | undefined {
 }
 
 /**
- * Style-carousel tile image: prefer a product in the subcategory (wizard taxonomy),
- * otherwise fall back to a product in the parent category (e.g. Apparel).
+ * Style-carousel tile image: prefer a product in the Category / Sub-Category,
+ * otherwise fall back to a product in the Parent Category.
  */
 export function pickStyleTileImage(
   products: readonly UiProduct[],
@@ -241,20 +380,30 @@ export function pickStyleTileImage(
   fallback: string,
   nodes: readonly CatalogCategoryNode[] = FALLBACK_CATALOG_NODES,
 ): string {
-  const { category, subcategory } = resolveCatalogBrowseTarget(browseKey, nodes);
+  const { parent, category, subcategory } = resolveCatalogBrowseTarget(browseKey, nodes);
   const withPhoto = (product: UiProduct) => Boolean(productPhotoUrl(product));
 
   if (subcategory) {
-    const bySub = products.find((product) => productMatchesSubcategory(product, subcategory) && withPhoto(product));
-    const subUrl = bySub ? productPhotoUrl(bySub) : undefined;
-    if (subUrl) return subUrl;
+    const byLeaf = products.find(
+      (product) => productMatchesLevel(product, "subcategory", subcategory) && withPhoto(product),
+    );
+    const leafUrl = byLeaf ? productPhotoUrl(byLeaf) : undefined;
+    if (leafUrl) return leafUrl;
   }
 
-  const byCategory = products.find((product) => {
+  if (category) {
+    const byCat = products.find(
+      (product) => productMatchesLevel(product, "category", category) && withPhoto(product),
+    );
+    const catUrl = byCat ? productPhotoUrl(byCat) : undefined;
+    if (catUrl) return catUrl;
+  }
+
+  const byParent = products.find((product) => {
     const cat = String(product.category || "").trim().toLowerCase();
-    return cat === category.toLowerCase() && withPhoto(product);
+    return cat === parent.toLowerCase() && withPhoto(product);
   });
-  return (byCategory && productPhotoUrl(byCategory)) || fallback;
+  return (byParent && productPhotoUrl(byParent)) || fallback;
 }
 
 /** Parse a "Label: value" newline block into rows (key features / size guide). */
