@@ -346,16 +346,36 @@ export async function disconnectMergeConnection(
   return res.connection;
 }
 
+export type HrisDirectoryState = "connected" | "syncing" | "disconnected" | "error" | "empty";
+
+/** Backend-derived directory banner. lastSuccessfulSyncAt is the latest successful import. */
+export type HrisDirectoryStatus = {
+  state: HrisDirectoryState;
+  lastSuccessfulSyncAt: string | null;
+  retainSnapshot: boolean;
+};
+
+export const EMPTY_HRIS_DIRECTORY_STATUS: HrisDirectoryStatus = {
+  state: "empty",
+  lastSuccessfulSyncAt: null,
+  retainSnapshot: false,
+};
+
 export async function fetchMergeEmployees(options?: {
   connectionId?: string;
   limit?: number;
-}): Promise<MergeHrisEmployeePublic[]> {
+}): Promise<{ employees: MergeHrisEmployeePublic[]; directory: HrisDirectoryStatus }> {
   const params = new URLSearchParams();
   if (options?.connectionId) params.set("connectionId", options.connectionId);
   if (options?.limit != null) params.set("limit", String(options.limit));
   const qs = params.toString();
-  const res = await mergeFetch<{ success: boolean; employees: MergeHrisEmployeePublic[] }>(
-    `/employees${qs ? `?${qs}` : ""}`,
-  );
-  return Array.isArray(res?.employees) ? res.employees : [];
+  const res = await mergeFetch<{
+    success: boolean;
+    employees: MergeHrisEmployeePublic[];
+    directory?: HrisDirectoryStatus;
+  }>(`/employees${qs ? `?${qs}` : ""}`);
+  return {
+    employees: Array.isArray(res?.employees) ? res.employees : [],
+    directory: res?.directory ?? EMPTY_HRIS_DIRECTORY_STATUS,
+  };
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronDown, HelpCircle, Search, Unplug, Users } from "lucid
 import { COUNTRY_OPTIONS } from "@/data/countries";
 import { LoadingState } from "@/components/LoadingState";
 import type { MergeHrisEmployeePublic } from "@/services/merge-api";
+import { hrisDirectoryBannerText } from "./hrisDirectoryBanner";
 import type { HrisEmployeesVm } from "./useHrisEmployeesController";
 
 const COUNTRY_ALIASES: Record<string, string> = {
@@ -100,19 +101,6 @@ function statusMeta(status?: string | null) {
   };
 }
 
-function formatDirSyncAt(value?: string | null) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function providerLabel(slug: string) {
   const map: Record<string, string> = {
     deel: "Deel",
@@ -133,12 +121,11 @@ function tidyName(value: string) {
 
 /** HRIS people directory — MergeHrisEmployee list; also mirrored into Workspace Contacts on sync. */
 export function HrisEmployeesView(vm: HrisEmployeesVm) {
-  const hasConnection = vm.connections.some(
-    (c) => c.status === "connected" || c.status === "needs_attention",
-  );
   const filtered = vm.employees.length;
   const [providerOpen, setProviderOpen] = useState(false);
   const totalLabel = filtered === 1 ? "item" : "items";
+  const bannerText = hrisDirectoryBannerText(vm.directory);
+  const bannerDisconnected = vm.directory.state === "disconnected";
 
   return (
     <div className="hris-dir-page">
@@ -173,7 +160,7 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
         </div>
       </div>
 
-      {!hasConnection && !vm.hasDisconnectedDirectory && !vm.loading ? (
+      {!vm.loading && vm.directory.state === "empty" ? (
         <div className="hris-dir-banner" role="status">
           <Users size={16} aria-hidden="true" />
           <p>
@@ -183,16 +170,13 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
         </div>
       ) : null}
 
-      {vm.hasDisconnectedDirectory && !vm.loading ? (
-        <div className="hris-dir-banner hris-dir-banner--disconnected" role="status">
-          <Unplug size={16} aria-hidden="true" />
-          <p>
-            Disconnected
-            {vm.disconnectedLastSyncAt
-              ? ` — last synced ${formatDirSyncAt(vm.disconnectedLastSyncAt)}`
-              : ""}
-            . People from the last snapshot are still listed.
-          </p>
+      {!vm.loading && bannerText ? (
+        <div
+          className={`hris-dir-banner${bannerDisconnected ? " hris-dir-banner--disconnected" : ""}`}
+          role="status"
+        >
+          {bannerDisconnected ? <Unplug size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
+          <p>{bannerText}</p>
         </div>
       ) : null}
 
