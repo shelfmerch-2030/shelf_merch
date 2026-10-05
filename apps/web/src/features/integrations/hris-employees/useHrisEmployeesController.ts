@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  EMPTY_HRIS_DIRECTORY_STATUS,
   fetchMergeConnections,
   fetchMergeEmployees,
   type HrisDirectoryStatus,
   type MergeConnectionPublic,
   type MergeHrisEmployeePublic,
 } from "@/services/merge-api";
+import { resolveHrisDirectoryBanner } from "./hrisDirectoryBanner";
 
 export const MERGE_EMPLOYEES_QUERY_KEY = ["integrations", "merge", "employees"] as const;
 export const MERGE_CONNECTIONS_QUERY_KEY = ["integrations", "merge", "connections"] as const;
@@ -47,7 +47,11 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
   });
 
   const allEmployees = employeesQuery.data?.employees ?? [];
-  const directory = employeesQuery.data?.directory ?? EMPTY_HRIS_DIRECTORY_STATUS;
+  const directory = resolveHrisDirectoryBanner({
+    connections: connectionsQuery.data ?? [],
+    connectionsLoaded: connectionsQuery.isSuccess,
+    employeeDirectory: employeesQuery.data?.directory,
+  });
 
   const providerOptions = useMemo(() => {
     const set = new Set<string>();

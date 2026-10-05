@@ -99,6 +99,27 @@ describe('deriveHrisDirectoryStatus', () => {
     });
   });
 
+  it('maps the live Gusto connection status connected plus success', () => {
+    expect(
+      deriveHrisDirectoryStatus([
+        {
+          provider: 'gusto',
+          status: 'connected',
+          lastSyncStatus: 'success',
+          lastSyncAt: '2026-10-01T11:48:45.143Z',
+        },
+      ]),
+    ).toEqual({
+      state: 'connected',
+      lastSuccessfulSyncAt: '2026-10-01T11:48:45.143Z',
+      retainSnapshot: false,
+    });
+  });
+
+  it('does not treat an empty connection list as connected', () => {
+    expect(deriveHrisDirectoryStatus([]).state).toBe('empty');
+  });
+
   it('reports error when the only current connection needs attention', () => {
     expect(
       deriveHrisDirectoryStatus([

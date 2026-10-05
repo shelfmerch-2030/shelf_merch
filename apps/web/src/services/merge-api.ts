@@ -376,6 +376,6 @@ export async function fetchMergeEmployees(options?: {
   }>(`/employees${qs ? `?${qs}` : ""}`);
   return {
     employees: Array.isArray(res?.employees) ? res.employees : [],
-    directory: res?.directory ?? EMPTY_HRIS_DIRECTORY_STATUS,
+    directory: res?.directory?.state ? res.directory : EMPTY_HRIS_DIRECTORY_STATUS,
   };
 }

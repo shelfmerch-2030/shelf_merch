@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import {
   ArrowRight,
   Backpack,
@@ -857,6 +857,7 @@ function ExistingDashboard({
 }
 
 export function DashboardPage() {
+  const location = useLocation();
   const { data: workspace, isLoading, isError, error } = useWorkspace();
   const { canWrite } = useTenantAccess();
   const canCreateShop = canWrite("shops");
@@ -898,17 +899,23 @@ export function DashboardPage() {
   const activeShopCount = workspace.shops.filter((s) => s.live).length || workspace.shops.length;
   const showOnboarding = wallets.length === 0;
   const isEntityManager = workspace.userPatch.role === "entity_manager";
-  const showWelcome = showOnboarding && welcomeOpen && !wasNewUserWelcomeDismissed();
+  const previewWelcome = new URLSearchParams(location.search).get("previewWelcome") === "1";
+  const showWelcome =
+    welcomeOpen && (previewWelcome || (showOnboarding && !wasNewUserWelcomeDismissed()));
 
   function closeWelcome() {
-    dismissNewUserWelcome();
+    if (!previewWelcome) dismissNewUserWelcome();
     setWelcomeOpen(false);
   }
 
   return (
     <div className="dash-page fade-in">
       {showWelcome ? (
-        <NewUserWelcomeDialog open onClose={closeWelcome} />
+        <NewUserWelcomeDialog
+          open
+          firstName={userName.trim().split(/\s+/)[0]}
+          onClose={closeWelcome}
+        />
       ) : null}
 
       <section className="dash-welcome card">

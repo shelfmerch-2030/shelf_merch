@@ -26,12 +26,14 @@ function latestSuccessfulSyncAt(connections) {
 }
 
 export function deriveHrisDirectoryStatus(connections) {
-  const rows = Array.isArray(connections) ? connections.filter(Boolean) : [];
+  const rows = (Array.isArray(connections) ? connections.filter(Boolean) : []).map((connection) => ({
+    ...connection,
+    status: String(connection.status || '').toLowerCase(),
+    lastSyncStatus: String(connection.lastSyncStatus || '').toLowerCase(),
+  }));
   const current = rows.filter((connection) => connection.status !== 'disconnected');
   const disconnected = rows.filter((connection) => connection.status === 'disconnected');
-  const syncing = current.filter((connection) =>
-    IN_PROGRESS_SYNC.has(String(connection.lastSyncStatus || '')),
-  );
+  const syncing = current.filter((connection) => IN_PROGRESS_SYNC.has(connection.lastSyncStatus));
   const connected = current.filter((connection) => connection.status === 'connected');
   const problem = current.filter((connection) => PROBLEM_STATUSES.has(connection.status));
 
