@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  EMPTY_HRIS_DIRECTORY_STATUS,
   fetchMergeConnections,
   fetchMergeEmployees,
+  type HrisDirectoryStatus,
   type MergeConnectionPublic,
   type MergeHrisEmployeePublic,
 } from "@/services/merge-api";
@@ -16,8 +18,7 @@ export type HrisEmployeesVm = {
   activeCount: number;
   connectedProviderCount: number;
   connections: MergeConnectionPublic[];
-  hasDisconnectedDirectory: boolean;
-  disconnectedLastSyncAt: string | null;
+  directory: HrisDirectoryStatus;
   loading: boolean;
   error: string | null;
   search: string;
@@ -34,16 +35,19 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
   const connectionsQuery = useQuery({
     queryKey: MERGE_CONNECTIONS_QUERY_KEY,
     queryFn: fetchMergeConnections,
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
   const employeesQuery = useQuery({
     queryKey: MERGE_EMPLOYEES_QUERY_KEY,
     queryFn: () => fetchMergeEmployees(),
-    staleTime: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
-  const allEmployees = employeesQuery.data ?? [];
+  const allEmployees = employeesQuery.data?.employees ?? [];
+  const directory = employeesQuery.data?.directory ?? EMPTY_HRIS_DIRECTORY_STATUS;
 
   const providerOptions = useMemo(() => {
     const set = new Set<string>();
@@ -98,32 +102,13 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
     });
   }, [allEmployees, search, providerFilter]);
 
-  const hasDisconnectedDirectory = useMemo(
-    () => allEmployees.some((e) => e.connectionStatus === "disconnected"),
-    [allEmployees],
-  );
-
-  const disconnectedLastSyncAt = useMemo(() => {
-    const fromConnections = (connectionsQuery.data ?? [])
-      .filter((c) => c.status === "disconnected" && c.lastSyncAt)
-      .map((c) => c.lastSyncAt as string)
-      .sort();
-    if (fromConnections.length) return fromConnections[fromConnections.length - 1];
-    const fromEmployees = allEmployees
-      .filter((e) => e.connectionStatus === "disconnected" && e.lastSyncedAt)
-      .map((e) => e.lastSyncedAt as string)
-      .sort();
-    return fromEmployees.length ? fromEmployees[fromEmployees.length - 1] : null;
-  }, [allEmployees, connectionsQuery.data]);
-
   return {
     employees,
     totalCount: allEmployees.length,
     activeCount,
     connectedProviderCount,
     connections: connectionsQuery.data ?? [],
-    hasDisconnectedDirectory,
-    disconnectedLastSyncAt,
+    directory,
     loading: employeesQuery.isLoading || connectionsQuery.isLoading,
     error:
       employeesQuery.error instanceof Error

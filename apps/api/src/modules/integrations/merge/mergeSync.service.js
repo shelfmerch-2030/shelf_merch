@@ -33,6 +33,7 @@ import {
   storedMergeModelSync,
 } from './mergeSyncStatus.js';
 import { deriveEffectiveEmploymentStatus } from './effectiveEmploymentStatus.js';
+import { deriveHrisDirectoryStatus } from './hrisDirectoryStatus.js';
 import { isMergeSyncAttemptTerminal } from './mergeSyncErrors.js';
 import {
   connectionStatusAfterSyncSuccess,
@@ -1794,12 +1795,13 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
   if (connectionId) connFilter._id = connectionId;
 
   const connections = await MergeConnection.find(connFilter)
-    .select('_id lastSyncAt status')
+    .select('_id lastSyncAt lastSyncStatus status')
     .lean();
   const connectionById = new Map(connections.map((c) => [String(c._id), c]));
+  const directory = deriveHrisDirectoryStatus(connections);
 
   if (!connections.length) {
-    return { employees: [] };
+    return { employees: [], directory };
   }
 
   const filter = {
@@ -1856,6 +1858,7 @@ export async function listMergeHrisEmployees({ tenantId, connectionId, limit = 1
   }
 
   return {
+    directory,
     employees: rows.map((r) => {
       const connKey = String(r.connectionId);
       const departmentsById = new Map();
