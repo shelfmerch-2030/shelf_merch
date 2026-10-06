@@ -35,11 +35,11 @@ function profile(input: ProfileInput): HrisMarketplaceProfile {
       "Open the employee directory and use synced people as Workspace Contacts.",
       "Disconnect anytime — other Shelf Merch integrations stay intact.",
     ],
-    setup: `Click Connect, authorize Shelf Merch with ${name}, then sync ${noun}. You can refresh the directory anytime from Configuration.`,
+    setup: `Click Connect and authorize ShelfMerch with ${name}. Syncing starts automatically. Sync now is optional.`,
     highlights: [
       `Sync ${noun} from ${name} into Shelf Merch.`,
       "Keep Workspace Contacts ready for gifting after each sync.",
-      "Check connection status and run a manual sync whenever you need a refresh.",
+      "Automatic sync stays on. Sync now is only for an immediate refresh.",
     ],
     permissions: `Read the ${noun} you authorize from ${name}. Shelf Merch does not change records in ${name}.`,
   };

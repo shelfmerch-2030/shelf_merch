@@ -72,7 +72,7 @@ export function CatalogEditor({
       });
       toast.success("Shop catalog updated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save catalog selection");
+      toast.error(err instanceof Error ? err.message : "Could not update catalog");
     }
   }
 

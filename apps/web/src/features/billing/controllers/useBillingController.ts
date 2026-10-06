@@ -7,6 +7,6 @@ export type BillingVm = {
 /** Controller for the billing placeholder screen. */
 export function useBillingController(): BillingVm {
   return {
-    onRequestAccess: () => toast.success("Request early access — noted!"),
+    onRequestAccess: () => toast.success("Early access requested"),
   };
 }

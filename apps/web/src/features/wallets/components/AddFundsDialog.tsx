@@ -124,9 +124,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
         name: walletName,
         walletId,
       });
-      toast.success("Funding request submitted", {
-        description: "Finance will review your PO and credit your budget once approved.",
-      });
+      toast.success("Funding request submitted 🙌");
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not submit funding request");
@@ -152,15 +150,13 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
               name: walletName,
               walletId,
             });
-            toast.success("Payment received — submitted for review", {
-              description: `${inr(amount)} will be added to your organization budget once finance approves.`,
+            toast.success("Payment submitted for review", {
+              description: `${inr(amount)} pending approval`,
             });
             invalidateWorkspace();
             onOpenChange(false);
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Payment verification failed", {
-              description: "If money was deducted, contact support — finance will reconcile your payment.",
-            });
+            toast.error(err instanceof Error ? err.message : "Payment verification failed");
           } finally {
             setPaying(false);
           }
@@ -170,9 +166,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment could not be started";
       if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
-        toast.error("Razorpay is not configured", {
-          description: "Add RAZORPAY_KEY_ID and related keys to the API .env file.",
-        });
+        toast.error("Payment setup incomplete");
       } else if (message !== "Payment cancelled") {
         toast.error(message);
       }
@@ -314,8 +308,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
                 <DialogHeader className="add-funds-header">
                   <DialogTitle>Upload purchase order</DialogTitle>
                   <DialogDescription>
-                    Finance will review your document and credit your organization budget once
-                    approved.
+                    Your balance will be credited after finance approval.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -378,7 +371,8 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
                   <DialogTitle>Pay with Razorpay</DialogTitle>
                   <DialogDescription>
                     You&apos;ll be redirected to Razorpay&apos;s secure checkout to complete
-                    payment.
+                    payment. If your account was charged, contact support and we&apos;ll verify
+                    the payment.
                   </DialogDescription>
                 </DialogHeader>
 

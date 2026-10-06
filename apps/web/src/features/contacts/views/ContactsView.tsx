@@ -329,6 +329,17 @@ export function ContactsView(vm: ContactsVm) {
     vm.statusFilter !== "all";
   const totalLabel = vm.filtered.length === 1 ? "item" : "items";
 
+  useEffect(() => {
+    if (!vm.filterOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".ct-filter-btn, .ct-filter-menu")) return;
+      vm.onFilterOpenChange(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [vm.filterOpen, vm.onFilterOpenChange]);
+
   return (
     <>
       <div className="contacts-page">
@@ -417,6 +428,14 @@ export function ContactsView(vm: ContactsVm) {
           <section className="ct-panel">
             <div className="ct-panel__toolbar">
               <div className="ct-toolbar-pills">
+                {vm.filterOpen ? (
+                  <button
+                    type="button"
+                    className="menu-dismiss-scrim"
+                    aria-label="Close menu"
+                    onClick={() => vm.onFilterOpenChange(null)}
+                  />
+                ) : null}
                 <label className="ct-search">
                   <Search size={15} aria-hidden="true" />
                   <input

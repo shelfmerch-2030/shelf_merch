@@ -19,11 +19,11 @@ export function getSendFlowBlockReason(
 export function sendFlowBlockMessage(reason: SendFlowBlockReason): string {
   switch (reason) {
     case "pending_approval":
-      return "Your wallet is under review. You can send once it's approved.";
+      return "Wallet approval pending";
     case "no_wallet":
-      return "Set up a wallet before sending points or kits.";
+      return "Set up a wallet first";
     case "insufficient_funds":
-      return "Insufficient funds. Add balance to your wallet to continue.";
+      return "Insufficient wallet balance";
   }
 }
 

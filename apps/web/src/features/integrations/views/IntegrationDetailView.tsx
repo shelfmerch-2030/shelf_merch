@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Unplug,
   Users,
-  Contact,
 } from "lucide-react";
 import type { Tile } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
@@ -621,26 +620,15 @@ export function IntegrationDetailView({
           onReconnect={() => onInstall(tile)}
           onDisconnect={onDisconnect ? () => onDisconnect(connection.id) : undefined}
         />
-        {connection.status !== "disconnected" ? (
-          <section className="bonus-integ-quick-links" aria-labelledby="integ-people-heading">
-            <p id="integ-people-heading" className="bonus-integ-quick-links__label">People</p>
-            <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
+        {connection.status === "connected" ? (
+          <section className="bonus-integ-quick-links" aria-label="Employee directory">
+            <Link to={`/app/integrations/hris-employees?provider=${encodeURIComponent(tile.id)}`} className="bonus-integ-directory-link">
               <span className="bonus-integ-directory-icon bonus-integ-directory-icon--people" aria-hidden="true">
                 <Users size={16} />
               </span>
               <span className="bonus-integ-directory-copy">
                 <strong>Employee directory</strong>
-                <span>Browse everyone synced from {tile.name}</span>
-              </span>
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-            <Link to="/app/contacts" className="bonus-integ-directory-link">
-              <span className="bonus-integ-directory-icon bonus-integ-directory-icon--contacts" aria-hidden="true">
-                <Contact size={16} />
-              </span>
-              <span className="bonus-integ-directory-copy">
-                <strong>Workspace Contacts</strong>
-                <span>Use them for gifting after each sync</span>
+                <span>See people synced from {tile.name}</span>
               </span>
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
@@ -685,25 +673,14 @@ export function IntegrationDetailView({
           ) : null}
         </div>
 
-        <section className="bonus-integ-quick-links" aria-labelledby="integ-people-heading">
-          <p id="integ-people-heading" className="bonus-integ-quick-links__label">People</p>
-          <Link to="/app/integrations/hris-employees" className="bonus-integ-directory-link">
+        <section className="bonus-integ-quick-links" aria-label="Employee directory">
+          <Link to={`/app/integrations/hris-employees?provider=${encodeURIComponent(tile.id)}`} className="bonus-integ-directory-link">
             <span className="bonus-integ-directory-icon bonus-integ-directory-icon--people" aria-hidden="true">
               <Users size={16} />
             </span>
             <span className="bonus-integ-directory-copy">
               <strong>Employee directory</strong>
-              <span>Browse everyone synced from {tile.name}</span>
-            </span>
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-          <Link to="/app/contacts" className="bonus-integ-directory-link">
-            <span className="bonus-integ-directory-icon bonus-integ-directory-icon--contacts" aria-hidden="true">
-              <Contact size={16} />
-            </span>
-            <span className="bonus-integ-directory-copy">
-              <strong>Workspace Contacts</strong>
-              <span>Use them for gifting after each sync</span>
+              <span>See people synced from {tile.name}</span>
             </span>
             <ArrowRight size={16} aria-hidden="true" />
           </Link>

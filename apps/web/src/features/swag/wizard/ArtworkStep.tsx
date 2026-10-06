@@ -114,11 +114,11 @@ export function ArtworkStep({
 
   function onPick(file: File) {
     if (!ART_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, JPG, AI");
+      toast.error("Use SVG, PNG, JPG, or AI");
       return;
     }
     if (file.size > ART_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     const reader = new FileReader();
@@ -156,7 +156,7 @@ export function ArtworkStep({
       },
       ...prev.filter((h) => h.preview !== staging.preview),
     ]);
-    toast.success(`Artwork applied to ${products.length} product${products.length === 1 ? "" : "s"}`);
+    toast.success(products.length === 1 ? "Artwork applied to 1 product" : `Artwork applied to ${products.length} products`);
   }
 
   function selectPrevious(item: PreviousArtwork) {
@@ -340,7 +340,7 @@ export function ArtworkStep({
                 onClearArt();
                 onResetPlacements();
                 setStaging(null);
-                toast.success("Cleared library artwork and all product logos");
+                toast.success("Artwork cleared");
               }}
             >
               Clear all artwork
@@ -443,7 +443,7 @@ export function ArtworkStep({
             for (const row of setArts) onSetAreaArt(row.key, row.art);
             for (const key of clearKeys) onClearAreaArt(key);
             for (const row of setPlacements) onPlacementChange(row.key, row.placement);
-            toast.success(`Saved branding for ${editingProduct.nm}`);
+            toast.success(`Branding saved for ${editingProduct.nm}`);
             setEditIdx(null);
           }}
         />
@@ -607,7 +607,7 @@ function SwagProductBrandingModal({
 
   function addLibraryToPreferred() {
     if (!libraryArt) {
-      toast.error("Upload artwork on the left first, or upload here");
+      toast.error("Upload artwork first");
       return;
     }
     const key = preferredDefaultAreaKey(product);
@@ -620,11 +620,11 @@ function SwagProductBrandingModal({
 
   function onModalPick(file: File) {
     if (!ART_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, JPG, AI");
+      toast.error("Use SVG, PNG, JPG, or AI");
       return;
     }
     if (file.size > ART_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     const reader = new FileReader();

@@ -69,7 +69,7 @@ export function VerifyEmailPage() {
     try {
       const user = await verifySignupOtp(pendingId, otp);
       clearSignupDraft();
-      toast.success(`Welcome to Shelf Merch, ${user.name.split(" ")[0]}!`);
+      toast.success(`Welcome to Shelf Merch, ${user.name.split(" ")[0]} 👋`);
       const destination = isPlatformUser(user) ? "/platform/dashboard" : "/app";
       window.location.assign(destination);
     } catch (err) {
@@ -82,7 +82,7 @@ export function VerifyEmailPage() {
           setError("Incorrect verification code. Please try again.");
           setOtp("");
         } else if (err.code === "EMAIL_EXISTS") {
-          setError("Account already exists. Please sign in.");
+          setError("Account already exists — sign in");
         } else if (err.code === "SIGNUP_SESSION_EXPIRED") {
           setError("Signup session expired. Please sign up again.");
         } else {
@@ -106,7 +106,7 @@ export function VerifyEmailPage() {
       setResendIn(result.resendAvailableInSec);
       setOtpLeft(result.otpExpiresInSec);
       setOtp("");
-      toast.success("A new verification code was sent");
+      toast.success("Verification code sent");
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         const retry =

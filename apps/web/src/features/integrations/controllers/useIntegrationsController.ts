@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { USER_MANAGEMENT_TOOLS, type Tile } from "../data";
+import { shouldOpenCampaignsAfterConnect } from "../userManagementRedirect";
 import { HRIS_SYNC_POLL_MS, shouldPollHrisSync, usesHrisAutomaticSyncUi } from "../hrisSyncUi";
 import {
   disconnectZoho,
@@ -113,6 +114,7 @@ export function useIntegrationsController(): IntegrationsVm {
   const [mergeLinkToken, setMergeLinkToken] = useState<string | null>(null);
   const [mergeLinkProvider, setMergeLinkProvider] = useState<MergeHrisIntegration | null>(null);
   const pendingMergeIntegration = useRef<MergeHrisIntegration | null>(null);
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const user = getStoredUser();
@@ -229,19 +231,21 @@ export function useIntegrationsController(): IntegrationsVm {
     if (zoho === "connected") {
       toast.success("Zoho People connected");
       void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
+      navigate("/app/campaigns", { replace: true });
+      return;
     } else if (zoho === "error") {
       const reason = searchParams.get("reason");
       toast.error(
         reason === "denied"
           ? "Zoho People permission was denied"
-          : "Could not connect Zoho People — try again",
+          : "Could not connect Zoho People",
       );
     }
     const next = new URLSearchParams(searchParams);
     next.delete("zoho");
     next.delete("reason");
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, queryClient]);
+  }, [searchParams, setSearchParams, queryClient, navigate]);
 
   useEffect(() => {
     const slack = searchParams.get("slack");
@@ -257,7 +261,7 @@ export function useIntegrationsController(): IntegrationsVm {
     } else if (slack === "cancelled") {
       toast.message("Slack connection cancelled");
     } else if (slack === "error") {
-      toast.error("Could not connect Slack — try again");
+      toast.error("Could not connect Slack");
     }
     const next = new URLSearchParams(searchParams);
     next.delete("slack");
@@ -278,7 +282,7 @@ export function useIntegrationsController(): IntegrationsVm {
           ...(integration ? { integration } : {}),
         });
         toast.success(
-          `${connection.integrationName || connection.provider} connected successfully`,
+          `${connection.integrationName || connection.provider} connected`,
         );
         queryClient.setQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY, (current) => {
           const rows = Array.isArray(current)
@@ -288,6 +292,11 @@ export function useIntegrationsController(): IntegrationsVm {
         });
         void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
         void queryClient.invalidateQueries({ queryKey: ["integrations", "merge", "sync-runs"] });
+        const providerId = integration || connection.provider;
+        if (shouldOpenCampaignsAfterConnect(providerId)) {
+          navigate("/app/campaigns");
+          return;
+        }
         const linkedTile = integration
           ? USER_MANAGEMENT_TOOLS.find((tile) => tile.id === integration)
           : null;
@@ -299,7 +308,7 @@ export function useIntegrationsController(): IntegrationsVm {
         pendingMergeIntegration.current = null;
       }
     },
-    [queryClient],
+    [queryClient, navigate],
   );
 
   const onMergeLinkExit = useCallback(() => {
@@ -315,7 +324,7 @@ export function useIntegrationsController(): IntegrationsVm {
     mutationFn: syncZohoEmployees,
     onSuccess: (summary) => {
       toast.success(
-        `Synced employees — fetched ${summary.totalFetched}, created ${summary.created}, updated ${summary.updated}, skipped ${summary.skipped}, failed ${summary.failed}`,
+        "Employee sync complete",
       );
       void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
     },
@@ -381,7 +390,7 @@ export function useIntegrationsController(): IntegrationsVm {
 
   const onConnect = useCallback(async () => {
     if (!canManage) {
-      toast.error("Only company administrators can connect Zoho People");
+      toast.error("Admin access required");
       return;
     }
     setConnecting(true);
@@ -395,7 +404,7 @@ export function useIntegrationsController(): IntegrationsVm {
 
   const onSlackConnect = useCallback(async () => {
     if (!canManage) {
-      toast.error("Only company administrators can connect Slack");
+      toast.error("Admin access required");
       return;
     }
     setSlackConnecting(true);
@@ -413,7 +422,7 @@ export function useIntegrationsController(): IntegrationsVm {
     onSuccess: (connection) => {
       toast.success(
         connection.defaultChannelName
-          ? `Default channel updated to #${connection.defaultChannelName}`
+          ? `Default channel set to #${connection.defaultChannelName}`
           : "Default channel updated",
       );
       void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
@@ -429,7 +438,7 @@ export function useIntegrationsController(): IntegrationsVm {
       const name = queryClient.getQueryData<SlackConnectionPublic | null>(SLACK_QUERY_KEY)
         ?.defaultChannelName;
       toast.success(
-        name ? `Test message sent to #${name}` : "Test message sent to Slack",
+        name ? `Test sent to #${name}` : "Test sent to Slack",
       );
     },
     onError: (err) => {
@@ -455,17 +464,17 @@ export function useIntegrationsController(): IntegrationsVm {
   const slackNotificationsMutation = useMutation({
     mutationFn: updateSlackNotifications,
     onSuccess: () => {
-      toast.success("Slack notification preferences saved");
+      toast.success("Notification preferences saved");
       void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
     },
     onError: (err) => {
-      toast.error(err instanceof ApiError ? err.message : "Could not save notification preferences");
+      toast.error(err instanceof ApiError ? err.message : "Could not save preferences");
     },
   });
   const startMergeLink = useCallback(
     async (integration?: MergeHrisIntegration) => {
       if (!canManage) {
-        toast.error("Only company administrators can connect HRIS providers");
+        toast.error("Admin access required");
         return;
       }
       if (mergeLinking || mergeExchanging) return;
@@ -501,13 +510,13 @@ export function useIntegrationsController(): IntegrationsVm {
         return;
       }
       if (tile.requiresSetup) {
-        toast.message(`${tile.name} requires setup before connecting`);
+        toast.message(`Set up ${tile.name} first`);
         return;
       }
       if (isMergeHrisIntegration(tile.id)) {
         const existing = mergeConnectionsByProvider[tile.id];
         if (existing?.status === "connected") {
-          toast.message(`${tile.name} is already connected`);
+          toast.message(`${tile.name} already connected`);
           return;
         }
         void startMergeLink(tile.id);
@@ -525,8 +534,20 @@ export function useIntegrationsController(): IntegrationsVm {
     onSelect: setSelected,
     onBack: () => setSelected(null),
     onInstall,
-    onSupport: () => toast("Support message opened"),
-    onViewPlans: () => toast("Plan details opened"),
+    onSupport: () => {
+      try {
+        navigate("/app/support");
+      } catch {
+        toast.error("Could not open support");
+      }
+    },
+    onViewPlans: () => {
+      try {
+        navigate("/app/billing");
+      } catch {
+        toast.error("Could not load plan details");
+      }
+    },
     mergeLinking,
     mergeExchanging,
     mergeLinkToken,
@@ -586,7 +607,7 @@ export function useIntegrationsController(): IntegrationsVm {
         slackNotificationsMutation.error instanceof ApiError
           ? slackNotificationsMutation.error.message
           : slackNotificationsMutation.error
-            ? "Could not save notification preferences"
+            ? "Could not save preferences"
             : null,
       canManage,
       onConnect: () => {

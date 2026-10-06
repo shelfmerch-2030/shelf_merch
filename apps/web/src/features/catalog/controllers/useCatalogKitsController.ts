@@ -201,7 +201,7 @@ export function useCatalogKitsController(
   const onSend = useCallback(
     async (kit: CatalogKitCard) => {
       if (!workspace) {
-        toast.error("Workspace is still loading — try again in a moment.");
+        toast.error("Workspace is still loading");
         return;
       }
       if (kit.workspaceKit?.id) {
@@ -220,7 +220,7 @@ export function useCatalogKitsController(
         });
         navigate(`/app/kits/${ensured.id}/send`);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to prepare curated kit for send");
+        toast.error(err instanceof Error ? err.message : "Could not prepare kit");
       }
     },
     [workspace, catalog, ensureCuratedKit, navigate],

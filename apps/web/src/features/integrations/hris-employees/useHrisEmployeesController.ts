@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchMergeConnections,
@@ -30,7 +31,15 @@ export type HrisEmployeesVm = {
 
 export function useHrisEmployeesController(): HrisEmployeesVm {
   const [search, setSearch] = useState("");
-  const [providerFilter, setProviderFilter] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const providerFilter = searchParams.get("provider") || "all";
+
+  const onProviderFilter = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all") next.delete("provider");
+    else next.set("provider", value);
+    setSearchParams(next, { replace: true });
+  };
 
   const connectionsQuery = useQuery({
     queryKey: MERGE_CONNECTIONS_QUERY_KEY,
@@ -123,7 +132,7 @@ export function useHrisEmployeesController(): HrisEmployeesVm {
     search,
     onSearch: setSearch,
     providerFilter,
-    onProviderFilter: setProviderFilter,
+    onProviderFilter,
     providerOptions,
   };
 }

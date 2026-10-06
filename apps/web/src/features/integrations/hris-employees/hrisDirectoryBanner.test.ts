@@ -19,7 +19,7 @@ describe("hris directory banner", () => {
     const text = hrisDirectoryBannerText(
       status({ state: "connected", lastSuccessfulSyncAt: TODAY }),
     );
-    expect(text).toBe(`Connected — last synced ${formatDirectorySyncAt(TODAY)}`);
+    expect(text).toBe(`Connected last synced ${formatDirectorySyncAt(TODAY)}`);
     expect(text).not.toContain("People from the last snapshot");
   });
 
@@ -59,7 +59,7 @@ describe("hris directory banner", () => {
     expect(directory.state).toBe("connected");
     expect(directory.lastSuccessfulSyncAt).toBe(new Date(TODAY).toISOString());
     expect(hrisDirectoryBannerText(directory)).toBe(
-      `Connected — last synced ${formatDirectorySyncAt(TODAY)}`,
+      `Connected last synced ${formatDirectorySyncAt(TODAY)}`,
     );
   });
 

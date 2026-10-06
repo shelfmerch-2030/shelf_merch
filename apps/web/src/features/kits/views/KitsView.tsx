@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useState, useMemo } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ArrowRight,
@@ -328,6 +328,17 @@ export function KitsView(vm: KitsVm) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [recentPage, setRecentPage] = useState(1);
 
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".kits-tool-btn, .kits-filter-menu")) return;
+      setFiltersOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [filtersOpen]);
+
   const { canCreateKits, canSendKits } = vm;
 
   /** Map real workspace kits into KitRow shape */
@@ -485,7 +496,7 @@ export function KitsView(vm: KitsVm) {
 
   const handleSendWorkspaceKit = (kit: UiKit | undefined) => {
     if (!kit?.id) {
-      toast.error("This kit is no longer available to send.");
+      toast.error("This kit can no longer be sent");
       return;
     }
     navigate(`/app/kits/${kit.id}/send`);
@@ -523,7 +534,7 @@ export function KitsView(vm: KitsVm) {
       });
       navigate(`/app/kits/${ensured.id}/send`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to prepare curated kit for send");
+      toast.error(err instanceof Error ? err.message : "Could not prepare kit");
     }
   };
 
@@ -568,7 +579,7 @@ export function KitsView(vm: KitsVm) {
         catalog: catalogProducts,
         status,
       });
-      toast.success(`Kit updated to ${status}`);
+      toast.success(`Kit marked ${status}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update kit status");
     }
@@ -594,7 +605,7 @@ export function KitsView(vm: KitsVm) {
 
     const handleAction = async (status: "archived" | "draft" | "live") => {
       if (!canCreateKits) {
-        toast.info("Kit management requires a company admin.");
+        toast.info("Admin access required");
         return;
       }
       setOpen(false);
@@ -606,7 +617,7 @@ export function KitsView(vm: KitsVm) {
 
       const activeKit = kitRow.kit;
       if (!activeKit) {
-        toast.info("Actions only available for custom workspace kits.");
+        toast.info("Available for custom kits only");
         return;
       }
       try {
@@ -618,7 +629,7 @@ export function KitsView(vm: KitsVm) {
           catalog: catalogProducts,
           status,
         });
-        toast.success(`Kit updated to ${status}`);
+        toast.success(`Kit marked ${status}`);
       } catch (err) {
         toast.error("Failed to update kit status");
       }
@@ -630,7 +641,7 @@ export function KitsView(vm: KitsVm) {
           type="button"
           onClick={() => {
             if (!canCreateKits) {
-              toast.info("Kit management requires a company admin.");
+              toast.info("Admin access required");
               return;
             }
             setOpen(!open);
@@ -869,6 +880,13 @@ export function KitsView(vm: KitsVm) {
                         "Filters"}
                   </button>
                   {filtersOpen ? (
+                    <>
+                    <button
+                      type="button"
+                      className="menu-dismiss-scrim"
+                      aria-label="Close filters"
+                      onClick={() => setFiltersOpen(false)}
+                    />
                     <div className="kits-filter-menu" role="menu">
                       <div className="kits-filter-menu__label">Last sent</div>
                       {LAST_SENT_FILTER_OPTIONS.map((opt) => (
@@ -887,6 +905,7 @@ export function KitsView(vm: KitsVm) {
                         </button>
                       ))}
                     </div>
+                    </>
                   ) : null}
                 </div>
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>

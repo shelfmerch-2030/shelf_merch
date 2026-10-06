@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
 import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
@@ -13,10 +13,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       visibleToasts={4}
       duration={5000}
       gap={12}
-      offset={24}
+      offset={{ top: 70, right: 24 }}
       className="sm-sonner"
+      style={{ "--width": "260px" } as React.CSSProperties}
       icons={{
-        success: <CheckCircle2 size={20} strokeWidth={2} aria-hidden />,
+        success: null,
         error: <AlertCircle size={20} strokeWidth={2} aria-hidden />,
         info: <Info size={20} strokeWidth={2} aria-hidden />,
         warning: <AlertTriangle size={20} strokeWidth={2} aria-hidden />,

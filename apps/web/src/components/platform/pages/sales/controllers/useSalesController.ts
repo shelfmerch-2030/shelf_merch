@@ -44,7 +44,7 @@ export function useSalesController(): SalesVm {
     try {
       const result = await inviteDemoLeadSignup(lead._id);
       setReloadKey((k) => k + 1);
-      toast.success(`Signup invite sent to ${result.email}`);
+      toast.success(`Invite sent to ${result.email}`);
     } catch (e) {
       const message =
         e instanceof ApiError
@@ -81,7 +81,7 @@ export function useSalesController(): SalesVm {
       setDraftName("");
       setDraftCompany("");
       setReloadKey((k) => k + 1);
-      toast.success(`Allowlisted and invited ${result.email}`);
+      toast.success(`${result.email} invited`);
     } catch (e) {
       const message =
         e instanceof ApiError

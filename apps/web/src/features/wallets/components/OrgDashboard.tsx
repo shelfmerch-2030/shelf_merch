@@ -101,15 +101,11 @@ export function OrgDashboard({
 
   function handleAllocateClick() {
     if (fundingPending) {
-      toast.message("Funding pending approval", {
-        description: "Your balance will be available after ShelfMerch approves your request.",
-      });
+      toast.message("Funding approval pending");
       return;
     }
     if (total <= 0) {
-      toast.message("No budget balance yet", {
-        description: "Wait for finance to approve your funding request before allocating.",
-      });
+      toast.message("Funding approval required");
       return;
     }
     onAllocate(2);

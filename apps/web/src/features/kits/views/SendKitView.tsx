@@ -292,7 +292,7 @@ export function SendKitView(vm: SendKitVm) {
       productId: CURATED_VARIANT_KEY,
       patch: { variantImage },
     });
-    toast.success(`Applied variant to ${contactIds.length} recipient${contactIds.length === 1 ? "" : "s"}`);
+    toast.success(contactIds.length === 1 ? "Variant applied to 1 recipient" : `Variant applied to ${contactIds.length} recipients`);
   }
 
   function applyProductVariantToAll(
@@ -317,7 +317,7 @@ export function SendKitView(vm: SendKitVm) {
       productId,
       patch: cleanPatch,
     });
-    toast.success(`Applied to ${contactIds.length} recipient${contactIds.length === 1 ? "" : "s"}`);
+    toast.success(contactIds.length === 1 ? "Applied to 1 recipient" : `Applied to ${contactIds.length} recipients`);
   }
 
   function handleNext() {

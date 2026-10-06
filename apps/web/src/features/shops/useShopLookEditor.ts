@@ -40,11 +40,11 @@ export function useShopLookEditor(shop: UiShop) {
 
   function onPickLogo(file: File) {
     if (!LOGO_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, WEBP, JPEG, JPG");
+      toast.error("Use SVG, PNG, WEBP, or JPG");
       return;
     }
     if (file.size > LOGO_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     const reader = new FileReader();

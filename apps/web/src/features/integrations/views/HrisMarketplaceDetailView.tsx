@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Check,
   CircleAlert,
-  Contact,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -17,6 +16,8 @@ import { USER_MANAGEMENT_TOOLS } from "../data";
 import type { IntegrationsVm } from "../controllers/useIntegrationsController";
 import type { MergeConnectionPublic } from "@/services/merge-api";
 import type { HrisSyncView } from "../hrisSyncUi";
+import { IntegrationOverview } from "../components/IntegrationOverview";
+import { SYNC_NOW_HELPER, directoryConnectionStatus } from "../integrationOverviewCopy";
 import { getHrisMarketplaceProfile } from "../hrisMarketplaceCopy";
 import {
   AlertDialog,
@@ -118,36 +119,21 @@ function DisconnectButton({
   );
 }
 
-function PeopleLinks({ tileName }: { tileName: string }) {
+function PeopleLinks({ tileName, providerId }: { tileName: string; providerId: string }) {
+  const directoryHref = `/app/integrations/hris-employees?provider=${encodeURIComponent(providerId)}`;
   return (
-    <section className="sm-mkt-hris-card" aria-labelledby="hris-people-heading">
-      <div className="sm-mkt-hris-card__head">
-        <h3 id="hris-people-heading">People</h3>
-        <p>Use synced employees for gifting, kits, and recognition.</p>
-      </div>
-      <div className="sm-mkt-hris-links">
-        <Link to="/app/integrations/hris-employees" className="sm-mkt-hris-link">
-          <span className="sm-mkt-hris-link__icon" aria-hidden="true">
-            <Users size={16} />
-          </span>
-          <span className="sm-mkt-hris-link__copy">
-            <strong>Employee directory</strong>
-            <span>Browse everyone synced from {tileName}</span>
-          </span>
-          <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-        <Link to="/app/contacts" className="sm-mkt-hris-link">
-          <span className="sm-mkt-hris-link__icon" aria-hidden="true">
-            <Contact size={16} />
-          </span>
-          <span className="sm-mkt-hris-link__copy">
-            <strong>Workspace Contacts</strong>
-            <span>Use them for gifting after each sync</span>
-          </span>
-          <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </div>
-    </section>
+    <div className="sm-mkt-hris-links">
+      <Link to={directoryHref} className="sm-mkt-hris-link">
+        <span className="sm-mkt-hris-link__icon" aria-hidden="true">
+          <Users size={16} />
+        </span>
+        <span className="sm-mkt-hris-link__copy">
+          <strong>Employee directory</strong>
+          <span>See people synced from {tileName}</span>
+        </span>
+        <ArrowRight size={16} aria-hidden="true" />
+      </Link>
+    </div>
   );
 }
 
@@ -157,6 +143,10 @@ function SyncCard({
   statusLabel,
   lastSynced,
   automaticSync,
+  summary,
+  statusMessage,
+  statusKind,
+  showSyncHelper = false,
   notice,
   actions,
 }: {
@@ -165,6 +155,10 @@ function SyncCard({
   statusLabel: string;
   lastSynced: string;
   automaticSync: string;
+  summary?: string;
+  statusMessage?: string | null;
+  statusKind?: "connected" | "syncing" | "disconnected" | "attention";
+  showSyncHelper?: boolean;
   notice?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -172,8 +166,11 @@ function SyncCard({
     <section className="sm-mkt-hris-card" aria-label={`${tileName} sync`}>
       <div className="sm-mkt-hris-card__head">
         <h3>Sync</h3>
-        <p>Employee data from {tileName} stays current for gifting.</p>
+        <p>{summary ?? `Employee data from ${tileName} stays current for gifting.`}</p>
       </div>
+      {statusMessage ? (
+        <p className={`sm-mkt-hris-status-copy is-${statusKind ?? "connected"}`}>{statusMessage}</p>
+      ) : null}
       <div className="sm-mkt-hris-stats">
         <div className="sm-mkt-hris-stat">
           <span className="sm-mkt-hris-stat__label">Status</span>
@@ -192,7 +189,12 @@ function SyncCard({
         </div>
       </div>
       {notice}
-      {actions ? <div className="sm-mkt-hris-actions">{actions}</div> : null}
+      {actions ? (
+        <div className="sm-mkt-hris-actions">
+          <div className="sm-mkt-hris-actions__row">{actions}</div>
+          {showSyncHelper ? <p className="sm-mkt-hris-sync-help">{SYNC_NOW_HELPER}</p> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -241,12 +243,31 @@ function HrisConfigurePanel({
       zoho.status === "connected" ? "success" : zoho.status === "error" ? "danger" : "warning";
     return (
       <div className="sm-mkt-hris">
+        {zoho.status === "connected" ? <PeopleLinks tileName={tile.name} providerId={tile.id} /> : null}
         <SyncCard
           tileName={tile.name}
           statusTone={tone}
           statusLabel={statusLabel}
           lastSynced={formatDate(zoho.integration?.lastSyncedAt)}
           automaticSync={zoho.status === "connected" ? "Enabled" : "Paused"}
+          summary={
+            tile.id === "google-workspace"
+              ? `Directory data from ${tile.name} stays current for gifting.`
+              : undefined
+          }
+          {...(() => {
+            const status = directoryConnectionStatus({
+              needsAttention: zoho.status !== "connected",
+              syncing: zoho.syncing,
+              disconnected: false,
+              connected: zoho.status === "connected",
+            });
+            return {
+              statusMessage: status?.message,
+              statusKind: status?.kind,
+            };
+          })()}
+          showSyncHelper={zoho.status === "connected"}
           notice={
             zoho.status !== "connected" ? (
               <Callout>
@@ -261,7 +282,7 @@ function HrisConfigurePanel({
               <>
                 <button
                   type="button"
-                  className="bonus-integ-btn bonus-integ-btn--primary"
+                  className="bonus-integ-btn bonus-integ-btn--secondary"
                   disabled={zoho.syncing || zoho.status === "expired" || zoho.disconnecting}
                   onClick={zoho.onSync}
                 >
@@ -298,7 +319,6 @@ function HrisConfigurePanel({
             ) : null
           }
         />
-        <PeopleLinks tileName={tile.name} />
       </div>
     );
   }
@@ -313,6 +333,7 @@ function HrisConfigurePanel({
 
   return (
     <div className="sm-mkt-hris">
+      {connection.status === "connected" ? <PeopleLinks tileName={tile.name} providerId={tile.id} /> : null}
       <SyncCard
         tileName={tile.name}
         statusTone={
@@ -338,6 +359,40 @@ function HrisConfigurePanel({
               ? "Enabled"
               : "Paused"
         }
+        summary={
+          tile.id === "google-workspace"
+            ? `Directory data from ${tile.name} stays current for gifting.`
+            : undefined
+        }
+        {...(() => {
+          const status = directoryConnectionStatus({
+            needsAttention: Boolean(
+              hrisView
+                ? hrisView.showReconnect || hrisView.connectionWord === "Needs attention"
+                : needsReconnect,
+            ),
+            syncing: Boolean(
+              hrisView
+                ? hrisView.syncButtonDisabled
+                : syncing ||
+                    connection.lastSyncStatus === "syncing" ||
+                    connection.lastSyncStatus === "queued",
+            ),
+            disconnected: Boolean(
+              hrisView
+                ? hrisView.connectionWord === "Disconnected"
+                : connection.status === "disconnected",
+            ),
+            connected: Boolean(hrisView ? hrisView.connectionWord === "Connected" : healthy),
+          });
+          return {
+            statusMessage: status?.message,
+            statusKind: status?.kind,
+          };
+        })()}
+        showSyncHelper={Boolean(
+          hrisView ? hrisView.automaticEnabled && hrisView.showSyncButton : healthy,
+        )}
         notice={
           <>
             {hrisView?.banner ? <Callout>{hrisView.banner}</Callout> : null}
@@ -364,7 +419,7 @@ function HrisConfigurePanel({
               {(hrisView ? hrisView.showSyncButton : healthy) && onSync ? (
                 <button
                   type="button"
-                  className="bonus-integ-btn bonus-integ-btn--primary"
+                  className="bonus-integ-btn bonus-integ-btn--secondary"
                   disabled={
                     hrisView
                       ? hrisView.syncButtonDisabled || busy || disconnecting
@@ -409,7 +464,6 @@ function HrisConfigurePanel({
           ) : null
         }
       />
-      <PeopleLinks tileName={tile.name} />
       {hrisView && hrisView.history.length > 0 ? (
         <section className="sm-mkt-hris-card" aria-labelledby="hris-history-heading">
           <div className="sm-mkt-hris-card__head">
@@ -478,6 +532,10 @@ export function HrisMarketplaceDetailView({
   useEffect(() => {
     if (!active && tab === "configure") setTab("overview");
   }, [active, tab]);
+
+  useEffect(() => {
+    document.querySelector("main.main")?.scrollTo({ top: 0, left: 0 });
+  }, [tile.id]);
 
   const related = USER_MANAGEMENT_TOOLS.filter((item) => item.id !== tile.id).slice(0, 4);
   const heroStatus = hrisView
@@ -605,21 +663,15 @@ export function HrisMarketplaceDetailView({
             <div className="sm-mkt-body">
               <div className="sm-mkt-split">
                 <div className="sm-mkt-about">
-                  <h3>About</h3>
-                  <p>{profile?.about ?? tile.desc}</p>
-                  <h4>Integration overview</h4>
-                  <ul>
-                    {(profile?.overview ?? []).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <h4>How to set it up</h4>
+                  <h3>How to set it up</h3>
                   <p>
                     {tile.requiresSetup
                       ? `${tile.name} requires additional setup before it can be connected from Shelf Merch.`
                       : (profile?.setup ??
-                        `Click Connect and authorize Shelf Merch with ${tile.name}.`)}
+                        `Click Connect and authorize ShelfMerch with ${tile.name}. Syncing starts automatically. Sync now is optional.`)}
                   </p>
+                  <h4>Integration overview</h4>
+                  <IntegrationOverview providerId={tile.id} providerName={tile.name} />
                 </div>
 
                 <aside className="sm-mkt-highlights" aria-label="Highlights">
@@ -699,8 +751,9 @@ export function HrisMarketplaceDetailView({
           <div className="sm-mkt-body sm-mkt-appinfo">
             <h3 className="sm-mkt-related__title">App information</h3>
             <p>
-              Shelf Merch connects to {tile.name} to import people for gifting. You choose when to
-              connect, sync, and disconnect.
+              ShelfMerch connects to {tile.name} and keeps supported{" "}
+              {tile.id === "google-workspace" ? "directory details" : "employee details"} up to date
+              automatically. Sync now is optional, and you can disconnect anytime.
             </p>
             <dl>
               <div>

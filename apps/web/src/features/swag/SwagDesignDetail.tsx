@@ -89,11 +89,11 @@ export function SwagDesignDetail({
   async function handleArtworkFile(file: File | undefined) {
     if (!file) return;
     if (!isSupportedArtwork(file)) {
-      toast.error("Upload a PNG, JPG, or SVG artwork file.");
+      toast.error("Upload a PNG, JPG, or SVG file");
       return;
     }
     if (file.size > MAX_ARTWORK_BYTES) {
-      toast.error("Artwork must be under 5 MB.");
+      toast.error("Artwork must be under 5 MB");
       return;
     }
     try {
@@ -105,7 +105,7 @@ export function SwagDesignDetail({
 
   async function saveArtwork() {
     if (!artworkDraft) {
-      toast.error("Choose an artwork file first.");
+      toast.error("Choose an artwork first");
       return;
     }
 

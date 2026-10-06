@@ -40,7 +40,7 @@ describe("HRIS sync panel", () => {
     });
     render(<HrisSyncPanel view={ui} providerName="Deel" canManage onSync={onSync} />);
     expect(screen.getByText(/Automatic sync is enabled/)).toBeTruthy();
-    expect(screen.getByText(/Use Sync now if you want to refresh employee data immediately/)).toBeTruthy();
+    expect(screen.getByText("Automatic sync is enabled. Use Sync now only if you want to refresh data immediately.")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Sync now" }));
     expect(onSync).toHaveBeenCalledOnce();
   });
@@ -92,7 +92,8 @@ describe("HRIS sync panel", () => {
 });
 
 describe("integration detail keeps directory providers on their own status UI", () => {
-  it("does not apply HRIS automatic-sync copy to Google Workspace", () => {
+  it("does not apply HRIS automatic-sync copy to Google Workspace", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <IntegrationDetailView
@@ -113,11 +114,18 @@ describe("integration detail keeps directory providers on their own status UI", 
     );
     expect(screen.getByText("Google Workspace")).toBeTruthy();
     expect(screen.getByText("Connected")).toBeTruthy();
-    expect(screen.queryByText(/Automatic sync is enabled/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Connect Google Workspace once" }));
+    expect(
+      screen.getByText(
+        "Connect Google Workspace once and ShelfMerch will automatically keep your company directory in sync.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/job titles|employment status|from your HRMS/)).toBeNull();
     expect(screen.queryByText(/Initial sync in progress/)).toBeNull();
   });
 
-  it("shows HRIS connection health in words, not color alone", () => {
+  it("shows HRIS connection health in words, not color alone", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <IntegrationDetailView
@@ -139,8 +147,19 @@ describe("integration detail keeps directory providers on their own status UI", 
         />
       </MemoryRouter>,
     );
+    await user.click(screen.getByRole("button", { name: "Connect Deel once" }));
+    expect(
+      screen.getByText(
+        "Connect Deel once and ShelfMerch will automatically keep your employee directory in sync.",
+      ),
+    ).toBeTruthy();
     expect(screen.getAllByText(/Connected/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Connection: Connected")).toBeTruthy();
-    expect(screen.getByText(/Automatic sync is enabled/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Configure" }));
+    expect(screen.getByText("Connected employee data syncs automatically.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Automatic sync is enabled. Use Sync now only if you want to refresh data immediately.",
+      ),
+    ).toBeTruthy();
   });
 });

@@ -189,7 +189,7 @@ export function useContactsController(): ContactsVm {
 
   function onDelete(contact: UiContact) {
     if (contact.role === "Owner") {
-      toast.error("The workspace owner contact cannot be deleted");
+      toast.error("Workspace owner cannot be deleted");
       return;
     }
     setDeleting(contact);

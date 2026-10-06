@@ -58,7 +58,7 @@ export function useStartSampleOrder() {
   const startFromWorkspaceKit = useCallback(
     (kit: UiKit | undefined) => {
       if (!kit?.id) {
-        toast.error("This kit is no longer available.");
+        toast.error("This kit is unavailable");
         return;
       }
       go(kit.id);
@@ -81,7 +81,7 @@ export function useStartSampleOrder() {
         });
         go(ensured.id);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to prepare kit sample");
+        toast.error(err instanceof Error ? err.message : "Could not prepare sample");
       }
     },
     [workspace?.catalogProducts, ensureCuratedKit, go],

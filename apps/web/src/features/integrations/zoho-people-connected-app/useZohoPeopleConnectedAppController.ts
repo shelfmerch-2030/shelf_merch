@@ -327,7 +327,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
 
   const onConnect = useCallback(() => {
     if (!canManage) {
-      toast.error("Only company administrators can connect Zoho People");
+      toast.error("Admin access required");
       return;
     }
     setConnecting(true);
@@ -351,7 +351,7 @@ export function useZohoPeopleConnectedAppController(sandbox: boolean): ZohoPeopl
     mutationFn: syncZohoEmployees,
     onSuccess: (summary) => {
       toast.success(
-        `Synced employees — fetched ${summary.totalFetched}, created ${summary.created}, updated ${summary.updated}, skipped ${summary.skipped}, failed ${summary.failed}`,
+        "Employee sync complete",
       );
       void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
     },

@@ -116,7 +116,7 @@ export function useSignupController(): SignupVm {
       return;
     }
     if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      toast.error("Password must include at least one letter and one number");
+      toast.error("Include a letter and a number");
       return;
     }
     if (password !== confirmPassword) {
@@ -159,7 +159,7 @@ export function useSignupController(): SignupVm {
       setBusy(false);
       if (err instanceof ApiError && (err.code === "EMAIL_EXISTS" || err.status === 409)) {
         setAccountExists(true);
-        toast.error("Account already exists. Please sign in.");
+        toast.error("Account already exists — sign in");
         return;
       }
       toast.error(err instanceof Error ? err.message : "Sign up failed");

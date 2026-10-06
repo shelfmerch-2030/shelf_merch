@@ -54,11 +54,11 @@ export function BannerEditorDialog({
 
   function onPickLogo(file: File) {
     if (!LOGO_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, WEBP, JPEG, JPG");
+      toast.error("Use SVG, PNG, WEBP, or JPG");
       return;
     }
     if (file.size > LOGO_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     const reader = new FileReader();
@@ -80,10 +80,10 @@ export function BannerEditorDialog({
           }),
         },
       });
-      toast.success("Shop look updated");
+      toast.success("Shop design updated");
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save shop changes");
+      toast.error(err instanceof Error ? err.message : "Could not update shop design");
     }
   }
 

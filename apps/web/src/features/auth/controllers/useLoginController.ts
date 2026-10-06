@@ -47,7 +47,7 @@ export function useLoginController(): LoginVm {
     setBusy(true);
     try {
       const user = await login(trimmedEmail, password);
-      toast.success(`Welcome back, ${user.name.split(" ")[0]}`);
+      toast.success(`Welcome back, ${user.name.split(" ")[0]} 👋`);
       const destination = isPlatformUser(user) ? "/platform/dashboard" : "/app";
       window.location.assign(destination);
     } catch (err) {
