@@ -47,8 +47,6 @@ import bottleImg from "../../../assets/bottle.png";
 import toteImg from "../../../assets/tote.png";
 import diaryImg from "../../../assets/diary.png";
 import capImg from "../../../assets/cap.png";
-import swagProductsImg from "../../../assets/dash-swag-products.png";
-import campaignArtImg from "../../../assets/dash-campaign-art.png";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { EntityManagerKitsSection } from "./EntityManagerKitsSection";
@@ -597,18 +595,20 @@ function CampaignPromoCard() {
   return (
     <section className="dash-campaign-card card" aria-labelledby="dash-campaign-title">
       <div className="dash-campaign-card__copy">
-        <span className="dash-campaign-card__icon" aria-hidden="true">
-          <Megaphone size={19} strokeWidth={2} />
-        </span>
         <h3 id="dash-campaign-title">Campaigns</h3>
-        <p>Track points campaigns and kit-send history.</p>
+        <p>Track campaigns and kits.</p>
+        <ul className="dash-campaign-card__points">
+          <li>Launch points campaigns</li>
+          <li>Send kits to your team</li>
+          <li>Follow every send</li>
+        </ul>
         <Link to="/app/campaigns" className="dash-campaign-card__cta">
-          View All Campaigns
-          <ArrowRight size={15} strokeWidth={2.4} aria-hidden="true" />
+          View Campaigns
+          <ArrowRight size={13} strokeWidth={2.4} aria-hidden="true" />
         </Link>
       </div>
       <div className="dash-campaign-card__art" aria-hidden="true">
-        <img src={campaignArtImg} alt="" />
+        <img src="/images/dashboard-campaigns-corner.png" alt="" />
       </div>
     </section>
   );
@@ -625,14 +625,16 @@ function SwagPromoCard({ products }: { products: UiProduct[] }) {
     <section className="dash-swag-card card" aria-labelledby="dash-swag-title">
       <div className="dash-swag-card__main">
         <div className="dash-swag-card__copy">
-          <span className="dash-swag-card__icon" aria-hidden="true">
-            <ShoppingBag size={18} strokeWidth={2} />
-          </span>
           <h3 id="dash-swag-title">Swag</h3>
-          <p>Explore branded swag and merchandise for your team and recipients.</p>
+          <p>Browse merch for teams.</p>
+          <ul className="dash-swag-card__points">
+            <li>Hoodies, bags, and bottles</li>
+            <li>Notebooks and team merch</li>
+            <li>Ready to send as gifts</li>
+          </ul>
           <Link to="/app/swag" className="dash-swag-card__cta">
             Browse Swag
-            <ArrowRight size={16} strokeWidth={2.4} aria-hidden="true" />
+            <ArrowRight size={13} strokeWidth={2.4} aria-hidden="true" />
           </Link>
         </div>
 
@@ -663,7 +665,7 @@ function SwagPromoCard({ products }: { products: UiProduct[] }) {
             </svg>
           </span>
           <span className="dash-swag-card__podium" />
-          <img className="dash-swag-card__showcase-img" src={swagProductsImg} alt="" />
+          <img className="dash-swag-card__showcase-img" src="/images/dashboard-swag-corner.png" alt="" />
         </div>
       </div>
 

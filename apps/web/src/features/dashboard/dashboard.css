@@ -2033,6 +2033,424 @@
     min-height: 430px;
   }
 }
+
+/* Deel-inspired paired promo cards */
+.dash-existing-main__video .dash-promo-pair {
+  gap: 18px;
+}
+
+.dash-existing-main__video .dash-promo-pair > .card,
+.dash-promo-pair .dash-swag-card {
+  min-height: 256px;
+  border: 1px solid #e4e4e7;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  min-height: 256px;
+}
+
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 1.16fr);
+  gap: 18px;
+  padding: 24px;
+  align-items: stretch;
+}
+
+.dash-campaign-card {
+  background: #fff;
+  color: #171717;
+}
+
+.dash-promo-pair .dash-swag-card {
+  --swag-orange: #f2652f;
+  color: #171717;
+  background: #fff;
+}
+
+.dash-promo-pair .dash-swag-card__main {
+  padding: 24px;
+  background: transparent;
+}
+
+.dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card__copy {
+  justify-content: space-between;
+  gap: 14px;
+  max-width: none;
+  padding: 0;
+}
+
+.dash-campaign-card__icon,
+.dash-promo-pair .dash-swag-card__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.dash-campaign-card__icon {
+  color: #2563eb;
+  border: 1px solid #d8e4f8;
+}
+
+.dash-promo-pair .dash-swag-card__icon {
+  color: #f2652f;
+  border: 1px solid #f6d6c7;
+}
+
+.dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card__copy h3 {
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(30px, 2.45vw, 40px);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
+  color: #171717;
+}
+
+.dash-campaign-card p,
+.dash-promo-pair .dash-swag-card__copy p {
+  max-width: 220px;
+  margin: 0;
+  color: #5f6b7a;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card__cta {
+  width: fit-content;
+  min-height: 42px;
+  margin-top: 0;
+  padding: 0 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+.dash-campaign-card__cta {
+  background: #171717;
+}
+
+.dash-promo-pair .dash-swag-card__cta {
+  background: #ff5a2a;
+}
+
+.dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card__showcase {
+  position: relative;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.dash-campaign-card__art {
+  background: linear-gradient(135deg, #eef4ff 0%, #f8f3ff 100%);
+}
+
+.dash-promo-pair .dash-swag-card__showcase {
+  background:
+    radial-gradient(circle at 83% 14%, rgba(49, 108, 255, 0.08) 0 16%, transparent 17%),
+    linear-gradient(135deg, #f3f8ff 0%, #eaf3ff 100%);
+}
+
+.dash-campaign-card__art > img {
+  inset: 12% 8%;
+  width: 84%;
+  height: 76%;
+  object-fit: contain;
+  object-position: center;
+  mix-blend-mode: normal;
+  filter: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.dash-promo-pair .dash-swag-card__showcase-img {
+  inset: 8% 4% 7%;
+  width: 92%;
+  height: 85%;
+  object-fit: contain;
+  object-position: center bottom;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.dash-promo-pair .dash-swag-card__glow,
+.dash-promo-pair .dash-swag-card__dots,
+.dash-promo-pair .dash-swag-card__leaf,
+.dash-promo-pair .dash-swag-card__podium,
+.dash-promo-pair .dash-swag-card__strip {
+  display: none;
+}
+
+@media (max-width: 920px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.9fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .dash-campaign-card__art,
+  .dash-promo-pair .dash-swag-card__showcase {
+    order: -1;
+    min-height: 150px;
+  }
+
+  .dash-campaign-card p,
+  .dash-promo-pair .dash-swag-card__copy p {
+    max-width: none;
+  }
+}
+
+/* Promo cards as single image-backed banners */
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  position: relative;
+  display: block;
+  min-height: 300px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dash-campaign-card {
+  background:
+    linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.96) 42%, rgba(255,255,255,0.24) 72%),
+    linear-gradient(135deg, #f6f9ff 0%, #eaf2ff 100%);
+}
+
+.dash-promo-pair .dash-swag-card__main {
+  background:
+    linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.96) 43%, rgba(255,255,255,0.22) 74%),
+    linear-gradient(135deg, #f7fbff 0%, #eaf3ff 100%);
+}
+
+.dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card__copy {
+  position: relative;
+  z-index: 3;
+  width: 52%;
+  height: 100%;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 13px;
+  padding: 28px 0 28px 26px;
+}
+
+.dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card__showcase {
+  position: absolute;
+  inset: 26px 18px 26px 44%;
+  z-index: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.dash-campaign-card__art > img,
+.dash-promo-pair .dash-swag-card__showcase-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.dash-campaign-card__icon,
+.dash-promo-pair .dash-swag-card__icon {
+  flex: none;
+}
+
+.dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card__copy h3 {
+  max-width: 230px;
+  font-size: clamp(30px, 2.6vw, 42px);
+}
+
+.dash-campaign-card p,
+.dash-promo-pair .dash-swag-card__copy p {
+  max-width: 245px;
+}
+
+.dash-promo-card__meta {
+  max-width: 250px;
+}
+
+.dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card__cta {
+  margin-top: 6px;
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    min-height: 360px;
+  }
+
+  .dash-campaign-card__copy,
+  .dash-promo-pair .dash-swag-card__copy {
+    width: 100%;
+    min-height: 0;
+    padding: 190px 18px 18px;
+  }
+
+  .dash-campaign-card__art,
+  .dash-promo-pair .dash-swag-card__showcase {
+    inset: 14px 14px auto;
+    height: 160px;
+  }
+}
+
+/* Promo cards: structured dashboard data presentation */
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  grid-template-columns: minmax(190px, 0.92fr) minmax(190px, 1.08fr);
+  gap: 20px;
+  padding: 22px;
+  min-height: 284px;
+}
+
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card {
+  border-color: #dde2ea;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card__copy {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dash-campaign-card__icon,
+.dash-promo-pair .dash-swag-card__icon {
+  margin-bottom: 2px;
+}
+
+.dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card__copy h3 {
+  font-size: clamp(31px, 2.35vw, 38px);
+}
+
+.dash-campaign-card p,
+.dash-promo-pair .dash-swag-card__copy p {
+  max-width: 230px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.dash-promo-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.dash-promo-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #e4e8f0;
+  background: #fff;
+  color: #5e6878;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card__showcase {
+  min-height: 220px;
+  align-self: stretch;
+  border: 1px solid #e6ecf5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.dash-campaign-card__art {
+  background:
+    radial-gradient(circle at 82% 20%, rgba(75, 104, 255, 0.12) 0 17%, transparent 18%),
+    linear-gradient(135deg, #f4f8ff 0%, #eef4ff 100%);
+}
+
+.dash-promo-pair .dash-swag-card__showcase {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12) 0 17%, transparent 18%),
+    linear-gradient(135deg, #f6fbff 0%, #eaf3ff 100%);
+}
+
+.dash-campaign-card__art > img,
+.dash-promo-pair .dash-swag-card__showcase-img {
+  inset: 8% 4%;
+  width: 92%;
+  height: 84%;
+}
+
+.dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card__cta {
+  align-self: end;
+}
+
+@media (max-width: 1100px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    grid-template-columns: minmax(170px, 0.9fr) minmax(170px, 1.1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    min-height: 0;
+  }
+
+  .dash-campaign-card__copy,
+  .dash-promo-pair .dash-swag-card__copy {
+    display: flex;
+    gap: 10px;
+  }
+
+  .dash-campaign-card__art,
+  .dash-promo-pair .dash-swag-card__showcase {
+    min-height: 170px;
+  }
+}
 /* Single-image Campaigns artwork: background matches the card for a seamless edge. */
 .dash-campaign-card {
   background: linear-gradient(135deg, #fbfaff 0%, #f0ebff 100%);
@@ -2104,6 +2522,114 @@
   height: 97%;
   -webkit-mask-image: radial-gradient(ellipse 76% 75% at 52% 53%, #000 0%, #000 57%, rgba(0,0,0,.9) 69%, rgba(0,0,0,.42) 85%, transparent 100%);
   mask-image: radial-gradient(ellipse 76% 75% at 52% 53%, #000 0%, #000 57%, rgba(0,0,0,.9) 69%, rgba(0,0,0,.42) 85%, transparent 100%);
+}
+
+/* Campaign promo: cleaner dashboard card treatment */
+.dash-campaign-card {
+  grid-template-columns: minmax(0, 0.95fr) minmax(120px, 1.05fr);
+  align-items: stretch;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid #f3d8c9;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 78% 28%, rgba(255, 255, 255, 0.68) 0 18%, transparent 42%),
+    linear-gradient(135deg, #fff5ef 0%, #ffe6d6 100%);
+  box-shadow: 0 14px 34px rgba(127, 65, 31, 0.09);
+  color: #141414;
+}
+
+.dash-campaign-card__copy {
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dash-campaign-card__icon {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(242, 101, 47, 0.22);
+  border-radius: 12px;
+  color: #f2652f;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.dash-campaign-card h3 {
+  margin: 4px 0 0;
+  font-family: inherit;
+  font-size: clamp(28px, 2.2vw, 36px);
+  font-weight: 850;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.dash-campaign-card p {
+  max-width: 190px;
+  color: #5d6677;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.dash-campaign-card__cta {
+  min-height: 42px;
+  margin-top: 4px;
+  padding: 0 16px;
+  border-radius: 11px;
+  background: #1b1b1b;
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(20, 20, 20, 0.16);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dash-campaign-card__cta:hover {
+  background: #000;
+  transform: translateY(-1px);
+}
+
+.dash-campaign-card__art {
+  margin: 0;
+  border-radius: 14px;
+  background: transparent;
+  overflow: visible;
+}
+
+.dash-campaign-card__art > img {
+  inset: 10% 0 8% -4%;
+  width: 104%;
+  height: 82%;
+  object-fit: contain;
+  object-position: center;
+  mix-blend-mode: multiply;
+  filter: saturate(0.94) hue-rotate(23deg) drop-shadow(0 16px 22px rgba(130, 64, 24, 0.14));
+  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 54% 52%, #000 0%, #000 64%, rgba(0,0,0,.78) 78%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 72% at 54% 52%, #000 0%, #000 64%, rgba(0,0,0,.78) 78%, transparent 100%);
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card {
+    grid-template-columns: 1fr;
+    min-height: 0 !important;
+    padding: 18px;
+  }
+
+  .dash-campaign-card__copy {
+    gap: 10px;
+    max-width: none;
+  }
+
+  .dash-campaign-card__art {
+    min-height: 160px;
+    order: -1;
+  }
+
+  .dash-campaign-card h3 {
+    font-size: 32px;
+  }
+
+  .dash-campaign-card p {
+    max-width: none;
+  }
 }
 
 
@@ -2763,7 +3289,7 @@
   min-height: 250px;
   padding: 0 14px 14px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--shortcut-icon, #3155ff) 16%, #dbe3ef);
+  border: 1px solid transparent;
   background:
     linear-gradient(
       to bottom,
@@ -4196,5 +4722,551 @@
     height: calc(100% + 16px);
     width: 2px;
     background: #c4c4c4;
+  }
+}
+
+/* Compact promo card size restore */
+.dash-existing-main__video .dash-promo-pair > .card,
+.dash-promo-pair .dash-swag-card {
+  min-height: 250px !important;
+}
+
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  position: relative;
+  display: block;
+  min-height: 250px !important;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dash-campaign-card {
+  background:
+    linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.96) 47%, rgba(255,255,255,0.2) 76%),
+    linear-gradient(135deg, #fbfdff 0%, #eef5ff 100%);
+}
+
+.dash-promo-pair .dash-swag-card__main {
+  background:
+    linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.96) 47%, rgba(255,255,255,0.2) 76%),
+    linear-gradient(135deg, #fbfdff 0%, #edf6ff 100%);
+}
+
+.dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card__copy {
+  position: relative;
+  z-index: 3;
+  width: 55%;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  padding: 22px 0 22px 24px;
+}
+
+.dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card__showcase {
+  position: absolute;
+  z-index: 1;
+  inset: 16px 14px 16px 43%;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.dash-campaign-card__art > img,
+.dash-promo-pair .dash-swag-card__showcase-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  -webkit-mask-image: radial-gradient(ellipse 76% 76% at 52% 52%, #000 0%, #000 72%, rgba(0,0,0,.55) 88%, transparent 100%);
+  mask-image: radial-gradient(ellipse 76% 76% at 52% 52%, #000 0%, #000 72%, rgba(0,0,0,.55) 88%, transparent 100%);
+}
+
+.dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card__copy h3 {
+  font-size: clamp(28px, 2.2vw, 36px);
+}
+
+.dash-campaign-card p,
+.dash-promo-pair .dash-swag-card__copy p {
+  max-width: 210px;
+  font-size: 13.5px;
+  line-height: 1.42;
+}
+
+.dash-promo-card__meta {
+  gap: 6px;
+  max-width: 230px;
+}
+
+.dash-promo-card__meta span {
+  min-height: 24px;
+  padding: 0 9px;
+  font-size: 10.5px;
+}
+
+.dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card__cta {
+  min-height: 40px;
+  margin-top: 3px;
+  padding: 0 15px;
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    min-height: 350px !important;
+  }
+
+  .dash-campaign-card__copy,
+  .dash-promo-pair .dash-swag-card__copy {
+    width: 100%;
+    min-height: 0;
+    padding: 175px 18px 18px;
+  }
+
+  .dash-campaign-card__art,
+  .dash-promo-pair .dash-swag-card__showcase {
+    inset: 14px 14px auto;
+    height: 145px;
+  }
+}
+
+/* Card-sized generated banner backgrounds */
+.dash-campaign-card,
+.dash-promo-pair .dash-swag-card__main {
+  min-height: 250px !important;
+  padding: 0;
+  background-size: auto 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.dash-campaign-card {
+  background-image: url("/images/dashboard-campaigns-banner.png");
+  background-position: 61% center;
+}
+
+.dash-promo-pair .dash-swag-card__main {
+  background-image: url("/images/dashboard-swag-banner.png");
+  background-position: 60% center;
+}
+
+.dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card__copy {
+  width: 50%;
+  min-height: 250px;
+  padding: 22px 0 22px 24px;
+}
+
+.dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card__showcase {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .dash-campaign-card,
+  .dash-promo-pair .dash-swag-card__main {
+    min-height: 330px !important;
+    background-position: 58% top;
+  }
+
+  .dash-campaign-card__copy,
+  .dash-promo-pair .dash-swag-card__copy {
+    width: 100%;
+    min-height: 330px;
+    padding: 148px 18px 18px;
+  }
+}
+
+/* Final promo-card banner treatment */
+.dash-existing-main__video .dash-promo-pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.dash-existing-main__video .dash-campaign-card.card,
+.dash-promo-pair .dash-swag-card .dash-swag-card__main {
+  position: relative;
+  height: 100%;
+  min-height: 250px !important;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  box-shadow: none;
+}
+
+.dash-existing-main__video .dash-campaign-card.card {
+  background: #dcebff;
+}
+
+.dash-promo-pair .dash-swag-card .dash-swag-card__main {
+  background: #f0e2fa;
+}
+
+.dash-existing-main__video .dash-promo-pair > .card,
+.dash-promo-pair .dash-swag-card {
+  height: 100%;
+  min-height: 250px !important;
+}
+
+.dash-existing-main__video .dash-campaign-card.card::before,
+.dash-promo-pair .dash-swag-card .dash-swag-card__main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
+
+.dash-existing-main__video .dash-campaign-card.card::after,
+.dash-promo-pair .dash-swag-card .dash-swag-card__main::after {
+  display: none;
+}
+
+.dash-existing-main__video .dash-campaign-card.card::before {
+  background-image: url("/images/dashboard-campaigns-promo-tile.png");
+}
+
+.dash-promo-pair .dash-swag-card .dash-swag-card__main::before {
+  background-image: url("/images/dashboard-swag-promo-tile.png");
+}
+
+.dash-existing-main__video .dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy {
+  position: relative;
+  z-index: 2;
+  width: 43%;
+  min-height: 250px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 28px 0 22px 24px;
+}
+
+.dash-existing-main__video .dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.dash-existing-main__video .dash-campaign-card p,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy p {
+  max-width: 142px;
+  margin: 0;
+  color: #344357;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.dash-existing-main__video .dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card .dash-swag-card__cta {
+  width: auto;
+  min-width: 104px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #171717;
+  box-shadow: 0 10px 20px rgba(23, 23, 23, 0.18);
+  color: #fff;
+  justify-content: center;
+  align-self: flex-start;
+  margin-top: 8px;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dash-existing-main__video .dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card .dash-swag-card__showcase {
+  display: none !important;
+}
+
+@media (max-width: 520px) {
+  .dash-existing-main__video .dash-promo-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-existing-main__video .dash-campaign-card.card,
+  .dash-promo-pair .dash-swag-card .dash-swag-card__main {
+    min-height: 330px !important;
+  }
+
+  .dash-existing-main__video .dash-campaign-card.card::before,
+  .dash-promo-pair .dash-swag-card .dash-swag-card__main::before {
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+  }
+
+  .dash-existing-main__video .dash-campaign-card__copy,
+  .dash-promo-pair .dash-swag-card .dash-swag-card__copy {
+    width: 100%;
+    min-height: 330px;
+    padding: 170px 18px 18px;
+  }
+
+  .dash-existing-main__video .dash-campaign-card.card::after,
+  .dash-promo-pair .dash-swag-card .dash-swag-card__main::after {
+    inset: auto 0 0;
+    width: auto;
+    height: 58%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #fff 38%, #fff 100%);
+  }
+
+  .dash-existing-main__video .dash-campaign-card__cta,
+  .dash-promo-pair .dash-swag-card .dash-swag-card__cta {
+    min-width: 104px;
+  }
+}
+
+/* Match the pale-blue corner-product banner: one field color, object in the bottom-right. */
+.dash-existing-main__video .dash-promo-pair > .card,
+.dash-promo-pair .dash-swag-card {
+  overflow: hidden;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.dash-existing-main__video .dash-campaign-card.card {
+  background:
+    radial-gradient(125% 130% at 58% 38%, #d8f1ff 0%, #c7e8ff 46%, #b7e0ff 100%);
+}
+
+.dash-promo-pair .dash-swag-card,
+.dash-promo-pair .dash-swag-card .dash-swag-card__main {
+  background: #f4e8fc;
+}
+
+.dash-existing-main__video .dash-campaign-card.card::before,
+.dash-promo-pair .dash-swag-card .dash-swag-card__main::before {
+  display: none !important;
+  content: none;
+  background: none;
+}
+
+.dash-existing-main__video .dash-campaign-card__art,
+.dash-promo-pair .dash-swag-card .dash-swag-card__showcase {
+  display: block !important;
+  position: absolute;
+  z-index: 1;
+  inset: auto -4% -6% auto;
+  width: 58%;
+  height: 92%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dash-existing-main__video .dash-campaign-card__art > img,
+.dash-promo-pair .dash-swag-card .dash-swag-card__showcase-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+  mix-blend-mode: normal;
+  filter: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.dash-existing-main__video .dash-campaign-card__copy,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy {
+  width: 54%;
+  height: 100%;
+  min-height: 100%;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 22px 10px 18px 22px;
+  box-sizing: border-box;
+}
+
+.dash-existing-main__video .dash-campaign-card h3,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy h3 {
+  color: #16181d;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+.dash-existing-main__video .dash-campaign-card p,
+.dash-promo-pair .dash-swag-card .dash-swag-card__copy p {
+  max-width: 168px;
+  color: #5a6b76;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.dash-campaign-card__points,
+.dash-swag-card__points {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash-campaign-card__points li,
+.dash-swag-card__points li {
+  position: relative;
+  padding-left: 12px;
+  color: #3e4c5c;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dash-campaign-card__points li::before,
+.dash-swag-card__points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1d4ed8;
+}
+
+.dash-existing-main__video .dash-campaign-card__cta,
+.dash-promo-pair .dash-swag-card .dash-swag-card__cta {
+  min-width: 0;
+  min-height: 30px;
+  margin-top: auto;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 8px;
+  background: #111214;
+  box-shadow: 0 6px 12px rgba(17, 18, 20, 0.16);
+  font-size: 12px;
+}
+
+/* Welcome modal: fit the visible viewport at every zoom, no inner scroller. */
+.sm-new-user-welcome {
+  width: min(820px, calc(100vw - 24px)) !important;
+  max-width: min(820px, calc(100vw - 24px)) !important;
+  height: min(640px, calc(100svh - 20px)) !important;
+  max-height: calc(100svh - 20px) !important;
+  overflow: hidden !important;
+}
+
+.sm-new-user-welcome__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+.sm-new-user-welcome__visual,
+.sm-new-user-welcome__panel {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sm-new-user-welcome__panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: clamp(16px, 2.4svh, 28px) clamp(18px, 2vw, 32px) clamp(12px, 1.8svh, 18px);
+}
+
+.sm-new-user-welcome__intro {
+  flex: none;
+  margin-bottom: clamp(8px, 1.2svh, 14px);
+  padding-right: 28px;
+}
+
+.sm-new-user-welcome__intro h2 {
+  margin: 0 0 clamp(6px, 1svh, 12px);
+  font-size: clamp(24px, 3.6svh, 34px);
+  line-height: 1.05;
+}
+
+.sm-new-user-welcome__intro p {
+  font-size: clamp(12px, 1.7svh, 14px);
+  line-height: 1.4;
+}
+
+.sm-new-user-welcome__next {
+  flex: none;
+  margin: 0 0 clamp(6px, 1svh, 10px);
+  font-size: clamp(12px, 1.6svh, 14px);
+}
+
+.sm-new-user-welcome__steps {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: clamp(6px, 1svh, 14px);
+}
+
+.sm-new-user-welcome__step:not(:last-child)::before {
+  height: calc(100% + clamp(6px, 1svh, 14px));
+  top: 20px;
+}
+
+.sm-new-user-welcome__text strong {
+  font-size: clamp(12.5px, 1.7svh, 15px);
+}
+
+.sm-new-user-welcome__text small {
+  font-size: clamp(11px, 1.5svh, 13px);
+  line-height: 1.25;
+}
+
+.sm-new-user-welcome__footer {
+  flex: none;
+  margin-top: clamp(8px, 1.4svh, 16px);
+  gap: 4px;
+}
+
+.sm-new-user-welcome__cta {
+  padding: clamp(8px, 1.1svh, 11px) 18px;
+  font-size: clamp(12px, 1.6svh, 14px);
+}
+
+@media (max-width: 760px) {
+  .sm-new-user-welcome {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    height: min(640px, calc(100svh - 16px)) !important;
+    max-height: calc(100svh - 16px) !important;
+  }
+
+  .sm-new-user-welcome__layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(110px, 26%) minmax(0, 1fr);
   }
 }
