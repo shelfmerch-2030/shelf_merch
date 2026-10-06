@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { Link } from "react-router";
 import { ArrowIcon } from "./icons";
+import { getOrderedCatalogItems } from "./catalog-data";
 
 const CHIPS = [
   { label: "Shops", className: "chip chip-0" },
@@ -9,6 +12,8 @@ const CHIPS = [
   { label: "Bulk Orders", className: "chip chip-0" },
   { label: "Custom Merch", className: "chip chip-1" },
 ] as const;
+
+const EXPLORE_PRIMARY = 4;
 
 function ChipSet({ id }: { id: string }) {
   return (
@@ -22,22 +27,59 @@ function ChipSet({ id }: { id: string }) {
   );
 }
 
+function MobileExploreChips() {
+  const [showMore, setShowMore] = useState(false);
+  const items = getOrderedCatalogItems();
+  const visible = showMore ? items : items.slice(0, EXPLORE_PRIMARY);
+
+  return (
+    <div className="explore-chips mobile-only" aria-label="Explore categories">
+      <div className="explore-chips__scroller">
+        {visible.map((item, index) => (
+          <Link
+            key={item.count}
+            to={item.to}
+            className={`chip chip-${index % 5}`}
+          >
+            {item.shortTitle} <b>↗</b>
+          </Link>
+        ))}
+        {!showMore && items.length > EXPLORE_PRIMARY ? (
+          <button
+            type="button"
+            className="chip chip-4 explore-chips__more"
+            onClick={() => setShowMore(true)}
+            aria-expanded={showMore}
+          >
+            More <b>↓</b>
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function Offerings() {
   return (
     <section className="section offerings" id="platform">
       <div className="section-heading centered">
-        <span className="kicker">OUR OFFERINGS</span>
+        <span className="kicker desktop-only">OUR OFFERINGS</span>
+        <span className="kicker mobile-only">EXPLORE RANGE</span>
         <h2>
           Everything your brand touches,
           <br />
           <em>in one place.</em>
         </h2>
-        <p>
+        <p className="desktop-only">
           From your first employee&apos;s welcome kit to your thousandth client gift, keep every
           branded item consistent, on-budget and on time.
         </p>
+        <p className="mobile-only">
+          From day-to-day essentials to curated gifting kits, high-quality customizable products for
+          every occasion.
+        </p>
       </div>
-      <div className="chip-marquee">
+      <div className="chip-marquee desktop-only">
         <div className="chip-track" aria-hidden="true">
           <div className="chip-group">
             <ChipSet id="a1" />
@@ -49,6 +91,7 @@ export function Offerings() {
           </div>
         </div>
       </div>
+      <MobileExploreChips />
       <div className="platform-bento">
         <article className="bento-shop">
           <div className="bento-copy">
@@ -58,12 +101,16 @@ export function Offerings() {
               <br />
               Its own storefront.
             </h3>
-            <p>
+            <p className="desktop-only">
               Launch a branded shop for employees, new hires, distributors or partners, without
               touching code.
             </p>
+            <p className="mobile-only">
+              Create a branded store with your logo, colors and domain.
+            </p>
             <a href="#contact" className="text-link">
-              Explore shops
+              <span className="desktop-only">Explore shops</span>
+              <span className="mobile-only">Launch your store</span>
               <span>
                 <ArrowIcon />
               </span>
@@ -132,6 +179,9 @@ export function Offerings() {
             <span />
             <span />
           </div>
+          <span className="bento-arrow mobile-only" aria-hidden="true">
+            →
+          </span>
         </article>
         <article className="bento-mini bento-wallet">
           <span className="icon-tile">
@@ -152,7 +202,10 @@ export function Offerings() {
           </span>
           <div>
             <span className="mini-label">WALLET</span>
-            <h3>Budgets without bottlenecks.</h3>
+            <h3>
+              Budgets without
+              <br className="mobile-only" /> bottlenecks.
+            </h3>
             <p>Load once. Let teams spend on approved merch.</p>
           </div>
           <div className="wallet-meter">
@@ -162,6 +215,9 @@ export function Offerings() {
             </div>
             <b>68%</b>
           </div>
+          <span className="bento-arrow mobile-only" aria-hidden="true">
+            →
+          </span>
         </article>
       </div>
     </section>

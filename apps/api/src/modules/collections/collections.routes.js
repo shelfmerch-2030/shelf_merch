@@ -444,6 +444,10 @@ router.post(
       }
     }
     collection.markModified('productRefs');
+    // Designs saved — promote out of draft so the swag list treats it as ready.
+    if (collection.status === 'draft') {
+      collection.status = 'ready';
+    }
     await collection.save();
     writeAudit({
       req,
@@ -455,6 +459,7 @@ router.post(
         mockupBackCount: backIdx,
         designOnlyCount: designIdx,
         areaArtCount: areaArtIdx,
+        status: collection.status,
       },
     });
     res.json(collection);

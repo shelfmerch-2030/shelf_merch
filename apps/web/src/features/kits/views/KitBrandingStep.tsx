@@ -421,9 +421,13 @@ export function KitBrandingStep({
                     <div className="meta">
                       {p.brand ? <div className="brand">{p.brand}</div> : null}
                       <div className="nm">{p.nm}</div>
-                      <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
-                        {designed ? "Designed" : "Not designed"}
-                      </div>
+                      {listPrintAreas(p).length ? (
+                        <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
+                          {designed ? "Designed" : "Not designed"}
+                        </div>
+                      ) : (
+                        <div className="mut3 sw-mockup-card-status">Logo Branding unavailable for this product.</div>
+                      )}
                     </div>
                   </div>
                 );
@@ -590,6 +594,10 @@ function KitProductBrandingModal({
   }
 
   function assignArtToActive(file: KitArtFile) {
+    if (!listPrintAreas(product).length) {
+      toast.error("Logo Branding unavailable for this product.");
+      return;
+    }
     if (!activeAreaKey) {
       toast.error("Select a placeholder first");
       return;
@@ -613,6 +621,10 @@ function KitProductBrandingModal({
   }
 
   function addLibraryToPreferred() {
+    if (!listPrintAreas(product).length) {
+      toast.error("Logo Branding unavailable for this product.");
+      return;
+    }
     if (!libraryArt) {
       toast.error("Upload artwork on the left first, or upload here");
       return;
@@ -655,9 +667,11 @@ function KitProductBrandingModal({
           <div className={`sw-brand-modal__main sw-brand-modal__main--${mode}`}>
             <div className="sw-brand-modal__stage">
               {mode === "edit" ? (
-                <p className="mut3 sw-brand-modal__hint">
-                  Click a placeholder · drag to move · corners to scale
-                </p>
+                allAreas.length ? (
+                  <p className="mut3 sw-brand-modal__hint">
+                    Click a placeholder · drag to move · corners to scale
+                  </p>
+                ) : null
               ) : (
                 <p className="mut3 sw-brand-modal__hint">Final preview — no guides or handles</p>
               )}
@@ -747,6 +761,9 @@ function KitProductBrandingModal({
                   </MockupViewGallery>
                 )}
               </div>
+              {/* {!allAreas.length ? (
+                <p className="mut3 sw-brand-modal__no-placeholder">Logo Branding unavailable for this product.</p>
+              ) : null} */}
               {mode === "edit" ? (
                 <button
                   type="button"
@@ -774,7 +791,9 @@ function KitProductBrandingModal({
 
                   <div className={`sw-art-selected-box${activeArt ? " is-ready" : ""}`}>
                     <div className="mut3 sw-art-selected-label">Selected placeholder</div>
-                    <div className="sw-art-selected-title">{activeLabel || "None"}</div>
+                    <div className="sw-art-selected-title">
+                      {allAreas.length ? activeLabel || "None" : "Logo Branding unavailable for this product."}
+                    </div>
                     {activeAreaDims ? (
                       <div className="mut3 sw-art-selected-dims">{activeAreaDims}</div>
                     ) : null}

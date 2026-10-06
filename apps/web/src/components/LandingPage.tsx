@@ -1,4 +1,5 @@
 import "./landing-page.css";
+import "./landing-mobile.css";
 import { Catalog } from "./landing/Catalog";
 import { Events } from "./landing/Events";
 import { Features } from "./landing/Features";
@@ -9,6 +10,7 @@ import { Footer } from "./landing/Footer";
 import { Header } from "./landing/Header";
 import { Hero } from "./landing/Hero";
 import { MerchPlan } from "./landing/MerchPlan";
+import { MobileCategoryNav } from "./landing/MobileCategoryNav";
 import { Occasions } from "./landing/Occasions";
 import { Offerings } from "./landing/Offerings";
 import { Production } from "./landing/Production";
@@ -21,9 +23,10 @@ import { TrustBar } from "./landing/TrustBar";
 export default function LandingPage() {
   return (
     <div className="shelf-landing">
-      <main>
+      <main className="landing-main">
         <Header />
         <Hero />
+        <MobileCategoryNav />
         <TrustBar />
         <Offerings />
         <Production />
@@ -44,4 +47,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

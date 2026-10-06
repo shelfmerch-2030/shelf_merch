@@ -123,6 +123,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
         amount,
         name: walletName,
         walletId,
+        kind: "topup",
       });
       toast.success("Funding request submitted", {
         description: "Finance will review your PO and credit your budget once approved.",
@@ -151,6 +152,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
               amount,
               name: walletName,
               walletId,
+              kind: "topup",
             });
             toast.success("Payment received — submitted for review", {
               description: `${inr(amount)} will be added to your organization budget once finance approves.`,

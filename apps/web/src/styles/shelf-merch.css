@@ -2153,6 +2153,12 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
   line-height: 1.4;
   text-align: center;
 }
+.sw-brand-modal__no-placeholder {
+  margin: 8px 12px 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: center;
+}
 .sw-brand-modal__main {
   display: grid;
   gap: 16px;
@@ -4526,11 +4532,14 @@ button.thumb{font:inherit;color:inherit}
   gap:0!important;
   background:#fff!important;
 }
-/* Banner picker is taller than a 100% viewport — pin it inside the screen and scroll the body. */
+/* Banner picker is taller than a 100% viewport — keep centered and scroll the body. */
 .sm-modal.sm-banner-modal{
-  top:24px!important;
+  top:50%!important;
+  left:50%!important;
   bottom:auto!important;
-  transform:translateX(-50%)!important;
+  /* Reset Tailwind `translate` so it doesn't stack with `transform` and push the modal off-screen. */
+  translate:none!important;
+  transform:translate(-50%,-50%)!important;
   max-height:calc(100dvh - 48px)!important;
   overflow:hidden!important;
   display:flex!important;
@@ -4545,8 +4554,8 @@ button.thumb{font:inherit;color:inherit}
   overscroll-behavior:contain;
 }
 .sm-modal.sm-banner-modal>.absolute{
-  top:22px;
-  right:22px;
+  top:18px;
+  right:18px;
   z-index:2;
 }
 @media(max-width:560px){
@@ -8166,17 +8175,12 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   padding:12px 4px 28px;
   overflow:hidden;
 }
-.funding-success::before{
-  content:"";
-  position:absolute;
-  inset:-18% auto auto -12%;
-  width:min(58vw,520px);
-  height:min(58vw,520px);
-  border-radius:50%;
-  background:radial-gradient(circle at 40% 40%,rgba(114,226,184,.28),rgba(247,243,234,.12) 58%,transparent 72%);
-  pointer-events:none;
-  z-index:0;
+/* Top-up confirmation — compact, no store CTA / illustration */
+.funding-success--topup{
+  max-width:560px;
+  padding:48px 16px 40px;
 }
+.funding-success--topup .funding-success__copy{max-width:none}
 .funding-success__layout{
   position:relative;
   z-index:1;

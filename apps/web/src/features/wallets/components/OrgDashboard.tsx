@@ -96,19 +96,14 @@ export function OrgDashboard({
   const budgetLive = o.status === "active";
   const managersActive = depts.filter((d) => d.mgr.inviteStatus === "active").length;
   const managersPending = depts.filter((d) => d.mgr.inviteStatus === "pending").length;
-  const canAllocate = Boolean(walletId) && !fundingPending && total > 0;
+  // Allocate whenever credited balance exists — pending top-ups must not block it.
+  const canAllocate = Boolean(walletId) && total > 0;
   const needsAllocation = canAllocate && !budgetLive;
 
   function handleAllocateClick() {
-    if (fundingPending) {
-      toast.message("Funding pending approval", {
-        description: "Your balance will be available after ShelfMerch approves your request.",
-      });
-      return;
-    }
     if (total <= 0) {
       toast.message("No budget balance yet", {
-        description: "Wait for finance to approve your funding request before allocating.",
+        description: "Add or wait for funded balance before allocating across departments.",
       });
       return;
     }
@@ -157,7 +152,12 @@ export function OrgDashboard({
               <>
                 {inr(o.requestedAmount)} will be added to your organization budget once ShelfMerch
                 approves your {o.docType || "document"} {o.docNumber ? `(${o.docNumber})` : ""}.
-                After approval, use <b>Allocate budget</b> to split funds across departments.
+                {/* {total > 0 ? (
+                  <>
+                    {" "}
+                    You can still <b>Allocate budget</b> from your current balance.
+                  </>
+                ) : null} */}
               </>
             ) : (
               <>Your funding request is awaiting ShelfMerch approval.</>

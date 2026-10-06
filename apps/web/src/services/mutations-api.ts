@@ -914,10 +914,14 @@ export async function createCollectionApi(payload: {
     }
     const shopIds = [...new Set((payload.shopIds || []).filter(Boolean))];
     if (shopIds.length) {
-      await apiFetch(`/collections/${result.id}/publish`, {
-        method: "POST",
-        body: JSON.stringify({ shopIds }),
-      });
+      const published = await apiFetch<Record<string, unknown>>(
+        `/collections/${result.id}/publish`,
+        {
+          method: "POST",
+          body: JSON.stringify({ shopIds }),
+        },
+      );
+      result = mapCollection(published, "", catalogById);
     }
     return result;
   } catch (err) {

@@ -10,6 +10,7 @@ import {
   collectAreaPlacements,
   collectBakeLayers,
   exportDesignOnly,
+  listPrintAreas,
   primaryAreaKey,
   type MockupUploadItem,
 } from "../mockup-bake";
@@ -198,11 +199,17 @@ export function useSwagWizardController(): SwagWizardVm {
         })
         .filter((m): m is MockupUploadItem => m !== null);
 
-      if (!mockups.length) {
-        throw new Error("Failed to generate designs — try again");
-      }
-      if (mockups.length < draft.picked.length) {
-        throw new Error("Failed to generate designs for all products — try again");
+      // Products with no catalog print areas are intentionally skipped (no fake
+      // placeholders). Only require a bake for products that can be branded.
+      const brandableCount = draft.picked.reduce((n, i) => {
+        return n + (listPrintAreas(catalog[i]).length > 0 ? 1 : 0);
+      }, 0);
+      if (brandableCount > 0 && mockups.length < brandableCount) {
+        throw new Error(
+          mockups.length
+            ? "Failed to generate designs for all products — try again"
+            : "Failed to generate designs — try again",
+        );
       }
 
       const shopIds = [...pickedShops].filter((id) => shops.some((s) => s.id === id));

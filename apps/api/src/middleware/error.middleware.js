@@ -24,6 +24,15 @@ export function errorHandler(err, req, res, _next) {
       err.code === 'LIMIT_FILE_SIZE' ? 'Uploaded file is too large' : `Upload error: ${err.message}`;
     return res.status(status).json({ error: { code: err.code ?? 'UPLOAD_ERROR', message } });
   }
+  // express.json / body-parser payload cap (default path previously fell through to 500).
+  if (err?.type === 'entity.too.large' || err?.status === 413 || err?.statusCode === 413) {
+    return res.status(413).json({
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Request body is too large — upload images as files instead of embedding them',
+      },
+    });
+  }
   if (err?.code === 11000) {
     const field =
       (err.keyPattern && Object.keys(err.keyPattern).join(', ')) ||

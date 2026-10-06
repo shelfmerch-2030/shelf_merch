@@ -133,6 +133,7 @@ export function OrgWizard({
               amount: state.wallet.amount,
               name: state.wallet.name,
               walletId,
+              kind: "create",
             });
             dispatch({ type: "finished", walletId, invites: [] });
             toast.success("Payment received — submitted for review", {
@@ -213,6 +214,7 @@ export function OrgWizard({
           amount: state.wallet.amount,
           name: state.wallet.name,
           walletId: result.walletId,
+          kind: "create",
         });
         dispatch({ type: "finished", walletId: result.walletId, invites: [] });
         toast.success("Budget submitted — finance will review your funding request");

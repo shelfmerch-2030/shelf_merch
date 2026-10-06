@@ -37,48 +37,65 @@ export function Header() {
       }
     };
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [menuOpen]);
 
   return (
-    <header className="site-header">
+    <header className={`site-header${menuOpen ? " menu-open" : ""}`}>
       <Link to="/" className="brand" aria-label="Shelf Merch home" onClick={closeMenu}>
         <img src="/images/logo/shelfmerch-wordmark.png" alt="" className="brand-wordmark" />
       </Link>
+
+      <button
+        type="button"
+        className="menu-scrim"
+        aria-label="Close menu"
+        tabIndex={menuOpen ? 0 : -1}
+        onClick={closeMenu}
+      />
 
       <nav
         id="site-navigation"
         className={`nav-links${menuOpen ? " open" : ""}`}
         aria-label="Main navigation"
       >
-        <a href="/platform" onClick={closeMenu}>
-          Platform
-        </a>
-        <ResourceDropdown onNavigate={closeMenu} />
-        <Link to="/app/catalog" onClick={closeMenu}>
-          Catalog
-        </Link>
-        <a href="/about" onClick={closeMenu}>
-          About
-        </a>
-        <AuthLinks className="mobile-only" onNavigate={closeMenu} />
+        <div className="nav-links__sheet">
+          <a href="/platform" onClick={closeMenu}>
+            Platform
+          </a>
+          <ResourceDropdown onNavigate={closeMenu} />
+          <Link to="/app/catalog" onClick={closeMenu}>
+            Catalog
+          </Link>
+          <a href="/about" onClick={closeMenu}>
+            About
+          </a>
+          <AuthLinks className="mobile-only" onNavigate={closeMenu} />
+          <Link className="header-cta nav-drawer-cta mobile-only" to="/request-demo" onClick={closeMenu}>
+            Book a demo
+          </Link>
+        </div>
       </nav>
 
       <div className="header-end">
-        {/* <AuthLinks className="desktop-only" /> */}
-        {/* <span className="header-divider desktop-only" aria-hidden="true" /> */}
-        <Link className="header-cta" to="/request-demo" onClick={closeMenu}>
+        <Link className="header-cta desktop-cta" to="/request-demo" onClick={closeMenu}>
           Book a demo
         </Link>
         <button
           type="button"
-          className="menu-button"
-          aria-label="Toggle menu"
+          className={`menu-button${menuOpen ? " is-open" : ""}`}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-controls="site-navigation"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
         >
+          <span />
           <span />
           <span />
         </button>
