@@ -4,10 +4,14 @@ import type { WizardState } from "./types";
 const STORAGE_KEY = "shelfmerch.fundingSuccess";
 const MAX_AGE_MS = 30 * 60 * 1000;
 
+export type FundingSuccessKind = "create" | "topup";
+
 export type FundingSuccessSnapshot = {
   amount: number;
   name: string;
   walletId?: string;
+  /** `create` = new wallet setup; `topup` = add-funds request on an existing wallet. */
+  kind: FundingSuccessKind;
   savedAt: number;
 };
 
@@ -32,7 +36,10 @@ export function readFundingSuccess(): FundingSuccessSnapshot | null {
       clearFundingSuccess();
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      kind: parsed.kind === "topup" ? "topup" : "create",
+    };
   } catch {
     return null;
   }
@@ -51,6 +58,7 @@ export function wizardFromFundingSuccess(snapshot: FundingSuccessSnapshot): Wiza
   return {
     ...base,
     done: true,
+    successSource: snapshot.kind === "topup" ? "topup" : "create",
     wallet: {
       ...base.wallet,
       id: snapshot.walletId,

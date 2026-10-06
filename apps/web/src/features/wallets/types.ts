@@ -75,6 +75,8 @@ export type WizardState = {
   mode: WizardMode;
   step: number;
   done: boolean;
+  /** Distinguishes new-wallet vs top-up on the funding-request done screen. */
+  successSource?: "create" | "topup";
   wallet: WizardWallet;
   departments: WizardDept[];
   seq: number;

@@ -12,11 +12,18 @@ export function FinalCTA() {
         <br />
         <em>on the shelf.</em>
       </h2>
-      <p>One partner for every shop, kit, gift and moment of recognition.</p>
-      <div>
+      <p className="desktop-only">One partner for every shop, kit, gift and moment of recognition.</p>
+      <p className="mobile-only">
+        Everything you need to create, send and manage custom swag.
+      </p>
+      <div className="final-cta__actions">
         <Link className="button button-light" to="/request-demo">
-          Start with Shelf Merch <ArrowIcon />
+          <span className="desktop-only">Start with Shelf Merch</span>
+          <span className="mobile-only">Get started</span> <ArrowIcon />
         </Link>
+        <div className="final-cta__visual mobile-only" aria-hidden="true">
+          <img src="/images/landing/hero.png" alt="" loading="lazy" />
+        </div>
       </div>
     </section>
   );

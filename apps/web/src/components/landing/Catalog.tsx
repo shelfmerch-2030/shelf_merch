@@ -1,144 +1,62 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowIcon } from "./icons";
+import { CATALOG_ITEMS } from "./catalog-data";
 
-type CatalogItem = {
-  count: string;
-  className: string;
-  icon: ReactNode;
-  title: string;
-  iconSize: number;
-  image?: string;
-  imageAlt?: string;
-  to: string;
+const CATALOG_ICONS: Record<string, ReactNode> = {
+  Apparel: <path d="M8 4l4 2 4-2 5 3-3 5-2-1v10H8V11l-2 1-3-5 5-3z" />,
+  Drinkware: (
+    <>
+      <path d="M3 9h18v12H3z" />
+      <path d="M2 5h20v4H2z" />
+      <path d="M12 5v16" />
+      <path d="M12 5c-1-4-6-4-6-1s4 2 6 1zm0 0c1-4 6-4 6-1s-4 2-6 1z" />
+    </>
+  ),
+  "Tech Accessories": (
+    <>
+      <path d="M8 3v6M16 3v6" />
+      <path d="M6 9h12v2a6 6 0 01-12 0V9z" />
+      <path d="M12 17v4" />
+    </>
+  ),
+  "Bags & Travel": (
+    <>
+      <path d="M4 7l8-4 8 4-8 4-8-4z" />
+      <path d="M4 7v10l8 4 8-4V7" />
+      <path d="M12 11v10" />
+    </>
+  ),
+  Accessories: (
+    <>
+      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+      <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z" />
+    </>
+  ),
+  "Office Supplies": (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M7 3v4m10-4v4M3 10h18" />
+      <path d="M8 15l2 2 5-5" />
+    </>
+  ),
+  "Festival Hampers": (
+    <>
+      <path d="M3 9h18v12H3z" />
+      <path d="M2 5h20v4H2z" />
+      <path d="M12 5v16" />
+      <path d="M12 5c-1-4-6-4-6-1s4 2 6 1zm0 0c1-4 6-4 6-1s-4 2-6 1z" />
+    </>
+  ),
+  "Made-to-Order": (
+    <>
+      <path d="M4 10v10h16V10" />
+      <path d="M3 10l2-6h14l2 6" />
+      <path d="M8 20v-6h8v6" />
+      <path d="M3 10c0 2 4 2 4 0 0 2 4 2 4 0 0 2 4 2 4 0 0 2 4 2 4 0" />
+    </>
+  ),
 };
-
-const CATALOG_ITEMS: CatalogItem[] = [
-  {
-    count: "01",
-    className: "catalog-card catalog-blue",
-    image: "/images/landing/catalog/apparel.png",
-    imageAlt: "Customizable white polo shirt",
-    icon: <path d="M8 4l4 2 4-2 5 3-3 5-2-1v10H8V11l-2 1-3-5 5-3z" />,
-    title: "Apparel",
-    iconSize: 32,
-    to: "/app/catalog/category/apparel",
-  },
-  {
-    count: "02",
-    className: "catalog-card catalog-coral",
-    image: "/images/landing/catalog/drinkware.png",
-    imageAlt: "Insulated water bottle",
-    icon: (
-      <>
-        <path d="M3 9h18v12H3z" />
-        <path d="M2 5h20v4H2z" />
-        <path d="M12 5v16" />
-        <path d="M12 5c-1-4-6-4-6-1s4 2 6 1zm0 0c1-4 6-4 6-1s-4 2-6 1z" />
-      </>
-    ),
-    title: "Drinkware",
-    iconSize: 32,
-    to: "/app/catalog/category/drinkware",
-  },
-  {
-    count: "03",
-    className: "catalog-card catalog-mint",
-    image: "/images/landing/catalog/tech.png",
-    imageAlt: "Wireless charging station",
-    icon: (
-      <>
-        <path d="M8 3v6M16 3v6" />
-        <path d="M6 9h12v2a6 6 0 01-12 0V9z" />
-        <path d="M12 17v4" />
-      </>
-    ),
-    title: "Tech Accessories",
-    iconSize: 32,
-    to: "/app/catalog/category/technology",
-  },
-  {
-    count: "04",
-    className: "catalog-card catalog-lilac",
-    image: "/images/landing/catalog/bags-travel.png",
-    imageAlt: "Laptop bag for travel",
-    icon: (
-      <>
-        <path d="M4 7l8-4 8 4-8 4-8-4z" />
-        <path d="M4 7v10l8 4 8-4V7" />
-        <path d="M12 11v10" />
-      </>
-    ),
-    title: "Bags & Travel",
-    iconSize: 32,
-    to: "/app/catalog/category/bags",
-  },
-  {
-    count: "05",
-    className: "catalog-card catalog-black",
-    image: "/images/landing/catalog/accessories.png",
-    imageAlt: "Personalized metal keychain",
-    icon: (
-      <>
-        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
-        <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z" />
-      </>
-    ),
-    title: "Accessories",
-    iconSize: 32,
-    to: "/app/catalog/category/accessories",
-  },
-  {
-    count: "06",
-    className: "catalog-card catalog-yellow",
-    image: "/images/landing/catalog/stationery.png",
-    imageAlt: "Notebook and pen stationery set",
-    icon: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M7 3v4m10-4v4M3 10h18" />
-        <path d="M8 15l2 2 5-5" />
-      </>
-    ),
-    title: "Office Supplies",
-    iconSize: 32,
-    to: "/app/catalog/category/office-supplies",
-  },
-  {
-    count: "07",
-    className: "catalog-card catalog-festive",
-    image: "/images/landing/catalog/festival-hampers.png",
-    imageAlt: "Festival puja hamper gift set",
-    icon: (
-      <>
-        <path d="M3 9h18v12H3z" />
-        <path d="M2 5h20v4H2z" />
-        <path d="M12 5v16" />
-        <path d="M12 5c-1-4-6-4-6-1s4 2 6 1zm0 0c1-4 6-4 6-1s-4 2-6 1z" />
-      </>
-    ),
-    title: "Festival Hampers",
-    iconSize: 32,
-    to: "/app/catalog/category/kits",
-  },
-  {
-    count: "08",
-    className: "catalog-card catalog-outline",
-    image: "/images/landing/catalog/ready-to-order.png",
-    imageAlt: "Ready-to-order notebook and pen gift set",
-    icon: (
-      <>
-        <path d="M4 10v10h16V10" />
-        <path d="M3 10l2-6h14l2 6" />
-        <path d="M8 20v-6h8v6" />
-        <path d="M3 10c0 2 4 2 4 0 0 2 4 2 4 0 0 2 4 2 4 0 0 2 4 2 4 0" />
-      </>
-    ),
-    title: "Made-to-Order",
-    iconSize: 32,
-    to: "/app/catalog/category/kits",
-  },
-];
 
 function CatalogArrow() {
   return (
@@ -171,9 +89,12 @@ export function Catalog() {
           </h2>
         </div>
         <div>
-          <p>From apparel to tech accessories, explore what you can put your logo on.</p>
+          <p className="desktop-only">
+            From apparel to tech accessories, explore what you can put your logo on.
+          </p>
           <Link to="/app/catalog" className="text-link">
-            View full catalog
+            <span className="desktop-only">View full catalog</span>
+            <span className="mobile-only">See all</span>
             <span>
               <ArrowIcon />
             </span>
@@ -188,7 +109,12 @@ export function Catalog() {
             className={`${item.className}${item.image ? " has-image" : ""}`}
           >
             {item.image ? (
-              <img className="catalog-photo" src={item.image} alt={item.imageAlt ?? item.title} />
+              <img
+                className="catalog-photo"
+                src={item.image}
+                alt={item.imageAlt ?? item.title}
+                loading="lazy"
+              />
             ) : null}
             <span className="catalog-count">{item.count}</span>
             <div className="catalog-icon">
@@ -203,7 +129,7 @@ export function Catalog() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                {item.icon}
+                {CATALOG_ICONS[item.title]}
               </svg>
             </div>
             <h3>{item.title}</h3>

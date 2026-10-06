@@ -92,6 +92,10 @@ export async function publishCollectionToShop(shopId, tenantId, collection) {
   if (!collection.shopPublish.some((p) => String(p.shopId) === shopKey)) {
     collection.shopPublish.push({ shopId: shop._id, publishedAt: new Date() });
   }
+  // Publishing to a shop means the collection is live — never leave it as draft.
+  if (collection.status === 'draft') {
+    collection.status = 'ready';
+  }
   await collection.save();
 
   const keys = listingKeysFromCollection(collection);
@@ -228,6 +232,13 @@ export async function syncCollectionPublishTargets(collectionId, tenantId, targe
       await unpublishCollectionFromShop(shopId, tenantId, collection);
       collection = await Collection.findOne({ _id: collectionId, tenantId });
     }
+  }
+
+  // If still linked to any shop after sync, never leave status as draft
+  // (covers re-publish when shops were already linked).
+  if (collection && target.size > 0 && collection.status === 'draft') {
+    collection.status = 'ready';
+    await collection.save();
   }
 
   return collection;

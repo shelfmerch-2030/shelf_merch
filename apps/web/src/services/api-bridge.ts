@@ -45,6 +45,7 @@ import {
   updateContactApi,
   updateShopApi,
   uploadContactsImportApi,
+  uploadShopAssetApi,
   type ContactImportStatus,
   type WorkspaceSnapshot,
 } from "./workspace-api";
@@ -345,6 +346,43 @@ export function applyWorkspaceToState(S: Record<string, unknown>, data: Workspac
 
 export { fetchPlatformDashboard } from "./platform-api";
 
+/** Turn in-memory data:/blob: images into hosted `/uploads/…` URLs before JSON save. */
+async function persistShopImageUrl(
+  url: string | undefined,
+  kind: "logo" | "banner",
+  name: string,
+): Promise<string> {
+  if (!url) return "";
+  if (!url.startsWith("data:") && !url.startsWith("blob:")) return url;
+  const file = await prepareArtworkUploadFile({ preview: url, name });
+  if (!file) {
+    throw new Error(
+      kind === "logo"
+        ? "Could not prepare logo for upload — try re-uploading your logo"
+        : "Could not prepare banner for upload — try re-uploading your banner",
+    );
+  }
+  return uploadShopAssetApi(file, kind);
+}
+
+async function persistShopLookMedia(payload: {
+  logoUrl?: string;
+  bannerConfig?: Record<string, unknown>;
+}): Promise<{ logoUrl?: string; bannerConfig?: Record<string, unknown> }> {
+  const logoUrl =
+    payload.logoUrl !== undefined
+      ? await persistShopImageUrl(payload.logoUrl, "logo", "shop-logo")
+      : undefined;
+
+  let bannerConfig = payload.bannerConfig;
+  if (bannerConfig && typeof bannerConfig.imageUrl === "string") {
+    const imageUrl = await persistShopImageUrl(bannerConfig.imageUrl, "banner", "shop-banner");
+    bannerConfig = { ...bannerConfig, imageUrl };
+  }
+
+  return { logoUrl, bannerConfig };
+}
+
 export async function createShopFlow(payload: {
   name: string;
   currency: string;
@@ -354,13 +392,17 @@ export async function createShopFlow(payload: {
   bannerConfig?: Record<string, unknown>;
 }) {
   const currencyMode = payload.currency === "INR" ? "inr" : "points";
+  const look = await persistShopLookMedia({
+    logoUrl: payload.logoUrl || "",
+    bannerConfig: payload.bannerConfig || {},
+  });
   const draft = await createShopApi({
     name: payload.name,
     currencyMode,
     categories: payload.categories,
     companyEmailDomain: payload.companyEmailDomain || "",
-    logoUrl: payload.logoUrl || "",
-    bannerConfig: payload.bannerConfig || {},
+    logoUrl: look.logoUrl || "",
+    bannerConfig: look.bannerConfig || {},
   });
   return publishShopApi(draft.id);
 }
@@ -381,7 +423,15 @@ export async function updateShopFlow(
     featuredListingKeys?: string[];
   },
 ) {
-  return updateShopApi(shopId, payload);
+  const look = await persistShopLookMedia({
+    logoUrl: payload.logoUrl,
+    bannerConfig: payload.bannerConfig,
+  });
+  return updateShopApi(shopId, {
+    ...payload,
+    ...(look.logoUrl !== undefined ? { logoUrl: look.logoUrl } : {}),
+    ...(look.bannerConfig !== undefined ? { bannerConfig: look.bannerConfig } : {}),
+  });
 }
 
 export async function addContactsFlow(emails: string[], role: string) {

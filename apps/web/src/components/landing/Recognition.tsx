@@ -10,7 +10,7 @@ export function Recognition() {
           <br />
           <em>that move teams.</em>
         </h2>
-        <p>
+        <p className="desktop-only">
           Recognize a moment once or set up a program that runs itself. Shelf Merch connects
           appreciation to rewards people genuinely want.
         </p>
@@ -36,7 +36,8 @@ export function Recognition() {
             </span>
             <div>
               <b>Spot &amp; recurring</b>
-              <small>One-off kudos or automated milestones</small>
+              <small className="desktop-only">One-off kudos or automated milestones</small>
+              <small className="mobile-only">One-off kudos or automated milestones</small>
             </div>
           </li>
           <li>
@@ -59,8 +60,9 @@ export function Recognition() {
               </svg>
             </span>
             <div>
-              <b>Reporting &amp; insights</b>
-              <small>Spend, redemption and engagement visibility</small>
+              <b>Reports &amp; insights</b>
+              <small className="desktop-only">Spend, redemption and engagement visibility</small>
+              <small className="mobile-only">Spend, redemption and engagement</small>
             </div>
           </li>
           <li>
@@ -82,12 +84,14 @@ export function Recognition() {
               </svg>
             </span>
             <div>
-              <b>Fits how you work</b>
-              <small>HRMS, Slack and Microsoft Teams integrations</small>
+              <b className="desktop-only">Fits how you work</b>
+              <b className="mobile-only">HR &amp; team integrations</b>
+              <small className="desktop-only">HRMS, Slack and Microsoft Teams integrations</small>
+              <small className="mobile-only">HRMS, Slack and Teams</small>
             </div>
           </li>
         </ul>
-        <a href="#contact" className="text-link">
+        <a href="#contact" className="text-link desktop-only">
           Explore recognition
           <span>
             <ArrowIcon />
@@ -95,7 +99,11 @@ export function Recognition() {
         </a>
       </div>
       <div className="recognition-ui">
-        <img src="/images/landing/recognition/recognition-dashboard.png" alt="" />
+        <img
+          src="/images/landing/recognition/recognition-dashboard.png"
+          alt="Shelf Merch recognition dashboard"
+          loading="lazy"
+        />
       </div>
     </section>
   );

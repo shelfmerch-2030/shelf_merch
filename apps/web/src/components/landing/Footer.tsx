@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 const WORDMARK = "/images/logo/shelfmerch-wordmark-white.png";
@@ -12,7 +13,15 @@ function FacebookIcon() {
 
 function InstagramIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <rect x="4" y="4" width="16" height="16" rx="5" />
       <circle cx="12" cy="12" r="3.5" />
       <circle cx="17.2" cy="6.8" r="0.8" fill="currentColor" stroke="none" />
@@ -38,7 +47,15 @@ function YouTubeIcon() {
 
 function MailIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M4 7l8 6 8-6" />
     </svg>
@@ -47,7 +64,16 @@ function MailIcon() {
 
 function PhoneIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    >
       <path d="M7 3h3l1.5 4-2 1.2a12 12 0 0 0 6.3 6.3L17 12.5l4 1.5v3A16 16 0 0 1 7 3Z" />
     </svg>
   );
@@ -55,10 +81,115 @@ function PhoneIcon() {
 
 function ClockIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    >
       <circle cx="12" cy="12" r="8" />
       <path d="M12 8v4.5L15 16" />
     </svg>
+  );
+}
+
+type FooterSection = {
+  id: string;
+  title: string;
+  links: ReactNode;
+};
+
+const FOOTER_SECTIONS: FooterSection[] = [
+  {
+    id: "platform",
+    title: "Platform",
+    links: (
+      <>
+        <a href="/platform">Features</a>
+        <a href="/platform#connects">Integrations</a>
+      </>
+    ),
+  },
+  {
+    id: "resources",
+    title: "Resources",
+    links: (
+      <>
+        <a href="/blog">Blog</a>
+        <Link to="/resources/hr">HR</Link>
+        <Link to="/resources/sales">Sales &amp; Marketing</Link>
+        <Link to="/resources/events">Events</Link>
+      </>
+    ),
+  },
+  {
+    id: "catalog",
+    title: "Catalog",
+    links: (
+      <>
+        <Link to="/apps/catalog">All Products</Link>
+        <Link to="/apps/catalog?category=Apparel">Apparel</Link>
+        <Link to="/apps/catalog?category=Drinkware">Drinkware</Link>
+        <Link to="/apps/catalog?category=Office%20Supplies">Office Supplies</Link>
+        <Link to="/apps/catalog?category=Technology">Tech Accessories</Link>
+        <Link to="/apps/catalog">Kits</Link>
+      </>
+    ),
+  },
+  {
+    id: "about",
+    title: "About Us",
+    links: (
+      <>
+        <Link to="/request-demo">Book a Demo</Link>
+        <a href="/careers">Careers</a>
+      </>
+    ),
+  },
+  {
+    id: "legal",
+    title: "Legal",
+    links: (
+      <>
+        <a href="/terms">Terms &amp; Conditions</a>
+        <a href="/privacy">Privacy Policy</a>
+        <span>Refund Policy</span>
+        <span>Shipping Policy</span>
+        <span>Cookie Policy</span>
+      </>
+    ),
+  },
+];
+
+function FooterAccordion() {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <div className="footer-accordion mobile-only">
+      {FOOTER_SECTIONS.map((section) => {
+        const open = openId === section.id;
+        return (
+          <div key={section.id} className={`footer-acc${open ? " is-open" : ""}`}>
+            <button
+              type="button"
+              className="footer-acc__trigger"
+              aria-expanded={open}
+              onClick={() => setOpenId(open ? null : section.id)}
+            >
+              {section.title}
+              <span aria-hidden="true">{open ? "−" : "+"}</span>
+            </button>
+            <div className="footer-acc__panel" hidden={!open}>
+              {section.links}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -115,41 +246,15 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="footer-col">
-          <h4>Platform</h4>
-          <a href="/platform">Features</a>
-          <a href="/platform#connects">Integrations</a>
-        </div>
-        <div className="footer-col">
-          <h4>Resources</h4>
-          <a href="/blog">Blog</a>
-          <Link to="/resources/hr">HR</Link>
-          <Link to="/resources/sales">Sales &amp; Marketing</Link>
-          <Link to="/resources/events">Events</Link>
-        </div>
-        <div className="footer-col">
-          <h4>Catalog</h4>
-          <Link to="/apps/catalog">All Products</Link>
-          <Link to="/apps/catalog?category=Apparel">Apparel</Link>
-          <Link to="/apps/catalog?category=Drinkware">Drinkware</Link>
-          <Link to="/apps/catalog?category=Office%20Supplies">Office Supplies</Link>
-          <Link to="/apps/catalog?category=Technology">Tech Accessories</Link>
-          <Link to="/apps/catalog">Kits</Link>
-        </div>
-        <div className="footer-col">
-          <h4>About Us</h4>
-          <Link to="/request-demo">Book a Demo</Link>
-          <a href="/careers">Careers</a>
-        </div>
-        <div className="footer-col">
-          <h4>Legal</h4>
-          <a href="/terms">Terms &amp; Conditions</a>
-          <a href="/privacy">Privacy Policy</a>
-          <span>Refund Policy</span>
-          <span>Shipping Policy</span>
-          <span>Cookie Policy</span>
-        </div>
+        {FOOTER_SECTIONS.map((section) => (
+          <div key={section.id} className="footer-col desktop-only">
+            <h4>{section.title}</h4>
+            {section.links}
+          </div>
+        ))}
       </div>
+
+      <FooterAccordion />
 
       <div className="footer-bottom">
         <div className="footer-contact">
