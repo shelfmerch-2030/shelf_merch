@@ -85,10 +85,24 @@ export function useWalletsController(): WalletsScreen {
   }
 
   const storedSuccess = readFundingSuccess();
+  const doneWalletId =
+    (wizard.done && wizard.flow === "wallet" ? wizard.wallet.id : undefined) ||
+    storedSuccess?.walletId ||
+    walletId;
+  const doneOrg = orgForWallet(workspace, doneWalletId);
+  const fundingApproved = doneOrg.wallet.fundingApproval === "approved";
+  const fundingPending = doneOrg.wallet.fundingApproval === "pending";
+
+  // After finance approves, never keep the "Funding request submitted" screen —
+  // including stale sessionStorage from the original submit (e.g. notification deep-link).
+  if (fundingApproved && storedSuccess) {
+    clearFundingSuccess();
+  }
+
   const doneState =
-    wizard.done && wizard.flow === "wallet"
+    wizard.done && wizard.flow === "wallet" && !fundingApproved
       ? wizard
-      : storedSuccess
+      : storedSuccess && fundingPending
         ? wizardFromFundingSuccess(storedSuccess)
         : null;
   const successKey = doneState
