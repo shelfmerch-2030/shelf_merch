@@ -18,7 +18,8 @@ export type OrdersVm = {
   onDialogOpenChange: (open: boolean) => void;
   onViewInvoice: (order: UiOrder) => void;
   onDownloadInvoice: (order: UiOrder) => void;
-  onTrackShipment: () => void;
+  onTrackShipment: (order: UiOrder) => void;
+  invoiceBusy: { orderId: string; mode: "view" | "download" } | null;
 };
 
 function invoiceMediaUrl(url?: string) {
@@ -27,7 +28,11 @@ function invoiceMediaUrl(url?: string) {
   return resolveMediaUrl(raw);
 }
 
-async function resolveInvoiceUrl(order: UiOrder): Promise<string> {
+type InvoiceResolve =
+  | { ok: true; url: string }
+  | { ok: false; reason: "pending" | "error" };
+
+async function resolveInvoiceUrl(order: UiOrder): Promise<InvoiceResolve> {
   // Always hit generate so older PDFs pick up layout/pricing fixes.
   try {
     const invoice = await apiFetch<{ pdfUrl?: string }>(
@@ -37,12 +42,14 @@ async function resolveInvoiceUrl(order: UiOrder): Promise<string> {
     const url = invoiceMediaUrl(invoice.pdfUrl);
     if (url) {
       order.invoicePdfUrl = invoice.pdfUrl || url;
-      return url;
+      return { ok: true, url };
     }
+    return { ok: false, reason: "pending" };
   } catch {
-    // Fall through to cached URL if generate fails.
+    const cached = invoiceMediaUrl(order.invoicePdfUrl);
+    if (cached) return { ok: true, url: cached };
+    return { ok: false, reason: "error" };
   }
-  return invoiceMediaUrl(order.invoicePdfUrl);
 }
 
 function openInvoice(url: string) {
@@ -87,30 +94,54 @@ export function useOrdersController(): OrdersVm {
     );
   }, [workspace?.orders, query]);
 
+  const [invoiceBusy, setInvoiceBusy] = useState<{ orderId: string; mode: "view" | "download" } | null>(null);
+
   async function onViewInvoice(order: UiOrder) {
-    const toastId = toast.loading("Opening invoice…");
-    const url = await resolveInvoiceUrl(order);
-    toast.dismiss(toastId);
-    if (!url) {
-      toast.message("Invoice is being generated", {
-        description: "Try again in a moment if this order was just placed.",
-      });
-      return;
+    if (invoiceBusy) return;
+    setInvoiceBusy({ orderId: order.id, mode: "view" });
+    try {
+      const result = await resolveInvoiceUrl(order);
+      if (!result.ok) {
+        toast[result.reason === "pending" ? "message" : "error"](
+          result.reason === "pending" ? "Invoice is still being generated" : "Could not open invoice",
+        );
+        return;
+      }
+      openInvoice(result.url);
+    } catch {
+      toast.error("Could not open invoice");
+    } finally {
+      setInvoiceBusy(null);
     }
-    openInvoice(url);
   }
 
   async function onDownloadInvoice(order: UiOrder) {
-    const toastId = toast.loading("Preparing invoice…");
-    const url = await resolveInvoiceUrl(order);
-    toast.dismiss(toastId);
-    if (!url) {
-      toast.message("Invoice is being generated", {
-        description: "Try again in a moment if this order was just placed.",
-      });
+    if (invoiceBusy) return;
+    setInvoiceBusy({ orderId: order.id, mode: "download" });
+    try {
+      const result = await resolveInvoiceUrl(order);
+      if (!result.ok) {
+        toast[result.reason === "pending" ? "message" : "error"](
+          result.reason === "pending" ? "Invoice is still being generated" : "Could not open invoice",
+        );
+        return;
+      }
+      downloadInvoice(result.url, `${order.invoiceNumber || order.orderNumber}.pdf`);
+    } catch {
+      toast.error("Could not open invoice");
+    } finally {
+      setInvoiceBusy(null);
+    }
+  }
+
+  function onTrackShipment(order: UiOrder) {
+    const track = order.track?.trim();
+    if (!track) {
+      toast.error("Could not open tracking");
       return;
     }
-    downloadInvoice(url, `${order.invoiceNumber || order.orderNumber}.pdf`);
+    // Tracking number alone cannot open carrier tracking without a URL.
+    toast.error("Could not open tracking");
   }
 
   return {
@@ -143,6 +174,7 @@ export function useOrdersController(): OrdersVm {
     onDownloadInvoice: (order) => {
       void onDownloadInvoice(order);
     },
-    onTrackShipment: () => toast("Opening carrier tracking…"),
+    onTrackShipment,
+    invoiceBusy,
   };
 }

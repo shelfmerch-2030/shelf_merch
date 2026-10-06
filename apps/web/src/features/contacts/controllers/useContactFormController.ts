@@ -100,7 +100,7 @@ export function useContactFormController({
         onOpenChange(false);
       } else {
         await addContact.mutateAsync(payload);
-        toast.success("Added contact successfully");
+        toast.success("Contact added");
         onOpenChange(false);
         onAddedSuccess?.(1);
       }

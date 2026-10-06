@@ -1,0 +1,923 @@
+
+==== src/features/shops/controllers/usePublishShopController.ts 75-95
+75|            bannerPreset: draft.bannerPreset,
+76|            bannerImageUrl: draft.bannerImageUrl,
+77|          }),
+78|          categories: draft.categories,
+79|        },
+80|      });
+81|      await publishShop.mutateAsync(shop.id);
+82|
+83|      markShopCelebration({ shopId: shop.id, shopName: name });
+84|      toast.success("Success!", {
+85|        description: `"${name}" shop published successfully!`,
+86|      });
+87|
+88|      await invalidateWorkspace();
+89|      navigate(`/app/shops/${shop.id}?welcome=1`, { replace: true });
+90|    } catch (err) {
+91|      toast.error(err instanceof Error ? err.message : "Failed to publish shop");
+92|    }
+93|  }
+94|
+95|  return {
+
+==== src/features/shops/controllers/useCreateShopController.ts 70-95
+70|        logoUrl: draft.logoUrl,
+71|        bannerConfig: bannerConfigFromSource({
+72|          bannerTheme: draft.bannerTheme,
+73|          bannerPreset: draft.bannerPreset,
+74|          bannerImageUrl: draft.bannerImageUrl,
+75|        }),
+76|      });
+77|
+78|      markShopCelebration({ shopId: shop.id, shopName: shop.name });
+79|      toast.success("Success!", {
+80|        description: `"${shop.name}" shop published successfully!`,
+81|      });
+82|
+83|      // Ensure the new shop is in the workspace cache before opening detail.
+84|      await invalidateWorkspace();
+85|      navigate(`/app/shops/${shop.id}?welcome=1`, { replace: true });
+86|    } catch (err) {
+87|      toast.error(err instanceof Error ? err.message : "Failed to publish shop");
+88|    }
+89|  }
+90|
+91|  return {
+92|    draft,
+93|    dispatch,
+94|    publishing: createShop.isPending,
+95|    onExit: () => navigate("/app/shops"),
+
+==== src/features/swag/controllers/useSwagWizardController.ts 230-250
+230|
+231|      if (editCollectionId) {
+232|        setWorkingLabel("Publishing to shop…");
+233|        await syncPublish.mutateAsync({
+234|          collectionId: col.id,
+235|          shopIds,
+236|        });
+237|      }
+238|
+239|      const publishedCount = shopIds.length;
+240|      toast.success(
+241|        `Published "${col.name}" to ${publishedCount} ${publishedCount === 1 ? "shop" : "shops"}`,
+242|      );
+243|      setPublishReadyOpen(true);
+244|    } catch (err) {
+245|      toast.error(err instanceof Error ? err.message : "Failed to generate and publish");
+246|    } finally {
+247|      releasePublishLock(publishingRef);
+248|      setWorking(false);
+249|    }
+250|  }
+
+==== src/features/swag/PublishCollectionDialog.tsx 48-70
+48|    const available = new Set(shops.map((s) => s.id));
+49|    const shopIds = [...picked].filter((id) => available.has(id));
+50|    setSaving(true);
+51|    try {
+52|      await syncPublish.mutateAsync({
+53|        collectionId: collection.id,
+54|        shopIds,
+55|      });
+56|      toast.success(
+57|        shopIds.length
+58|          ? `Published to ${shopIds.length} ${shopIds.length === 1 ? "shop" : "shops"}`
+59|          : "Collection unpublished from all shops",
+60|      );
+61|      onOpenChange(false);
+62|    } catch (err) {
+63|      toast.error(err instanceof Error ? err.message : "Failed to publish collection");
+64|    } finally {
+65|      releasePublishLock(publishingRef);
+66|      setSaving(false);
+67|    }
+68|  }
+69|
+70|  if (!collection) return null;
+
+==== src/features/wallets/components/OrgDashboard.tsx 95-125
+95|  const rem = o.unallocated ?? remainingWalletBalance(total, org.departments);
+96|  const budgetLive = o.status === "active";
+97|  const managersActive = depts.filter((d) => d.mgr.inviteStatus === "active").length;
+98|  const managersPending = depts.filter((d) => d.mgr.inviteStatus === "pending").length;
+99|  const canAllocate = Boolean(walletId) && !fundingPending && total > 0;
+100|  const needsAllocation = canAllocate && !budgetLive;
+101|
+102|  function handleAllocateClick() {
+103|    if (fundingPending) {
+104|      toast.message("Funding pending approval", {
+105|        description: "Your balance will be available after ShelfMerch approves your request.",
+106|      });
+107|      return;
+108|    }
+109|    if (total <= 0) {
+110|      toast.message("No budget balance yet", {
+111|        description: "Wait for finance to approve your funding request before allocating.",
+112|      });
+113|      return;
+114|    }
+115|    onAllocate(2);
+116|  }
+117|
+118|  return (
+119|    <>
+120|      <PageHeader
+121|        title="Budget"
+122|        subtitle={`${o.name} · Organization merchandise budget · ${account}`}
+123|        actions={
+124|          canManageBudget ? (
+125|            <div className="row" style={{ gap: 8 }}>
+
+==== src/features/wallets/components/DocumentUploadZone.tsx 75-100
+75|  };
+76|
+77|  const onDrop = (e: React.DragEvent) => {
+78|    e.preventDefault();
+79|    setDragOver(false);
+80|    const picked = e.dataTransfer.files?.[0];
+81|    if (picked) applyFile(picked, "device");
+82|  };
+83|
+84|  const onSourcePick = (soon?: boolean) => {
+85|    if (soon) {
+86|      toast.message("Cloud upload coming soon", {
+87|        description: "Use “This device” to upload from your computer for now.",
+88|      });
+89|      return;
+90|    }
+91|    inputRef.current?.click();
+92|  };
+93|
+94|  const isModal = variant === "modal";
+95|  const panelClass = `wallet-doc-panel${isModal ? " wallet-doc-panel--modal" : ""}${file ? " wallet-doc-panel--filled" : ""}`;
+96|
+97|  if (file) {
+98|    const sizeLabel = file.size ? formatFileSize(file.size) : null;
+99|    const sourceLabel = file.source === "device" ? "From this device" : "From cloud";
+100|
+
+==== src/features/orders/controllers/useOrdersController.ts 85-120
+85|    return list.filter(
+86|      (o) => o.name.toLowerCase().includes(q) || o.orderNumber.toLowerCase().includes(q),
+87|    );
+88|  }, [workspace?.orders, query]);
+89|
+90|  async function onViewInvoice(order: UiOrder) {
+91|    const toastId = toast.loading("Opening invoice…");
+92|    const url = await resolveInvoiceUrl(order);
+93|    toast.dismiss(toastId);
+94|    if (!url) {
+95|      toast.message("Invoice is being generated", {
+96|        description: "Try again in a moment if this order was just placed.",
+97|      });
+98|      return;
+99|    }
+100|    openInvoice(url);
+101|  }
+102|
+103|  async function onDownloadInvoice(order: UiOrder) {
+104|    const toastId = toast.loading("Preparing invoice…");
+105|    const url = await resolveInvoiceUrl(order);
+106|    toast.dismiss(toastId);
+107|    if (!url) {
+108|      toast.message("Invoice is being generated", {
+109|        description: "Try again in a moment if this order was just placed.",
+110|      });
+111|      return;
+112|    }
+113|    downloadInvoice(url, `${order.invoiceNumber || order.orderNumber}.pdf`);
+114|  }
+115|
+116|  return {
+117|    isLoading: isLoading && !workspace,
+118|    errorMessage:
+119|      isError || !workspace
+120|        ? error instanceof Error
+
+==== src/features/kits/controllers/useKitWizardController.ts 198-218
+198|        pickedIndices: draft.picked,
+199|        catalog,
+200|        packaging: "box",
+201|        designNotes: draft.notes,
+202|        kitPrice,
+203|        artwork: draft.art
+204|          ? { file: draft.art.file, preview: draft.art.preview, name: draft.art.name }
+205|          : undefined,
+206|        mockups,
+207|      });
+208|      toast.success(`Kit "${created.name}" saved to your workspace`);
+209|      setPublishedKit({ id: created.id, name: created.name });
+210|      setPublishing(false);
+211|    } catch (err) {
+212|      setPublishing(false);
+213|      toast.error(err instanceof Error ? err.message : "Failed to save kit");
+214|    }
+215|  }
+216|
+217|  return {
+218|    isLoading: isLoading && !workspace,
+
+==== src/features/wallets/components/AddFundsDialog.tsx 115-185
+115|        amount,
+116|        description: description || "Top-up to organization budget",
+117|        fundingMethod: "po_upload",
+118|        docType,
+119|        docNumber: docNumber.trim(),
+120|        uploadFile: uploadFile?.file,
+121|      });
+122|      persistFundingSuccess({
+123|        amount,
+124|        name: walletName,
+125|        walletId,
+126|      });
+127|      toast.success("Funding request submitted", {
+128|        description: "Finance will review your PO and credit your budget once approved.",
+129|      });
+130|      onOpenChange(false);
+131|    } catch (err) {
+132|      toast.error(err instanceof Error ? err.message : "Could not submit funding request");
+133|    }
+134|  }
+135|
+136|  async function handleRazorpayPay() {
+137|    setPaying(true);
+138|    try {
+139|      const order = await rzpOrder.mutateAsync({ walletId, amount });
+140|      await openRazorpayCheckout({
+141|        order,
+142|        walletName,
+143|        onSuccess: async (response) => {
+144|          try {
+145|            await verifyPayment.mutateAsync({
+146|              razorpay_order_id: response.razorpay_order_id,
+147|              razorpay_payment_id: response.razorpay_payment_id,
+148|              razorpay_signature: response.razorpay_signature,
+149|            });
+150|            persistFundingSuccess({
+151|              amount,
+152|              name: walletName,
+153|              walletId,
+154|            });
+155|            toast.success("Payment received — submitted for review", {
+156|              description: `${inr(amount)} will be added to your organization budget once finance approves.`,
+157|            });
+158|            invalidateWorkspace();
+159|            onOpenChange(false);
+160|          } catch (err) {
+161|            toast.error(err instanceof Error ? err.message : "Payment verification failed", {
+162|              description: "If money was deducted, contact support — finance will reconcile your payment.",
+163|            });
+164|          } finally {
+165|            setPaying(false);
+166|          }
+167|        },
+168|        onDismiss: () => setPaying(false),
+169|      });
+170|    } catch (err) {
+171|      const message = err instanceof Error ? err.message : "Payment could not be started";
+172|      if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
+173|        toast.error("Razorpay is not configured", {
+174|          description: "Add RAZORPAY_KEY_ID and related keys to the API .env file.",
+175|        });
+176|      } else if (message !== "Payment cancelled") {
+177|        toast.error(message);
+178|      }
+179|      setPaying(false);
+180|    }
+181|  }
+182|
+183|  async function handleConfirm() {
+184|    if (method === "po") {
+185|      await handlePoSubmit();
+
+==== src/features/wallets/components/OrgWizard.tsx 125-240
+125|        onSuccess: async (response) => {
+126|          try {
+127|            await verifyPayment.mutateAsync({
+128|              razorpay_order_id: response.razorpay_order_id,
+129|              razorpay_payment_id: response.razorpay_payment_id,
+130|              razorpay_signature: response.razorpay_signature,
+131|            });
+132|            persistFundingSuccess({
+133|              amount: state.wallet.amount,
+134|              name: state.wallet.name,
+135|              walletId,
+136|            });
+137|            dispatch({ type: "finished", walletId, invites: [] });
+138|            toast.success("Payment received — submitted for review", {
+139|              description: `${inr(state.wallet.amount)} will be added to ${state.wallet.name} once finance approves.`,
+140|            });
+141|            onFinished();
+142|          } catch (err) {
+143|            toast.error(err instanceof Error ? err.message : "Payment verification failed", {
+144|              description: "If money was deducted, contact support — finance will reconcile your payment.",
+145|            });
+146|            submitInFlight.current = false;
+147|            setPaying(false);
+148|          }
+149|        },
+150|        onDismiss: () => {
+151|          toast.message("Payment cancelled", {
+152|            description: "Your budget was saved as a draft. You can pay later from Add funds.",
+153|          });
+154|          submitInFlight.current = false;
+155|          setPaying(false);
+156|        },
+157|      });
+158|    } catch (err) {
+159|      const message = err instanceof Error ? err.message : "Payment could not be started";
+160|      if (message === "Payment cancelled") {
+161|        // handled in onDismiss
+162|      } else if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
+163|        toast.error("Razorpay is not configured", {
+164|          description: "Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the API .env file.",
+165|        });
+166|      } else {
+167|        toast.error(message);
+168|      }
+169|      submitInFlight.current = false;
+170|      setPaying(false);
+171|    }
+172|  }
+173|
+174|  function handleNext() {
+175|    if (isWalletFlow) {
+176|      if (!validateWalletStep()) return;
+177|      if (isPayOnline) {
+178|        void handlePayOnline();
+179|        return;
+180|      }
+181|      setConfirmOpen(true);
+182|      return;
+183|    }
+184|
+185|    if (n === 2 && departmentsToSync(state.departments).length === 0) {
+186|      toast.error("Select at least one department to continue");
+187|      return;
+188|    }
+189|    if (n === 3 && over) {
+190|      toast.error("Reduce allocations to continue");
+191|      return;
+192|    }
+193|    if (n === ALLOC_STEP_MAX) {
+194|      if (walletAlloc <= 0) {
+195|        toast.error("Allocate budget to at least one department before finishing");
+196|        return;
+197|      }
+198|      setConfirmOpen(true);
+199|      return;
+200|    }
+201|    dispatch({ type: "next" });
+202|  }
+203|
+204|  async function handleFinish() {
+205|    if (submitInFlight.current) return;
+206|    submitInFlight.current = true;
+207|    setSubmitting(true);
+208|    setConfirmOpen(false);
+209|    try {
+210|      if (isWalletFlow) {
+211|        const result = await createWallet.mutateAsync(state);
+212|        persistFundingSuccess({
+213|          amount: state.wallet.amount,
+214|          name: state.wallet.name,
+215|          walletId: result.walletId,
+216|        });
+217|        dispatch({ type: "finished", walletId: result.walletId, invites: [] });
+218|        toast.success("Budget submitted — finance will review your funding request");
+219|        onFinished();
+220|        return;
+221|      }
+222|
+223|      const result = await sync.mutateAsync(state);
+224|      dispatch({ type: "finished", walletId: result.walletId, invites: result.invites });
+225|      const inviteCount = result.invites.length;
+226|      toast.success(
+227|        inviteCount > 0
+228|          ? `Allocations saved — ${inviteCount} invitation${inviteCount === 1 ? "" : "s"} sent`
+229|          : "Allocations saved — active managers notified",
+230|      );
+231|      onExit();
+232|    } catch (err) {
+233|      submitInFlight.current = false;
+234|      setSubmitting(false);
+235|      toast.error(err instanceof Error ? err.message : "Failed to save");
+236|    }
+237|  }
+238|
+239|  if (busy) {
+240|    return (
+
+==== src/features/campaigns/controllers/useSendPointsController.ts 400-590
+400|    if (step === 0) {
+401|      if (!draft.recips) {
+402|        toast.error("Enter number of recipients");
+403|        return;
+404|      }
+405|      if (!isValidBudgetPerRecipient(String(draft.ppr || ""))) {
+406|        toast.error(
+407|          draft.ppr > 0 && !Number.isInteger(draft.ppr)
+408|            ? "Only whole numbers are allowed."
+409|            : `Minimum of ₹${MIN_POINTS_BUDGET_INR} must be allocated.`,
+410|        );
+411|        return;
+412|      }
+413|      autoSelectRecipients();
+414|    }
+415|    if (step === 1) {
+416|      if (!draft.selRecips.length) {
+417|        toast.error("Select at least one recipient");
+418|        return;
+419|      }
+420|      if (recipientLimit && draft.selRecips.length > recipientLimit) {
+421|        toast.error(`You can only select ${recipientLimit} recipients`);
+422|        return;
+423|      }
+424|    }
+425|    setStep((s) => Math.min(s + 1, 3) as SendPointsStep);
+426|  }
+427|
+428|  async function payNow() {
+429|    const walletId = selectedWalletId || checkoutWallets[0]?.id || workspace?.wallets[0]?.id;
+430|    let entityId: string | undefined;
+431|    try {
+432|      entityId = await resolveEntityId();
+433|    } catch (err) {
+434|      toast.error(err instanceof Error ? err.message : "Could not resolve wallet budget");
+435|      return;
+436|    }
+437|    if (!entityId) {
+438|      toast.error("No budget department found for this wallet — allocate funds first");
+439|      return;
+440|    }
+441|    if (!shopId) {
+442|      toast.error("Select a shop for this campaign");
+443|      return;
+444|    }
+445|    if (!draft.selRecips.length) {
+446|      toast.error("Select at least one recipient");
+447|      return;
+448|    }
+449|    if (recipientLimit && draft.selRecips.length > recipientLimit) {
+450|      toast.error(`You can only select ${recipientLimit} recipients`);
+451|      return;
+452|    }
+453|    if (!isValidBudgetPerRecipient(String(draft.ppr || ""))) {
+454|      toast.error(`Minimum of ₹${MIN_POINTS_BUDGET_INR} must be allocated.`);
+455|      return;
+456|    }
+457|    const paymentTotal = Math.round(totals.sub);
+458|    const payingWithWallet = draft.pay === "wallet";
+459|    const paymentMode = draft.pay === "card" ? "card" : draft.pay === "upi" ? "upi" : "wallet";
+460|
+461|    if (payingWithWallet) {
+462|      const available = walletId && workspace ? spendableForWallet(workspace, walletId) : 0;
+463|      const payWallet = walletId ? workspace?.wallets.find((w) => w.id === walletId) : undefined;
+464|      if (available < paymentTotal) {
+465|        toast.error(
+466|          `Insufficient wallet balance — add more funds to continue. ${formatWalletAmount(available, payWallet?.cur)} available, ${formatWalletAmount(paymentTotal, payWallet?.cur)} required.`,
+467|        );
+468|        return;
+469|      }
+470|    }
+471|
+472|    setSending(true);
+473|    setSendPhase("sending");
+474|    setSendError(null);
+475|
+476|
+477|    if (!payingWithWallet && !walletId) {
+478|      toast.error("Select a wallet to attach this campaign to before paying online");
+479|      return;
+480|    }
+481|
+482|    let razorpay:
+483|      | { orderId: string; paymentId: string; signature: string }
+484|      | undefined;
+485|
+486|
+487|    try {
+488|      // Collect UPI/card payment first — do not flip `sending` yet or the checkout
+489|      // unmounts into LoadingState and Razorpay cannot open cleanly.
+490|      if (!payingWithWallet) {
+491|        const order = await createRazorpayOrderApi(walletId!, paymentTotal, "campaign_spend");
+492|        const response = await new Promise<{
+493|          razorpay_order_id: string;
+494|          razorpay_payment_id: string;
+495|          razorpay_signature: string;
+496|        }>((resolve, reject) => {
+497|          void openRazorpayCheckout({
+498|            order,
+499|            description: `Pay ₹${paymentTotal.toLocaleString("en-IN")} for shop points`,
+500|            preferredMethod: paymentMode === "card" ? "card" : "upi",
+501|            onSuccess: resolve,
+502|            onDismiss: () => reject(new Error("Payment cancelled")),
+503|          }).catch(reject);
+504|        });
+505|
+506|        await verifyRazorpayPaymentApi({
+507|          razorpay_order_id: response.razorpay_order_id,
+508|          razorpay_payment_id: response.razorpay_payment_id,
+509|          razorpay_signature: response.razorpay_signature,
+510|        });
+511|
+512|        razorpay = {
+513|          orderId: response.razorpay_order_id,
+514|          paymentId: response.razorpay_payment_id,
+515|          signature: response.razorpay_signature,
+516|        };
+517|      }
+518|
+519|      setSending(true);
+520|      await launch.mutateAsync({
+521|        campaignId,
+522|        entityId: String(entityId),
+523|        shopId: String(shopId),
+524|        name: resolveOrderName(draft.orderName),
+525|        pointsScope: draft.pointsScope,
+526|        creditsPerRecipient: draft.ppr,
+527|        totalBudget: paymentTotal,
+528|        message: {
+529|          from: resolveFrom(draft.from),
+530|          body: resolveMessage(draft.msg),
+531|        },
+532|        schedule: toSchedulePayload(draft.when, draft.schedule),
+533|        contactIds: draft.selRecips,
+534|        contacts: contacts.map((c) => ({
+535|          id: c.id,
+536|          name: c.name,
+537|          email: c.email,
+538|          phone: c.phone,
+539|        })),
+540|        paymentMode,
+541|        razorpay,
+542|      });
+543|      await refreshWorkspace();
+544|      setSendPhase("success");
+545|      const scheduled = draft.when === "sched";
+546|      toast.success(
+547|        scheduled
+548|          ? payingWithWallet
+549|            ? `Campaign scheduled — wallet debited. Emails and points will go out at the scheduled time.`
+550|            : `Campaign scheduled — payment received. Emails and points will go out at the scheduled time.`
+551|          : `Points sent to ${draft.selRecips.length} recipients! 🎉`,
+552|      );
+553|      if (successNavTimer.current) clearTimeout(successNavTimer.current);
+554|      successNavTimer.current = setTimeout(() => {
+555|        navigate(`/app/shops/${String(shopId)}?tab=sent-gifts`);
+556|      }, 1400);
+557|    } catch (err) {
+558|      const message = err instanceof Error ? err.message : "Failed to launch campaign";
+559|      setSendPhase("error");
+560|      setSendError(message);
+561|      setSending(false);
+562|
+563|      if (message === "Payment cancelled") {
+564|        toast.message("Payment cancelled");
+565|        return;
+566|      }
+567|      if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
+568|        toast.error("Razorpay is not configured", {
+569|          description: "Add RAZORPAY_KEY_ID and related keys to the API .env file.",
+570|        });
+571|        return;
+572|      }
+573|      if (message.includes("temporarily unavailable") || message.includes("GATEWAY")) {
+574|        toast.error("Could not reach the payment server", {
+575|          description: "Confirm the API is running (default dev port 3001), then try Pay again.",
+576|        });
+577|        return;
+578|      }
+579|
+580|      toast.error(message);
+581|    }
+582|  }
+583|
+584|  return {
+585|    isLoading: (isLoading && !workspace) || hydrating,
+586|    isSending: sending || launch.isPending || sendPhase === "success" || sendPhase === "error",
+587|    isSaving: saving || saveDraft.isPending,
+588|    sendPhase,
+589|    sendError,
+590|    sendRecipients,
+
+==== src/features/kits/controllers/useSendKitController.ts 415-470
+415|
+416|  const kitUnitPrice = isCuratedKit
+417|    ? curatedPricePerKit
+418|    : sumCustomisedKitNetPrices(pickedProducts);
+419|  const surpriseMissing =
+420|    draft.mode === "surprise" ? missingAddress(pickerContacts, draft.selRecips) : [];
+421|
+422|  function reportRecipientAddResult(result: {
+423|    added: string[];
+424|    invalid: string[];
+425|    duplicates: string[];
+426|    truncated: number;
+427|  }) {
+428|    if (result.invalid.length) {
+429|      toast.error(
+430|        `Skipped ${result.invalid.length} invalid email${result.invalid.length === 1 ? "" : "s"}`,
+431|      );
+432|    }
+433|    if (result.duplicates.length) {
+434|      toast.message(
+435|        `Skipped ${result.duplicates.length} duplicate${result.duplicates.length === 1 ? "" : "s"}`,
+436|      );
+437|    }
+438|    if (result.truncated > 0) {
+439|      toast.error("Could not add all recipients");
+440|    }
+441|    if (result.added.length) {
+442|      toast.success(
+443|        `Added ${result.added.length} recipient${result.added.length === 1 ? "" : "s"}`,
+444|      );
+445|    } else if (!result.invalid.length && !result.duplicates.length && !result.truncated) {
+446|      toast.error("No new recipients to add");
+447|    }
+448|  }
+449|
+450|  function onSelectAllRecips() {
+451|    if (!contacts.length) {
+452|      toast.message("No contacts in your workspace yet — use Input emails or Add by CSV");
+453|      return;
+454|    }
+455|    const ids = selectAllRecipientIds(contacts, draft.selRecips, KIT_RECIPIENT_CEILING);
+456|    if (ids.length === draft.selRecips.length) {
+457|      toast.message("All available contacts are already selected");
+458|      return;
+459|    }
+460|    dispatch({ type: "setSelRecips", selRecips: ids });
+461|  }
+462|
+463|  function onAddRecipientEmails(raw: string) {
+464|    const { ids, result } = addRecipientsUpToLimit(
+465|      parseEmailInput(raw),
+466|      draft.selRecips,
+467|      contacts,
+468|      KIT_RECIPIENT_CEILING,
+469|    );
+470|    dispatch({ type: "setSelRecips", selRecips: ids });
+
+==== src/features/kits/controllers/useSendKitController.ts 700-740
+700|          signature: response.razorpay_signature,
+701|        };
+702|      }
+703|
+704|      setSending(true);
+705|      if (kit && kit.status !== "live") {
+706|        await updateKit.mutateAsync({
+707|          id: kit.id,
+708|          pickedIndices: kitPickedIndices(kit, catalog),
+709|          catalog,
+710|          status: "live",
+711|        });
+712|      }
+713|      await launch.mutateAsync({
+714|        ...buildKitCampaignPayload(String(entityId), paymentTotal),
+715|        paymentMode,
+716|        razorpay,
+717|      });
+718|    } catch (err) {
+719|      toast.error(err instanceof Error ? err.message : "Failed to send kit");
+720|      return;
+721|    } finally {
+722|      setSending(false);
+723|    }
+724|
+725|    toast.success(
+726|      draft.when === "sched"
+727|        ? payingWithWallet
+728|          ? `Kit scheduled — wallet debited. Recipients will be notified at the scheduled time.`
+729|          : `Kit scheduled — payment received. Recipients will be notified at the scheduled time.`
+730|        : draft.mode === "redeem"
+731|          ? `Invites sent to ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}. Orders will appear when they accept.`
+732|          : `Order placed for ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}! 📦`,
+733|    );
+734|    navigate(draft.mode === "redeem" ? "/app/kits" : "/app/orders");
+735|    void refreshWorkspace().catch(() => undefined);
+736|  }
+737|
+738|  async function onCuratedLogoFile(file: File | null) {
+739|    if (!kit || !file) return;
+740|    if (!file.type.startsWith("image/")) {
+
+==== src/features/integrations/controllers/useIntegrationsController.ts 225-250
+225|    }
+226|  }, [syncStatusQuery.data, queryClient]);
+227|
+228|  useEffect(() => {
+229|    const zoho = searchParams.get("zoho");
+230|    if (!zoho) return;
+231|    if (zoho === "connected") {
+232|      toast.success("Zoho People connected");
+233|      void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
+234|      navigate("/app/campaigns", { replace: true });
+235|      return;
+236|    } else if (zoho === "error") {
+237|      const reason = searchParams.get("reason");
+238|      toast.error(
+239|        reason === "denied"
+240|          ? "Zoho People permission was denied"
+241|          : "Could not connect Zoho People — try again",
+242|      );
+243|    }
+244|    const next = new URLSearchParams(searchParams);
+245|    next.delete("zoho");
+246|    next.delete("reason");
+247|    setSearchParams(next, { replace: true });
+248|  }, [searchParams, setSearchParams, queryClient, navigate]);
+249|
+250|  useEffect(() => {
+
+==== src/features/integrations/controllers/useIntegrationsController.ts 275-340
+275|      setMergeLinkProvider(null);
+276|      setMergeLinking(false);
+277|
+278|      setMergeExchanging(true);
+279|      try {
+280|        const connection = await exchangeMergePublicToken({
+281|          publicToken,
+282|          ...(integration ? { integration } : {}),
+283|        });
+284|        toast.success(
+285|          `${connection.integrationName || connection.provider} connected successfully`,
+286|        );
+287|        queryClient.setQueryData<MergeConnectionPublic[]>(MERGE_QUERY_KEY, (current) => {
+288|          const rows = Array.isArray(current)
+289|            ? current.filter((row) => row.id !== connection.id && row.provider !== connection.provider)
+290|            : [];
+291|          return [connection, ...rows];
+292|        });
+293|        void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
+294|        void queryClient.invalidateQueries({ queryKey: ["integrations", "merge", "sync-runs"] });
+295|        const providerId = integration || connection.provider;
+296|        if (shouldOpenCampaignsAfterConnect(providerId)) {
+297|          navigate("/app/campaigns");
+298|          return;
+299|        }
+300|        const linkedTile = integration
+301|          ? USER_MANAGEMENT_TOOLS.find((tile) => tile.id === integration)
+302|          : null;
+303|        if (linkedTile) setSelected(linkedTile);
+304|      } catch (err) {
+305|        toast.error(err instanceof ApiError ? err.message : "Could not complete Merge connection");
+306|      } finally {
+307|        setMergeExchanging(false);
+308|        pendingMergeIntegration.current = null;
+309|      }
+310|    },
+311|    [queryClient, navigate],
+312|  );
+313|
+314|  const onMergeLinkExit = useCallback(() => {
+315|    setMergeLinkToken(null);
+316|    setMergeLinkProvider(null);
+317|    setMergeLinking(false);
+318|    if (!mergeExchanging) {
+319|      pendingMergeIntegration.current = null;
+320|    }
+321|  }, [mergeExchanging]);
+322|
+323|  const syncMutation = useMutation({
+324|    mutationFn: syncZohoEmployees,
+325|    onSuccess: (summary) => {
+326|      toast.success(
+327|        `Synced employees — fetched ${summary.totalFetched}, created ${summary.created}, updated ${summary.updated}, skipped ${summary.skipped}, failed ${summary.failed}`,
+328|      );
+329|      void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
+330|    },
+331|    onError: (err) => {
+332|      toast.error(err instanceof ApiError ? err.message : "Employee sync failed");
+333|    },
+334|  });
+335|
+336|  const disconnectMutation = useMutation({
+337|    mutationFn: disconnectZoho,
+338|    onSuccess: () => {
+339|      toast.success("Zoho People disconnected");
+340|      void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
+
+==== src/features/integrations/controllers/useIntegrationsController.ts 365-455
+365|          void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
+366|          void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
+367|        }, 4000);
+368|      }
+369|    },
+370|    onError: (err) => {
+371|      toast.error(mergeSyncErrorMessage(err));
+372|      void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
+373|    },
+374|  });
+375|
+376|  const mergeDisconnectMutation = useMutation({
+377|    mutationFn: disconnectMergeConnection,
+378|    onSuccess: (connection) => {
+379|      toast.success(
+380|        `${connection.integrationName || connection.provider} disconnected`,
+381|      );
+382|      void queryClient.invalidateQueries({ queryKey: MERGE_QUERY_KEY });
+383|      // Keep imported employees visible in the directory after disconnect.
+384|      void queryClient.invalidateQueries({ queryKey: MERGE_EMPLOYEES_QUERY_KEY });
+385|    },
+386|    onError: (err) => {
+387|      toast.error(err instanceof ApiError ? err.message : "Disconnect failed");
+388|    },
+389|  });
+390|
+391|  const onConnect = useCallback(async () => {
+392|    if (!canManage) {
+393|      toast.error("Only company administrators can connect Zoho People");
+394|      return;
+395|    }
+396|    setConnecting(true);
+397|    try {
+398|      await startZohoConnect();
+399|    } catch (err) {
+400|      setConnecting(false);
+401|      toast.error(err instanceof ApiError ? err.message : "Could not start Zoho connection");
+402|    }
+403|  }, [canManage]);
+404|
+405|  const onSlackConnect = useCallback(async () => {
+406|    if (!canManage) {
+407|      toast.error("Only company administrators can connect Slack");
+408|      return;
+409|    }
+410|    setSlackConnecting(true);
+411|    try {
+412|      const authorizeUrl = await startSlackConnect();
+413|      window.location.assign(authorizeUrl);
+414|    } catch (err) {
+415|      setSlackConnecting(false);
+416|      toast.error(err instanceof ApiError ? err.message : "Could not start Slack connection");
+417|    }
+418|  }, [canManage]);
+419|
+420|  const slackSaveChannelMutation = useMutation({
+421|    mutationFn: setSlackDefaultChannel,
+422|    onSuccess: (connection) => {
+423|      toast.success(
+424|        connection.defaultChannelName
+425|          ? `Default channel updated to #${connection.defaultChannelName}`
+426|          : "Default channel updated",
+427|      );
+428|      void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+429|    },
+430|    onError: (err) => {
+431|      toast.error(err instanceof ApiError ? err.message : "Could not save channel");
+432|    },
+433|  });
+434|
+435|  const slackTestMutation = useMutation({
+436|    mutationFn: () => sendSlackTestMessage(),
+437|    onSuccess: () => {
+438|      const name = queryClient.getQueryData<SlackConnectionPublic | null>(SLACK_QUERY_KEY)
+439|        ?.defaultChannelName;
+440|      toast.success(
+441|        name ? `Test message sent to #${name}` : "Test message sent to Slack",
+442|      );
+443|    },
+444|    onError: (err) => {
+445|      toast.error(err instanceof ApiError ? err.message : "Could not send test message");
+446|      if (err instanceof ApiError && err.code === "SLACK_AUTH_FAILED") {
+447|        void queryClient.invalidateQueries({ queryKey: SLACK_QUERY_KEY });
+448|      }
+449|    },
+450|  });
+451|
+452|  const slackDisconnectMutation = useMutation({
+453|    mutationFn: disconnectSlack,
+454|    onSuccess: () => {
+455|      toast.success("Slack disconnected");
+
+==== src/features/integrations/zoho-people-connected-app/useZohoPeopleConnectedAppController.ts 340-365
+340|      setPopupBlocked(true);
+341|      oauthRequestIdRef.current = null;
+342|      toast.error("Allow popups and try again");
+343|      return;
+344|    }
+345|    popupRef.current = popup;
+346|    setPopupBlocked(false);
+347|    setOauthPollingRequestId(requestId);
+348|  }, [canManage]);
+349|
+350|  const syncMutation = useMutation({
+351|    mutationFn: syncZohoEmployees,
+352|    onSuccess: (summary) => {
+353|      toast.success(
+354|        `Synced employees — fetched ${summary.totalFetched}, created ${summary.created}, updated ${summary.updated}, skipped ${summary.skipped}, failed ${summary.failed}`,
+355|      );
+356|      void queryClient.invalidateQueries({ queryKey: ZOHO_QUERY_KEY });
+357|    },
+358|    onError: (err) => {
+359|      toast.error(err instanceof ApiError ? err.message : "Employee sync failed");
+360|    },
+361|  });
+362|
+363|  const disconnectMutation = useMutation({
+364|    mutationFn: disconnectZoho,
+365|    onSuccess: () => {

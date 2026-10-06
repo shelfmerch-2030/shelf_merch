@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useInvalidateWorkspace, useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
@@ -70,6 +71,7 @@ export function useSettingsController(): SettingsVm {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const navigate = useNavigate();
 
   const displayOwner: WorkspaceOwner | undefined =
     owner ??
@@ -87,11 +89,11 @@ export function useSettingsController(): SettingsVm {
 
   async function onPickLogo(file: File) {
     if (!LOGO_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, WEBP, JPEG, JPG");
+      toast.error("Use SVG, PNG, WEBP, or JPG");
       return;
     }
     if (file.size > LOGO_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
 
@@ -146,8 +148,23 @@ export function useSettingsController(): SettingsVm {
     onPickLogo,
     onSave,
     onTransferOpenChange: setTransferOpen,
-    onChangeCurrency: () => toast("Change currency"),
-    onSsoLearnMore: () => toast("SSO docs opened"),
-    onSsoContact: () => toast("Support contacted"),
+    onChangeCurrency: () => {
+      // Currency selector is not available yet.
+    },
+    onSsoLearnMore: () => {
+      const opened = window.open(
+        "https://account.shelfmerch.io/saml/metadata",
+        "_blank",
+        "noopener,noreferrer",
+      );
+      if (!opened) toast.error("Could not open SSO documentation");
+    },
+    onSsoContact: () => {
+      try {
+        navigate("/app/support");
+      } catch {
+        toast.error("Could not open support");
+      }
+    },
   };
 }

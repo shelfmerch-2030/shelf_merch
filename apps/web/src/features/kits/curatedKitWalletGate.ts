@@ -1,5 +1,4 @@
 import { curatedKitSendTotals } from "@/features/send/money";
-import { formatWalletAmount } from "@/lib/walletFormat";
 import type { WorkspaceSnapshot } from "@/services/workspace-api";
 import { spendableForWallet, walletsForCheckout } from "@/services/workspace-api";
 
@@ -50,9 +49,9 @@ export function gateWalletForCuratedKitSend(
 }
 
 export function insufficientFundsMessage(
-  available: number,
-  required: number,
-  currency: string,
+  _available: number,
+  _required: number,
+  _currency: string,
 ): string {
-  return `Insufficient wallet balance — add more funds to continue. ${formatWalletAmount(available, currency)} available, ${formatWalletAmount(required, currency)} required.`;
+  return "Insufficient wallet balance";
 }

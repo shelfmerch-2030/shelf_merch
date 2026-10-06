@@ -34,7 +34,7 @@ export function useImportContactsController(
   function onPickFile(f: File | null) {
     if (!f) return;
     if (f.size > MAX_BYTES) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     setFile(f);
@@ -47,10 +47,10 @@ export function useImportContactsController(
       const result = await importContacts.mutateAsync({ file, onStatus: setStatus });
       setStatus(result);
       if (result.status === "done") {
-        toast.success(`Imported ${result.validCount} contact${result.validCount === 1 ? "" : "s"}`);
+        toast.success(result.validCount === 1 ? "1 contact imported" : `${result.validCount} contacts imported`);
         if (result.validCount > 0) onImportSuccess?.(result.validCount);
       } else {
-        toast.error("Import failed — check the errors below");
+        toast.error("Import failed");
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Import failed");

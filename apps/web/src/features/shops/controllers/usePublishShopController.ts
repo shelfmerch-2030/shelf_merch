@@ -81,9 +81,7 @@ export function usePublishShopController(): PublishShopVm {
       await publishShop.mutateAsync(shop.id);
 
       markShopCelebration({ shopId: shop.id, shopName: name });
-      toast.success("Success!", {
-        description: `"${name}" shop published successfully!`,
-      });
+      toast.success(`"${name}" is live! 🎉`);
 
       await invalidateWorkspace();
       navigate(`/app/shops/${shop.id}?welcome=1`, { replace: true });

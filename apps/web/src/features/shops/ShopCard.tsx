@@ -58,7 +58,7 @@ export function ShopCard({ shop, fallbackUser }: { shop: UiShop; fallbackUser: s
   async function copyRedeemLink() {
     try {
       await navigator.clipboard.writeText(shopRedeemHref(slug));
-      toast.success("Employee link copied");
+      toast.success("Link copied");
     } catch {
       toast.error("Could not copy link");
     }

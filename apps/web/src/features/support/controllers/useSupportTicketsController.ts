@@ -95,7 +95,7 @@ export function useSupportTicketsController(): SupportTicketsVm {
 
   async function onSubmit() {
     if (!subject.trim()) {
-      toast.error("Add a short subject for your issue");
+      toast.error("Add a subject");
       return;
     }
     try {
@@ -110,7 +110,7 @@ export function useSupportTicketsController(): SupportTicketsVm {
       setDescription("");
       setType("other");
       setFile(null);
-      toast.success("Ticket raised — our team will get back to you");
+      toast.success("Support ticket created");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not raise the ticket");
     }
@@ -130,7 +130,7 @@ export function useSupportTicketsController(): SupportTicketsVm {
     if (!selectedId) return;
     try {
       await confirmTicket.mutateAsync(selectedId);
-      toast.success("Thanks for confirming — the ticket is now closed");
+      toast.success("Ticket closed");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not confirm the ticket");
     }

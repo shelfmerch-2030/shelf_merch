@@ -187,6 +187,7 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
 
 /* user profile dropdown (Stadium-style) */
 .user-menu-scrim{position:fixed;inset:0;z-index:1;background:transparent}
+.menu-dismiss-scrim{position:fixed;inset:0;z-index:30;border:0;padding:0;margin:0;background:transparent;cursor:default}
 .user-menu-wrap{position:relative;z-index:70}
 .user-menu-panel{
   position:absolute;top:calc(100% + 10px);right:0;z-index:2;width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 88px);
@@ -4532,14 +4533,16 @@ button.thumb{font:inherit;color:inherit}
   gap:0!important;
   background:#fff!important;
 }
-/* Banner picker is taller than a 100% viewport — keep centered and scroll the body. */
+/* Banner picker can be taller than the viewport — keep it centered and scroll the body.
+   Use the CSS `translate` property (not `transform`) so we don't double-offset Tailwind's
+   translate-x/y utilities, which previously shoved the modal into the top-left. */
 .sm-modal.sm-banner-modal{
   top:50%!important;
   left:50%!important;
+  right:auto!important;
   bottom:auto!important;
-  /* Reset Tailwind `translate` so it doesn't stack with `transform` and push the modal off-screen. */
-  translate:none!important;
-  transform:translate(-50%,-50%)!important;
+  translate:-50% -50%!important;
+  transform:none!important;
   max-height:calc(100dvh - 48px)!important;
   overflow:hidden!important;
   display:flex!important;
@@ -5748,12 +5751,18 @@ button.thumb{font:inherit;color:inherit}
 @keyframes toast-out{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
 
 /* Sonner ? Stadium-style toasts (Shelf Merch colors) */
-.sm-sonner [data-sonner-toaster] {
-  --width: 392px;
+.sm-sonner {
+  --sm-toast-duration: 5s;
+  --width: 260px;
+}
+.sm-sonner[data-sonner-toaster] {
+  --width: 260px;
+  width: 260px !important;
+  max-width: calc(100vw - 48px);
   font-family: var(--sans);
 }
 .sm-sonner [data-sonner-toast] {
-  width: var(--width);
+  width: 260px !important;
   max-width: calc(100vw - 48px);
 }
 .sm-toast {
@@ -5762,11 +5771,11 @@ button.thumb{font:inherit;color:inherit}
   align-items: flex-start;
   gap: 12px;
   width: 100%;
-  padding: 14px 42px 18px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--brand-100);
-  background: var(--brand-50);
-  color: var(--ink);
+  padding: 12px 36px 14px 14px;
+  border-radius: 6px;
+  border: 1px solid #8eb4f0;
+  background: #c5e0ff;
+  color: #111;
   box-shadow: 0 14px 36px -12px rgba(16, 16, 20, 0.2);
   overflow: hidden;
 }
@@ -5781,84 +5790,84 @@ button.thumb{font:inherit;color:inherit}
   font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
-  color: var(--ink);
+  color: #111;
+  white-space: normal;
 }
 .sm-toast-desc {
   font-size: 13px;
   font-weight: 500;
   line-height: 1.45;
-  color: var(--ink-2);
+  color: #111;
   margin-top: 4px;
 }
 .sm-toast-close {
   position: absolute !important;
-  top: 10px !important;
-  right: 10px !important;
+  top: 4px !important;
+  right: 4px !important;
   left: auto !important;
   transform: none !important;
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 999px !important;
-  border: 1px solid var(--line) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: var(--ink-3) !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #111 !important;
   display: grid !important;
   place-items: center !important;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .sm-toast-close:hover {
-  background: #fff !important;
-  color: var(--ink) !important;
-  border-color: var(--line-strong) !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  color: #111 !important;
 }
 .sm-toast-close svg {
   width: 14px;
   height: 14px;
 }
 .sm-toast--success {
-  background: var(--green-50);
-  border-color: color-mix(in srgb, var(--green-600) 30%, var(--line));
+  background: #c5e0ff;
+  border-color: #8eb4f0;
 }
 .sm-toast--success .sm-toast-icon {
-  color: var(--green-600);
+  display: none;
 }
 .sm-toast--success .sm-toast-close {
-  border-color: color-mix(in srgb, var(--green-600) 22%, var(--line));
-  background: color-mix(in srgb, var(--green-50) 70%, #fff) !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 .sm-toast--error {
-  background: var(--brand-50);
-  border-color: var(--brand-100);
+  background: #c5e0ff;
+  border-color: #8eb4f0;
 }
 .sm-toast--error .sm-toast-icon {
   color: var(--danger);
 }
 .sm-toast--error .sm-toast-close {
-  border-color: var(--brand-100);
-  background: color-mix(in srgb, var(--brand-50) 55%, #fff) !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 .sm-toast--info {
-  background: var(--brand-50);
-  border-color: var(--brand-100);
+  background: #c5e0ff;
+  border-color: #8eb4f0;
 }
 .sm-toast--info .sm-toast-icon {
   color: var(--brand);
 }
 .sm-toast--info .sm-toast-close {
-  border-color: var(--brand-100);
-  background: color-mix(in srgb, var(--brand-50) 55%, #fff) !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 .sm-toast--warning {
-  background: var(--orange-50, #fff7ed);
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: #c5e0ff;
+  border-color: #8eb4f0;
 }
 .sm-toast--warning .sm-toast-icon {
   color: var(--accent-d);
 }
 .sm-toast--warning .sm-toast-close {
-  border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
-  background: color-mix(in srgb, var(--orange-50, #fff7ed) 70%, #fff) !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 .sm-toast [data-content] {
   flex: 1;
@@ -5868,26 +5877,27 @@ button.thumb{font:inherit;color:inherit}
 .sm-toast [data-cancel] {
   margin-top: 10px;
 }
-.sm-toast [data-progress] {
-  position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: auto !important;
-  height: 3px !important;
-  background: color-mix(in srgb, var(--ink) 12%, transparent) !important;
+.sm-toast::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: #d6ebff;
+  transform-origin: left center;
+  animation: sm-toast-life var(--sm-toast-duration, 5s) linear forwards;
+  pointer-events: none;
 }
-.sm-toast--success [data-progress] {
-  background: color-mix(in srgb, var(--green-600) 55%, transparent) !important;
+.sm-toast[data-type="loading"]::after {
+  display: none;
 }
-.sm-toast--error [data-progress] {
-  background: color-mix(in srgb, var(--brand) 55%, transparent) !important;
+.sm-toast[data-expanded="true"]::after {
+  animation-play-state: paused;
 }
-.sm-toast--info [data-progress] {
-  background: color-mix(in srgb, var(--brand) 55%, transparent) !important;
-}
-.sm-toast--warning [data-progress] {
-  background: color-mix(in srgb, var(--accent) 55%, transparent) !important;
+@keyframes sm-toast-life {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 @keyframes sm-sonner-spin {
   to {
@@ -15225,11 +15235,23 @@ tr:hover .camp-avatar {
   box-shadow:none;
   overflow:visible;
 }
+.hris-dir-table-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:10px 14px;
+  background:#fff;
+  border-bottom:1px solid #eee;
+  border-radius:12px 12px 0 0;
+  position:relative;
+  z-index:20;
+}
 .hris-dir-toolbar{
   display:flex;
   align-items:center;
   gap:8px;
-  margin:0 0 16px;
+  margin:0 0 0 auto;
   padding:0;
   border:none;
   flex-wrap:wrap;
@@ -15268,6 +15290,8 @@ tr:hover .camp-avatar {
 }
 .hris-dir-filter-wrap:has(.hris-dir-filter-menu){z-index:40}
 .hris-dir-filter-btn{
+  position:relative;
+  z-index:40;
   font-family:var(--sans);
   height:36px;
   padding:0 12px;
@@ -15304,7 +15328,8 @@ tr:hover .camp-avatar {
 .hris-dir-filter-menu{
   position:absolute;
   top:calc(100% + 6px);
-  left:0;
+  right:0;
+  left:auto;
   min-width:176px;
   max-height:min(280px, 50vh);
   overflow-y:auto;
@@ -15334,21 +15359,35 @@ tr:hover .camp-avatar {
   background:#f3f4f6;
   color:#111827;
 }
+.hris-dir-table-meta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
 .hris-dir-total{
   margin:0;
-  padding:14px 16px;
+  padding:0;
   font-size:13px;
   font-weight:500;
   color:#6b7280;
-  background:#fff;
+  background:transparent;
   border:0;
-  border-bottom:1px solid #eee;
+  white-space:nowrap;
 }
+.hris-dir-sync{
+  margin:0;
+  color:#6b7280;
+  font-size:12.5px;
+  font-weight:500;
+  line-height:1.35;
+}
+.hris-dir-sync.is-disconnected{color:#b45309}
 .hris-dir-table-card{
   background:#fff;
   border:1px solid #e6e8eb;
   border-radius:12px 12px 0 0;
-  overflow:hidden;
+  overflow:visible;
   flex:1;
   min-height:0;
   display:flex;

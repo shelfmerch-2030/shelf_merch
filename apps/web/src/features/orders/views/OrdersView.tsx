@@ -104,24 +104,30 @@ export function OrdersView(vm: OrdersVm) {
                       <button
                         type="button"
                         className="lnk"
+                        disabled={Boolean(vm.invoiceBusy)}
                         onClick={(e) => {
                           e.stopPropagation();
                           vm.onViewInvoice(o);
                         }}
                       >
-                        View
+                        {vm.invoiceBusy?.orderId === o.id && vm.invoiceBusy.mode === "view"
+                          ? "Preparing…"
+                          : "View"}
                       </button>
                     </td>
                     <td className="data-list-cell">
                       <button
                         type="button"
                         className="lnk"
+                        disabled={Boolean(vm.invoiceBusy)}
                         onClick={(e) => {
                           e.stopPropagation();
                           vm.onDownloadInvoice(o);
                         }}
                       >
-                        Download
+                        {vm.invoiceBusy?.orderId === o.id && vm.invoiceBusy.mode === "download"
+                          ? "Preparing…"
+                          : "Download"}
                       </button>
                     </td>
                   </tr>
@@ -137,7 +143,8 @@ export function OrdersView(vm: OrdersVm) {
         onOpenChange={vm.onDialogOpenChange}
         onViewInvoice={() => vm.selected && vm.onViewInvoice(vm.selected)}
         onDownloadInvoice={() => vm.selected && vm.onDownloadInvoice(vm.selected)}
-        onTrackShipment={vm.onTrackShipment}
+        onTrackShipment={() => vm.selected && vm.onTrackShipment(vm.selected)}
+        invoiceBusy={vm.invoiceBusy}
       />
     </>
   );

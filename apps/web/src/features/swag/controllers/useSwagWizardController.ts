@@ -245,7 +245,7 @@ export function useSwagWizardController(): SwagWizardVm {
 
       const publishedCount = shopIds.length;
       toast.success(
-        `Published "${col.name}" to ${publishedCount} ${publishedCount === 1 ? "shop" : "shops"}`,
+        publishedCount === 1 ? "Published to 1 shop 🎉" : `Published to ${publishedCount} shops 🎉`,
       );
       setPublishReadyOpen(true);
     } catch (err) {

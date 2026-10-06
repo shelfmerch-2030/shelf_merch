@@ -67,7 +67,7 @@ export function EntityManagerKitsSection() {
 
   const handleSendCurated = async (kit: PlatformKitTemplate) => {
     if (!canSendKits) {
-      toast.info("Sending kits requires campaign access.");
+      toast.info("Campaign access required");
       return;
     }
 
@@ -118,7 +118,7 @@ export function EntityManagerKitsSection() {
       });
       navigate(`/app/kits/${ensured.id}/send`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to prepare curated kit for send");
+      toast.error(err instanceof Error ? err.message : "Could not prepare kit");
     }
   };
 

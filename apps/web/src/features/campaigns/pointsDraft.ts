@@ -101,10 +101,10 @@ export function budgetPerRecipientError(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return "Minimum of ₹250 must be allocated.";
   if (trimmed.includes(".") || trimmed.includes("e") || trimmed.includes("E")) {
-    return "Only whole numbers are allowed.";
+    return "Enter a whole number";
   }
   if (!/^\d+$/.test(trimmed)) {
-    return "Only whole numbers are allowed.";
+    return "Enter a whole number";
   }
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n < MIN_POINTS_BUDGET_INR) {

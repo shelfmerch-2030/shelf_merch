@@ -120,7 +120,7 @@ export function hrisDirectoryBannerText(directory: HrisDirectoryStatus): string 
       : "Syncing — initial sync in progress";
   }
   if (directory.state === "connected") {
-    return syncedAt ? `Connected — last synced ${syncedAt}` : "Connected — initial sync pending";
+    return syncedAt ? `Connected last synced ${syncedAt}` : "Connected — initial sync pending";
   }
   if (directory.state === "error") {
     return syncedAt ? `Error — last synced ${syncedAt}` : "Error";

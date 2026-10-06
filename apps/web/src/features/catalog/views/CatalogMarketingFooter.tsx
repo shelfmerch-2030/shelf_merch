@@ -95,7 +95,7 @@ export function CatalogMarketingFooter({ onViewCatalog }: { onViewCatalog?: () =
   function onSubscribe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email.trim()) return;
-    toast.success("You're on the list — we'll keep you posted.");
+    toast.success("You're on the list 🙌");
     setEmail("");
   }
 

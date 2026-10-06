@@ -327,7 +327,7 @@ export function useRequestSampleController(): RequestSampleVm {
     if (step === 0) {
       const missing = missingVariantLabels();
       if (missing.length) {
-        toast.error(`Please select variants: ${missing.slice(0, 3).join(", ")}`);
+        toast.error(`Select variants: ${missing.slice(0, 3).join(", ")}`);
         return;
       }
       setStep(1);
@@ -335,7 +335,7 @@ export function useRequestSampleController(): RequestSampleVm {
     }
     if (step === 1) {
       if (brandingEnabled && !logoPreview) {
-        toast.error("Upload your logo to continue with branding");
+        toast.error("Upload your logo first");
         return;
       }
       setStep(2);
@@ -374,7 +374,7 @@ export function useRequestSampleController(): RequestSampleVm {
     const user = getStoredUser();
     const email = user?.email?.trim();
     if (!email) {
-      toast.error("Your account email is required to request a sample.");
+      toast.error("Account email required");
       return;
     }
 
@@ -387,7 +387,7 @@ export function useRequestSampleController(): RequestSampleVm {
       return;
     }
     if (!entityId) {
-      toast.error("No budget department found for this wallet — allocate funds first.");
+      toast.error("Allocate funds to a department first");
       return;
     }
 
@@ -397,11 +397,11 @@ export function useRequestSampleController(): RequestSampleVm {
     const paymentMode = payingWithWallet ? "wallet" : pay === "card" ? "card" : "upi";
 
     if (pay === "wallet" && !walletPayOk) {
-      toast.error("Wallet payment is unavailable — choose UPI or card to continue.");
+      toast.error("Choose UPI or card instead");
       return;
     }
     if (!payingWithWallet && !walletId) {
-      toast.error("Select a wallet to attach this order to before paying online");
+      toast.error("Select a wallet first");
       return;
     }
 
@@ -522,7 +522,7 @@ export function useRequestSampleController(): RequestSampleVm {
   async function onLogoFile(file: File | null) {
     if (!kit || !file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (PNG, JPG, or SVG)");
+      toast.error("Upload a PNG, JPG, or SVG file");
       return;
     }
     if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);

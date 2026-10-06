@@ -185,7 +185,7 @@ export function StoreAuthPanel({
       const res = await resendShopSignupOtp(shop.id, pendingId);
       setResendIn(res.resendAvailableInSec);
       setEmailMasked(res.emailMasked);
-      toast.success("New code sent");
+      toast.success("Verification code sent");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not resend code");
     } finally {
@@ -199,7 +199,7 @@ export function StoreAuthPanel({
     setBusy(true);
     try {
       await forgotShopPassword(shop.id, email);
-      toast.success("If an account exists, a reset link has been sent.");
+      toast.success("Reset link sent if account exists");
       setMode("signin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send reset email");
@@ -218,7 +218,7 @@ export function StoreAuthPanel({
     setBusy(true);
     try {
       const res = await resetShopPassword(resetToken, password);
-      toast.success("Password updated — please sign in");
+      toast.success("Password updated — sign in");
       navigate(`${shopStorefrontPath(res.shopId)}?auth=signin`, { replace: true });
       setMode("signin");
     } catch (err) {

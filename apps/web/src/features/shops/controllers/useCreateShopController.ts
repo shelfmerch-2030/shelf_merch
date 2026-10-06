@@ -42,11 +42,11 @@ export function useCreateShopController(): CreateShopVm {
 
   function onPickLogo(file: File) {
     if (!LOGO_ACCEPT.test(file.name)) {
-      toast.error("Accepted formats: SVG, PNG, WEBP, JPEG, JPG");
+      toast.error("Use SVG, PNG, WEBP, or JPG");
       return;
     }
     if (file.size > LOGO_MAX) {
-      toast.error("File must be 5 MB or smaller");
+      toast.error("Maximum file size is 5 MB");
       return;
     }
     const reader = new FileReader();
@@ -76,9 +76,7 @@ export function useCreateShopController(): CreateShopVm {
       });
 
       markShopCelebration({ shopId: shop.id, shopName: shop.name });
-      toast.success("Success!", {
-        description: `"${shop.name}" shop published successfully!`,
-      });
+      toast.success(`"${shop.name}" is live! 🎉`);
 
       // Ensure the new shop is in the workspace cache before opening detail.
       await invalidateWorkspace();

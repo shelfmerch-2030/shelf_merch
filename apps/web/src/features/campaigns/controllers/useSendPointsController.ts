@@ -216,18 +216,18 @@ export function useSendPointsController(): SendPointsVm {
     truncated: number;
   }) {
     if (result.invalid.length) {
-      toast.error(`Skipped ${result.invalid.length} invalid email${result.invalid.length === 1 ? "" : "s"}`);
+      toast.error(result.invalid.length === 1 ? "Skipped 1 invalid email" : `Skipped ${result.invalid.length} invalid emails`);
     }
     if (result.duplicates.length) {
       toast.message(
-        `Skipped ${result.duplicates.length} duplicate${result.duplicates.length === 1 ? "" : "s"}`,
+        result.duplicates.length === 1 ? "Skipped 1 duplicate" : `Skipped ${result.duplicates.length} duplicates`,
       );
     }
     if (result.truncated > 0) {
-      toast.error(`Recipient limit reached — only ${recipientLimit} allowed`);
+      toast.error(`Recipient limit: ${recipientLimit}`);
     }
     if (result.added.length) {
-      toast.success(`Added ${result.added.length} recipient${result.added.length === 1 ? "" : "s"}`);
+      toast.success(result.added.length === 1 ? "Added 1 recipient" : `Added ${result.added.length} recipients`);
     } else if (!result.invalid.length && !result.duplicates.length && !result.truncated) {
       toast.error("No new recipients to add");
     }
@@ -242,7 +242,7 @@ export function useSendPointsController(): SendPointsVm {
   function onToggleRecip(id: string) {
     const has = draft.selRecips.includes(id);
     if (!has && recipientLimit && draft.selRecips.length >= recipientLimit) {
-      toast.error(`You can only select ${recipientLimit} recipients`);
+      toast.error(`Maximum ${recipientLimit} recipients`);
       return;
     }
     dispatch({ type: "toggleRecip", id });
@@ -250,12 +250,12 @@ export function useSendPointsController(): SendPointsVm {
 
   function onSelectAllRecips() {
     if (!recipientLimit) {
-      toast.error("Set the number of recipients in the budget step first");
+      toast.error("Set recipient count first");
       return;
     }
     const ids = selectAllRecipientIds(contacts, draft.selRecips, recipientLimit);
     if (ids.length === draft.selRecips.length) {
-      toast.message("All available recipients are already selected");
+      toast.message("All recipients already selected");
       return;
     }
     dispatch({ type: "setSelRecips", selRecips: ids });
@@ -263,7 +263,7 @@ export function useSendPointsController(): SendPointsVm {
 
   function onAddRecipientEmails(raw: string) {
     if (!recipientLimit) {
-      toast.error("Set the number of recipients in the budget step first");
+      toast.error("Set recipient count first");
       return;
     }
     const { ids, result } = addRecipientsUpToLimit(
@@ -278,7 +278,7 @@ export function useSendPointsController(): SendPointsVm {
 
   function onImportRecipientCsv(file: File) {
     if (!recipientLimit) {
-      toast.error("Set the number of recipients in the budget step first");
+      toast.error("Set recipient count first");
       return;
     }
     const reader = new FileReader();
@@ -351,7 +351,7 @@ export function useSendPointsController(): SendPointsVm {
       return;
     }
     if (!entityId) {
-      toast.error("No budget department found — allocate funds first");
+      toast.error("Allocate funds to a department first");
       return;
     }
     if (!shopId) {
@@ -405,8 +405,8 @@ export function useSendPointsController(): SendPointsVm {
       if (!isValidBudgetPerRecipient(String(draft.ppr || ""))) {
         toast.error(
           draft.ppr > 0 && !Number.isInteger(draft.ppr)
-            ? "Only whole numbers are allowed."
-            : `Minimum of ₹${MIN_POINTS_BUDGET_INR} must be allocated.`,
+            ? "Enter a whole number"
+            : `Allocate at least ₹${MIN_POINTS_BUDGET_INR}`,
         );
         return;
       }
@@ -418,7 +418,7 @@ export function useSendPointsController(): SendPointsVm {
         return;
       }
       if (recipientLimit && draft.selRecips.length > recipientLimit) {
-        toast.error(`You can only select ${recipientLimit} recipients`);
+        toast.error(`Maximum ${recipientLimit} recipients`);
         return;
       }
     }
@@ -435,7 +435,7 @@ export function useSendPointsController(): SendPointsVm {
       return;
     }
     if (!entityId) {
-      toast.error("No budget department found for this wallet — allocate funds first");
+      toast.error("Allocate funds to a department first");
       return;
     }
     if (!shopId) {
@@ -447,11 +447,11 @@ export function useSendPointsController(): SendPointsVm {
       return;
     }
     if (recipientLimit && draft.selRecips.length > recipientLimit) {
-      toast.error(`You can only select ${recipientLimit} recipients`);
+      toast.error(`Maximum ${recipientLimit} recipients`);
       return;
     }
     if (!isValidBudgetPerRecipient(String(draft.ppr || ""))) {
-      toast.error(`Minimum of ₹${MIN_POINTS_BUDGET_INR} must be allocated.`);
+      toast.error(`Allocate at least ₹${MIN_POINTS_BUDGET_INR}`);
       return;
     }
     const paymentTotal = Math.round(totals.sub);
@@ -460,10 +460,9 @@ export function useSendPointsController(): SendPointsVm {
 
     if (payingWithWallet) {
       const available = walletId && workspace ? spendableForWallet(workspace, walletId) : 0;
-      const payWallet = walletId ? workspace?.wallets.find((w) => w.id === walletId) : undefined;
       if (available < paymentTotal) {
         toast.error(
-          `Insufficient wallet balance — add more funds to continue. ${formatWalletAmount(available, payWallet?.cur)} available, ${formatWalletAmount(paymentTotal, payWallet?.cur)} required.`,
+          "Insufficient wallet balance",
         );
         return;
       }
@@ -475,7 +474,7 @@ export function useSendPointsController(): SendPointsVm {
 
 
     if (!payingWithWallet && !walletId) {
-      toast.error("Select a wallet to attach this campaign to before paying online");
+      toast.error("Select a wallet first");
       return;
     }
 
@@ -546,9 +545,9 @@ export function useSendPointsController(): SendPointsVm {
       toast.success(
         scheduled
           ? payingWithWallet
-            ? `Campaign scheduled — wallet debited. Emails and points will go out at the scheduled time.`
-            : `Campaign scheduled — payment received. Emails and points will go out at the scheduled time.`
-          : `Points sent to ${draft.selRecips.length} recipients! 🎉`,
+            ? "Campaign scheduled 🙌"
+            : "Campaign scheduled 🙌"
+          : draft.selRecips.length === 1 ? "Points sent to 1 recipient 🎉" : `Points sent to ${draft.selRecips.length} recipients 🎉`,
       );
       if (successNavTimer.current) clearTimeout(successNavTimer.current);
       successNavTimer.current = setTimeout(() => {
@@ -565,15 +564,11 @@ export function useSendPointsController(): SendPointsVm {
         return;
       }
       if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
-        toast.error("Razorpay is not configured", {
-          description: "Add RAZORPAY_KEY_ID and related keys to the API .env file.",
-        });
+        toast.error("Payment setup incomplete");
         return;
       }
       if (message.includes("temporarily unavailable") || message.includes("GATEWAY")) {
-        toast.error("Could not reach the payment server", {
-          description: "Confirm the API is running (default dev port 3001), then try Pay again.",
-        });
+        toast.error("Payment server unavailable");
         return;
       }
 

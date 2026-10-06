@@ -69,9 +69,9 @@ export function BrandedSwagTab({
               onRemove={async () => {
                 try {
                   await unpublish.mutateAsync({ collectionId: col.id, shopId: shop.id });
-                  toast.success(`"${col.name}" removed from this shop`);
+                  toast.success("Collection removed");
                 } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Failed to remove collection");
+                  toast.error(err instanceof Error ? err.message : "Could not remove collection");
                 }
               }}
             />

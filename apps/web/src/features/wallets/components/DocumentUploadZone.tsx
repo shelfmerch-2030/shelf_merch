@@ -36,11 +36,11 @@ function isAllowedFile(file: File): boolean {
 
 function validateAndBuild(file: File, source: WalletUploadFile["source"]): WalletUploadFile | null {
   if (!isAllowedFile(file)) {
-    toast.error("Only PDF or DOCX files are allowed");
+    toast.error("Use PDF or DOCX only");
     return null;
   }
   if (file.size > MAX_BYTES) {
-    toast.error("File must be 25 MB or smaller");
+    toast.error("Maximum file size is 25 MB");
     return null;
   }
   return { name: file.name, size: file.size, source, file };
@@ -65,7 +65,7 @@ export function DocumentUploadZone({
     const next = validateAndBuild(picked, source);
     if (!next) return;
     onFileChange(next);
-    toast.success("Document added · pending review");
+    toast.success("Document submitted");
   };
 
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -84,7 +84,7 @@ export function DocumentUploadZone({
   const onSourcePick = (soon?: boolean) => {
     if (soon) {
       toast.message("Cloud upload coming soon", {
-        description: "Use “This device” to upload from your computer for now.",
+        description: "Upload from this device",
       });
       return;
     }

@@ -119,10 +119,10 @@ function bannerClasses(src: BannerSource): string {
 
 export function validateBannerImageFile(file: File): string | null {
   if (!BANNER_IMAGE_ACCEPT.test(file.name)) {
-    return "Accepted formats: PNG, WEBP, JPEG, JPG";
+    return "Use PNG, WEBP, or JPG";
   }
   if (file.size > BANNER_IMAGE_MAX_BYTES) {
-    return "File must be 10 MB or smaller";
+    return "Maximum file size is 10 MB";
   }
   return null;
 }

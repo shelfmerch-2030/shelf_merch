@@ -15,6 +15,7 @@ type Props = {
   onViewInvoice: () => void;
   onDownloadInvoice: () => void;
   onTrackShipment: () => void;
+  invoiceBusy?: { orderId: string; mode: "view" | "download" } | null;
 };
 
 /** Read-only order detail (shipment status + items + invoice/tracking actions). */
@@ -24,6 +25,7 @@ export function OrderDetailDialogView({
   onViewInvoice,
   onDownloadInvoice,
   onTrackShipment,
+  invoiceBusy = null,
 }: Props) {
   return (
     <Dialog open={order !== null} onOpenChange={onOpenChange}>
@@ -66,11 +68,21 @@ export function OrderDetailDialogView({
             </div>
 
             <div className="row" style={{ marginTop: 18, gap: 10 }}>
-              <button type="button" className="btn btn-ghost btn-block" onClick={onViewInvoice}>
-                View invoice
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                disabled={Boolean(invoiceBusy)}
+                onClick={onViewInvoice}
+              >
+                {invoiceBusy?.mode === "view" ? "Preparing invoice…" : "View invoice"}
               </button>
-              <button type="button" className="btn btn-ghost btn-block" onClick={onDownloadInvoice}>
-                Download invoice
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                disabled={Boolean(invoiceBusy)}
+                onClick={onDownloadInvoice}
+              >
+                {invoiceBusy?.mode === "download" ? "Preparing invoice…" : "Download invoice"}
               </button>
               {order.track && (
                 <button type="button" className="btn btn-dark btn-block" onClick={onTrackShipment}>

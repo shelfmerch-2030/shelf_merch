@@ -54,9 +54,11 @@ export function PublishCollectionDialog({
         shopIds,
       });
       toast.success(
-        shopIds.length
-          ? `Published to ${shopIds.length} ${shopIds.length === 1 ? "shop" : "shops"}`
-          : "Collection unpublished from all shops",
+        shopIds.length === 1
+          ? "Published to 1 shop 🎉"
+          : shopIds.length
+            ? `Published to ${shopIds.length} shops 🎉`
+            : "Collection unpublished",
       );
       onOpenChange(false);
     } catch (err) {

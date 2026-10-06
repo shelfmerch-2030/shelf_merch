@@ -101,10 +101,12 @@ export function OrgDashboard({
   const needsAllocation = canAllocate && !budgetLive;
 
   function handleAllocateClick() {
+    if (fundingPending) {
+      toast.message("Funding approval pending");
+      return;
+    }
     if (total <= 0) {
-      toast.message("No budget balance yet", {
-        description: "Add or wait for funded balance before allocating across departments.",
-      });
+      toast.message("Funding approval required");
       return;
     }
     onAllocate(2);

@@ -36,7 +36,13 @@ export function AddToShopDialog({
       for (const product of products) {
         await addToShop.mutateAsync({ shopId, collection: target.collection, product, catalog });
       }
-      toast.success(target.product ? "Added to shop" : `Added ${products.length} designs to shop`);
+      toast.success(
+        target.product
+          ? "Added to shop"
+          : products.length === 1
+            ? "1 design added"
+            : `${products.length} designs added`,
+      );
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add to shop");

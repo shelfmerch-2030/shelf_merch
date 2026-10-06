@@ -56,11 +56,11 @@ export function SwagView(vm: SwagVm) {
       if (col.status === "archived") {
         target = await restoreCollection.mutateAsync(col.id);
         vm.onSelectTab("Collections");
-        toast.success(`"${col.name}" restored to collections`);
+        toast.success(`"${col.name}" restored`);
       }
       vm.onPublishCollection(target);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to prepare collection for publishing");
+      toast.error(err instanceof Error ? err.message : "Could not prepare collection");
     }
   }
 

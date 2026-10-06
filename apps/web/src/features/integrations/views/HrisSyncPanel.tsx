@@ -54,8 +54,8 @@ export function HrisSyncPanel({
           <p className="bonus-integ-hris-auto__label">
             Automatic sync <strong>Enabled</strong>
           </p>
-          <p>Automatic sync is enabled. ShelfMerch keeps employee data updated automatically from your HRMS.</p>
-          <p>Changes from your HRMS are synchronized automatically.</p>
+          <p>You do not need to click Sync now. Changes are synced automatically in the background.</p>
+          <p>Sync now is only for an immediate refresh.</p>
         </div>
       ) : null}
 
@@ -104,7 +104,7 @@ export function HrisSyncPanel({
               <span>{view.syncButtonLabel}</span>
             </button>
             {view.automaticEnabled ? (
-              <p className="bonus-integ-meta-note">Use Sync now if you want to refresh employee data immediately.</p>
+              <p className="bonus-integ-meta-note">Automatic sync is enabled. Use Sync now only if you want to refresh data immediately.</p>
             ) : null}
           </div>
         ) : null}

@@ -211,7 +211,7 @@ export function useKitWizardController(): KitWizardVm {
           : undefined,
         mockups,
       });
-      toast.success(`Kit "${created.name}" saved to your workspace`);
+      toast.success(`Kit "${created.name}" saved`);
       setPublishedKit({ id: created.id, name: created.name });
       setPublishing(false);
     } catch (err) {

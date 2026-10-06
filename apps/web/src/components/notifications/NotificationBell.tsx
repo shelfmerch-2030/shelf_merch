@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import {
   formatNotificationTime,
@@ -10,6 +11,8 @@ import {
   useUnreadNotificationCount,
   type AppNotification,
 } from "@/features/notifications/model";
+import { clearFundingSuccess } from "@/features/wallets/fundingSuccess";
+import { WORKSPACE_QUERY_KEY } from "@/hooks/useWorkspace";
 
 function NotificationItem({
   item,
@@ -37,7 +40,9 @@ function NotificationItem({
 /** Shared inbox bell for tenant + platform topbars. */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const unread = useUnreadNotificationCount();
   const recent = useRecentNotifications({ page: 1, limit: 20 });
   const markRead = useMarkNotificationRead();
@@ -50,6 +55,20 @@ export function NotificationBell() {
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Close when clicking outside. The fixed scrim can be clipped by shell overflow,
+  // so also listen on the document.
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      if (wrap.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [open]);
 
   useEffect(() => {
@@ -75,6 +94,15 @@ export function NotificationBell() {
     close();
     const href = resolveNotificationLink(item.link);
     if (!href) return;
+
+    // Funded / wallet deep-links should open the live dashboard, not the
+    // post-submit "Funding request submitted" screen kept in sessionStorage.
+    const isWalletLink = href.includes("/wallets");
+    if (item.type === "wallet_funded" || isWalletLink) {
+      clearFundingSuccess();
+      void queryClient.invalidateQueries({ queryKey: WORKSPACE_QUERY_KEY });
+    }
+
     if (/^https?:\/\//i.test(href)) {
       window.location.assign(href);
       return;
@@ -92,7 +120,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="notif-bell-wrap">
+    <div className="notif-bell-wrap" ref={wrapRef}>
       <button
         type="button"
         className="notif-bell-btn"
@@ -111,7 +139,12 @@ export function NotificationBell() {
 
       {open ? (
         <>
-          <button type="button" className="user-menu-scrim" aria-label="Close notifications" onClick={close} />
+          <button
+            type="button"
+            className="user-menu-scrim"
+            aria-label="Close notifications"
+            onClick={close}
+          />
           <div className="notif-panel" role="menu" onClick={(e) => e.stopPropagation()}>
             <div className="notif-panel-head">
               <div className="notif-panel-title">Notifications</div>

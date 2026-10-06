@@ -82,7 +82,7 @@ export function OrgWizard({
       return false;
     }
     if (w.amount <= 0) {
-      toast.error("Enter a budget amount greater than zero");
+      toast.error("Enter an amount above zero");
       return false;
     }
     const contactValidation = validateWalletContactFields(
@@ -100,7 +100,7 @@ export function OrgWizard({
       return false;
     }
     if (w.funding === "upload" && !w.uploaded && !w.uploadFile) {
-      toast.error("Upload your PO or agreement document");
+      toast.error("Upload your PO or agreement");
       return false;
     }
     if (w.funding === "upload" && !w.docNumber.trim()) {
@@ -136,21 +136,19 @@ export function OrgWizard({
               kind: "create",
             });
             dispatch({ type: "finished", walletId, invites: [] });
-            toast.success("Payment received — submitted for review", {
-              description: `${inr(state.wallet.amount)} will be added to ${state.wallet.name} once finance approves.`,
+            toast.success("Payment submitted for review", {
+              description: `${inr(state.wallet.amount)} pending approval`,
             });
             onFinished();
           } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Payment verification failed", {
-              description: "If money was deducted, contact support — finance will reconcile your payment.",
-            });
+            toast.error(err instanceof Error ? err.message : "Payment verification failed");
             submitInFlight.current = false;
             setPaying(false);
           }
         },
         onDismiss: () => {
           toast.message("Payment cancelled", {
-            description: "Your budget was saved as a draft. You can pay later from Add funds.",
+            description: "Budget saved as draft",
           });
           submitInFlight.current = false;
           setPaying(false);
@@ -161,9 +159,7 @@ export function OrgWizard({
       if (message === "Payment cancelled") {
         // handled in onDismiss
       } else if (message.includes("RAZORPAY_NOT_CONFIGURED") || message.includes("not configured")) {
-        toast.error("Razorpay is not configured", {
-          description: "Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the API .env file.",
-        });
+        toast.error("Payment setup incomplete");
       } else {
         toast.error(message);
       }
@@ -188,12 +184,12 @@ export function OrgWizard({
       return;
     }
     if (n === 3 && over) {
-      toast.error("Reduce allocations to continue");
+      toast.error("Reduce your allocations");
       return;
     }
     if (n === ALLOC_STEP_MAX) {
       if (walletAlloc <= 0) {
-        toast.error("Allocate budget to at least one department before finishing");
+        toast.error("Allocate a department budget");
         return;
       }
       setConfirmOpen(true);
@@ -217,7 +213,7 @@ export function OrgWizard({
           kind: "create",
         });
         dispatch({ type: "finished", walletId: result.walletId, invites: [] });
-        toast.success("Budget submitted — finance will review your funding request");
+        toast.success("Budget submitted for review");
         onFinished();
         return;
       }
@@ -227,8 +223,8 @@ export function OrgWizard({
       const inviteCount = result.invites.length;
       toast.success(
         inviteCount > 0
-          ? `Allocations saved — ${inviteCount} invitation${inviteCount === 1 ? "" : "s"} sent`
-          : "Allocations saved — active managers notified",
+          ? inviteCount === 1 ? "1 invitation sent" : `${inviteCount} invitations sent`
+          : "Managers notified",
       );
       onExit();
     } catch (err) {

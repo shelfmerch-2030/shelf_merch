@@ -427,12 +427,12 @@ export function useSendKitController(): SendKitVm {
   }) {
     if (result.invalid.length) {
       toast.error(
-        `Skipped ${result.invalid.length} invalid email${result.invalid.length === 1 ? "" : "s"}`,
+        result.invalid.length === 1 ? "Skipped 1 invalid email" : `Skipped ${result.invalid.length} invalid emails`,
       );
     }
     if (result.duplicates.length) {
       toast.message(
-        `Skipped ${result.duplicates.length} duplicate${result.duplicates.length === 1 ? "" : "s"}`,
+        result.duplicates.length === 1 ? "Skipped 1 duplicate" : `Skipped ${result.duplicates.length} duplicates`,
       );
     }
     if (result.truncated > 0) {
@@ -440,7 +440,7 @@ export function useSendKitController(): SendKitVm {
     }
     if (result.added.length) {
       toast.success(
-        `Added ${result.added.length} recipient${result.added.length === 1 ? "" : "s"}`,
+        result.added.length === 1 ? "Added 1 recipient" : `Added ${result.added.length} recipients`,
       );
     } else if (!result.invalid.length && !result.duplicates.length && !result.truncated) {
       toast.error("No new recipients to add");
@@ -449,12 +449,12 @@ export function useSendKitController(): SendKitVm {
 
   function onSelectAllRecips() {
     if (!contacts.length) {
-      toast.message("No contacts in your workspace yet — use Input emails or Add by CSV");
+      toast.message("No contacts yet");
       return;
     }
     const ids = selectAllRecipientIds(contacts, draft.selRecips, KIT_RECIPIENT_CEILING);
     if (ids.length === draft.selRecips.length) {
-      toast.message("All available contacts are already selected");
+      toast.message("All contacts already selected");
       return;
     }
     dispatch({ type: "setSelRecips", selRecips: ids });
@@ -513,7 +513,7 @@ export function useSendKitController(): SendKitVm {
         return;
       }
       if (draft.mode === "surprise" && surpriseMissing.length) {
-        toast.error("Complete the shipping address for all surprise recipients");
+        toast.error("Complete all shipping addresses");
         return;
       }
       if (draft.mode === "single") {
@@ -557,7 +557,7 @@ export function useSendKitController(): SendKitVm {
           }
         }
         if (missingList.length > 0) {
-          toast.error(`Please select variants: missing ${missingList.slice(0, 3).join(", ")}${missingList.length > 3 ? ` and ${missingList.length - 3} more` : ""}`);
+          toast.error(`Select missing variants: ${missingList.slice(0, 3).join(", ")}${missingList.length > 3 ? ` and ${missingList.length - 3} more` : ""}`);
           return;
         }
       }
@@ -609,7 +609,7 @@ export function useSendKitController(): SendKitVm {
       return;
     }
     if (!entityId) {
-      toast.error("No budget department found for this wallet — allocate funds first");
+      toast.error("Allocate funds to a department first");
       return;
     }
     if (!draft.selRecips.length) {
@@ -641,7 +641,7 @@ export function useSendKitController(): SendKitVm {
       return;
     }
     if (!entityId) {
-      toast.error("No budget department found for this wallet — allocate funds first");
+      toast.error("Allocate funds to a department first");
       return;
     }
     if (!draft.selRecips.length) {
@@ -658,12 +658,12 @@ export function useSendKitController(): SendKitVm {
         : "upi";
 
     if (draft.pay === "wallet" && !walletPayOk) {
-      toast.error("Wallet payment is unavailable — choose UPI or card to continue.");
+      toast.error("Choose UPI or card instead");
       return;
     }
 
     if (!payingWithWallet && !walletId) {
-      toast.error("Select a wallet to attach this order to before paying online");
+      toast.error("Select a wallet first");
       return;
     }
 
@@ -725,11 +725,11 @@ export function useSendKitController(): SendKitVm {
     toast.success(
       draft.when === "sched"
         ? payingWithWallet
-          ? `Kit scheduled — wallet debited. Recipients will be notified at the scheduled time.`
-          : `Kit scheduled — payment received. Recipients will be notified at the scheduled time.`
+          ? "Kit scheduled 🙌"
+          : "Kit scheduled 🙌"
         : draft.mode === "redeem"
-          ? `Invites sent to ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}. Orders will appear when they accept.`
-          : `Order placed for ${draft.selRecips.length} recipient${draft.selRecips.length === 1 ? "" : "s"}! 📦`,
+          ? draft.selRecips.length === 1 ? "1 invite sent 🙌" : `${draft.selRecips.length} invites sent 🙌`
+          : draft.selRecips.length === 1 ? "Order placed for 1 recipient 🎉" : `Order placed for ${draft.selRecips.length} recipients 🎉`,
     );
     navigate(draft.mode === "redeem" ? "/app/kits" : "/app/orders");
     void refreshWorkspace().catch(() => undefined);
@@ -738,7 +738,7 @@ export function useSendKitController(): SendKitVm {
   async function onCuratedLogoFile(file: File | null) {
     if (!kit || !file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (PNG, JPG, or SVG)");
+      toast.error("Upload a PNG, JPG, or SVG file");
       return;
     }
     if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);

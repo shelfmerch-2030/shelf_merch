@@ -43,7 +43,7 @@ export function GeneralSettingsTab({ shop }: { shop: UiShop }) {
     }
     const domain = normalizeDomain(companyEmailDomain);
     if (domain && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain)) {
-      toast.error("Enter a valid domain like company.com");
+      toast.error("Enter a valid domain, like company.com");
       return;
     }
     try {
@@ -51,7 +51,7 @@ export function GeneralSettingsTab({ shop }: { shop: UiShop }) {
         shopId: shop.id,
         input: { name: trimmed, companyEmailDomain: domain },
       });
-      toast.success("Shop settings updated");
+      toast.success("Shop settings saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
     }

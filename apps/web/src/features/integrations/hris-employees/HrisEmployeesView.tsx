@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft, ChevronDown, HelpCircle, Search, Unplug, Users } from "lucide-react";
+import { ArrowLeft, ChevronDown, HelpCircle, Search, Users } from "lucide-react";
 import { COUNTRY_OPTIONS } from "@/data/countries";
 import { LoadingState } from "@/components/LoadingState";
 import type { MergeHrisEmployeePublic } from "@/services/merge-api";
@@ -124,6 +124,17 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
   const filtered = vm.employees.length;
   const [providerOpen, setProviderOpen] = useState(false);
   const totalLabel = filtered === 1 ? "item" : "items";
+
+  useEffect(() => {
+    if (!providerOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".hris-dir-filter-btn, .hris-dir-filter-menu")) return;
+      setProviderOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [providerOpen]);
   const bannerText = hrisDirectoryBannerText(vm.directory);
   const bannerDisconnected = vm.directory.state === "disconnected";
 
@@ -170,72 +181,6 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
         </div>
       ) : null}
 
-      {!vm.loading && bannerText ? (
-        <div
-          className={`hris-dir-banner${bannerDisconnected ? " hris-dir-banner--disconnected" : ""}`}
-          role="status"
-        >
-          {bannerDisconnected ? <Unplug size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
-          <p>{bannerText}</p>
-        </div>
-      ) : null}
-
-      <div className="hris-dir-toolbar">
-        <label className="hris-dir-search">
-          <Search size={15} aria-hidden="true" />
-          <input
-            type="search"
-            placeholder="Search"
-            aria-label="Search directory"
-            value={vm.search}
-            onChange={(e) => vm.onSearch(e.target.value)}
-          />
-        </label>
-        {vm.providerOptions.length > 0 ? (
-          <div className="hris-dir-filter-wrap">
-            <button
-              type="button"
-              className={`hris-dir-filter-btn${vm.providerFilter !== "all" ? " is-on" : ""}`}
-              aria-expanded={providerOpen}
-              onClick={() => setProviderOpen((open) => !open)}
-            >
-              Provider
-              {vm.providerFilter !== "all" ? <span className="hris-dir-pill-count">1</span> : null}
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
-            {providerOpen ? (
-              <div className="hris-dir-filter-menu" role="menu">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={vm.providerFilter === "all" ? "on" : ""}
-                  onClick={() => {
-                    vm.onProviderFilter("all");
-                    setProviderOpen(false);
-                  }}
-                >
-                  All providers
-                </button>
-                {vm.providerOptions.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    role="menuitem"
-                    className={vm.providerFilter === p ? "on" : ""}
-                    onClick={() => {
-                      vm.onProviderFilter(p);
-                      setProviderOpen(false);
-                    }}
-                  >
-                    {providerLabel(p)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
       {vm.loading ? (
         <div className="hris-dir-loading">
           <LoadingState message="Loading directory people…" fullScreen={false} variant="list" />
@@ -250,9 +195,84 @@ export function HrisEmployeesView(vm: HrisEmployeesVm) {
 
       {!vm.loading && !vm.error ? (
         <div className="hris-dir-table-card">
-          <p className="hris-dir-total">
-            Total {filtered} {totalLabel}
-          </p>
+          <div className="hris-dir-table-head">
+            <div className="hris-dir-table-meta">
+              <p className="hris-dir-total">
+                Total {filtered} {totalLabel}
+              </p>
+              {bannerText ? (
+                <p
+                  className={`hris-dir-sync${bannerDisconnected ? " is-disconnected" : ""}`}
+                  role="status"
+                >
+                  {bannerText}
+                </p>
+              ) : null}
+            </div>
+            <div className="hris-dir-toolbar">
+              <label className="hris-dir-search">
+                <Search size={15} aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder="Search"
+                  aria-label="Search directory"
+                  value={vm.search}
+                  onChange={(e) => vm.onSearch(e.target.value)}
+                />
+              </label>
+              {vm.providerOptions.length > 0 ? (
+                <div className="hris-dir-filter-wrap">
+                  <button
+                    type="button"
+                    className={`hris-dir-filter-btn${vm.providerFilter !== "all" ? " is-on" : ""}`}
+                    aria-expanded={providerOpen}
+                    onClick={() => setProviderOpen((open) => !open)}
+                  >
+                    Provider
+                    {vm.providerFilter !== "all" ? <span className="hris-dir-pill-count">1</span> : null}
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                  {providerOpen ? (
+                    <>
+                    <button
+                      type="button"
+                      className="menu-dismiss-scrim"
+                      aria-label="Close provider menu"
+                      onClick={() => setProviderOpen(false)}
+                    />
+                    <div className="hris-dir-filter-menu" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={vm.providerFilter === "all" ? "on" : ""}
+                        onClick={() => {
+                          vm.onProviderFilter("all");
+                          setProviderOpen(false);
+                        }}
+                      >
+                        All providers
+                      </button>
+                      {vm.providerOptions.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          role="menuitem"
+                          className={vm.providerFilter === p ? "on" : ""}
+                          onClick={() => {
+                            vm.onProviderFilter(p);
+                            setProviderOpen(false);
+                          }}
+                        >
+                          {providerLabel(p)}
+                        </button>
+                      ))}
+                    </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
           {vm.employees.length === 0 ? (
             <div className="hris-dir-empty">
               <h3>No people to show</h3>
