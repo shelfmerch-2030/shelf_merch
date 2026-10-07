@@ -58,7 +58,11 @@ const contactSchema = new mongoose.Schema(
 
 contactSchema.plugin(tenantScopePlugin);
 contactSchema.plugin(softDeletePlugin);
-contactSchema.index({ tenantId: 1, email: 1 }, { unique: true });
+// Unique only among active contacts — soft-deleted rows must not block re-add/import.
+contactSchema.index(
+  { tenantId: 1, email: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } },
+);
 contactSchema.index(
   { tenantId: 1, zohoRecordId: 1 },
   { unique: true, partialFilterExpression: { zohoRecordId: { $gt: '' } } },

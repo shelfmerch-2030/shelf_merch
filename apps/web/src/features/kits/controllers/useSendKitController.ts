@@ -23,12 +23,25 @@ import {
 import { toSchedulePayload } from "@/features/send/types";
 import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import {
+  addRecipientRowsUpToLimit,
   addRecipientsUpToLimit,
+  applyProfileToContact,
+  hasCompleteRecipientAddress,
+  isManualRecipientId,
   mergePickerContacts,
-  parseCsvEmails,
+  normalizeRecipientEmail,
+  parseCsvRecipientRows,
   parseEmailInput,
+  profileHasDetails,
   selectAllRecipientIds,
+  type RecipientProfileInput,
 } from "@/features/send/recipientSelection";
+import {
+  addContactFlow,
+  updateContactFlow,
+  listContactsApi,
+  ApiError,
+} from "@/services/api-bridge";
 import { kitPickedIndices } from "../wizard/kitDraft";
 import {
   useLaunchKitCampaign,
@@ -230,10 +243,11 @@ export type SendKitVm = {
   onWalletSelect: (walletId: string) => void;
   walletAvailable: (wallet: UiWallet) => number;
   onSelectAllRecips: () => void;
-  onAddRecipientEmails: (raw: string) => void;
+  onAddRecipientEmails: (raw: string, profile?: RecipientProfileInput) => void;
   onImportRecipientCsv: (file: File) => void;
+  onUpdateRecipientProfile: (contactId: string, profile: RecipientProfileInput) => void;
   onExit: () => void;
-  onNext: () => void;
+  onNext: () => void | Promise<void>;
   onBack: () => void;
   onPayAndSend: () => void;
   /** False when wallet is pending approval or cannot cover the order total. */
@@ -254,9 +268,91 @@ export type SendKitVm = {
 };
 
 function missingAddress(contacts: UiContact[], selected: string[]): UiContact[] {
-  return contacts.filter(
-    (c) => selected.includes(c.id) && (!c.address || !c.city || !c.state || !c.pincode),
+  return contacts.filter((c) => selected.includes(c.id) && !hasCompleteRecipientAddress(c));
+}
+
+function isDuplicateContactError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return (
+      err.status === 409
+      || err.code === "DUPLICATE"
+      || err.code === "CONFLICT"
+      || /already exists|duplicate/i.test(err.message)
+    );
+  }
+  return /already exists|duplicate|E11000/i.test(String((err as Error)?.message || err));
+}
+
+function findContactByEmailOrId(
+  list: UiContact[],
+  email: string,
+  contactId?: string,
+): UiContact | undefined {
+  const byEmail = list.find(
+    (c) => normalizeRecipientEmail(c.email) === email && !isManualRecipientId(c.id),
   );
+  if (byEmail) return byEmail;
+  if (contactId && !isManualRecipientId(contactId)) {
+    return list.find((c) => c.id === contactId);
+  }
+  return undefined;
+}
+
+async function upsertRecipientContact(
+  contact: UiContact,
+  workspaceContacts: UiContact[],
+): Promise<UiContact> {
+  const email = normalizeRecipientEmail(contact.email);
+
+  const payload = {
+    name: contact.name || email.split("@")[0] || email,
+    email,
+    phone: contact.phone || "",
+    role: contact.role?.trim() || "Member",
+    department: contact.department || "",
+    employeeCode: contact.employeeCode || "",
+    address: {
+      line1: contact.address || "",
+      city: contact.city || "",
+      state: contact.state || "",
+      pincode: contact.pincode || "",
+      country: contact.country || "IN",
+    },
+  };
+
+  const patch = {
+    name: payload.name,
+    phone: payload.phone,
+    role: payload.role,
+    department: payload.department,
+    employeeCode: payload.employeeCode,
+    address: payload.address,
+  };
+
+  let existing = findContactByEmailOrId(workspaceContacts, email, contact.id);
+  // Workspace snapshot can lag behind contacts created in a prior CSV/import attempt.
+  if (!existing) {
+    try {
+      const latest = await listContactsApi();
+      existing = findContactByEmailOrId(latest, email, contact.id);
+    } catch {
+      /* fall through to create */
+    }
+  }
+
+  if (existing) {
+    return updateContactFlow(existing.id, patch);
+  }
+
+  try {
+    return await addContactFlow(payload);
+  } catch (err) {
+    if (!isDuplicateContactError(err)) throw err;
+    const latest = await listContactsApi();
+    const again = findContactByEmailOrId(latest, email, contact.id);
+    if (!again) throw err;
+    return updateContactFlow(again.id, patch);
+  }
 }
 
 /** Controller for the send-kit wizard: recipient/experience/checkout state, pay flow. */
@@ -298,6 +394,8 @@ export function useSendKitController(): SendKitVm {
 
   const [draft, dispatch] = useReducer(sendKitReducer, initial);
   const seededKitId = useRef<string | null>(null);
+  /** Local address/name overlays for CSV + email recipients (keyed by normalized email). */
+  const [recipientOverlays, setRecipientOverlays] = useState<Record<string, UiContact>>({});
 
   // Seed draft once kit data is available (workspace may load after first render).
   useEffect(() => {
@@ -318,8 +416,8 @@ export function useSendKitController(): SendKitVm {
   }, [kit, catalog, contacts, workspace?.account]);
 
   const pickerContacts = useMemo(
-    () => mergePickerContacts(contacts, draft.selRecips),
-    [contacts, draft.selRecips],
+    () => mergePickerContacts(contacts, draft.selRecips, recipientOverlays),
+    [contacts, draft.selRecips, recipientOverlays],
   );
 
   const pricedItems = useMemo(() => {
@@ -460,35 +558,125 @@ export function useSendKitController(): SendKitVm {
     dispatch({ type: "setSelRecips", selRecips: ids });
   }
 
-  function onAddRecipientEmails(raw: string) {
-    const { ids, result } = addRecipientsUpToLimit(
+  function mergeOverlays(next: Record<string, UiContact>) {
+    if (!Object.keys(next).length) return;
+    setRecipientOverlays((prev) => ({ ...prev, ...next }));
+  }
+
+  function onAddRecipientEmails(raw: string, profile?: RecipientProfileInput) {
+    const hasProfile = profileHasDetails(profile);
+    const { ids, result, overlays } = addRecipientsUpToLimit(
       parseEmailInput(raw),
       draft.selRecips,
       contacts,
       KIT_RECIPIENT_CEILING,
+      hasProfile ? profile : undefined,
     );
     dispatch({ type: "setSelRecips", selRecips: ids });
+    mergeOverlays(overlays);
     reportRecipientAddResult(result);
+
+    if (hasProfile && result.added.length) {
+      void persistRecipientOverlays(overlays, ids).catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Could not save recipient details");
+      });
+    }
   }
 
   function onImportRecipientCsv(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === "string" ? reader.result : "";
-      const { ids, result } = addRecipientsUpToLimit(
-        parseCsvEmails(text),
+      const rows = parseCsvRecipientRows(text);
+      const { ids, result, overlays } = addRecipientRowsUpToLimit(
+        rows,
         draft.selRecips,
         contacts,
         KIT_RECIPIENT_CEILING,
       );
       dispatch({ type: "setSelRecips", selRecips: ids });
+      mergeOverlays(overlays);
       reportRecipientAddResult(result);
+
+      if (Object.keys(overlays).length) {
+        void persistRecipientOverlays(overlays, ids).catch((err) => {
+          toast.error(err instanceof Error ? err.message : "Could not save recipient addresses");
+        });
+      }
     };
     reader.onerror = () => toast.error("Could not read CSV file");
     reader.readAsText(file);
   }
 
-  function onNext() {
+  function onUpdateRecipientProfile(contactId: string, profile: RecipientProfileInput) {
+    const contact = pickerContacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const email = normalizeRecipientEmail(contact.email);
+    const next = applyProfileToContact(contact, profile);
+    setRecipientOverlays((prev) => ({ ...prev, [email]: next }));
+    void upsertRecipientContact(next, contacts)
+      .then((saved) => {
+        setRecipientOverlays((prev) => ({
+          ...prev,
+          [email]: { ...next, id: saved.id },
+        }));
+        if (saved.id !== contactId) {
+          dispatch({ type: "remapRecipId", fromId: contactId, toId: saved.id });
+        }
+        void refreshWorkspace().catch(() => undefined);
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Could not save contact details");
+      });
+  }
+
+  async function persistRecipientOverlays(
+    overlays: Record<string, UiContact>,
+    selectedIds: string[],
+  ) {
+    let nextIds = [...selectedIds];
+    for (const contact of Object.values(overlays)) {
+      const saved = await upsertRecipientContact(contact, contacts);
+      const email = normalizeRecipientEmail(contact.email);
+      const fromIds = [contact.id, `email:${email}`];
+      for (const fromId of fromIds) {
+        if (fromId !== saved.id && nextIds.includes(fromId)) {
+          dispatch({ type: "remapRecipId", fromId, toId: saved.id });
+          nextIds = nextIds.map((id) => (id === fromId ? saved.id : id));
+        }
+      }
+      setRecipientOverlays((prev) => ({
+        ...prev,
+        [email]: { ...contact, id: saved.id },
+      }));
+    }
+    void refreshWorkspace().catch(() => undefined);
+  }
+
+  async function syncSelectedRecipientContacts() {
+    const overlaysToFlush = Object.fromEntries(
+      pickerContacts
+        .filter((c) => draft.selRecips.includes(c.id) && profileHasDetails({
+          name: c.name,
+          phone: c.phone,
+          role: c.role,
+          department: c.department,
+          employeeCode: c.employeeCode,
+          address: {
+            line1: c.address,
+            city: c.city,
+            state: c.state,
+            pincode: c.pincode,
+            country: c.country,
+          },
+        }))
+        .map((c) => [normalizeRecipientEmail(c.email), c]),
+    );
+    if (!Object.keys(overlaysToFlush).length) return;
+    await persistRecipientOverlays(overlaysToFlush, draft.selRecips);
+  }
+
+  async function onNext() {
     if (step === 0) {
       if (isCuratedKit && curatedRequiresLogo && !hasCuratedLogo) {
         toast.error("Please upload a logo before continuing");
@@ -512,9 +700,17 @@ export function useSendKitController(): SendKitVm {
         toast.error("Select at least one recipient");
         return;
       }
-      if (draft.mode === "surprise" && surpriseMissing.length) {
-        toast.error("Complete all shipping addresses");
-        return;
+      if (draft.mode === "surprise") {
+        if (surpriseMissing.length) {
+          toast.error("Complete all shipping addresses");
+          return;
+        }
+        try {
+          await syncSelectedRecipientContacts();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Could not save recipient addresses");
+          return;
+        }
       }
       if (draft.mode === "single") {
         const locationError = validateSingleLocation(draft.singleLocation);
@@ -647,6 +843,14 @@ export function useSendKitController(): SendKitVm {
     if (!draft.selRecips.length) {
       toast.error("Select at least one recipient");
       return;
+    }
+    if (draft.mode === "surprise") {
+      try {
+        await syncSelectedRecipientContacts();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not save recipient addresses");
+        return;
+      }
     }
     const paymentTotal = Math.round(totals.total);
     const walletPayOk = canPayKitWithWallet(workspace, paymentTotal, walletId);
@@ -793,6 +997,7 @@ export function useSendKitController(): SendKitVm {
     onSelectAllRecips,
     onAddRecipientEmails,
     onImportRecipientCsv,
+    onUpdateRecipientProfile,
     onExit: () => navigate("/app/kits"),
     onNext,
     onBack: () => setStep((s) => Math.max(s - 1, 0) as SendKitStep),
