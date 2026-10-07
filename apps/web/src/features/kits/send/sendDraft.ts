@@ -45,7 +45,8 @@ export type SendKitAction =
       contactIds: string[];
       productId: string;
       patch: { size?: string; color?: string; variantImage?: string };
-    };
+    }
+  | { type: "remapRecipId"; fromId: string; toId: string };
 
 export function sendKitReducer(state: SendKitDraft, action: SendKitAction): SendKitDraft {
   switch (action.type) {
@@ -119,6 +120,20 @@ export function sendKitReducer(state: SendKitDraft, action: SendKitAction): Send
         next[contactId] = contactVariants;
       }
       return { ...state, recipVariants: next };
+    }
+    case "remapRecipId": {
+      if (!action.fromId || action.fromId === action.toId) return state;
+      const { [action.fromId]: fromVariants, ...restVariants } = state.recipVariants;
+      return {
+        ...state,
+        selRecips: state.selRecips.map((id) => (id === action.fromId ? action.toId : id)),
+        recipVariants: fromVariants
+          ? {
+              ...restVariants,
+              [action.toId]: { ...(restVariants[action.toId] || {}), ...fromVariants },
+            }
+          : restVariants,
+      };
     }
     default:
       return state;
