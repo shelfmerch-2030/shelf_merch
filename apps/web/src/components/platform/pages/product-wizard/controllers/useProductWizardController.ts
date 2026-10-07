@@ -62,6 +62,51 @@ function fileLooksLikePng(file: File) {
   return file.type === "image/png" || /\.png$/i.test(file.name);
 }
 
+function flattenCategoryOptions(
+  nodes: PlatformCategory[],
+  ancestors: string[] = [],
+): { id: string; label: string; pathNames: string[] }[] {
+  const options: { id: string; label: string; pathNames: string[] }[] = [];
+  for (const node of nodes) {
+    if (node.status !== "active") continue;
+    const pathNames = [...ancestors, node.name];
+    options.push({
+      id: node._id,
+      label: pathNames.join(" → "),
+      pathNames,
+    });
+    if (node.children?.length) {
+      options.push(...flattenCategoryOptions(node.children, pathNames));
+    }
+  }
+  return options;
+}
+
+function findCategoryIdByPath(
+  options: { id: string; pathNames: string[] }[],
+  category?: string,
+  subcategory?: string,
+  childCategory?: string,
+): string | undefined {
+  const path = [category, subcategory, childCategory]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+  if (!path.length) return undefined;
+  const exact = options.find(
+    (option) =>
+      option.pathNames.length === path.length &&
+      option.pathNames.every((name, index) => name === path[index]),
+  );
+  if (exact) return exact.id;
+  // Prefer the deepest matching prefix (e.g. Apparel → Apparel when child is missing).
+  const prefixMatches = options.filter(
+    (option) =>
+      option.pathNames.length <= path.length &&
+      option.pathNames.every((name, index) => name === path[index]),
+  );
+  return prefixMatches.sort((a, b) => b.pathNames.length - a.pathNames.length)[0]?.id;
+}
+
 /** Controller for the platform product create/edit wizard. */
 export function useProductWizardController(mode: "create" | "edit", productId?: string) {
   const navigate = useNavigate();
@@ -83,35 +128,17 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const [imageView, setImageView] = useState<ProductImageView>("front");
   const [marketingIndex, setMarketingIndex] = useState(0);
   const [maskTintableByView, setMaskTintableByView] = useState<Partial<Record<ProductImageView, boolean>>>({});
-  const [parents, setParents] = useState<PlatformCategory[]>([]);
-  const [children, setChildren] = useState<PlatformCategory[]>([]);
-  const [grandchildren, setGrandchildren] = useState<PlatformCategory[]>([]);
+  const [categoryTree, setCategoryTree] = useState<PlatformCategory[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
-  const [childCategoriesLoading, setChildCategoriesLoading] = useState(false);
 
-  const categoryOptions = useMemo(() => {
-    const names = parents.filter((parent) => parent.status === "active").map((parent) => parent.name);
-    if (details.category && !names.includes(details.category)) names.push(details.category);
-    return names;
-  }, [parents, details.category]);
-  const subcategoryOptions = useMemo(() => {
-    const names = children.filter((child) => child.status === "active").map((child) => child.name);
-    if (details.subcategory && !names.includes(details.subcategory)) names.push(details.subcategory);
-    return names;
-  }, [children, details.subcategory]);
-  const childCategoryOptions = useMemo(() => {
-    const names = grandchildren.filter((child) => child.status === "active").map((child) => child.name);
-    if (details.childCategory && !names.includes(details.childCategory)) names.push(details.childCategory);
-    return names;
-  }, [grandchildren, details.childCategory]);
+  const categoryOptions = useMemo(() => flattenCategoryOptions(categoryTree), [categoryTree]);
 
   useEffect(() => {
     let cancelled = false;
     setCategoriesLoading(true);
-    listCategories({ roots: true })
-      .then((rows) => {
-        if (!cancelled) setParents(rows);
+    listCategories()
+      .then((treeRows) => {
+        if (!cancelled) setCategoryTree(treeRows);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not load categories");
@@ -124,53 +151,21 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     };
   }, []);
 
+  // Legacy products may only have path strings — resolve a primary ID once the tree loads.
   useEffect(() => {
-    const parent = parents.find((row) => row.name === details.category && row.status === "active");
-    if (!details.category || !parent) {
-      setChildren([]);
-      setSubcategoriesLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setSubcategoriesLoading(true);
-    listCategories({ parentId: parent._id })
-      .then((rows) => {
-        if (!cancelled) setChildren(rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load subcategories");
-      })
-      .finally(() => {
-        if (!cancelled) setSubcategoriesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [details.category, parents]);
-
-  useEffect(() => {
-    const subcategory = children.find((row) => row.name === details.subcategory && row.status === "active");
-    if (!details.subcategory || !subcategory) {
-      setGrandchildren([]);
-      setChildCategoriesLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setChildCategoriesLoading(true);
-    listCategories({ parentId: subcategory._id })
-      .then((rows) => {
-        if (!cancelled) setGrandchildren(rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load child categories");
-      })
-      .finally(() => {
-        if (!cancelled) setChildCategoriesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [details.subcategory, children]);
+    if (!categoryOptions.length) return;
+    setDetails((d) => {
+      if ((d.categoryIds ?? []).length > 0) return d;
+      const legacyId = findCategoryIdByPath(
+        categoryOptions,
+        d.category,
+        d.subcategory,
+        d.childCategory,
+      );
+      if (!legacyId) return d;
+      return { ...d, categoryIds: [legacyId] };
+    });
+  }, [categoryOptions]);
 
   useEffect(() => {
     if (mode !== "edit" || !productId) return;
@@ -182,11 +177,13 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
         setAreas(p.printAreas ?? []);
         setPhysicalDimensions(resolvePhysical(p.physicalDimensions));
         setDpi(p.dpi && p.dpi > 0 ? p.dpi : DEFAULT_DPI);
+        const assignedIds = (p.categoryIds ?? []).map(String);
         setDetails({
           name: p.name,
           category: categoryRequiresAdminChoice ? "" : p.category,
           subcategory: categoryRequiresAdminChoice ? "" : (p.subcategory ?? ""),
           childCategory: categoryRequiresAdminChoice ? "" : (p.childCategory ?? ""),
+          categoryIds: categoryRequiresAdminChoice ? [] : assignedIds,
           sellingPriceInr: p.sellingPriceInr,
           costPriceInr: p.costPriceInr,
           brand: p.brand ?? "",
@@ -204,15 +201,17 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   }, [mode, productId]);
 
   const set = <K extends keyof ProductInput>(k: K, v: ProductInput[K]) =>
+    setDetails((d) => ({ ...d, [k]: v }));
+
+  function toggleCategory(categoryId: string) {
     setDetails((d) => {
-      const next = { ...d, [k]: v };
-      if (k === "category" && String(v) !== String(d.category)) {
-        next.subcategory = "";
-        next.childCategory = "";
+      const current = d.categoryIds ?? [];
+      if (current.includes(categoryId)) {
+        return { ...d, categoryIds: current.filter((id) => id !== categoryId) };
       }
-      if (k === "subcategory" && String(v) !== String(d.subcategory)) next.childCategory = "";
-      return next;
+      return { ...d, categoryIds: [...current, categoryId] };
     });
+  }
 
   const colorSwatches = useMemo(() => {
     const seen = new Map<string, { name: string; hex: string }>();
@@ -606,11 +605,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     previewColor,
     imageView,
     categoryOptions,
-    subcategoryOptions,
-    childCategoryOptions,
     categoriesLoading,
-    subcategoriesLoading,
-    childCategoriesLoading,
     colorSwatches,
     activeSwatch,
     firstHex,
@@ -637,6 +632,7 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
     onBack: () => navigate("/platform/catalog"),
     onStep: goToStep,
     onSet: set,
+    onToggleCategory: toggleCategory,
     onVariant: setVariant,
     onPrintAreas: setAreas,
     onPhysicalDimensions: setPhysicalDimensions,

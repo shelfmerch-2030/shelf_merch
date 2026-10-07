@@ -58,8 +58,8 @@ const CATEGORY_INCLUDES = {
 
 /**
  * Mongo category filter.
- * Matches Parent Category (`category`), Category (`subcategory`), or Sub-Category
- * (`childCategory`). Parent queries still expand via CATEGORY_INCLUDES.
+ * Matches primary path fields, multi-category `categoryLabels`, and legacy
+ * Parent expansions via CATEGORY_INCLUDES.
  */
 export function categoryFilter(category) {
   if (!category) return {};
@@ -71,6 +71,7 @@ export function categoryFilter(category) {
       { childCategory: { $in: values } },
       { subcategory: { $in: values } },
       categoryMatch,
+      { categoryLabels: { $in: values } },
     ],
   };
 }

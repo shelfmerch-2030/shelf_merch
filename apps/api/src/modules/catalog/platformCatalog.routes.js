@@ -20,15 +20,19 @@ const upload = uploader({ allow: IMAGE_TYPES, maxSizeMb: 25, files: 8 });
 
 const idParam = z.object({ id: objectId });
 
-const createProductSchema = z.object({
+const createProductFields = z.object({
   name: z.string().min(1),
   slug: z.string().optional(),
   description: z.string().optional().default(''),
   keyFeatures: z.string().optional().default(''),
   sizeGuide: z.string().optional().default(''),
-  category: z.string().min(1),
+  category: z.string().optional().default(''),
   subcategory: z.string().optional().default(''),
   childCategory: z.string().optional().default(''),
+  /** Full ordered placements; first ID is the primary category. */
+  categoryIds: z.array(objectId).optional(),
+  /** @deprecated Prefer categoryIds. Extra placements beyond a primary string path. */
+  additionalCategoryIds: z.array(objectId).optional(),
   brand: z.string().optional().default(''),
   group: z.string().optional().default(''),
   sku: z.string().optional(),
@@ -53,6 +57,11 @@ const createProductSchema = z.object({
   dpi: z.number().int().positive().optional(),
 });
 
+const createProductSchema = createProductFields.refine(
+  (body) => (Array.isArray(body.categoryIds) && body.categoryIds.length > 0) || String(body.category || '').trim(),
+  { message: 'Select at least one category', path: ['categoryIds'] },
+);
+
 /** Partial updates must not apply create-schema defaults, or a price/HSN patch would clear subcategory. */
 function withoutDefaults(schema) {
   const shape = {};
@@ -62,7 +71,7 @@ function withoutDefaults(schema) {
   return z.object(shape);
 }
 
-const updateProductSchema = withoutDefaults(createProductSchema)
+const updateProductSchema = withoutDefaults(createProductFields)
   .partial()
   .extend({ reason: z.string().optional() });
 

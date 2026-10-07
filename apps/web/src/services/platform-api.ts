@@ -781,6 +781,10 @@ export type PlatformProduct = {
   category: string;
   subcategory?: string;
   childCategory?: string;
+  /** All assigned category node IDs; first is primary. */
+  categoryIds?: string[];
+  /** Names along every assigned path — used for multi-category browse. */
+  categoryLabels?: string[];
   brand?: string;
   description?: string;
   keyFeatures?: string;
@@ -820,9 +824,11 @@ export type PlatformProduct = {
 
 export type ProductInput = {
   name: string;
-  category: string;
+  category?: string;
   subcategory?: string;
   childCategory?: string;
+  /** Ordered category placements; first ID is primary. */
+  categoryIds?: string[];
   sellingPriceInr: number;
   costPriceInr?: number;
   brand?: string;
