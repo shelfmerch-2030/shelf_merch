@@ -27,7 +27,7 @@ import {
   Landmark,
   type LucideIcon,
 } from "lucide-react";
-import { DashboardLoadingSkeleton } from "@/components/LoadingState";
+import { LoadingState } from "@/components/LoadingState";
 import { ShopBanner } from "@/features/shops/banner";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
@@ -867,7 +867,7 @@ export function DashboardPage() {
   const [welcomeOpen, setWelcomeOpen] = useState(true);
 
   if (isLoading && !workspace) {
-    return <DashboardLoadingSkeleton />;
+    return <LoadingState message="Loading dashboard..." fullScreen={false} />;
   }
   if (isError || !workspace) {
     return (

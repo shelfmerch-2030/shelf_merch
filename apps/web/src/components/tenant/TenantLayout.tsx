@@ -1,10 +1,11 @@
 import { useEffect } from "react";
-import { Outlet, useLocation, useSearchParams } from "react-router";
+import { Outlet, useLocation, useNavigation, useSearchParams } from "react-router";
 import { CollapsibleSidebar } from "@/components/tenant/CollapsibleSidebar";
 import { UserMenu } from "@/components/tenant/UserMenu";
 import { WalletBalanceMenu } from "@/components/tenant/WalletBalanceMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import { LoadingState } from "@/components/LoadingState";
 import { getStoredUser, isAuthenticated } from "@/services/api-bridge";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
@@ -48,6 +49,7 @@ export default function TenantLayout() {
   const { data: workspace } = useWorkspace();
   const { canWrite } = useTenantAccess();
   const location = useLocation();
+  const navigation = useNavigation();
   const [searchParams] = useSearchParams();
   const walletParam =
     location.pathname === "/app/wallets" ? (searchParams.get("wallet") ?? undefined) : undefined;
@@ -120,7 +122,11 @@ export default function TenantLayout() {
 
         <main className="main scroll">
           <div className="wrap fade-in">
-            <Outlet />
+            {navigation.state === "loading" ? (
+              <LoadingState message="Loading page..." fullScreen={false} />
+            ) : (
+              <Outlet />
+            )}
           </div>
         </main>
       </div>
