@@ -605,6 +605,20 @@ export async function createShopApi(payload: {
   return mapShop(shop as never);
 }
 
+/** Upload a shop logo or custom banner; returns a short `/uploads/…` URL. */
+export async function uploadShopAssetApi(
+  file: File,
+  kind: "logo" | "banner" = "logo",
+): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await apiFetch<{ url: string }>(`/shops/assets?kind=${kind}`, {
+    method: "POST",
+    body: form,
+  });
+  return res.url;
+}
+
 export async function publishShopApi(shopId: string) {
   const shop = await apiFetch<unknown>(`/shops/${shopId}/publish`, { method: "POST" });
   return mapShop(shop as never);

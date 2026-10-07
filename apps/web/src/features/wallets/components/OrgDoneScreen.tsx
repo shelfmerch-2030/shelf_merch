@@ -70,6 +70,36 @@ export function OrgDoneScreen({
   }
 
   if (isWalletFlow) {
+    const isTopup = state.successSource === "topup";
+
+    if (isTopup) {
+      return (
+        <div className="funding-success funding-success--topup fade-in">
+          <div className="funding-success__copy">
+            <div className="funding-success__icon" aria-hidden="true">
+              <Check strokeWidth={2.6} />
+            </div>
+            <p className="funding-success__eyebrow">
+              <span className="funding-success__eyebrow-dot" aria-hidden="true" />
+              Request received
+            </p>
+            <h1 className="funding-success__title">
+              Funding request <em>submitted.</em>
+            </h1>
+            <p className="funding-success__lead">
+              Our team will review and once approved, funds will be added to{" "}
+              <strong>{o.name || "your"}</strong> wallet.
+            </p>
+            <div className="funding-success__actions">
+              <button type="button" className="btn btn-brand btn-lg" onClick={onGoToDashboard}>
+                Go to budget dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="funding-success fade-in">
         <div className="funding-success__layout">

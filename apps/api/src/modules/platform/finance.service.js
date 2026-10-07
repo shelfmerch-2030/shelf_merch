@@ -1,6 +1,7 @@
 import { Wallet } from '../wallets/wallet.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
 import { Entity } from '../entities/entity.model.js';
+import { User } from '../users/user.model.js';
 import { Order } from '../orders/order.model.js';
 import { Payment } from '../payments/payment.model.js';
 import { Invoice } from '../invoices/invoice.model.js';
@@ -9,10 +10,12 @@ import * as ledger from '../../services/ledger.service.js';
 import * as walletsService from '../wallets/wallets.service.js';
 import { createInvoiceForPayment } from '../invoices/invoices.service.js';
 import { notify } from '../notifications/notifications.service.js';
+import { sendWalletApprovedEmail } from '../../services/email.service.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
 import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
+import { logger } from '../../config/logger.js';
 
 // ---------------------------------------------------------------------------
 // Funding approvals (§3.8) — PO/bank-transfer wallets awaiting finance sign-off
@@ -123,19 +126,38 @@ export async function approveFunding({ walletId, amount, performedBy }) {
     // Setup may still be incomplete — funds are credited regardless.
   }
 
-  if (refreshed.ownerUserId) {
-    await notify({
-      type: 'wallet_funded',
-      tenantId: refreshed.tenantId,
-      userId: refreshed.ownerUserId,
-      title: 'Budget funded',
-      body: `₹${creditAmount.toLocaleString('en-IN')} has been added to ${refreshed.name}.`,
-      link: `/app/wallets?wallet=${refreshed._id}`,
-    });
-  }
-
   const walletAfter = await getWalletAnyTenant(walletId);
   const tenant = await Tenant.findById(walletAfter.tenantId).select('name').lean();
+  const walletLink = `/app/wallets?wallet=${walletAfter._id}`;
+
+  if (walletAfter.ownerUserId) {
+    await notify({
+      type: 'wallet_funded',
+      tenantId: walletAfter.tenantId,
+      userId: walletAfter.ownerUserId,
+      title: 'Budget funded',
+      body: `₹${creditAmount.toLocaleString('en-IN')} has been added to ${walletAfter.name}.`,
+      link: walletLink,
+    });
+
+    const owner = await User.findById(walletAfter.ownerUserId).select('name email').lean();
+    // Match Budget UI: lifetime funded total (totalAmount), not spendable cash (balance).
+    const fundedTotal = Number(walletAfter.totalAmount) || 0;
+    if (owner?.email) {
+      sendWalletApprovedEmail({
+        to: owner.email,
+        recipientName: owner.name || '',
+        amount: creditAmount,
+        newBalance: fundedTotal,
+        walletName: walletAfter.name || '',
+        organizationName: tenant?.name || 'your organization',
+        link: walletLink,
+      }).catch((err) => {
+        logger.warn({ err, walletId, to: owner.email }, 'Wallet approved email failed');
+      });
+    }
+  }
+
   scheduleSlackBusinessNotification({
     tenantId: walletAfter.tenantId,
     type: SLACK_EVENT_TYPES.WALLET_APPROVED,
@@ -144,7 +166,7 @@ export async function approveFunding({ walletId, amount, performedBy }) {
     resourceId: transaction._id,
     payload: {
       amount: creditAmount,
-      newBalance: walletAfter.balance,
+      newBalance: Number(walletAfter.totalAmount) || 0,
       companyName: tenant?.name || walletAfter.name || 'company',
       poNumber: walletAfter.fundingDocument?.docNumber || '',
     },

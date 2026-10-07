@@ -18,6 +18,7 @@ import {
 import { buildDemoRequestConfirmationEmail } from './email-templates/demoRequestConfirmation.template.js';
 import { buildSignupInviteEmail } from './email-templates/signupInvite.template.js';
 import { buildBudgetAllocatedEmail } from './email-templates/budgetAllocated.template.js';
+import { buildWalletApprovedEmail } from './email-templates/walletApproved.template.js';
 import {
   buildNotificationEmail,
   buildOtpEmail,
@@ -228,6 +229,37 @@ export async function sendBudgetAllocatedEmail({
     return await sendEmail({ to, subject, text, html });
   } catch (err) {
     logger.warn({ err, to, subject }, 'Budget allocated email send failed');
+    return { success: false, provider: 'smtp' };
+  }
+}
+
+/**
+ * Notify the wallet owner that platform finance approved their funding request
+ * and credited funds to the organization wallet.
+ */
+export async function sendWalletApprovedEmail({
+  to,
+  recipientName = '',
+  amount = 0,
+  newBalance = null,
+  walletName = '',
+  organizationName = '',
+  link = '/app/wallets',
+}) {
+  const fullLink = link.startsWith('http') ? link : appUrl(link);
+  const { subject, html, text } = buildWalletApprovedEmail({
+    recipientName,
+    amount,
+    newBalance,
+    walletName,
+    organizationName,
+    link: fullLink,
+  });
+
+  try {
+    return await sendEmail({ to, subject, text, html });
+  } catch (err) {
+    logger.warn({ err, to, subject }, 'Wallet approved email send failed');
     return { success: false, provider: 'smtp' };
   }
 }

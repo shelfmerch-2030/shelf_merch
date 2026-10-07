@@ -39,5 +39,8 @@ export function kitPreferredPrintAreaKey(p: UiProduct): string {
 
 /** One default draft key per product for bulk "Add artwork" (kit polo → left). */
 export function kitDefaultSeedKeysForProducts(products: UiProduct[]): string[] {
-  return products.map((p, idx) => areaPlacementKey(p, idx, kitPreferredPrintAreaKey(p)));
+  return products.flatMap((p, idx) => {
+    if (!listPrintAreas(p).length) return [];
+    return [areaPlacementKey(p, idx, kitPreferredPrintAreaKey(p))];
+  });
 }

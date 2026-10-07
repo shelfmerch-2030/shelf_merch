@@ -8,6 +8,7 @@ import {
   collectAreaPlacements,
   collectBakeLayers,
   exportDesignOnly,
+  listPrintAreas,
   primaryAreaKey,
   type MockupUploadItem,
 } from "@/features/swag/mockup-bake";
@@ -187,7 +188,12 @@ export function useKitWizardController(): KitWizardVm {
           })
           .filter((m): m is MockupUploadItem => m != null);
 
-        if (mockups.length < draft.picked.length) {
+        // Skip products with no catalog print areas; only require a bake for
+        // products that can be branded.
+        const brandableCount = draft.picked.reduce((n, i) => {
+          return n + (listPrintAreas(catalog[i]).length > 0 ? 1 : 0);
+        }, 0);
+        if (brandableCount > 0 && mockups.length < brandableCount) {
           throw new Error("Failed to generate mockups for all kit products — try again");
         }
       }

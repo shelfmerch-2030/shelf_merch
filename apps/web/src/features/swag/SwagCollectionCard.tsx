@@ -32,7 +32,15 @@ export function SwagCollectionCard({
   busy?: boolean;
 }) {
   const isPublished = !archived && shopNames.length > 0;
-  const statusLabel = archived ? "Archived" : isDraft ? "Draft" : isPublished ? "Published" : "Ready";
+  // Shop link wins over status — a published collection must never read as Draft.
+  const showAsDraft = isDraft && !isPublished;
+  const statusLabel = archived
+    ? "Archived"
+    : isPublished
+      ? "Published"
+      : showAsDraft
+        ? "Draft"
+        : "Ready";
 
   return (
     <CollectionInlineCard
@@ -40,7 +48,7 @@ export function SwagCollectionCard({
       onProductClick={onProductClick}
       actions={
         <>
-          <span className={`tag ${archived || isDraft ? "tag-warn" : isPublished ? "tag-live" : "tag-warn"}`}>
+          <span className={`tag ${archived || showAsDraft ? "tag-warn" : isPublished ? "tag-live" : "tag-warn"}`}>
             {!archived && isPublished ? <span className="dot" /> : null}
             {statusLabel}
           </span>
@@ -53,12 +61,12 @@ export function SwagCollectionCard({
               ))}
             </div>
           ) : null}
-          {!archived && isDraft && canDesign ? (
+          {!archived && showAsDraft && canDesign ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={onEditDraft}>
               <Pencil size={14} /> Edit &amp; publish
             </button>
           ) : null}
-          {canPublish && (!isDraft || archived) ? (
+          {canPublish && (!showAsDraft || archived) ? (
             <button type="button" className="btn btn-ghost btn-sm" onClick={onPublish}>
               <Store size={14} /> {archived ? "Publish to shop" : "Publish to shop"}
             </button>

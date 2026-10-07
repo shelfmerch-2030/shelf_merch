@@ -1,3 +1,6 @@
+import { Link } from "react-router";
+import { ArrowIcon } from "./icons";
+
 export function Features() {
   return (
     <section className="section operations">
@@ -10,7 +13,15 @@ export function Features() {
             <em>Your gifting should too.</em>
           </h2>
         </div>
-        <p>One place for thoughtful one-offs, repeatable programs and every celebration in between.</p>
+        <p className="desktop-only">
+          One place for thoughtful one-offs, repeatable programs and every celebration in between.
+        </p>
+        <Link to="/platform" className="text-link operations-see-all mobile-only">
+          See all
+          <span>
+            <ArrowIcon />
+          </span>
+        </Link>
       </div>
       <div className="feature-grid">
         <article className="feature-card coral">
@@ -19,12 +30,16 @@ export function Features() {
               className="feature-icon"
               src="/images/landing/operations/icons/kits.png"
               alt=""
+              loading="lazy"
             />
             <span className="feature-number">01</span>
           </div>
           <h3>Kits</h3>
-          <p>Bundle apparel, drinkware and stationery into ready-to-ship kits.</p>
-          <div className="feature-point">
+          <p className="desktop-only">
+            Bundle apparel, drinkware and stationery into ready-to-ship kits.
+          </p>
+          <p className="mobile-only">Ready-to-ship curated kits.</p>
+          <div className="feature-point desktop-only">
             <span>✓</span>
             Curated combos. Zero hassle.
           </div>
@@ -36,12 +51,19 @@ export function Features() {
               className="feature-icon"
               src="/images/landing/operations/icons/wallet.png"
               alt=""
+              loading="lazy"
             />
             <span className="feature-number">02</span>
           </div>
-          <h3>Wallet</h3>
-          <p>Let teams spend an approved budget, fully tracked and controlled.</p>
-          <div className="feature-point">
+          <h3>
+            <span className="desktop-only">Wallet</span>
+            <span className="mobile-only">Wallets</span>
+          </h3>
+          <p className="desktop-only">
+            Let teams spend an approved budget, fully tracked and controlled.
+          </p>
+          <p className="mobile-only">Tracked budgets teams can spend.</p>
+          <div className="feature-point desktop-only">
             <span>✓</span>
             Real-time balance. Total visibility.
           </div>
@@ -53,12 +75,19 @@ export function Features() {
               className="feature-icon"
               src="/images/landing/operations/icons/spot-gifting.png"
               alt=""
+              loading="lazy"
             />
             <span className="feature-number">03</span>
           </div>
-          <h3>Spot gifting</h3>
-          <p>Send a gift the moment it matters. No operational back-and-forth.</p>
-          <div className="feature-point">
+          <h3>
+            <span className="desktop-only">Spot gifting</span>
+            <span className="mobile-only">Send gifting</span>
+          </h3>
+          <p className="desktop-only">
+            Send a gift the moment it matters. No operational back-and-forth.
+          </p>
+          <p className="mobile-only">Send a gift the moment it matters.</p>
+          <div className="feature-point desktop-only">
             <span>✓</span>
             Quick, thoughtful & on-brand.
           </div>
@@ -70,18 +99,22 @@ export function Features() {
               className="feature-icon"
               src="/images/landing/operations/icons/automated-gifting.png"
               alt=""
+              loading="lazy"
             />
             <span className="feature-number">04</span>
           </div>
           <h3>Automated gifting</h3>
-          <p>Set the rule once. Birthdays and milestones run automatically.</p>
-          <div className="feature-point">
+          <p className="desktop-only">
+            Set the rule once. Birthdays and milestones run automatically.
+          </p>
+          <p className="mobile-only">Birthdays and milestones on autopilot.</p>
+          <div className="feature-point desktop-only">
             <span>✓</span>
             Always on. Always personal.
           </div>
         </article>
       </div>
-      <div className="tag-line">
+      <div className="tag-line desktop-only">
         <span>Client &amp; prospect gifting</span>
         <span>Festivals &amp; celebrations</span>
         <span>Employee appreciation</span>

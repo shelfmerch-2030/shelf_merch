@@ -1,8 +1,18 @@
 import * as shopsService from './shops.service.js';
 import { writeAudit } from '../../services/audit.service.js';
+import { uploadFile } from '../../services/storage.service.js';
+import { ApiError } from '../../utils/errors.js';
 
 export async function list(req, res) {
   res.json(await shopsService.listShops({ tenantId: req.tenantId }));
+}
+
+/** Persist a shop logo or custom banner image; returns a short `/uploads/…` URL. */
+export async function uploadAsset(req, res) {
+  if (!req.file) throw new ApiError(400, 'No file uploaded', 'FILE_REQUIRED');
+  const kind = req.query?.kind === 'banner' ? 'mockup' : 'logo';
+  const { url } = await uploadFile({ tenantId: req.tenantId, kind, file: req.file });
+  res.status(201).json({ url });
 }
 
 export async function getOne(req, res) {

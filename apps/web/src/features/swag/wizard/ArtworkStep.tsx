@@ -414,9 +414,13 @@ export function ArtworkStep({
                     <div className="meta">
                       {p.brand ? <div className="brand">{p.brand}</div> : null}
                       <div className="nm">{p.nm}</div>
-                      <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
-                        {designed ? "Designed" : "Not Designed"}
-                      </div>
+                      {listPrintAreas(p).length ? (
+                        <div className={`sw-mockup-card-status${designed ? " is-designed" : ""}`}>
+                          {designed ? "Designed" : "Not Designed"}
+                        </div>
+                      ) : (
+                        <div className="mut3 sw-mockup-card-status">Logo Branding unavailable for this product.</div>
+                      )}
                     </div>
                   </div>
                 );
@@ -583,6 +587,10 @@ function SwagProductBrandingModal({
   }
 
   function assignArtToActive(file: ArtFile) {
+    if (!listPrintAreas(product).length) {
+      toast.error("Logo Branding unavailable for this product.");
+      return;
+    }
     if (!activeAreaKey) {
       toast.error("Select a placeholder first");
       return;
@@ -606,6 +614,10 @@ function SwagProductBrandingModal({
   }
 
   function addLibraryToPreferred() {
+    if (!listPrintAreas(product).length) {
+      toast.error("Logo Branding unavailable for this product.");
+      return;
+    }
     if (!libraryArt) {
       toast.error("Upload artwork first");
       return;
@@ -648,9 +660,11 @@ function SwagProductBrandingModal({
           <div className={`sw-brand-modal__main sw-brand-modal__main--${mode}`}>
             <div className="sw-brand-modal__stage">
               {mode === "edit" ? (
-                <p className="mut3 sw-brand-modal__hint">
-                  Click a placeholder · drag to move · corners to scale
-                </p>
+                allAreas.length ? (
+                  <p className="mut3 sw-brand-modal__hint">
+                    Click a placeholder · drag to move · corners to scale
+                  </p>
+                ) : null
               ) : (
                 <p className="mut3 sw-brand-modal__hint">Final preview — no guides or handles</p>
               )}
@@ -740,6 +754,9 @@ function SwagProductBrandingModal({
                   </MockupViewGallery>
                 )}
               </div>
+              {/* {!allAreas.length ? (
+                <p className="mut3 sw-brand-modal__no-placeholder">No placeholder for this product</p>
+              ) : null} */}
               {mode === "edit" ? (
                 <button
                   type="button"
@@ -767,7 +784,9 @@ function SwagProductBrandingModal({
 
                   <div className={`sw-art-selected-box${activeArt ? " is-ready" : ""}`}>
                     <div className="mut3 sw-art-selected-label">Selected placeholder</div>
-                    <div className="sw-art-selected-title">{activeLabel || "None"}</div>
+                    <div className="sw-art-selected-title">
+                      {allAreas.length ? activeLabel || "None" : "Logo Branding unavailable for this product."}
+                    </div>
                     {activeAreaDims ? (
                       <div className="mut3 sw-art-selected-dims">{activeAreaDims}</div>
                     ) : null}

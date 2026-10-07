@@ -13,6 +13,20 @@ import { BannerCustomUpload } from "./BannerCustomUpload";
 import { ShopHomePreview } from "./ShopHomePreview";
 import type { ShopDraft, ShopDraftAction } from "./shopDraft";
 
+type BannerDraft = {
+  bannerTheme: string;
+  bannerPreset: string;
+  bannerImageUrl: string;
+};
+
+function bannerDraftFrom(shop: ShopDraft): BannerDraft {
+  return {
+    bannerTheme: shop.bannerTheme,
+    bannerPreset: shop.bannerPreset,
+    bannerImageUrl: shop.bannerImageUrl,
+  };
+}
+
 export function ShopBuilderStep({
   draft,
   dispatch,
@@ -30,6 +44,7 @@ export function ShopBuilderStep({
   publishLabel?: string;
 }) {
   const [bannerOpen, setBannerOpen] = useState(false);
+  const [pendingBanner, setPendingBanner] = useState<BannerDraft>(() => bannerDraftFrom(draft));
   const source: BannerSource = {
     bannerTheme: draft.bannerTheme,
     bannerPreset: draft.bannerPreset,
@@ -114,7 +129,10 @@ export function ShopBuilderStep({
               <button
                 type="button"
                 className="shop-builder-banner-edit-center"
-                onClick={() => setBannerOpen(true)}
+                onClick={() => {
+                  setPendingBanner(bannerDraftFrom(draft));
+                  setBannerOpen(true);
+                }}
               >
                 <SquarePen size={15} strokeWidth={2} />
                 Edit banner
@@ -124,7 +142,12 @@ export function ShopBuilderStep({
         />
       </div>
 
-      <Dialog open={bannerOpen} onOpenChange={setBannerOpen}>
+      <Dialog
+        open={bannerOpen}
+        onOpenChange={(open) => {
+          if (!open) setBannerOpen(false);
+        }}
+      >
         <DialogContent className="sm-modal sm-banner-modal">
           <div className="modal-pad">
             <DialogHeader>
@@ -135,17 +158,15 @@ export function ShopBuilderStep({
             </p>
 
             <BannerCustomUpload
-              imageUrl={draft.bannerImageUrl}
+              imageUrl={pendingBanner.bannerImageUrl}
               onChange={(bannerImageUrl) =>
-                dispatch({
-                  type: "set",
-                  patch: {
-                    bannerImageUrl,
-                    ...(bannerImageUrl
-                      ? { bannerPreset: "", bannerTheme: draft.bannerTheme || "light" }
-                      : {}),
-                  },
-                })
+                setPendingBanner((s) => ({
+                  ...s,
+                  bannerImageUrl,
+                  ...(bannerImageUrl
+                    ? { bannerPreset: "", bannerTheme: s.bannerTheme || "light" }
+                    : {}),
+                }))
               }
             />
 
@@ -164,13 +185,15 @@ export function ShopBuilderStep({
                 <button
                   key={id}
                   type="button"
-                  className={`optcard banner-preset-card ${!draft.bannerImageUrl && draft.bannerPreset === id ? "on" : ""}`}
-                  aria-pressed={!draft.bannerImageUrl && draft.bannerPreset === id}
+                  className={`optcard banner-preset-card ${!pendingBanner.bannerImageUrl && pendingBanner.bannerPreset === id ? "on" : ""}`}
+                  aria-pressed={!pendingBanner.bannerImageUrl && pendingBanner.bannerPreset === id}
                   onClick={() =>
-                    dispatch({
-                      type: "set",
-                      patch: { bannerPreset: id, bannerTheme: "light", bannerImageUrl: "" },
-                    })
+                    setPendingBanner((s) => ({
+                      ...s,
+                      bannerPreset: id,
+                      bannerTheme: "light",
+                      bannerImageUrl: "",
+                    }))
                   }
                 >
                   <img
@@ -194,17 +217,17 @@ export function ShopBuilderStep({
             >
               <button
                 type="button"
-                className={`optcard banner-preset-card ${!draft.bannerImageUrl && draft.bannerPreset === "solid-pattern" ? "on" : ""}`}
-                aria-pressed={!draft.bannerImageUrl && draft.bannerPreset === "solid-pattern"}
+                className={`optcard banner-preset-card ${!pendingBanner.bannerImageUrl && pendingBanner.bannerPreset === "solid-pattern" ? "on" : ""}`}
+                aria-pressed={
+                  !pendingBanner.bannerImageUrl && pendingBanner.bannerPreset === "solid-pattern"
+                }
                 onClick={() =>
-                  dispatch({
-                    type: "set",
-                    patch: {
-                      bannerPreset: "solid-pattern",
-                      bannerTheme: "dark",
-                      bannerImageUrl: "",
-                    },
-                  })
+                  setPendingBanner((s) => ({
+                    ...s,
+                    bannerPreset: "solid-pattern",
+                    bannerTheme: "dark",
+                    bannerImageUrl: "",
+                  }))
                 }
               >
                 <img
@@ -216,6 +239,26 @@ export function ShopBuilderStep({
                   height={52}
                 />
                 <span className="banner-preset-label">Pattern</span>
+              </button>
+            </div>
+
+            <div className="row" style={{ marginTop: 22 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                onClick={() => setBannerOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-brand btn-block"
+                onClick={() => {
+                  dispatch({ type: "set", patch: pendingBanner });
+                  setBannerOpen(false);
+                }}
+              >
+                Ok
               </button>
             </div>
           </div>

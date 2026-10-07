@@ -217,17 +217,20 @@ export function MockupCanvas({
   const branded = productHasPrintArea(product);
   const useCoverFit = Boolean(coverFit);
 
+  // Never invent a placeholder — only catalog print areas from the superadmin.
   const layers: MockupAreaLayer[] =
     layersProp && layersProp.length
       ? layersProp
-      : [
-          {
-            areaKey: printAreaKey || "area_1",
-            label: printAreaKey || "Area 1",
-            artUrl,
-            placement,
-          },
-        ];
+      : branded
+        ? [
+            {
+              areaKey: printAreaKey || "area_1",
+              label: printAreaKey || "Area 1",
+              artUrl,
+              placement,
+            },
+          ]
+        : [];
 
   const activeAreaKey =
     activeAreaKeyProp || printAreaKey || (layersProp?.length ? undefined : layers[0]?.areaKey);
@@ -267,14 +270,16 @@ export function MockupCanvas({
     const currentLayers: MockupAreaLayer[] =
       layersRef.current && layersRef.current.length
         ? layersRef.current
-        : [
-            {
-              areaKey: printAreaKey || "area_1",
-              label: printAreaKey || "Area 1",
-              artUrl,
-              placement,
-            },
-          ];
+        : branded
+          ? [
+              {
+                areaKey: printAreaKey || "area_1",
+                label: printAreaKey || "Area 1",
+                artUrl,
+                placement,
+              },
+            ]
+          : [];
 
     (async () => {
       const fit = mockupStageFit(wrap.clientWidth, wrap.clientHeight, useCoverFit ? "cover" : "contain");
@@ -727,12 +732,12 @@ export function buildMockupLayers(
   },
 ): MockupAreaLayer[] {
   const areas = args.view ? listPrintAreasForView(product, args.view) : listPrintAreas(product);
-  const list = areas.length ? areas : args.view ? [] : [null];
+  if (!areas.length) return [];
   const primary = primaryAreaKey(product);
   const productKey = placementKey(product, args.idx);
   const allAreas = listPrintAreas(product);
-  return list.map((a) => {
-    const i = a ? Math.max(0, allAreas.indexOf(a)) : 0;
+  return areas.map((a) => {
+    const i = Math.max(0, allAreas.indexOf(a));
     const areaKey = catalogPrintAreaKey(product, a, i);
     const draftKey = areaPlacementKey(product, args.idx, areaKey);
     const artUrl =

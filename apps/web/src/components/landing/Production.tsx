@@ -9,6 +9,7 @@ export function Production() {
         <img
           src={PRODUCTION_IMAGE}
           alt="Premium embroidery and apparel production in the Shelf Merch studio"
+          loading="lazy"
         />
         <div className="image-tag">
           <svg
@@ -29,19 +30,40 @@ export function Production() {
         </div>
       </div>
       <div className="production-copy">
-        <span className="kicker light">THE ONLY MERCH PARTNER YOU NEED</span>
-        <h2>
+        <span className="kicker light desktop-only">THE ONLY MERCH PARTNER YOU NEED</span>
+        <h2 className="desktop-only">
           From design file
           <br />
           to doorstep —
           <br />
           <em>we make it ourselves.</em>
         </h2>
-        <p>
+        <h2 className="mobile-only">
+          From design file to
+          <br />
+          doorstep we make
+          <br />
+          <em>it effortless.</em>
+        </h2>
+        <p className="desktop-only">
           Most platforms resell someone else&apos;s catalog. We print, embroider and pack in-house,
           so quality, timelines and pricing stay in our control.
         </p>
-        <div className="capability-list">
+        <ul className="production-checks mobile-only">
+          <li>
+            <span aria-hidden="true">✓</span> Premium quality
+          </li>
+          <li>
+            <span aria-hidden="true">✓</span> Fast turnaround
+          </li>
+          <li>
+            <span aria-hidden="true">✓</span> Global shipping
+          </li>
+          <li>
+            <span aria-hidden="true">✓</span> Sustainable options
+          </li>
+        </ul>
+        <div className="capability-list desktop-only">
           <span>
             <svg
               aria-hidden="true"
@@ -150,7 +172,8 @@ export function Production() {
           </span>
         </div>
         <a className="button button-light" href="#contact">
-          Meet your merch partner <ArrowIcon />
+          <span className="desktop-only">Meet your merch partner</span>
+          <span className="mobile-only">See how it works</span> <ArrowIcon />
         </a>
       </div>
     </section>
