@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { login, isPlatformUser } from "../model";
-import { loginErrorMessage } from "../loginErrors";
+import { loginErrorToast } from "../loginErrors";
 
 const SESSION_EXPIRED_NOTICE = "Your session expired. Please sign in again.";
 
@@ -53,9 +53,16 @@ export function useLoginController(): LoginVm {
     } catch (err) {
       submitInFlight.current = false;
       setBusy(false);
-      const message = loginErrorMessage(err);
+      const toastCopy = loginErrorToast(err);
+      const message = toastCopy.description
+        ? `${toastCopy.title}. ${toastCopy.description}`
+        : toastCopy.title;
       setError(message);
-      toast.error(message);
+      if (toastCopy.description) {
+        toast.error(toastCopy.title, { description: toastCopy.description });
+      } else {
+        toast.error(toastCopy.title);
+      }
     }
   }
 

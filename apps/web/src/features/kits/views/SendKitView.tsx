@@ -1066,7 +1066,7 @@ export function SendKitView(vm: SendKitVm) {
                 <h3 style={{ fontSize: 15, marginBottom: 6 }}>Printed card note</h3>
                 <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
                 <textarea className="inp" rows={3} value={draft.note} onChange={e => dispatch({ type: "setNote", note: e.target.value })} />
-                <div className="card" style={{ padding: 14, background: "var(--surface-2)", marginTop: 12 }}>
+                <div className="card" style={{ padding: 14, background: "#fff", marginTop: 12 }}>
                   <div className="mut3" style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>Card preview</div>
                   <div style={{ fontFamily: "var(--disp)", fontStyle: "italic", fontSize: 14 }}>{draft.note}</div>
                   <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>The {vm.account} team</div>
