@@ -131,7 +131,7 @@ function SlackConfigurePanel({
         ) : null}
         <SlackNotificationPrefsList
           connection={connection}
-          disabled={!slack.canManage || slack.savingNotifications || slack.disconnecting}
+          disabled={!slack.canManage || slack.disconnecting}
           onUpdate={slack.onUpdateNotifications}
         />
         {slack.savingNotifications ? (

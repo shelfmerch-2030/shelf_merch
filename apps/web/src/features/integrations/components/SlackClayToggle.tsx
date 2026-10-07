@@ -26,9 +26,11 @@ export function SlackClayToggle({
       }}
     >
       <span className="bonus-integ-slack-clay-toggle__track" aria-hidden="true" />
-      <span className="bonus-integ-slack-clay-toggle__rim" aria-hidden="true" />
-      <span className="bonus-integ-slack-clay-toggle__text" aria-hidden="true">
+      <span className="bonus-integ-slack-clay-toggle__text bonus-integ-slack-clay-toggle__text--on" aria-hidden="true">
         ON
+      </span>
+      <span className="bonus-integ-slack-clay-toggle__text bonus-integ-slack-clay-toggle__text--off" aria-hidden="true">
+        OFF
       </span>
       <span className="bonus-integ-slack-clay-toggle__knob" aria-hidden="true" />
     </button>
