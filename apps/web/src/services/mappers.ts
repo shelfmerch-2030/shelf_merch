@@ -35,6 +35,8 @@ export type UiProduct = {
   category?: string;
   subcategory?: string;
   childCategory?: string;
+  /** All category names along every assigned path (multi-category placements). */
+  categoryLabels?: string[];
   description?: string;
   keyFeatures?: string;
   sizeGuide?: string;
@@ -372,6 +374,9 @@ export function mapCatalogProduct(p: ApiProduct): UiProduct {
     category: p.category || "",
     subcategory: p.subcategory || "",
     childCategory: p.childCategory || "",
+    categoryLabels: Array.isArray(p.categoryLabels)
+      ? p.categoryLabels.map((label: unknown) => String(label || "").trim()).filter(Boolean)
+      : [],
     description: p.description || "",
     keyFeatures: p.keyFeatures || "",
     sizeGuide: p.sizeGuide || "",
@@ -416,6 +421,11 @@ export function mergeCatalogProductDetails(
   return {
     ...product,
     category: product.category || fromCatalog.category,
+    subcategory: product.subcategory || fromCatalog.subcategory,
+    childCategory: product.childCategory || fromCatalog.childCategory,
+    categoryLabels: product.categoryLabels?.length
+      ? product.categoryLabels
+      : fromCatalog.categoryLabels,
     description: product.description || fromCatalog.description,
     keyFeatures: product.keyFeatures || fromCatalog.keyFeatures,
     sizeGuide: product.sizeGuide || fromCatalog.sizeGuide,

@@ -112,7 +112,7 @@ export function KitDetailView(vm: KitDetailVm) {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 16, background: "var(--surface-2)" }}>
+          <div className="card" style={{ padding: 16, background: "#fff" }}>
             <div className="row" style={{ gap: 10 }}>
               <Box size={18} color="var(--brand)" />
               <div>
@@ -126,7 +126,7 @@ export function KitDetailView(vm: KitDetailVm) {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 16, background: "var(--surface-2)" }}>
+          <div className="card" style={{ padding: 16, background: "#fff" }}>
             <div className="row" style={{ gap: 10 }}>
               <CheckCircle2 size={18} color="var(--brand)" />
               <div>

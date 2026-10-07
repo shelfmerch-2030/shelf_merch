@@ -552,7 +552,7 @@ export function useSendPointsController(): SendPointsVm {
       if (successNavTimer.current) clearTimeout(successNavTimer.current);
       successNavTimer.current = setTimeout(() => {
         navigate(`/app/shops/${String(shopId)}?tab=sent-gifts`);
-      }, 1400);
+      }, 5000);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to launch campaign";
       setSendPhase("error");

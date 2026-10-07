@@ -142,7 +142,7 @@ export function Step4Managers({ state, dispatch }: StepProps) {
               gap: 16,
               padding: "14px 18px",
               borderTop: "1px solid var(--line)",
-              background: "var(--surface-2)",
+              background: "#fff",
             }}
           >
             <div style={{ minWidth: 0 }}>

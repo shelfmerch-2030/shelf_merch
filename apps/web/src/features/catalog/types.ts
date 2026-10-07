@@ -333,16 +333,12 @@ export function buildStyleTaxonomyTiles(
 
 /** Match a product to a Category (product.subcategory) or legacy category string. */
 export function productMatchesSubcategory(product: UiProduct, subcategory: string): boolean {
-  const target = String(subcategory || "").trim().toLowerCase();
-  if (!target) return true;
-  const sub = String(product.subcategory || "").trim().toLowerCase();
-  const cat = String(product.category || "").trim().toLowerCase();
-  const child = String(product.childCategory || "").trim().toLowerCase();
-  return sub === target || cat === target || child === target;
+  return productMatchesLevel(product, "category", subcategory);
 }
 
 /**
  * Match a product against a taxonomy level.
+ * Primary path fields still apply; `categoryLabels` covers extra placements.
  * - parent → product.category
  * - category → product.subcategory (or legacy category / childCategory)
  * - subcategory → product.childCategory (or legacy subcategory)
@@ -354,6 +350,12 @@ export function productMatchesLevel(
 ): boolean {
   const target = String(name || "").trim().toLowerCase();
   if (!target) return true;
+
+  const labels = (product.categoryLabels ?? [])
+    .map((label) => String(label || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (labels.includes(target)) return true;
+
   const parent = String(product.category || "").trim().toLowerCase();
   const category = String(product.subcategory || "").trim().toLowerCase();
   const subcategory = String(product.childCategory || "").trim().toLowerCase();
@@ -400,8 +402,8 @@ export function pickStyleTileImage(
   }
 
   const byParent = products.find((product) => {
-    const cat = String(product.category || "").trim().toLowerCase();
-    return cat === parent.toLowerCase() && withPhoto(product);
+    if (productMatchesLevel(product, "parent", parent) && withPhoto(product)) return true;
+    return false;
   });
   return (byParent && productPhotoUrl(byParent)) || fallback;
 }

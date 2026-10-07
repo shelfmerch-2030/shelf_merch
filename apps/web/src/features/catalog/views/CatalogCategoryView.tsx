@@ -65,10 +65,27 @@ function CategoryPageSkeleton() {
 }
 
 /**
- * When a Parent has a single Category that shares its name (Apparel → Apparel),
- * collapse that level and treat Sub-Categories as the sidebar list.
+ * Sidebar shows Sub-Categories (leaves) when:
+ * - URL lands on a Category that has children (Drinkware → Mugs, Tumblers, …), or
+ * - Parent has a single Category that shares its name (Apparel → Apparel → T-Shirts, …).
  */
-function resolveBrowseLevels(nodes: readonly CatalogCategoryChild[], parentName: string) {
+function resolveBrowseLevels(
+  nodes: readonly CatalogCategoryChild[],
+  parentName: string,
+  focusCategory: string | null,
+) {
+  if (focusCategory) {
+    const focusNode = nodes.find((node) => node.name === focusCategory);
+    if (focusNode && (focusNode.children?.length ?? 0) > 0) {
+      return {
+        collapsed: true as const,
+        categories: focusNode.children ?? [],
+        categoryNodes: nodes,
+        focusCategory,
+      };
+    }
+  }
+
   const collapsed =
     nodes.length === 1 &&
     nodes[0]?.name === parentName &&
@@ -79,12 +96,14 @@ function resolveBrowseLevels(nodes: readonly CatalogCategoryChild[], parentName:
       collapsed: true as const,
       categories: nodes[0].children ?? [],
       categoryNodes: nodes,
+      focusCategory: null as string | null,
     };
   }
   return {
     collapsed: false as const,
     categories: nodes,
     categoryNodes: nodes,
+    focusCategory: null as string | null,
   };
 }
 
@@ -95,30 +114,50 @@ export function CatalogCategoryView(vm: CatalogVm) {
   const parentName = vm.parent;
   const isKitsCategory = parentName === KITS_CATEGORY;
 
-  const slides = useMemo(
-    () => vm.categories.filter((category) => category !== ALL_PRODUCTS),
-    [vm.categories],
+  const parentCategories = vm.categoriesByParent[parentName] ?? [];
+  const levels = useMemo(
+    () => resolveBrowseLevels(parentCategories, parentName, vm.category),
+    [parentCategories, parentName, vm.category],
   );
-  const currentIndex = Math.max(0, slides.indexOf(parentName));
-  const prevCategory = slides[(currentIndex - 1 + slides.length) % slides.length];
-  const nextCategory = slides[(currentIndex + 1) % slides.length];
-  const heroImage = CATEGORY_IMAGES[parentName] ?? apparelImg;
+
+  /** Hero cycles Categories (depth 1), never Parent roots. */
+  const categorySlides = useMemo(() => {
+    if (parentCategories.length > 0) {
+      return parentCategories.map((node) => node.name);
+    }
+    // Parent with no Category children (flat / Kits-style) — fall back to the parent itself.
+    return parentName && parentName !== ALL_PRODUCTS ? [parentName] : [];
+  }, [parentCategories, parentName]);
+
+  const displayName =
+    levels.focusCategory ??
+    vm.category ??
+    (parentCategories.length === 1 ? parentCategories[0].name : null) ??
+    categorySlides[0] ??
+    parentName;
+
+  const currentIndex = Math.max(0, categorySlides.indexOf(displayName));
+  const prevCategory =
+    categorySlides[(currentIndex - 1 + categorySlides.length) % categorySlides.length] ?? displayName;
+  const nextCategory =
+    categorySlides[(currentIndex + 1) % categorySlides.length] ?? displayName;
+  const heroImage = CATEGORY_IMAGES[displayName] ?? CATEGORY_IMAGES[parentName] ?? apparelImg;
   const heroCopy =
+    CATEGORY_COPY[displayName] ??
     CATEGORY_COPY[parentName] ??
     "Browse curated products in this category and open any item to see full details.";
 
-  const parentCategories = vm.categoriesByParent[parentName] ?? [];
-  const levels = useMemo(
-    () => resolveBrowseLevels(parentCategories, parentName),
-    [parentCategories, parentName],
-  );
-
   /**
-   * URL may land on a Category (Stationery) or Sub-Category (Diaries / T-Shirts).
-   * For collapsed Apparel, vm.subcategory is the leaf and vm.category is "Apparel".
+   * URL may land on a Category (Drinkware / Stationery) or Sub-Category (Mugs / T-Shirts).
+   * When the sidebar lists leaves, the selected sidebar item is the Sub-Category.
    */
   const urlCategory = levels.collapsed
-    ? vm.subcategory ?? (vm.category !== parentName ? vm.category : null)
+    ? vm.subcategory ??
+      (levels.focusCategory
+        ? null
+        : vm.category !== parentName
+          ? vm.category
+          : null)
     : vm.category;
   const urlSubcategory = levels.collapsed ? null : vm.subcategory;
 
@@ -141,9 +180,19 @@ export function CatalogCategoryView(vm: CatalogVm) {
     setSelectedSubcategory(next);
   }
 
+  /** When browsing a Parent, selecting a Category with leaves drills the sidebar into those leaves. */
+  const drilledCategoryNode = useMemo(() => {
+    if (levels.collapsed || !selectedCategory) return null;
+    const node = levels.categoryNodes.find((entry) => entry.name === selectedCategory);
+    return node && (node.children?.length ?? 0) > 0 ? node : null;
+  }, [levels.collapsed, levels.categoryNodes, selectedCategory]);
+
+  const showingLeaves = levels.collapsed || Boolean(drilledCategoryNode);
+  const leafScopeName = levels.focusCategory ?? drilledCategoryNode?.name ?? parentName;
+
   const sidebarCategories = useMemo(() => {
-    const defined = levels.categories.map((node) => node.name);
     if (isKitsCategory) {
+      const defined = levels.categories.map((node) => node.name);
       return defined.filter((sub) => {
         if (sub === PREDESIGNED_KITS_SUBCATEGORY) {
           return (
@@ -161,14 +210,21 @@ export function CatalogCategoryView(vm: CatalogVm) {
       });
     }
 
-    if (levels.collapsed) {
-      // Sidebar shows Sub-Categories (T-Shirts, …); match childCategory or legacy subcategory.
-      const fromProducts = vm.items
+    const scopeCategory = levels.focusCategory ?? drilledCategoryNode?.name ?? null;
+
+    if (showingLeaves) {
+      const defined = levels.collapsed
+        ? levels.categories.map((node) => node.name)
+        : (drilledCategoryNode?.children ?? []).map((leaf) => leaf.name);
+      const pool = scopeCategory
+        ? vm.items.filter((item) => productMatchesLevel(item, "category", scopeCategory))
+        : vm.items;
+      const fromProducts = pool
         .map((item) => String(item.childCategory || item.subcategory || "").trim())
         .filter(Boolean);
       const merged = Array.from(new Set([...defined, ...fromProducts]));
       const withProducts = merged.filter((name) =>
-        vm.items.some(
+        pool.some(
           (item) =>
             productMatchesLevel(item, "subcategory", name) ||
             productMatchesLevel(item, "category", name),
@@ -179,6 +235,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
       return withoutOthers;
     }
 
+    const defined = levels.categories.map((node) => node.name);
     const fromProducts = vm.items
       .map((item) => String(item.subcategory || "").trim())
       .filter(Boolean);
@@ -189,28 +246,23 @@ export function CatalogCategoryView(vm: CatalogVm) {
     const withoutOthers = withProducts.filter((name) => name !== "Others");
     if (withProducts.includes("Others")) withoutOthers.push("Others");
     return withoutOthers;
-  }, [levels, vm.items, isKitsCategory, kitsVm.allKits]);
-
-  const subcategoryChips = useMemo(() => {
-    if (levels.collapsed || !selectedCategory) return [];
-    const node = levels.categoryNodes.find((entry) => entry.name === selectedCategory);
-    const defined = (node?.children ?? []).map((leaf) => leaf.name);
-    if (!defined.length) return [];
-    const fromProducts = vm.items
-      .filter((item) => productMatchesLevel(item, "category", selectedCategory))
-      .map((item) => String(item.childCategory || "").trim())
-      .filter(Boolean);
-    const merged = Array.from(new Set([...defined, ...fromProducts]));
-    return merged.filter(
-      (name) =>
-        name !== "Others" &&
-        vm.items.some((item) => productMatchesLevel(item, "subcategory", name)),
-    );
-  }, [levels, selectedCategory, vm.items]);
+  }, [
+    levels,
+    vm.items,
+    isKitsCategory,
+    kitsVm.allKits,
+    showingLeaves,
+    drilledCategoryNode,
+  ]);
 
   const filteredItems = useMemo(() => {
     let items = vm.items;
+    const scopeCategory = levels.focusCategory ?? drilledCategoryNode?.name ?? null;
+
     if (levels.collapsed) {
+      if (scopeCategory) {
+        items = items.filter((item) => productMatchesLevel(item, "category", scopeCategory));
+      }
       if (selectedCategory) {
         items = items.filter(
           (item) =>
@@ -220,6 +272,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
       }
       return items;
     }
+
     if (selectedCategory) {
       items = items.filter((item) => productMatchesLevel(item, "category", selectedCategory));
     }
@@ -227,7 +280,14 @@ export function CatalogCategoryView(vm: CatalogVm) {
       items = items.filter((item) => productMatchesLevel(item, "subcategory", selectedSubcategory));
     }
     return items;
-  }, [vm.items, levels.collapsed, selectedCategory, selectedSubcategory]);
+  }, [
+    vm.items,
+    levels.collapsed,
+    levels.focusCategory,
+    drilledCategoryNode,
+    selectedCategory,
+    selectedSubcategory,
+  ]);
 
   const hasKitProducts = filteredItems.length > 0;
   const kitsStillLoading = kitsVm.isLoading && kitsVm.allKits.length === 0;
@@ -240,10 +300,71 @@ export function CatalogCategoryView(vm: CatalogVm) {
     !kitsVm.errorMessage &&
     !vm.errorMessage;
 
-  const sidebarLabel = levels.collapsed || isKitsCategory ? "Categories" : "Categories";
-  const crumbCategory = selectedCategory;
-  const crumbSubcategory = levels.collapsed ? null : selectedSubcategory;
-  const filterLabel = crumbSubcategory || crumbCategory;
+  const tagsLabel = showingLeaves ? "Sub-categories" : "Categories";
+  const crumbCategory = levels.focusCategory
+    ?? (drilledCategoryNode ? drilledCategoryNode.name : selectedCategory);
+  const crumbSubcategory = levels.focusCategory
+    ? selectedCategory
+    : levels.collapsed
+      ? null
+      : selectedSubcategory;
+  const filterLabel =
+    (levels.collapsed ? selectedCategory : selectedSubcategory) ||
+    levels.focusCategory ||
+    drilledCategoryNode?.name ||
+    selectedCategory ||
+    null;
+  const allTagsLabel = showingLeaves ? `All ${leafScopeName}` : `All ${parentName}`;
+  const activeTag = showingLeaves
+    ? levels.collapsed
+      ? selectedCategory
+      : selectedSubcategory
+    : selectedCategory;
+
+  function selectTag(next: string | null) {
+    if (levels.collapsed) {
+      selectCategory(next);
+      return;
+    }
+    if (drilledCategoryNode) {
+      if (next === null) {
+        // "All {Category}" — stay drilled into this Category, clear leaf filter.
+        selectSubcategory(null);
+        return;
+      }
+      selectSubcategory(next);
+      return;
+    }
+    selectCategory(next);
+  }
+
+  const tagFilters =
+    sidebarCategories.length > 0 ? (
+      <nav className="sm-cat-page__tags" aria-label={tagsLabel}>
+        {!levels.focusCategory && drilledCategoryNode ? (
+          <button type="button" className="sm-cat-page__tag" onClick={() => selectCategory(null)}>
+            All {parentName}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={`sm-cat-page__tag${!activeTag ? " sm-cat-page__tag--active" : ""}`}
+          onClick={() => selectTag(null)}
+        >
+          {allTagsLabel}
+        </button>
+        {sidebarCategories.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={`sm-cat-page__tag${activeTag === name ? " sm-cat-page__tag--active" : ""}`}
+            onClick={() => selectTag(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </nav>
+    ) : null;
 
   return (
     <div className="sm-cat-page sm-cat-page--public">
@@ -281,25 +402,29 @@ export function CatalogCategoryView(vm: CatalogVm) {
         <header className="sm-cat-page__hero">
           <div className="sm-cat-page__hero-copy">
             <p className="sm-cat-page__eyebrow">The best in</p>
-            <h1 className="sm-cat-page__title">{parentName}</h1>
+            <h1 className="sm-cat-page__title">{displayName}</h1>
             <p className="sm-cat-page__copy">{heroCopy}</p>
             <div className="sm-cat-page__hero-nav">
-              <button
-                type="button"
-                className="sm-cat-page__hero-arrow"
-                aria-label={`Previous category, ${prevCategory}`}
-                onClick={() => vm.onCategory(prevCategory)}
-              >
-                <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="sm-cat-page__hero-arrow"
-                aria-label={`Next category, ${nextCategory}`}
-                onClick={() => vm.onCategory(nextCategory)}
-              >
-                <ChevronRight size={18} strokeWidth={2} aria-hidden="true" />
-              </button>
+              {categorySlides.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    className="sm-cat-page__hero-arrow"
+                    aria-label={`Previous category, ${prevCategory}`}
+                    onClick={() => vm.onCategory(prevCategory)}
+                  >
+                    <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="sm-cat-page__hero-arrow"
+                    aria-label={`Next category, ${nextCategory}`}
+                    onClick={() => vm.onCategory(nextCategory)}
+                  >
+                    <ChevronRight size={18} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
           <div className="sm-cat-page__hero-visual">
@@ -308,62 +433,8 @@ export function CatalogCategoryView(vm: CatalogVm) {
         </header>
 
         <div className="sm-cat-page__body">
-          {sidebarCategories.length > 0 ? (
-            <aside className="sm-cat-page__subs" aria-label={sidebarLabel}>
-              <p className="sm-cat-page__subs-label">{sidebarLabel}</p>
-              <nav className="sm-cat-page__subs-list">
-                <button
-                  type="button"
-                  className={`sm-cat-page__sub${!selectedCategory ? " sm-cat-page__sub--active" : ""}`}
-                  onClick={() => selectCategory(null)}
-                >
-                  All {parentName}
-                </button>
-                {sidebarCategories.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    className={`sm-cat-page__sub${
-                      selectedCategory === name ? " sm-cat-page__sub--active" : ""
-                    }`}
-                    onClick={() => selectCategory(name)}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </nav>
-              {subcategoryChips.length > 0 ? (
-                <>
-                  <p className="sm-cat-page__subs-label" style={{ marginTop: 16 }}>
-                    Sub-categories
-                  </p>
-                  <nav className="sm-cat-page__subs-list" aria-label="Sub-categories">
-                    <button
-                      type="button"
-                      className={`sm-cat-page__sub${!selectedSubcategory ? " sm-cat-page__sub--active" : ""}`}
-                      onClick={() => selectSubcategory(null)}
-                    >
-                      All {selectedCategory}
-                    </button>
-                    {subcategoryChips.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        className={`sm-cat-page__sub${
-                          selectedSubcategory === name ? " sm-cat-page__sub--active" : ""
-                        }`}
-                        onClick={() => selectSubcategory(name)}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </nav>
-                </>
-              ) : null}
-            </aside>
-          ) : null}
-
           <div className="sm-cat-page__main">
+            {tagFilters}
             {isKitsCategory ? (
               <>
                 <CatalogKitsGrid

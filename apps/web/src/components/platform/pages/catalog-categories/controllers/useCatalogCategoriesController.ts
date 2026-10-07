@@ -52,8 +52,9 @@ export function useCatalogCategoriesController() {
     const current = findCategory(tree, editingId);
     if (current) for (const id of descendantIds(current)) excludedParentIds.add(id);
   }
+  // Any active node can be a parent so admins can add a 4th+ level under Sub-Category.
   const parentOptions = flattenActiveCategories(tree).filter(
-    (option) => option.depth <= 1 && !excludedParentIds.has(option.category._id),
+    (option) => !excludedParentIds.has(option.category._id),
   );
 
   function refresh() {

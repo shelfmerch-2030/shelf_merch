@@ -24,11 +24,7 @@ export function ProductWizardView({
   previewColor,
   imageView,
   categoryOptions,
-  subcategoryOptions,
-  childCategoryOptions,
   categoriesLoading,
-  subcategoriesLoading,
-  childCategoriesLoading,
   colorSwatches,
   activeSwatch,
   firstHex,
@@ -54,6 +50,7 @@ export function ProductWizardView({
   onBack,
   onStep,
   onSet,
+  onToggleCategory,
   onVariant,
   onPrintAreas,
   onPhysicalDimensions,
@@ -108,63 +105,54 @@ export function ProductWizardView({
         {step === 0 && (
           <>
             <div className="row" style={{ gap: 14 }}>
-              <div className="field" style={{ flex: 2 }}>
+              <div className="field" style={{ flex: 1 }}>
                 <label className="lbl">Product name</label>
                 <input className="inp" value={details.name} onChange={(e) => onSet("name", e.target.value)} />
               </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Parent category</label>
-                <select
-                  className="inp"
-                  value={details.category}
-                  disabled={categoriesLoading}
-                  onChange={(e) => onSet("category", e.target.value)}
-                >
-                  <option value="" disabled>
-                    {categoriesLoading ? "Loading parent categories" : "Select a parent category"}
-                  </option>
-                  {categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Category</label>
-                <select
-                  className="inp"
-                  value={details.subcategory || ""}
-                  disabled={!details.category || subcategoriesLoading}
-                  onChange={(e) => onSet("subcategory", e.target.value)}
-                >
-                  <option value="" disabled>
-                    {subcategoriesLoading ? "Loading categories" : "Select a category"}
-                  </option>
-                  {subcategoryOptions.map((subcategory) => (
-                    <option key={subcategory} value={subcategory}>
-                      {subcategory}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label className="lbl">Sub-category</label>
-                <select
-                  className="inp"
-                  value={details.childCategory || ""}
-                  disabled={!details.subcategory || childCategoriesLoading}
-                  onChange={(e) => onSet("childCategory", e.target.value)}
-                >
-                  <option value="">
-                    {childCategoriesLoading ? "Loading sub-categories" : "None"}
-                  </option>
-                  {childCategoryOptions.map((childCategory) => (
-                    <option key={childCategory} value={childCategory}>
-                      {childCategory}
-                    </option>
-                  ))}
-                </select>
+            </div>
+            <div className="field">
+              <label className="lbl">Categories</label>
+              <p className="muted" style={{ margin: "0 0 8px", fontSize: 12 }}>
+                Select one or more categories where this product should appear.
+              </p>
+              <div
+                style={{
+                  maxHeight: 220,
+                  overflow: "auto",
+                  border: "1px solid var(--line, #e6e6e6)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                }}
+              >
+                {categoriesLoading ? (
+                  <span className="muted">Loading categories…</span>
+                ) : categoryOptions.length === 0 ? (
+                  <span className="muted">No categories available.</span>
+                ) : (
+                  categoryOptions.map((option) => {
+                    const checked = (details.categoryIds ?? []).includes(option.id);
+                    return (
+                      <label
+                        key={option.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "4px 0",
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => onToggleCategory(option.id)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })
+                )}
               </div>
             </div>
             <div className="field">
@@ -257,11 +245,8 @@ export function ProductWizardView({
               disabled={
                 busy ||
                 categoriesLoading ||
-                subcategoriesLoading ||
-                childCategoriesLoading ||
                 !details.name ||
-                !details.category ||
-                (subcategoryOptions.length > 0 && !details.subcategory) ||
+                !(details.categoryIds ?? []).length ||
                 !details.sellingPriceInr
               }
               onClick={onSaveDetails}

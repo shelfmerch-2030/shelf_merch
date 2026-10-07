@@ -4,6 +4,7 @@ import {
   canSaveSlackChannel,
   canSendSlackTestMessage,
   formatSlackChannelLabel,
+  groupSlackNotificationOptions,
   resolveSlackNotificationPrefs,
   SLACK_NOTIFICATIONS_DESCRIPTION,
   SLACK_NOTIFICATIONS_TITLE,
@@ -53,6 +54,22 @@ describe("Slack notification preferences UI helpers", () => {
     expect(labels).not.toContain("Phase");
     expect(SLACK_NOTIFICATIONS_TITLE).toBe("Notifications");
     expect(SLACK_NOTIFICATIONS_DESCRIPTION).toContain("ShelfMerch activity");
+  });
+
+  it("groups notification options into preference sections", () => {
+    const groups = groupSlackNotificationOptions();
+    expect(groups.map((g) => g.category)).toEqual([
+      "Finance",
+      "Rewards",
+      "Orders & delivery",
+      "Store",
+    ]);
+    expect(groups[0].items.map((i) => i.label)).toEqual([
+      "Wallet funded",
+      "Budget assigned",
+      "Low budget alerts",
+    ]);
+    expect(groups.every((g) => g.items.every((i) => i.description.length > 0))).toBe(true);
   });
 
   it("resolves saved notification values with legacy orderDispatched fallback", () => {
