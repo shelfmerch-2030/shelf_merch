@@ -1,58 +1,59 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { UiProduct } from "@/services/mappers";
 import { ProductThumb } from "@/features/shops/ProductThumb";
+import { useCatalogCategoryTree } from "@/features/catalog/model";
+import {
+  ALL_PRODUCTS,
+  FALLBACK_CATALOG_NODES,
+  productMatchesLevel,
+  resolveCatalogBrowseTarget,
+  type CatalogCategoryChild,
+  type CatalogCategoryNode,
+} from "@/features/catalog/types";
 import { productColorHex, productColorNames } from "../colors";
 
-const CATS = [
-  "All Products",
-  "Apparel",
-  "Accessories",
-  "Bags",
-  "Drinkware",
-  "Technology",
-  "Office Supplies",
-];
-const CAT_MAP: Record<string, string[]> = {
-  Apparel: ["tee", "hoodie", "cap"],
-  Accessories: ["keychain", "key", "badge", "lanyard"],
-  Bags: ["pack", "bag"],
-  Drinkware: ["bottle", "mug"],
-  Technology: ["power"],
-  // In catalog mapping, "Office" tends to map to group `note`
-  // (see `GROUP_BY_CATEGORY` in `apps/web/src/services/mappers.ts`).
-  "Office Supplies": ["note", "notebook", "pen", "cardholder", "card"],
-};
+function mapPublicChildren(
+  children: { name: string; slug: string; children?: unknown[] }[] | undefined,
+): CatalogCategoryChild[] {
+  return (children ?? []).map((child) => ({
+    name: child.name,
+    slug: child.slug,
+    children: mapPublicChildren(
+      child.children as { name: string; slug: string; children?: unknown[] }[] | undefined,
+    ),
+  }));
+}
 
-function matchesSwagCatalogTab(tab: string, p: UiProduct): boolean {
-  if (tab === "All Products") return true;
+/** Same tab set as CatalogView style carousel: Accessories expands to Categories. */
+function buildStyleCategoryTabs(nodes: readonly CatalogCategoryNode[]): string[] {
+  const tabs: string[] = [ALL_PRODUCTS];
 
-  const g = String(p.g || "").toLowerCase().trim();
-  const category = String(p.category || "").toLowerCase().trim();
-  const subcategory = String(p.subcategory || "").toLowerCase().trim();
-  const name = String(p.nm || "").toLowerCase().trim();
-  const hay = `${category} ${subcategory} ${name}`;
-
-  // Keep these tab labels user-friendly but match against the real underlying group/category/name
-  // fields that come back from the catalog mapper.
-  if (tab === "Accessories") {
-    return (
-      (CAT_MAP[tab] || []).includes(g) ||
-      category === "accessories" ||
-      category === "key chains" ||
-      /key\s*chain|keychain|lanyard|badge/.test(hay)
-    );
+  for (const node of nodes) {
+    if (node.name === "Accessories") {
+      for (const child of node.children) {
+        if (child.name === "Others") continue;
+        tabs.push(child.name);
+      }
+      continue;
+    }
+    tabs.push(node.name);
   }
 
-  if (tab === "Office Supplies") {
-    return (
-      (CAT_MAP[tab] || []).includes(g) ||
-      category === "office supplies" ||
-      category === "card holders" ||
-      /office|stationery|notebook|pen|diary|journal|note|card\s*holder|cardholder/.test(hay)
-    );
-  }
+  return tabs;
+}
 
-  return (CAT_MAP[tab] || []).includes(g);
+function matchesCatalogCategoryTab(
+  tab: string,
+  product: UiProduct,
+  nodes: readonly CatalogCategoryNode[],
+): boolean {
+  if (tab === ALL_PRODUCTS) return true;
+
+  const { parent, category, subcategory } = resolveCatalogBrowseTarget(tab, nodes);
+  if (subcategory) return productMatchesLevel(product, "subcategory", subcategory);
+  if (category) return productMatchesLevel(product, "category", category);
+  if (parent !== ALL_PRODUCTS) return productMatchesLevel(product, "parent", parent);
+  return true;
 }
 
 export function CatalogStep({
@@ -68,10 +69,26 @@ export function CatalogStep({
   title?: string;
   subtitle?: string;
 }) {
-  const [cat, setCat] = useState("All Products");
+  const categoryTree = useCatalogCategoryTree();
+  const categoryNodes = useMemo(() => {
+    const remote = categoryTree.data;
+    if (remote && remote.length) {
+      return remote.map((node) => ({
+        name: node.name,
+        slug: node.slug,
+        children: mapPublicChildren(node.children),
+      }));
+    }
+    return FALLBACK_CATALOG_NODES;
+  }, [categoryTree.data]);
+
+  const cats = useMemo(() => buildStyleCategoryTabs(categoryNodes), [categoryNodes]);
+  const [cat, setCat] = useState(ALL_PRODUCTS);
+  const activeCat = cats.includes(cat) ? cat : ALL_PRODUCTS;
+
   const entries = catalog
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => matchesSwagCatalogTab(cat, p));
+    .filter(({ p }) => matchesCatalogCategoryTab(activeCat, p, categoryNodes));
 
   return (
     <>
@@ -96,13 +113,13 @@ export function CatalogStep({
         role="tablist"
         aria-label="Product categories"
       >
-        {CATS.map((c) => (
+        {cats.map((c) => (
           <button
             key={c}
             type="button"
             role="tab"
-            aria-selected={cat === c}
-            className={cat === c ? "on" : ""}
+            aria-selected={activeCat === c}
+            className={activeCat === c ? "on" : ""}
             onClick={() => setCat(c)}
           >
             {c}

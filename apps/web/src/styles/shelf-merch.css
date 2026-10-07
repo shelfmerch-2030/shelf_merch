@@ -19923,28 +19923,100 @@ tr:hover .camp-avatar {
   font-weight: 450;
   line-height: 1.4;
 }
-.bonus-integ-slack-notify-switch {
+/* Claymorphic Slack notification toggle (#b9d4ff when ON) */
+.bonus-integ-slack-clay-toggle {
+  --clay-w: 72px;
+  --clay-h: 36px;
+  --clay-pad: 4px;
+  --clay-knob: 28px;
+  --clay-on: #b9d4ff;
+  --clay-off: #d0d5dd;
+  --clay-knob-fill: #f7f4ef;
+  position: relative;
   flex: none;
-  height: 24px !important;
-  width: 44px !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  background: #e4e7ec !important;
+  width: var(--clay-w);
+  height: var(--clay-h);
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.bonus-integ-slack-notify-switch[data-state="checked"] {
-  background: #b9d4ff !important;
+.bonus-integ-slack-clay-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
-.bonus-integ-slack-notify-switch > span {
-  height: 20px !important;
-  width: 20px !important;
-  background: #fff !important;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12) !important;
+.bonus-integ-slack-clay-toggle:focus-visible {
+  outline: 3px solid rgba(185, 212, 255, 0.65);
+  outline-offset: 3px;
 }
-.bonus-integ-slack-notify-switch[data-state="checked"] > span {
-  transform: translateX(20px) !important;
+.bonus-integ-slack-clay-toggle__track {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--clay-off);
+  box-shadow:
+    inset 0 2px 3px rgba(16, 24, 40, 0.18),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(16, 24, 40, 0.08);
+  transition: background 180ms ease, box-shadow 180ms ease;
 }
-.bonus-integ-slack-notify-switch:focus-visible {
-  box-shadow: 0 0 0 3px rgba(185, 212, 255, 0.45) !important;
+.bonus-integ-slack-clay-toggle[aria-checked="true"] .bonus-integ-slack-clay-toggle__track {
+  background: var(--clay-on);
+  box-shadow:
+    inset 0 2px 4px rgba(37, 99, 235, 0.22),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(16, 24, 40, 0.08);
+}
+.bonus-integ-slack-clay-toggle__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(16, 24, 40, 0.12);
+}
+.bonus-integ-slack-clay-toggle__text {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #f7f4ef;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35),
+    0 -1px 0 rgba(37, 99, 235, 0.15);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  user-select: none;
+  pointer-events: none;
+}
+.bonus-integ-slack-clay-toggle[aria-checked="true"] .bonus-integ-slack-clay-toggle__text {
+  opacity: 1;
+}
+.bonus-integ-slack-clay-toggle__knob {
+  position: absolute;
+  top: 50%;
+  left: var(--clay-pad);
+  width: var(--clay-knob);
+  height: var(--clay-knob);
+  margin-top: calc(var(--clay-knob) / -2);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, #ffffff 0%, var(--clay-knob-fill) 58%, #ebe6de 100%);
+  box-shadow:
+    0 2px 4px rgba(16, 24, 40, 0.22),
+    0 1px 1px rgba(16, 24, 40, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -1px 1px rgba(16, 24, 40, 0.08);
+  transition: left 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bonus-integ-slack-clay-toggle[aria-checked="true"] .bonus-integ-slack-clay-toggle__knob {
+  left: calc(100% - var(--clay-pad) - var(--clay-knob));
 }
 
 
