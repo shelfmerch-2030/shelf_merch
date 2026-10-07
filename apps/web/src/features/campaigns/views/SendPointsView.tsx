@@ -242,7 +242,7 @@ export function SendPointsView({
                 }
                 placeholder={SEND_POINTS_PLACEHOLDERS.points}
                 readOnly
-                style={{ background: "var(--surface-2)" }}
+                style={{ background: "#fff" }}
               />
               <span className="inp-suffix">{usesCredits ? "CREDITS" : "POINTS"}</span>
             </div>
@@ -262,7 +262,7 @@ export function SendPointsView({
             style={{
               marginTop: 18,
               padding: 18,
-              background: "var(--surface-2)", 
+              background: "#fff",
               border: "1px solid var(--line)",
             }}
           >

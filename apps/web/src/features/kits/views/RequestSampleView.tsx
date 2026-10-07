@@ -149,7 +149,7 @@ function ProductCard({
 export function RequestSampleView(vm: RequestSampleVm) {
   if (vm.isLoading) {
     return (
-      <FullscreenOverlay style={{ background: "var(--bg)" }}>
+      <FullscreenOverlay>
         <LoadingState message="Loading kit…" fullScreen={false} />
       </FullscreenOverlay>
     );
@@ -166,7 +166,7 @@ export function RequestSampleView(vm: RequestSampleVm) {
   }
   if (vm.isSubmitting) {
     return (
-      <FullscreenOverlay style={{ background: "var(--bg)" }}>
+      <FullscreenOverlay>
         <LoadingState message="Requesting sample…" fullScreen={false} />
       </FullscreenOverlay>
     );
@@ -175,7 +175,7 @@ export function RequestSampleView(vm: RequestSampleVm) {
   if (vm.success) {
     const s = vm.success;
     return (
-      <FullscreenOverlay style={{ background: "var(--bg)" }}>
+      <FullscreenOverlay>
       <main className="sample-flow" style={{ padding: "28px 34px 48px" }}>
         <section className="card sample-success">
           <h1>Sample requested successfully</h1>

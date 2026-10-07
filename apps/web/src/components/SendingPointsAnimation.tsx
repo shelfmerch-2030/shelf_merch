@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Gift } from "lucide-react";
+import { SendingRocketArt } from "./SendingRocketArt";
 
 export type SendingPointsRecipient = {
   id: string;
@@ -18,9 +18,8 @@ type Props = {
   unitLabel?: string;
 };
 
-/** Send-points loading — ring + gift icon, live count, progress bar, recipient status. */
+/** Send-points loading — rocket launch illustration with live count. */
 export function SendingPointsAnimation({
-  recipients,
   totalPoints,
   isComplete,
   error = null,
@@ -31,23 +30,21 @@ export function SendingPointsAnimation({
   const rafRef = useRef<number | null>(null);
   const displayRef = useRef(0);
   const target = Math.max(0, Math.round(totalPoints));
-  const recipientCount = recipients.length;
+  const unit = normalizedUnit(unitLabel);
+  const unitCap = cap(unit);
+  const reachedTarget = isComplete && displayPoints >= target;
 
   const liveMessage = error
     ? error
-    : isComplete
-      ? `${cap(unitLabel)} sent successfully`
-      : `Sending ${unitLabel}`;
-
-  const recipientLine = recipientCount === 1
-    ? "Sending to 1 recipient"
-    : `Sending to ${recipientCount.toLocaleString("en-IN")} recipients`;
+    : reachedTarget
+      ? `${unitCap} have been Successfully sent`
+      : `Sending ${displayPoints.toLocaleString("en-IN")} ${unit}`;
 
   const statusLine = error
-    ? `Couldn't send ${unitLabel}`
-    : isComplete
-      ? `${cap(unitLabel)} sent`
-      : recipientLine;
+    ? `Couldn't send ${unit}`
+    : reachedTarget
+      ? `${target.toLocaleString("en-IN")} ${unit} sent!`
+      : `Sending ${displayPoints.toLocaleString("en-IN")} ${unit}...`;
 
   useEffect(() => {
     displayRef.current = displayPoints;
@@ -96,7 +93,11 @@ export function SendingPointsAnimation({
     };
   }, [isComplete, error, target]);
 
-  const ringState = error ? "spa-ring-wrap--err" : isComplete ? "spa-ring-wrap--done" : "";
+  const sceneState = error
+    ? "spa-scene--err"
+    : reachedTarget
+      ? "spa-scene--done"
+      : "spa-scene--loading";
 
   return (
     <div className="spa-root" role="status" aria-live="polite" aria-atomic="true">
@@ -114,46 +115,38 @@ export function SendingPointsAnimation({
         </div>
       ) : (
         <>
-          <div className={`spa-ring-wrap ${ringState}`} aria-hidden="true">
-            <svg className="spa-ring-svg" viewBox="0 0 100 100" aria-hidden="true">
-              <circle className="spa-ring-track" cx="50" cy="50" r="44" />
-              <circle className="spa-ring-progress" cx="50" cy="50" r="44" />
-            </svg>
-            <div className="spa-ring-icon">
-              {isComplete ? (
-                <Check size={32} strokeWidth={2.5} />
-              ) : (
-                <Gift size={28} strokeWidth={2} />
-              )}
-            </div>
+          <div className={`spa-scene ${sceneState}`} aria-hidden="true">
+            <SendingRocketArt done={reachedTarget} />
+            {!reachedTarget ? (
+              <>
+                <span className="spa-point" />
+                <span className="spa-point" />
+                <span className="spa-point" />
+                <span className="spa-point" />
+                <span className="spa-point" />
+              </>
+            ) : null}
           </div>
 
           <div className="spa-meta">
-            <p className="spa-count num">
-              {displayPoints.toLocaleString("en-IN")}
-              <span className="spa-count-unit">{unitSuffix(unitLabel)}</span>
-            </p>
-
-            <div
-              className={`spa-bar ${isComplete ? "spa-bar--done" : "spa-bar--indeterminate"}`}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={isComplete ? 100 : undefined}
-              aria-label={isComplete ? "Send complete" : "Sending in progress"}
-            >
-              <span className="spa-bar-fill" />
-            </div>
-
-            <p className="spa-title">
-              {isComplete ? (
-                <span className="spa-title-row">
-                  <Check size={16} strokeWidth={2.5} aria-hidden="true" />
-                  {statusLine}
-                </span>
-              ) : (
-                recipientLine
-              )}
+            {reachedTarget ? (
+              <div className="spa-success-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5.5 12.6l4.1 4.1 8.9-9.4"
+                    stroke="#fff"
+                    strokeWidth="3.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            ) : null}
+            <p className="spa-title spa-title--primary">{statusLine}</p>
+            <p className="spa-sub">
+              {reachedTarget
+                ? `${unitCap} have been Successfully sent`
+                : "Hang tight! This may take a few seconds."}
             </p>
           </div>
         </>
@@ -166,9 +159,9 @@ function cap(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-function unitSuffix(unitLabel: string) {
+function normalizedUnit(unitLabel: string) {
   const u = unitLabel.toLowerCase();
-  if (u.startsWith("point")) return " Pts";
-  if (u.startsWith("credit")) return " Credits";
-  return ` ${cap(unitLabel)}`;
+  if (u.startsWith("point")) return "points";
+  if (u.startsWith("credit")) return "credits";
+  return u || "points";
 }

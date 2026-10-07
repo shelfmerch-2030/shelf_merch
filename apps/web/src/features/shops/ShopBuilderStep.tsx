@@ -57,7 +57,7 @@ export function ShopBuilderStep({
   const isEmptyBanner = !hasImage && !draft.logoUrl;
 
   return (
-    <FullscreenOverlay style={{ background: "var(--bg)" }}>
+    <FullscreenOverlay>
       <div
         style={{
           height: 60,
