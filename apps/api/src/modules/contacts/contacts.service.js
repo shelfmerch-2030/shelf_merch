@@ -1,6 +1,6 @@
 import { Contact } from './contact.model.js';
 import { managedEntityNamesForUser } from '../entities/entities.service.js';
-import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
+import { ApiError, ConflictError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { deriveEffectiveEmploymentStatus } from '../integrations/merge/effectiveEmploymentStatus.js';
 import { MergeConnection } from '../integrations/merge/mergeConnection.model.js';
 import { MergeHrisEmployee } from '../integrations/merge/models/mergeHrisEmployee.model.js';
@@ -227,4 +227,25 @@ export async function getContactOrThrow({ tenantId, contactId }) {
   const contact = await Contact.findOne({ _id: contactId, tenantId });
   if (!contact) throw new NotFoundError('Contact not found');
   return contact;
+}
+
+/**
+ * Create a contact, or restore + update a soft-deleted row with the same email.
+ * Soft-delete hides contacts from the UI but leaves the document; re-adding the
+ * same email must revive that row instead of inserting a duplicate.
+ */
+export async function createOrRestoreContact({ tenantId, payload, source = 'manual' }) {
+  const email = String(payload.email || '')
+    .trim()
+    .toLowerCase();
+  const existing = await Contact.findOne({ tenantId, email }).setOptions({ includeDeleted: true });
+  if (existing) {
+    if (!existing.deletedAt) {
+      throw new ConflictError('A contact with this email already exists');
+    }
+    Object.assign(existing, payload, { email, source, deletedAt: null });
+    await existing.save();
+    return existing;
+  }
+  return Contact.create({ tenantId, ...payload, email, source });
 }

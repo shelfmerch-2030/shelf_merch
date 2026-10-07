@@ -135,6 +135,9 @@ export async function processCsvImport({ tenantId, jobId }) {
         department: pickField(row, cols, 'department'),
         employeeCode: pickField(row, cols, 'employeeCode'),
         source: 'csv',
+        // Soft-deleted contacts are hidden from list queries; clear on upsert so
+        // re-importing the same email restores the row instead of E11000.
+        deletedAt: null,
       };
       const address = buildAddress(row, cols);
       if (address) update.address = address;
@@ -145,7 +148,7 @@ export async function processCsvImport({ tenantId, jobId }) {
           $set: update,
           $setOnInsert: { tenantId, email },
         },
-        { upsert: true },
+        { upsert: true, includeDeleted: true },
       );
       validCount += 1;
     }

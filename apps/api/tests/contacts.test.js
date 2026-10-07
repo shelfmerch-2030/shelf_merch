@@ -15,6 +15,8 @@ import { RoleAssignment } from '../src/modules/roles/roleAssignment.model.js';
 import { MergeConnection } from '../src/modules/integrations/merge/mergeConnection.model.js';
 import { MergeHrisEmployee } from '../src/modules/integrations/merge/models/mergeHrisEmployee.model.js';
 import { listContactsForUser } from '../src/modules/contacts/contacts.service.js';
+import { processCsvImport } from '../src/modules/imports/imports.service.js';
+import { ImportJob } from '../src/modules/imports/importJob.model.js';
 import { encryptToken } from '../src/utils/tokenEncryption.js';
 import * as envModule from '../src/config/env.js';
 
@@ -274,6 +276,31 @@ describe('contacts API', () => {
 
     const list = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));
     expect(list.body).toHaveLength(0);
+
+    // Soft-deleted row remains in DB but must not block re-add of the same email.
+    const stillStored = await Contact.findOne({ _id: contact._id, tenantId: tenant._id }).setOptions({
+      includeDeleted: true,
+    });
+    expect(stillStored).toBeTruthy();
+    expect(stillStored.deletedAt).toBeTruthy();
+
+    const reAdd = await request(app)
+      .post('/api/v1/contacts')
+      .set(authHeader(adminToken))
+      .send({
+        name: 'Bob Restored',
+        email: 'bob@contacts-suite.io',
+        role: 'Member',
+        department: 'Ops',
+      });
+    expect(reAdd.status).toBe(201);
+    expect(reAdd.body.email).toBe('bob@contacts-suite.io');
+    expect(reAdd.body.name).toBe('Bob Restored');
+    expect(reAdd.body.department).toBe('Ops');
+    expect(String(reAdd.body._id)).toBe(String(contact._id));
+
+    const listedAgain = await request(app).get('/api/v1/contacts').set(authHeader(adminToken));
+    expect(listedAgain.body.map((c) => c.email)).toContain('bob@contacts-suite.io');
   });
 
   it('protects Owner contact from deletion (403)', async () => {
@@ -345,6 +372,38 @@ describe('contacts API', () => {
       .set(authHeader(adminToken));
     expect(status.status).toBe(200);
     expect(status.body).toHaveProperty('status');
+  });
+
+  it('CSV import restores soft-deleted contacts with the same email', async () => {
+    const contact = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Rahul Old',
+      email: 'rahul.sharma@example.com',
+      role: 'Member',
+      source: 'manual',
+    });
+    await contact.softDelete();
+
+    const job = await ImportJob.create({
+      tenantId: tenant._id,
+      kind: 'contacts',
+      fileName: 'employees_sample.csv',
+      csv: Buffer.from(
+        'name,email,phone\nRahul Sharma,rahul.sharma@example.com,9999999999\n',
+      ),
+      createdBy: admin._id,
+    });
+
+    const done = await processCsvImport({ tenantId: tenant._id, jobId: job._id });
+    expect(done.status).toBe('done');
+    expect(done.validCount).toBe(1);
+    expect(done.errorCount).toBe(0);
+
+    const restored = await Contact.findOne({ tenantId: tenant._id, email: 'rahul.sharma@example.com' });
+    expect(restored).toBeTruthy();
+    expect(restored.deletedAt).toBeNull();
+    expect(restored.name).toBe('Rahul Sharma');
+    expect(String(restored._id)).toBe(String(contact._id));
   });
 
   it('hides Merge-linked effectively INACTIVE Contacts from GET /contacts without deleting them', async () => {
