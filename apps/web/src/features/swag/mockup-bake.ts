@@ -568,12 +568,12 @@ export function collectAreaPlacements(
   areaArts?: Record<string, { preview?: string }>,
 ): Array<{ key: string; artworkDataUrl?: string } & Placement> {
   const areas = listPrintAreas(product);
+  if (!areas.length) return [];
   const primary = primaryAreaKey(product);
   const productKey = placementKey(product, idx);
   const legacy = placements[productKey];
   const out: Array<{ key: string; artworkDataUrl?: string } & Placement> = [];
-  const list = areas.length ? areas : [pickPrintArea(product)].filter(Boolean);
-  list.forEach((area, i) => {
+  areas.forEach((area, i) => {
     if (!area) return;
     const key = printAreaStableKey(area, i, areas);
     const draftKey = areaPlacementKey(product, idx, key);
@@ -776,10 +776,11 @@ export function collectBakeLayers(
   fallbackArtUrl?: string | null,
 ): Array<{ artUrl: string; placement: Placement; areaKey: string }> {
   const areas = listPrintAreas(product);
-  const list = areas.length ? areas : [pickPrintArea(product)].filter(Boolean);
+  // No catalog placeholder → never invent one or apply logo.
+  if (!areas.length) return [];
   const primary = primaryAreaKey(product);
   const out: Array<{ artUrl: string; placement: Placement; areaKey: string }> = [];
-  list.forEach((area, i) => {
+  areas.forEach((area, i) => {
     if (!area) return;
     const areaKey = printAreaStableKey(area, i, areas);
     const draftKey = areaPlacementKey(product, idx, areaKey);
@@ -791,13 +792,6 @@ export function collectBakeLayers(
       placement: resolvePlacementForBake(product, placements, idx, areaKey),
     });
   });
-  if (!out.length && fallbackArtUrl) {
-    out.push({
-      areaKey: primary,
-      artUrl: fallbackArtUrl,
-      placement: resolvePlacementForBake(product, placements, idx, primary),
-    });
-  }
   return out;
 }
 

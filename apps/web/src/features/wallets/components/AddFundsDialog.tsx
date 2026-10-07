@@ -123,6 +123,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
         amount,
         name: walletName,
         walletId,
+        kind: "topup",
       });
       toast.success("Funding request submitted 🙌");
       onOpenChange(false);
@@ -149,6 +150,7 @@ export function AddFundsDialog({ open, onOpenChange, walletId, walletName }: Pro
               amount,
               name: walletName,
               walletId,
+              kind: "topup",
             });
             toast.success("Payment submitted for review", {
               description: `${inr(amount)} pending approval`,

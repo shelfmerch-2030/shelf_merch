@@ -11,6 +11,7 @@ import { Contact } from './contact.model.js';
 import {
   assertContactAccess,
   contactToPublicJSON,
+  createOrRestoreContact,
   getContactOrThrow,
   listContactsForUser,
   prepareContactPayloadForUser,
@@ -66,7 +67,11 @@ router.post(
       user: req.user,
       body: req.body,
     });
-    const contact = await Contact.create({ tenantId: req.tenantId, ...payload, source: 'manual' });
+    const contact = await createOrRestoreContact({
+      tenantId: req.tenantId,
+      payload,
+      source: 'manual',
+    });
     writeAudit({ req, action: 'contact.create', entityType: 'Contact', entityId: contact._id, after: contact.toObject() });
     res.status(201).json(contactToPublicJSON(contact));
   }),

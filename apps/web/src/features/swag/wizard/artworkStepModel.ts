@@ -23,8 +23,8 @@ export function productHasArtwork(
 /** Draft keys for every print area on a product (`productId::areaKey`). */
 export function areaKeysForProduct(product: UiProduct, idx: number): string[] {
   const areas = listPrintAreas(product);
-  const list = areas.length ? areas : [null];
-  return list.map((a, i) => areaPlacementKey(product, idx, printAreaKey(product, a, i)));
+  if (!areas.length) return [];
+  return areas.map((a, i) => areaPlacementKey(product, idx, printAreaKey(product, a, i)));
 }
 
 /**
@@ -179,11 +179,13 @@ export function productArtworkCommitPlan(
 /**
  * One default draft key per product for bulk "Add artwork":
  * preferred Right (else first front) on each product only.
+ * Products with no catalog placeholder are skipped (logo must not be applied).
  */
 export function defaultSeedKeysForProducts(products: UiProduct[]): string[] {
-  return products.map((p, idx) =>
-    areaPlacementKey(p, idx, preferredDefaultAreaKey(p)),
-  );
+  return products.flatMap((p, idx) => {
+    if (!listPrintAreas(p).length) return [];
+    return [areaPlacementKey(p, idx, preferredDefaultAreaKey(p))];
+  });
 }
 
 /** Label for a print area key on a product. */

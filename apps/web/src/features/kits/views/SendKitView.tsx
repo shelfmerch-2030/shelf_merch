@@ -8,7 +8,20 @@ import { LocField, CountrySelect } from "@/features/send/RecipientPicker";
 import { validateSingleLocation } from "@/features/send/singleLocationValidation";
 import { RecipientExperience } from "@/features/send/RecipientExperience";
 import { PaymentPanel } from "@/features/send/PaymentPanel";
+import {
+  hasCompleteRecipientAddress,
+  type RecipientProfileInput,
+} from "@/features/send/recipientSelection";
+import {
+  ADD_ROLES,
+  COUNTRIES,
+  EMPTY_CONTACT,
+  contactToForm,
+  sanitizeContactField,
+  type ContactFormValues,
+} from "@/features/contacts/types";
 import type { SendKitVm } from "../controllers/useSendKitController";
+import type { UiContact } from "@/services/mappers";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
 import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog";
@@ -20,6 +33,155 @@ import { KitPackagingStep } from "./KitPackagingStep";
 import { KitDesignSelect, kitDesignLabel } from "../send/KitDesignSelect";
 
 const STEPS = ["Items", "Recipients", "Experience", "Packaging", "Checkout"];
+
+function ContactFieldsForm({
+  values,
+  onChange,
+  requireAddress = false,
+  showEmailField = false,
+}: {
+  values: ContactFormValues;
+  onChange: <K extends keyof ContactFormValues>(key: K, value: ContactFormValues[K]) => void;
+  requireAddress?: boolean;
+  showEmailField?: boolean;
+}) {
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">First name *</label>
+          <input
+            className="inp"
+            value={values.firstName}
+            onChange={(e) => onChange("firstName", sanitizeContactField("personName", e.target.value))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">Last name</label>
+          <input
+            className="inp"
+            value={values.lastName}
+            onChange={(e) => onChange("lastName", sanitizeContactField("personName", e.target.value))}
+          />
+        </div>
+      </div>
+      {showEmailField ? (
+        <div className="field">
+          <label className="lbl">Email *</label>
+          <input
+            className="inp"
+            type="email"
+            value={values.email}
+            onChange={(e) => onChange("email", sanitizeContactField("email", e.target.value))}
+          />
+        </div>
+      ) : null}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">Phone</label>
+          <input
+            className="inp"
+            inputMode="numeric"
+            maxLength={10}
+            placeholder="10-digit mobile"
+            value={values.phone}
+            onChange={(e) => onChange("phone", sanitizeContactField("phone", e.target.value))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">Role</label>
+          <select
+            className="inp"
+            value={values.role}
+            onChange={(e) => onChange("role", e.target.value as ContactFormValues["role"])}
+          >
+            {ADD_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">Department</label>
+          <input
+            className="inp"
+            value={values.department}
+            onChange={(e) => onChange("department", e.target.value)}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 140 }}>
+          <label className="lbl">Employee code</label>
+          <input
+            className="inp"
+            value={values.employeeCode}
+            onChange={(e) => onChange("employeeCode", e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="field">
+        <label className="lbl">
+          Address{requireAddress ? " *" : ""}
+        </label>
+        <input
+          className="inp"
+          value={values.line1}
+          onChange={(e) => onChange("line1", e.target.value)}
+        />
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="field" style={{ flex: 1, minWidth: 120 }}>
+          <label className="lbl">
+            City{requireAddress ? " *" : ""}
+          </label>
+          <input
+            className="inp"
+            value={values.city}
+            onChange={(e) => onChange("city", sanitizeContactField("city", e.target.value))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 120 }}>
+          <label className="lbl">
+            State{requireAddress ? " *" : ""}
+          </label>
+          <input
+            className="inp"
+            value={values.state}
+            onChange={(e) => onChange("state", sanitizeContactField("state", e.target.value))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 120 }}>
+          <label className="lbl">
+            PIN code{requireAddress ? " *" : ""}
+          </label>
+          <input
+            className="inp"
+            inputMode="numeric"
+            maxLength={10}
+            value={values.pincode}
+            onChange={(e) => onChange("pincode", sanitizeContactField("postal", e.target.value))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 120 }}>
+          <label className="lbl">Country</label>
+          <select
+            className="inp"
+            value={values.country}
+            onChange={(e) => onChange("country", e.target.value as ContactFormValues["country"])}
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const COLOR_MAP: Record<string, string> = {
   black: "#1a1a1a", white: "#f8f8f8", navy: "#001f5b", red: "#c0392b",
@@ -177,6 +339,9 @@ export function SendKitView(vm: SendKitVm) {
   const [search, setSearch] = useState("");
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+  const [contactDraft, setContactDraft] = useState<ContactFormValues>({ ...EMPTY_CONTACT });
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const [contactEditDraft, setContactEditDraft] = useState<ContactFormValues>({ ...EMPTY_CONTACT });
   const [selectedCuratedVariant, setSelectedCuratedVariant] = useState<string | null>(null);
   const [bulkProductVariants, setBulkProductVariants] = useState<
     Record<string, { size?: string; color?: string }>
@@ -259,14 +424,38 @@ export function SendKitView(vm: SendKitVm) {
       c.email?.toLowerCase().includes(search.toLowerCase()),
   );
 
+  function profileFromForm(form: ContactFormValues): RecipientProfileInput {
+    const name = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(" ");
+    return {
+      name: name || undefined,
+      phone: form.phone.trim() || undefined,
+      role: form.role || "Member",
+      department: form.department.trim() || undefined,
+      employeeCode: form.employeeCode.trim() || undefined,
+      address: {
+        line1: form.line1.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
+        country: form.country || "IN",
+      },
+    };
+  }
+
   function handleAddEmails() {
-    const raw = emailDraft.trim();
+    const raw = emailDraft.trim() || contactDraft.email.trim();
     if (!raw) {
       toast.error("Enter at least one email address");
       return;
     }
-    vm.onAddRecipientEmails(raw);
+    if (!contactDraft.firstName.trim()) {
+      toast.error("Enter a first name");
+      return;
+    }
+    const profile = profileFromForm(contactDraft);
+    vm.onAddRecipientEmails(raw, profile);
     setEmailDraft("");
+    setContactDraft({ ...EMPTY_CONTACT });
     setShowEmailInput(false);
   }
 
@@ -274,6 +463,45 @@ export function SendKitView(vm: SendKitVm) {
     if (!file) return;
     vm.onImportRecipientCsv(file);
     if (csvInputRef.current) csvInputRef.current.value = "";
+  }
+
+  function downloadRecipientCsvTemplate() {
+    const header =
+      "First Name,Last Name,Email,Phone,Role,Department,Employee Code,Address,City,State,PIN Code,Country\n";
+    const sample =
+      "Rahul,Sharma,rahul.sharma@example.com,9876543210,Member,Engineering,EMP001,12 MG Road,Bengaluru,Karnataka,560001,India\n";
+    const blob = new Blob([header + sample], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "shelf-merch-kit-recipients-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function startEditContact(contact: UiContact) {
+    setEditingContactId(contact.id);
+    setContactEditDraft(contactToForm(contact));
+  }
+
+  function saveEditContact() {
+    if (!editingContactId) return;
+    if (!contactEditDraft.firstName.trim()) {
+      toast.error("Enter a first name");
+      return;
+    }
+    if (
+      draft.mode === "surprise"
+      && (!contactEditDraft.line1.trim()
+        || !contactEditDraft.city.trim()
+        || !contactEditDraft.state.trim()
+        || !contactEditDraft.pincode.trim())
+    ) {
+      toast.error("Enter address, city, state, and PIN code");
+      return;
+    }
+    vm.onUpdateRecipientProfile(editingContactId, profileFromForm(contactEditDraft));
+    setEditingContactId(null);
   }
 
   function applyCuratedVariantToAll(variantImage: string) {
@@ -755,6 +983,13 @@ export function SendKitView(vm: SendKitVm) {
                     >
                       Add by CSV
                     </button>
+                    <button
+                      type="button"
+                      className="sk-recip-toolbar__link"
+                      onClick={downloadRecipientCsvTemplate}
+                    >
+                      CSV template
+                    </button>
                   </div>
                 </div>
                 <div className="sk-recip-toolbar__right">
@@ -850,15 +1085,26 @@ export function SendKitView(vm: SendKitVm) {
 
               {showEmailInput ? (
                 <div className="sk-recip-email-panel">
-                  <label className="lbl">Paste email addresses</label>
+                  <label className="lbl">Email addresses</label>
                   <textarea
                     className="inp"
-                    rows={3}
-                    placeholder="Separate emails with commas, spaces, or new lines"
+                    rows={2}
+                    placeholder="One or more emails (comma, space, or new line separated)"
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                   />
-                  <div className="sk-recip-email-panel__actions">
+                  <p className="muted" style={{ margin: "12px 0 8px", fontSize: 12 }}>
+                    Contact details below are saved to Contacts (same fields as the Contacts page)
+                    and applied to every email above.
+                  </p>
+                  <ContactFieldsForm
+                    values={contactDraft}
+                    requireAddress={draft.mode === "surprise"}
+                    onChange={(key, value) =>
+                      setContactDraft((prev) => ({ ...prev, [key]: value }))
+                    }
+                  />
+                  <div className="sk-recip-email-panel__actions" style={{ marginTop: 12 }}>
                     <button type="button" className="btn btn-brand btn-sm" onClick={handleAddEmails}>
                       Add recipients
                     </button>
@@ -868,6 +1114,7 @@ export function SendKitView(vm: SendKitVm) {
                       onClick={() => {
                         setShowEmailInput(false);
                         setEmailDraft("");
+                        setContactDraft({ ...EMPTY_CONTACT });
                       }}
                     >
                       Cancel
@@ -943,9 +1190,74 @@ export function SendKitView(vm: SendKitVm) {
                               </span>
                             </td>
                             <td className="sk-recip-td">
-                              <span className="sk-recip-muted" title={addr || undefined}>
-                                {addr || "—"}
-                              </span>
+                              {editingContactId === contact.id ? (
+                                <div style={{ display: "grid", gap: 8, minWidth: 280 }}>
+                                  <ContactFieldsForm
+                                    values={contactEditDraft}
+                                    requireAddress={draft.mode === "surprise"}
+                                    onChange={(key, value) =>
+                                      setContactEditDraft((prev) => ({ ...prev, [key]: value }))
+                                    }
+                                  />
+                                  <div style={{ display: "flex", gap: 8 }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-brand btn-sm"
+                                      onClick={saveEditContact}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-ghost btn-sm"
+                                      onClick={() => setEditingContactId(null)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <span
+                                    className="sk-recip-muted"
+                                    title={
+                                      [
+                                        contact.phone,
+                                        contact.department,
+                                        contact.role,
+                                        contact.employeeCode,
+                                        contact.address,
+                                        addr,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ") || undefined
+                                    }
+                                  >
+                                    {[
+                                      contact.phone,
+                                      contact.department,
+                                      contact.role,
+                                      contact.address
+                                        ? `${contact.address}${addr ? ` · ${addr}` : ""}`
+                                        : addr || null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ") || "—"}
+                                  </span>
+                                  {draft.mode !== "single" ? (
+                                    <button
+                                      type="button"
+                                      className="lnk"
+                                      style={{ fontSize: 12, alignSelf: "flex-start" }}
+                                      onClick={() => startEditContact(contact)}
+                                    >
+                                      {hasCompleteRecipientAddress(contact)
+                                        ? "Edit details"
+                                        : "Add details"}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              )}
                             </td>
                             {showVariantCols && isCurated ? (
                               <td className="sk-recip-td sk-recip-td--variant">

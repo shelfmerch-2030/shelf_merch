@@ -38,7 +38,7 @@ export function SlackNotificationPrefsList({
   disabled,
   onUpdate,
 }: {
-  connection: SlackConnectionLike | null;
+  connection: SlackConnectionLike | null | undefined;
   disabled?: boolean;
   onUpdate: (patch: Partial<SlackNotificationPreferences>) => void;
 }) {
@@ -46,41 +46,43 @@ export function SlackNotificationPrefsList({
   const groups = groupSlackNotificationOptions();
 
   return (
-    <div className="bonus-integ-slack-pref-list">
+    <div className="bonus-integ-slack-notify-groups">
       {groups.map((group) => (
-        <div key={group.category} className="bonus-integ-slack-pref-group">
-          <div className="bonus-integ-slack-pref-group__title">{group.category}</div>
-          <div className="bonus-integ-slack-pref-group__items">
-            {group.items.map((item) => {
-              const Icon = NOTIFY_ICONS[item.key];
-              const checked = prefs[item.key];
-
+        <section
+          key={group.category}
+          className="bonus-integ-slack-notify-group"
+          aria-label={group.category}
+        >
+          <h4 className="bonus-integ-slack-notify-group__label">{group.category}</h4>
+          <ul className="bonus-integ-slack-notify-list">
+            {group.items.map((opt) => {
+              const checked = prefs[opt.key];
+              const Icon = NOTIFY_ICONS[opt.key];
               return (
-                <div key={item.key} className="bonus-integ-slack-pref-row">
-                  <span className="bonus-integ-slack-pref-row__icon" aria-hidden="true">
-                    <Icon size={14} strokeWidth={2} />
-                  </span>
-                  <span className="bonus-integ-slack-pref-row__copy">
-                    <span className="bonus-integ-slack-pref-row__label">{item.label}</span>
-                    <span className="bonus-integ-slack-pref-row__description">
-                      {item.description}
+                <li key={opt.key} className="bonus-integ-slack-notify-item">
+                  <div className="bonus-integ-slack-notify-main">
+                    <span className="bonus-integ-slack-notify-icon" aria-hidden="true">
+                      <Icon size={16} strokeWidth={1.75} />
                     </span>
-                  </span>
+                    <div className="bonus-integ-slack-notify-copy">
+                      <span className="bonus-integ-slack-notify-title">{opt.label}</span>
+                      <span className="bonus-integ-slack-notify-desc">{opt.description}</span>
+                    </div>
+                  </div>
                   <SlackClayToggle
                     checked={checked}
                     disabled={disabled}
-                    label={`${item.label} notifications`}
-                    onCheckedChange={(next) =>
-                      onUpdate({
-                        [item.key]: next,
-                      })
-                    }
+                    label={opt.label}
+                    onCheckedChange={(next) => {
+                      if (disabled) return;
+                      onUpdate({ [opt.key]: next });
+                    }}
                   />
-                </div>
+                </li>
               );
             })}
-          </div>
-        </div>
+          </ul>
+        </section>
       ))}
     </div>
   );

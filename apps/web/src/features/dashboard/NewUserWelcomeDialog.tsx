@@ -7,7 +7,7 @@ const STEPS: {
 }[] = [
   {
     title: "Create your wallet",
-    body: "Takes ~2 min",
+    body: "Takes ~3 min",
   },
   {
     title: "Set up your store",
@@ -15,7 +15,7 @@ const STEPS: {
   },
   {
     title: "Choose and design swag",
-    body: "Takes ~2 min",
+    body: "Takes ~3 min",
   },
   {
     title: "Add your contacts",
