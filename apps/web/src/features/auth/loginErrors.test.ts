@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loginErrorMessage } from "@/features/auth/loginErrors";
+import { loginErrorMessage, loginErrorToast } from "@/features/auth/loginErrors";
 import { ApiError } from "@/services/api";
 
 describe("loginErrorMessage", () => {
@@ -8,6 +8,22 @@ describe("loginErrorMessage", () => {
     expect(loginErrorMessage(new ApiError(401, "bad", "INVALID_CREDENTIALS"))).toBe(
       "Incorrect password.",
     );
+  });
+
+  it("maps unauthorized sign-in to title and message toast copy", () => {
+    const err = new ApiError(
+      400,
+      "This email is not authorized to sign in. Ask a Shelf Merch admin to allowlist it.",
+      "EMAIL_NOT_ALLOWLISTED",
+    );
+
+    expect(loginErrorMessage(err)).toBe(
+      "Not authorized to sign in. Ask a Shelf Merch admin for access.",
+    );
+    expect(loginErrorToast(err)).toEqual({
+      title: "Not authorized to sign in",
+      description: "Ask a Shelf Merch admin for access.",
+    });
   });
 
   it("maps suspended tenant / account codes", () => {

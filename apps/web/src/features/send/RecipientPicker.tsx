@@ -235,7 +235,7 @@ export function RecipientPicker({
         </div>
 
         {showEmailInput && onAddEmails ? (
-          <div className="card" style={{ padding: 14, marginBottom: 12, background: "var(--surface-2)" }}>
+          <div className="card" style={{ padding: 14, marginBottom: 12, background: "#fff" }}>
             <label className="lbl">Paste email addresses</label>
             <textarea
               className="inp"

@@ -552,6 +552,11 @@
   align-items: center;
   min-height: 112px;
   border-bottom: 1px solid var(--line);
+  background: #fff;
+  transition: background 0.12s ease;
+}
+.kits-table__row:hover {
+  background: #ecf0fc;
 }
 
 .kits-kit-cell {

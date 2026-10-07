@@ -1,9 +1,15 @@
 import { AlertCircle, AlertTriangle, Info, Loader2 } from "lucide-react";
+import { useLocation } from "react-router";
 import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const location = useLocation();
+  const isAuthRoute = /^\/(login|signup|forgot-password|reset-password)(\/|$)/.test(
+    location.pathname,
+  );
+
   return (
     <Sonner
       theme="light"
@@ -13,7 +19,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       visibleToasts={4}
       duration={5000}
       gap={12}
-      offset={{ top: 70, right: 24 }}
+      offset={{ top: isAuthRoute ? 16 : 70, right: 24 }}
       className="sm-sonner"
       style={{ "--width": "260px" } as React.CSSProperties}
       icons={{

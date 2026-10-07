@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/hooks/useWorkspace";
@@ -208,7 +208,7 @@ function CampaignRecipientsPanel({
           No recipients added yet.
         </p>
       ) : (
-        <table className="tbl" style={{ marginBottom: isDraft ? 12 : 0 }}>
+        <table className="tbl sent-gifts-recipients-table" style={{ marginBottom: isDraft ? 12 : 0 }}>
           <thead>
             <tr>
               <th>Name</th>
@@ -275,6 +275,7 @@ export function SentGiftsTab({
   const deleteCampaign = useDeleteCampaign();
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const sentGiftsCardRef = useRef<HTMLDivElement | null>(null);
 
   const campaigns = useMemo(
     () =>
@@ -297,9 +298,22 @@ export function SentGiftsTab({
     }
   }
 
+  useEffect(() => {
+    if (!expandedCampaignId) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const card = sentGiftsCardRef.current;
+      if (!card || card.contains(event.target as Node)) return;
+      setExpandedCampaignId(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [expandedCampaignId]);
+
   if (campaigns.length > 0) {
     return (
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div ref={sentGiftsCardRef} className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div
           style={{
             padding: 20,
@@ -421,7 +435,7 @@ export function SentGiftsTab({
                       <td
                         colSpan={7}
                         style={{
-                          background: "var(--surface-2)",
+                          background: "#fff",
                           padding: 0,
                           borderBottom: "1px solid var(--line-2)",
                         }}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { startSignup, ApiError } from "../model";
+import { loginErrorToast } from "../loginErrors";
 
 const DRAFT_KEY = "sm_signup_draft";
 
@@ -162,7 +163,12 @@ export function useSignupController(): SignupVm {
         toast.error("Account already exists — sign in");
         return;
       }
-      toast.error(err instanceof Error ? err.message : "Sign up failed");
+      const toastCopy = loginErrorToast(err);
+      if (toastCopy.description) {
+        toast.error(toastCopy.title, { description: toastCopy.description });
+      } else {
+        toast.error(toastCopy.title === "Login failed" ? "Sign up failed" : toastCopy.title);
+      }
     }
   }
 
