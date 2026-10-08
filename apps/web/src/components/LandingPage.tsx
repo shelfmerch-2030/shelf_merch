@@ -1,5 +1,4 @@
 import "./landing-page.css";
-import "./landing-mobile.css";
 import { Catalog } from "./landing/Catalog";
 import { Events } from "./landing/Events";
 import { Features } from "./landing/Features";
