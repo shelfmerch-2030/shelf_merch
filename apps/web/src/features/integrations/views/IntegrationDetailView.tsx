@@ -21,13 +21,12 @@ import {
   canSaveSlackChannel,
   canSendSlackTestMessage,
   formatSlackChannelLabel,
-  resolveSlackNotificationPrefs,
   SLACK_DETAIL_LEAD,
   SLACK_NOTIFICATIONS_DESCRIPTION,
   SLACK_NOTIFICATIONS_TITLE,
-  SLACK_NOTIFICATION_TOGGLE_OPTIONS,
   slackChannelOptionLabel,
 } from "../slackDetailUi";
+import { SlackNotificationPrefsList } from "../components/SlackNotificationPrefsList";
 import {
   Select,
   SelectContent,
@@ -330,35 +329,11 @@ function SlackDetailBody({
           <p>{SLACK_NOTIFICATIONS_DESCRIPTION}</p>
         </div>
         {slack.notificationsError ? <Callout tone="warning">{slack.notificationsError}</Callout> : null}
-        <ul className="bonus-integ-slack-notify-list">
-          {(() => {
-            const prefs = resolveSlackNotificationPrefs(connection);
-            return SLACK_NOTIFICATION_TOGGLE_OPTIONS.map((opt) => {
-            const checked = prefs[opt.key];
-            return (
-              <li key={opt.key} className="bonus-integ-slack-notify-item">
-                <label className="bonus-integ-slack-notify-label">
-                  <input
-                    type="checkbox"
-                    className="bonus-integ-slack-notify-checkbox"
-                    checked={checked}
-                    disabled={!slack.canManage || slack.savingNotifications || slack.disconnecting}
-                    onChange={(e) => {
-                      if (!slack.canManage) return;
-                      slack.onUpdateNotifications({ [opt.key]: e.target.checked });
-                    }}
-                    aria-label={opt.label}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-                <span className="bonus-integ-slack-notify-state" aria-hidden="true">
-                  {checked ? "ON" : "OFF"}
-                </span>
-              </li>
-            );
-          });
-          })()}
-        </ul>
+        <SlackNotificationPrefsList
+          connection={connection}
+          disabled={!slack.canManage || slack.disconnecting}
+          onUpdate={slack.onUpdateNotifications}
+        />
         {slack.savingNotifications ? (
           <p className="bonus-integ-meta-note" aria-live="polite">
             Saving notification preferences…

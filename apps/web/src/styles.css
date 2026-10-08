@@ -257,3 +257,66 @@
     color: var(--color-foreground);
   }
 }
+
+.sm-load9-wrap {
+  min-height: calc(100vh - 185px);
+  display: grid;
+  place-items: center;
+  background-color: #f7f7f7;
+}
+
+.sm-load9-wrap--screen {
+  min-height: 100vh;
+}
+
+.sm-preview-spinner {
+  position: relative;
+  width: 45px;
+  height: 45px;
+  margin: 0 auto;
+}
+
+.sm-preview-bubble-1,
+.sm-preview-bubble-2 {
+  position: absolute;
+  top: 0;
+  width: 25px;
+  height: 25px;
+  border-radius: 100%;
+  background-color: #4b9cdb;
+}
+
+.sm-preview-bubble-2 {
+  top: auto;
+  bottom: 0;
+}
+
+.sm-preview-load-9 .sm-preview-spinner {
+  animation: smPreviewLoadingI 2s linear infinite;
+}
+
+.sm-preview-load-9 .sm-preview-bubble-1,
+.sm-preview-load-9 .sm-preview-bubble-2 {
+  animation: smPreviewBounce 2s ease-in-out infinite;
+}
+
+.sm-preview-load-9 .sm-preview-bubble-2 {
+  animation-delay: -1s;
+}
+
+@keyframes smPreviewLoadingI {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes smPreviewBounce {
+  0%,
+  100% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1);
+  }
+}

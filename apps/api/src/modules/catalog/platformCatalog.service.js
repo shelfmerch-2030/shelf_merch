@@ -65,11 +65,13 @@ export async function getProduct(productId) {
 }
 
 export async function createProduct(data) {
-  const { sellingPriceInr, ...rest } = data;
-  await assertCatalogTaxonomy({
+  const { sellingPriceInr, additionalCategoryIds, categoryIds, ...rest } = data;
+  const taxonomy = await resolveProductTaxonomy({
     category: rest.category,
     subcategory: rest.subcategory,
     childCategory: rest.childCategory,
+    categoryIds,
+    additionalCategoryIds,
   });
   const skuPrefix = data.skuPrefix || 'SM';
   const sku = data.sku || `${skuPrefix}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -80,6 +82,7 @@ export async function createProduct(data) {
 
   const product = await CatalogProduct.create({
     ...rest,
+    ...taxonomy,
     sku,
     slug,
     skuPrefix,
@@ -101,18 +104,40 @@ export async function updateProduct(productId, patch, reason) {
     );
   }
 
-  const { sellingPriceInr, ...rest } = patch;
-  if (rest.category !== undefined || rest.subcategory !== undefined || rest.childCategory !== undefined) {
-    await assertCatalogTaxonomy({
-      category: rest.category !== undefined ? rest.category : product.category,
-      subcategory: rest.subcategory !== undefined ? rest.subcategory : product.subcategory,
-      childCategory: rest.childCategory !== undefined ? rest.childCategory : product.childCategory,
-    });
+  const { sellingPriceInr, additionalCategoryIds, categoryIds, ...rest } = patch;
+  const taxonomyTouched =
+    rest.category !== undefined
+    || rest.subcategory !== undefined
+    || rest.childCategory !== undefined
+    || additionalCategoryIds !== undefined
+    || categoryIds !== undefined;
+
+  if (taxonomyTouched) {
+    Object.assign(
+      product,
+      await resolveProductTaxonomy({
+        category: rest.category !== undefined ? rest.category : product.category,
+        subcategory: rest.subcategory !== undefined ? rest.subcategory : product.subcategory,
+        childCategory: rest.childCategory !== undefined ? rest.childCategory : product.childCategory,
+        categoryIds:
+          categoryIds !== undefined
+            ? categoryIds
+            : additionalCategoryIds !== undefined
+              ? undefined
+              : product.categoryIds,
+        additionalCategoryIds,
+        existingCategoryIds: product.categoryIds ?? [],
+      }),
+    );
+    delete rest.category;
+    delete rest.subcategory;
+    delete rest.childCategory;
   }
+
   const before = platformProductDto(product);
   Object.assign(product, rest);
-  if (rest.category !== undefined && product.source?.provider === 'shopify') {
-    product.source.categoryAssignedByAdmin = Boolean(String(rest.category || '').trim());
+  if (taxonomyTouched && product.source?.provider === 'shopify') {
+    product.source.categoryAssignedByAdmin = Boolean(String(product.category || '').trim());
   }
   if (sellingPriceInr !== undefined) product.basePriceInr = sellingPriceInr;
   await product.save();
@@ -407,6 +432,12 @@ async function categoryNamePath(category) {
 
 async function activeProductCount(category) {
   const path = await categoryNamePath(category);
+  const byId = await CatalogProduct.countDocuments({
+    status: 'active',
+    categoryIds: category._id,
+  });
+  if (byId) return byId;
+
   if (path.length === 1) {
     return CatalogProduct.countDocuments({ status: 'active', category: path[0] });
   }
@@ -502,18 +533,20 @@ async function renameProductLabels(category, oldName, newName) {
   const path = await categoryNamePath({ ...category.toObject(), name: oldName });
   if (path.length === 1) {
     await CatalogProduct.updateMany({ category: oldName }, { $set: { category: newName } });
-    return;
-  }
-  if (path.length === 2) {
+  } else if (path.length === 2) {
     await CatalogProduct.updateMany(
       { category: path[0], subcategory: oldName },
       { $set: { subcategory: newName } },
     );
-    return;
+  } else {
+    await CatalogProduct.updateMany(
+      { category: path[0], subcategory: path[1], childCategory: oldName },
+      { $set: { childCategory: newName } },
+    );
   }
   await CatalogProduct.updateMany(
-    { category: path[0], subcategory: path[1], childCategory: oldName },
-    { $set: { childCategory: newName } },
+    { categoryLabels: oldName },
+    { $set: { 'categoryLabels.$': newName } },
   );
 }
 
@@ -561,9 +594,10 @@ export async function updateCategory(categoryId, patch) {
 }
 
 /**
- * Category, subcategory, and child category stay strings on the product.
+ * Category, subcategory, and child category stay strings on the product (primary placement).
  * Subcategory must be an active child of the selected root.
  * childCategory is optional. When set, it must be an active child of that subcategory.
+ * Returns the deepest matching active Category document.
  */
 export async function assertCatalogTaxonomy({ category, subcategory, childCategory }) {
   const categoryName = String(category || '').trim();
@@ -580,7 +614,7 @@ export async function assertCatalogTaxonomy({ category, subcategory, childCatego
     if (childCount > 0) {
       throw new ApiError(422, 'Subcategory must be selected', 'SUBCATEGORY_REQUIRED');
     }
-    return;
+    return parent;
   }
 
   const child = await Category.findOne({ name: subName, parentId: parent._id, status: 'active' });
@@ -589,10 +623,80 @@ export async function assertCatalogTaxonomy({ category, subcategory, childCatego
   }
 
   const leafName = String(childCategory || '').trim();
-  if (!leafName) return;
+  if (!leafName) return child;
 
   const leaf = await Category.findOne({ name: leafName, parentId: child._id, status: 'active' });
   if (!leaf) {
     throw new ApiError(422, 'Child category must belong to the selected subcategory', 'INVALID_CHILD_CATEGORY');
   }
+  return leaf;
+}
+
+async function loadActiveCategory(categoryId) {
+  const category = await Category.findById(categoryId);
+  if (!category || category.status !== 'active') {
+    throw new ApiError(422, 'Category assignment must be an active category', 'INVALID_CATEGORY');
+  }
+  return category;
+}
+
+function denormPathFields(pathNames) {
+  return {
+    category: pathNames[0] || '',
+    subcategory: pathNames[1] || '',
+    childCategory: pathNames.length > 2 ? pathNames[pathNames.length - 1] : '',
+  };
+}
+
+/**
+ * Prefer an ordered `categoryIds` list (first = primary).
+ * Legacy callers may still send primary path strings + optional additionalCategoryIds.
+ */
+async function resolveProductTaxonomy({
+  category,
+  subcategory,
+  childCategory,
+  categoryIds,
+  additionalCategoryIds,
+  existingCategoryIds = [],
+}) {
+  const orderedIds = [];
+  const seen = new Set();
+  const pushId = (raw) => {
+    const id = String(raw || '').trim();
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    orderedIds.push(id);
+  };
+
+  if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+    for (const raw of categoryIds) pushId(raw);
+  } else {
+    const primary = await assertCatalogTaxonomy({ category, subcategory, childCategory });
+    pushId(primary._id);
+    const extras =
+      additionalCategoryIds !== undefined ? additionalCategoryIds : existingCategoryIds.slice(1);
+    for (const raw of extras || []) pushId(raw);
+  }
+
+  if (!orderedIds.length) {
+    throw new ApiError(422, 'Select at least one category', 'CATEGORY_REQUIRED');
+  }
+
+  const primary = await loadActiveCategory(orderedIds[0]);
+  const primaryPath = await categoryNamePath(primary);
+  const resolvedIds = [primary._id];
+  const labelSet = new Set(primaryPath);
+
+  for (const id of orderedIds.slice(1)) {
+    const row = await loadActiveCategory(id);
+    resolvedIds.push(row._id);
+    for (const name of await categoryNamePath(row)) labelSet.add(name);
+  }
+
+  return {
+    ...denormPathFields(primaryPath),
+    categoryIds: resolvedIds,
+    categoryLabels: [...labelSet],
+  };
 }

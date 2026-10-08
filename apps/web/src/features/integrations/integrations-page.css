@@ -579,6 +579,26 @@
   background: #16a34a;
 }
 
+.bonus-integ-slack-summary__item .bonus-integ-status-pill {
+  width: fit-content;
+  min-height: 22px;
+  padding: 0 9px 0 7px;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.bonus-integ-slack-summary__item .bonus-integ-status-pill__dot {
+  width: 5px;
+  height: 5px;
+}
+
+.bonus-integ-slack-summary__item .bonus-integ-status-pill--success {
+  color: #16703b;
+  background: #f7fdf9;
+  border-color: #d6f5df;
+}
+
 .bonus-integ-status-pill--warning {
   color: #b45309;
   background: #fffbeb;

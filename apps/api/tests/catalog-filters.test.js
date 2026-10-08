@@ -43,9 +43,22 @@ describe('catalogFilters', () => {
     expect(f.$or[2]).toEqual({ brand: { $regex: 'hm', $options: 'i' } });
   });
 
-  it('matches subcategory first, then category (with Accessories expansions)', () => {
+  it('matches childCategory, subcategory, category, and multi-category labels', () => {
     expect(categoryFilter('Accessories')).toEqual({
       $or: [
+        {
+          childCategory: {
+            $in: [
+              'Accessories',
+              'Key Chains',
+              'Bags',
+              'Drinkware',
+              'Office Supplies',
+              'Technology',
+              'Card Holders',
+            ],
+          },
+        },
         {
           subcategory: {
             $in: [
@@ -72,13 +85,36 @@ describe('catalogFilters', () => {
             ],
           },
         },
+        {
+          categoryLabels: {
+            $in: [
+              'Accessories',
+              'Key Chains',
+              'Bags',
+              'Drinkware',
+              'Office Supplies',
+              'Technology',
+              'Card Holders',
+            ],
+          },
+        },
       ],
     });
     expect(categoryFilter('Apparel')).toEqual({
-      $or: [{ subcategory: { $in: ['Apparel'] } }, { category: 'Apparel' }],
+      $or: [
+        { childCategory: { $in: ['Apparel'] } },
+        { subcategory: { $in: ['Apparel'] } },
+        { category: 'Apparel' },
+        { categoryLabels: { $in: ['Apparel'] } },
+      ],
     });
     expect(categoryFilter('Drinkware')).toEqual({
-      $or: [{ subcategory: { $in: ['Drinkware'] } }, { category: 'Drinkware' }],
+      $or: [
+        { childCategory: { $in: ['Drinkware'] } },
+        { subcategory: { $in: ['Drinkware'] } },
+        { category: 'Drinkware' },
+        { categoryLabels: { $in: ['Drinkware'] } },
+      ],
     });
   });
 });

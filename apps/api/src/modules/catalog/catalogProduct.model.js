@@ -29,9 +29,17 @@ const catalogProductSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     keyFeatures: { type: String, default: '' },
     sizeGuide: { type: String, default: '' },
+    // Primary placement (denormalized path for browse/compat).
     category: { type: String, default: '', index: true },
     subcategory: { type: String, default: '', index: true },
     childCategory: { type: String, default: '', index: true },
+    // All taxonomy placements — product can belong to multiple categories.
+    categoryIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
+      default: [],
+    },
+    // Names along every assigned path (root→leaf) for sync category filters.
+    categoryLabels: { type: [String], default: [] },
     group: { type: String, default: '' }, // icon group, e.g. "tee", "mug", "hoodie"
     // basePriceInr is the tenant-facing selling price (kept as the historical
     // field name; the platform API exposes it as sellingPriceInr).
@@ -144,6 +152,8 @@ const catalogProductSchema = new mongoose.Schema(
 );
 
 catalogProductSchema.index({ status: 1, category: 1 });
+catalogProductSchema.index({ categoryIds: 1 });
+catalogProductSchema.index({ categoryLabels: 1 });
 catalogProductSchema.index({ 'source.provider': 1, 'source.externalId': 1 });
 
 export const CatalogProduct = mongoose.model('CatalogProduct', catalogProductSchema);

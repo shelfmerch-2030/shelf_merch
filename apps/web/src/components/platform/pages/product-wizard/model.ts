@@ -24,9 +24,7 @@ export const PRODUCT_WIZARD_STEPS = ["Details", "Variants", "Images", "Print are
 
 export const emptyProductDetails: ProductInput = {
   name: "",
-  category: "",
-  subcategory: "",
-  childCategory: "",
+  categoryIds: [],
   sellingPriceInr: 0,
   costPriceInr: 0,
   brand: "",

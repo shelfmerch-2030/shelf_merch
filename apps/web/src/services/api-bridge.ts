@@ -52,6 +52,7 @@ import {
 import type { UiContact, UiProduct } from "./mappers";
 
 export { ApiError, getStoredUser, isAuthenticated, isPlatformUser };
+export { listContactsApi };
 export type { AuthUser };
 
 export function useMocks(): boolean {
