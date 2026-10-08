@@ -54,7 +54,9 @@ describe('catalog product initial HTML', () => {
     expect(page.text).toContain('<title>Summit Tee &lt;script&gt; | ShelfMerch</title>');
     expect(page.text).toContain('A public cotton tee for company stores.');
     expect(page.text).toContain(`<link rel="canonical" href="https://shelfmerch.io/apps/catalog/${active._id}" />`);
-    expect(page.text).toContain('"@type":"Product"');
+    expect(page.text).not.toContain('"@type":"Product"');
+    expect(page.text).not.toContain('"aggregateRating"');
+    expect(page.text).not.toContain('"review"');
     expect(page.text).not.toContain('987654');
     expect(page.text).not.toContain('"offers"');
     expect(page.text).not.toContain('Secret Draft');
@@ -103,5 +105,56 @@ describe('public URL status codes', () => {
     const platform = await request(app).get('/platform/');
     expect(platform.status).toBe(301);
     expect(platform.headers.location).toBe('/platform');
+  });
+});
+
+import { applyCatalogProductSeo, catalogProductMeta } from '../src/modules/seo/catalogProductDocument.js';
+
+describe('product structured data eligibility', () => {
+  const shell = '<!doctype html><html><head><title>Old</title><script type="application/ld+json" id="seo-jsonld">{"@type":"Organization"}</script></head><body><div id="root"></div></body></html>';
+
+  it('keeps indexable metadata and drops Product JSON-LD without an offer or review', () => {
+    const meta = catalogProductMeta({
+      id: '507f1f77bcf86cd799439011',
+      name: 'Summit Tee',
+      description: 'A public cotton tee',
+      image: '/images/landing/hero.png',
+      basePriceInr: 987654,
+    }, 'https://shelfmerch.io');
+    expect(meta.jsonLd).toBeNull();
+    expect(JSON.stringify(meta)).not.toContain('987654');
+    const html = applyCatalogProductSeo(shell, {
+      id: '507f1f77bcf86cd799439011',
+      name: 'Summit Tee',
+      description: 'A public cotton tee',
+      image: '/images/landing/hero.png',
+    }, 'https://shelfmerch.io');
+    expect(html).toContain('<title>Summit Tee | ShelfMerch</title>');
+    expect(html).toContain('rel="canonical" href="https://shelfmerch.io/apps/catalog/507f1f77bcf86cd799439011"');
+    expect(html).toContain('og:image" content="https://shelfmerch.io/images/landing/hero.png"');
+    expect(html).toContain('name="robots" content="index, follow"');
+    expect(html).not.toContain('"@type":"Product"');
+    expect(html).not.toContain('Organization');
+  });
+
+  it('emits Product JSON-LD when a real public offer is supplied', () => {
+    const meta = catalogProductMeta({
+      id: '507f1f77bcf86cd799439011',
+      name: 'Summit Tee',
+      description: 'A public cotton tee',
+      offer: { price: 599, priceCurrency: 'INR' },
+    }, 'https://shelfmerch.io');
+    expect(meta.jsonLd.offers.price).toBe(599);
+    expect(meta.jsonLd.offers.priceCurrency).toBe('INR');
+    expect(meta.jsonLd.aggregateRating).toBeUndefined();
+    const html = applyCatalogProductSeo(shell, {
+      id: '507f1f77bcf86cd799439011',
+      name: 'Summit Tee',
+      offer: { price: 599, priceCurrency: 'INR' },
+    }, 'https://shelfmerch.io');
+    expect(html).toContain('"@type":"Product"');
+    expect(html).toContain('"price":599');
+    expect(html).not.toContain('aggregateRating');
+    expect(html).not.toContain('InStock');
   });
 });

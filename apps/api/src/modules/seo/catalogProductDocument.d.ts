@@ -6,6 +6,9 @@ export function catalogProductMeta(
     brand?: string;
     category?: string;
     image?: string;
+    offer?: { price?: unknown; priceCurrency?: string; availability?: string };
+    review?: { reviewBody?: string; author?: string };
+    aggregateRating?: { ratingValue?: unknown; reviewCount?: unknown };
   },
   origin: string,
 ): {
@@ -13,5 +16,5 @@ export function catalogProductMeta(
   description: string;
   canonical: string;
   image: string | null;
-  jsonLd: Record<string, unknown>;
+  jsonLd: Record<string, unknown> | null;
 };

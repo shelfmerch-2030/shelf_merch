@@ -59,7 +59,12 @@ export function useCatalogProductHead(product: CatalogHeadProduct | null, mode: 
     }
     canonical.href = meta.canonical;
 
-    const script = document.getElementById("seo-jsonld") ?? document.createElement("script");
+    const existing = document.getElementById("seo-jsonld");
+    if (!meta.jsonLd) {
+      existing?.remove();
+      return;
+    }
+    const script = existing ?? document.createElement("script");
     script.id = "seo-jsonld";
     script.setAttribute("type", "application/ld+json");
     script.textContent = JSON.stringify(meta.jsonLd).replace(/</g, "\\u003c");
