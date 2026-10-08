@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUpRight, Check, ChevronDown, Home, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
 import { ApiError, publicFetch } from "@/services/api";
@@ -56,7 +56,25 @@ export function RequestDemoForm({
   const [message, setMessage] = useState("");
   const [submittedFirstName, setSubmittedFirstName] = useState("");
   const [submittedLead, setSubmittedLead] = useState<DemoLeadFormValues | null>(null);
+  const [requirement, setRequirement] = useState("");
+  const [isRequirementOpen, setIsRequirementOpen] = useState(false);
   const isSubmitting = submitState === "submitting";
+  const isLandingVariant = variant === "landing";
+
+  useEffect(() => {
+    if (submitState !== "success" || !isLandingVariant) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const hero = document.getElementById("top");
+      if (hero) {
+        hero.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isLandingVariant, submitState]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,6 +99,8 @@ export function RequestDemoForm({
       });
 
       currentForm.reset();
+      setRequirement("");
+      setIsRequirementOpen(false);
       setSubmittedFirstName(getRequestDemoFirstName(values.fullName));
       setSubmittedLead(values);
       setSubmitState("success");
@@ -111,24 +131,33 @@ export function RequestDemoForm({
         <div className="request-demo__success-copy">
           <h2 id={titleId}>Request received!</h2>
           <p className="request-demo__success-subtitle">We&apos;ll be in touch soon.</p>
-          <p>
-            Thanks, <strong>{submittedFirstName}</strong>. A Shelf Merch specialist will contact
-            you shortly to understand your requirements and schedule your personalised demo.
-          </p>
+          {isLandingVariant ? (
+            <p>
+              Thanks, <strong>{submittedFirstName}</strong>. A Shelf Merch specialist will contact
+              you shortly.
+            </p>
+          ) : (
+            <p>
+              Thanks, <strong>{submittedFirstName}</strong>. A Shelf Merch specialist will contact
+              you shortly to understand your requirements and schedule your personalised demo.
+            </p>
+          )}
 
-          <div className="request-demo__next-steps">
-            <h3>What happens next?</h3>
-            <ul>
-              {requestDemoNextSteps.map((step) => (
-                <li key={step}>
-                  <span aria-hidden="true">
-                    <Check size={14} strokeWidth={3} />
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {!isLandingVariant ? (
+            <div className="request-demo__next-steps">
+              <h3>What happens next?</h3>
+              <ul>
+                {requestDemoNextSteps.map((step) => (
+                  <li key={step}>
+                    <span aria-hidden="true">
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           <p className="request-demo__success-confirm">
             <span aria-hidden="true">
@@ -138,30 +167,32 @@ export function RequestDemoForm({
           </p>
         </div>
 
-        <div className="request-demo__success-actions">
-          <a
-            className="request-demo__success-action request-demo__success-action--primary"
-            href={buildRequestDemoWhatsAppHref(
-              buildRequestDemoWhatsAppMessage(submittedLead ?? undefined),
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Chat on WhatsApp
-            <span aria-hidden="true">
-              <MessageCircle size={18} />
-            </span>
-          </a>
-          <Link
-            className="request-demo__success-action request-demo__success-action--secondary"
-            to="/"
-          >
-            Return to Homepage
-            <span aria-hidden="true">
-              <Home size={18} />
-            </span>
-          </Link>
-        </div>
+        {!isLandingVariant ? (
+          <div className="request-demo__success-actions">
+            <a
+              className="request-demo__success-action request-demo__success-action--primary"
+              href={buildRequestDemoWhatsAppHref(
+                buildRequestDemoWhatsAppMessage(submittedLead ?? undefined),
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Chat on WhatsApp
+              <span aria-hidden="true">
+                <MessageCircle size={18} />
+              </span>
+            </a>
+            <Link
+              className="request-demo__success-action request-demo__success-action--secondary"
+              to="/"
+            >
+              Return to Homepage
+              <span aria-hidden="true">
+                <Home size={18} />
+              </span>
+            </Link>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -250,22 +281,64 @@ export function RequestDemoForm({
         </div>
 
         <div className="request-demo__field request-demo__field--wide">
-          <label htmlFor={`${idPrefix}-requirement`}>What are you looking for?</label>
-          <div className="request-demo__select-wrap">
-            <select
-              id={`${idPrefix}-requirement`}
-              name="requirement"
-              defaultValue=""
+          <label id={`${idPrefix}-requirement-label`} htmlFor={`${idPrefix}-requirement`}>
+            What are you looking for?
+          </label>
+          <input
+            id={`${idPrefix}-requirement`}
+            type="hidden"
+            name="requirement"
+            value={requirement}
+            readOnly
+          />
+          <div className="request-demo__select-wrap request-demo__select-wrap--custom">
+            <button
+              type="button"
+              className="request-demo__select-button"
+              aria-expanded={isRequirementOpen}
+              aria-haspopup="listbox"
+              aria-labelledby={`${idPrefix}-requirement-label`}
               disabled={isSubmitting}
+              onBlur={(event) => {
+                if (
+                  !event.currentTarget.parentElement?.contains(event.relatedTarget as Node | null)
+                ) {
+                  setIsRequirementOpen(false);
+                }
+              }}
+              onClick={() => setIsRequirementOpen((open) => !open)}
             >
-              <option value="">Select a requirement</option>
-              {requestDemoRequirements.map((requirement) => (
-                <option key={requirement} value={requirement}>
-                  {requirement}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={18} aria-hidden="true" />
+              <span className={requirement ? "" : "request-demo__select-placeholder"}>
+                {requirement || "Select a requirement"}
+              </span>
+              <ChevronDown size={18} aria-hidden="true" />
+            </button>
+
+            {isRequirementOpen ? (
+              <div
+                className="request-demo__select-menu"
+                role="listbox"
+                aria-labelledby={`${idPrefix}-requirement-label`}
+                tabIndex={-1}
+              >
+                {requestDemoRequirements.map((option) => (
+                  <button
+                    type="button"
+                    className={`request-demo__select-option${requirement === option ? " is-selected" : ""}`}
+                    key={option}
+                    role="option"
+                    aria-selected={requirement === option}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setRequirement(option);
+                      setIsRequirementOpen(false);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 

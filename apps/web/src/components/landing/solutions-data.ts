@@ -33,7 +33,7 @@ export const SOLUTIONS: SolutionItem[] = [
     label: "42 approved SKUs",
   },
   {
-    tab: "Administration",
+    tab: "Admin",
     title: "Simplify procurement, budgets and approvals",
     body: "Give admin teams one source of truth for every branded item leaving the building.",
     points: [

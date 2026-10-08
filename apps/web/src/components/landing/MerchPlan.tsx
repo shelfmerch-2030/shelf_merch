@@ -1,4 +1,4 @@
-import { CheckCircle2, Mail, MapPin, MessageCircle, PackageCheck } from "lucide-react";
+import { CheckCircle2, Mail, MapPin, PackageCheck } from "lucide-react";
 import { RequestDemoForm } from "@/features/request-demo/RequestDemoForm";
 
 const highlights = [
@@ -10,10 +10,6 @@ const highlights = [
 export function MerchPlan() {
   return (
     <section className="landing-plan" id="contact" aria-labelledby="landing-plan-title">
-      <div className="landing-plan__image" aria-hidden="true">
-        <img src="/images/landing/hero.png" alt="" />
-      </div>
-
       <div className="landing-plan__copy">
         <h2 id="landing-plan-title">
           Tell us what
@@ -37,9 +33,9 @@ export function MerchPlan() {
           ))}
         </ul>
 
-        <a className="landing-plan__email" href="mailto:supported@shelfmerch.com">
+        <a className="landing-plan__email" href="mailto:support@shelfmerch.com">
           <Mail size={20} aria-hidden="true" />
-          supported@shelfmerch.com
+          support@shelfmerch.com
         </a>
       </div>
 

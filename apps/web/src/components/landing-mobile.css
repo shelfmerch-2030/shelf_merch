@@ -445,11 +445,29 @@
 
   /* Trust bar compact */
   .shelf-landing .trust-bar {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-    padding: 18px var(--mobile-pad);
+    gap: 10px;
+    overflow: hidden;
+    padding: 12px 0;
     min-height: 0;
+  }
+
+  .shelf-landing .trust-marquee {
+    --trust-logo-gap: 24px;
+    --trust-edge-fade: 54px;
+    min-height: 52px;
+  }
+
+  .shelf-landing .trust-logo {
+    width: clamp(112px, 34vw, 154px);
+    height: 42px;
+  }
+
+  .shelf-landing .trust-logo--google {
+    width: clamp(118px, 34vw, 154px);
+    height: 52px;
   }
 
   .shelf-landing .logo-row {
@@ -1137,5 +1155,9 @@
   .shelf-landing .menu-scrim,
   .shelf-landing .menu-button span {
     transition: none;
+  }
+
+  .shelf-landing .trust-marquee-track {
+    animation: none;
   }
 }

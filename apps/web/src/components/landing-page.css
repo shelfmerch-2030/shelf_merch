@@ -144,9 +144,108 @@
 }
 
 .shelf-landing .trust-bar > span {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0.18em;
+  text-shadow: 0 1px 10px rgba(255, 255, 255, 0.18);
+}
+
+.shelf-landing .trust-bar {
+  display: flex;
+  align-items: center;
+  gap: clamp(26px, 3.4vw, 58px);
+  overflow: hidden;
+  padding: 10px 4.1vw 10px 1.6vw;
+}
+
+.shelf-landing .trust-marquee {
+  --trust-logo-gap: clamp(28px, 3.5vw, 56px);
+  --trust-edge-fade: min(120px, 12vw);
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  overflow: hidden;
+}
+
+.shelf-landing .trust-marquee::before,
+.shelf-landing .trust-marquee::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: var(--trust-edge-fade);
+  pointer-events: none;
+}
+
+.shelf-landing .trust-marquee::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--ink), rgba(18, 18, 18, 0));
+}
+
+.shelf-landing .trust-marquee::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--ink), rgba(18, 18, 18, 0));
+}
+
+.shelf-landing .trust-marquee-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: trust-logo-marquee 44s linear infinite;
+  will-change: transform;
+}
+
+.shelf-landing .trust-marquee:hover .trust-marquee-track {
+  animation-play-state: paused;
+}
+
+.shelf-landing .trust-marquee-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--trust-logo-gap);
+  padding-right: var(--trust-logo-gap);
+}
+
+.shelf-landing .trust-logo {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: clamp(132px, 13vw, 218px);
+  height: 48px;
+}
+
+.shelf-landing .trust-logo--google {
+  width: clamp(130px, 12vw, 190px);
+  height: 58px;
+}
+
+.shelf-landing .trust-logo--google img {
+  max-width: none;
+  max-height: none;
+  width: 100%;
+  transform: scale(1.9);
+}
+
+.shelf-landing .trust-logo img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+@keyframes trust-logo-marquee {
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 /* App h1–h4 use Bricolage; restore the HTML fonts on the landing page. */
@@ -325,6 +424,33 @@
 .shelf-landing .recognition-copy .text-link span {
   width: 32px;
   height: 32px;
+}
+
+.shelf-landing .catalog-link {
+  gap: 10px;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.shelf-landing .catalog-section .split-heading {
+  align-items: start;
+}
+
+.shelf-landing .catalog-heading-action {
+  justify-self: end;
+  padding-top: 58px;
+}
+
+.shelf-landing .catalog-link .catalog-link-label {
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  display: inline;
+}
+
+.shelf-landing .catalog-link .catalog-link-icon {
+  flex: 0 0 auto;
 }
 .shelf-landing .wallet-meter span {
   font-size: 32px;
@@ -530,6 +656,34 @@
 }
 
 @media (max-width: 760px) {
+  .shelf-landing .trust-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .shelf-landing .trust-marquee {
+    --trust-logo-gap: 24px;
+    --trust-edge-fade: 54px;
+    min-height: 52px;
+  }
+
+  .shelf-landing .trust-logo {
+    width: clamp(112px, 34vw, 154px);
+    height: 42px;
+  }
+
+  .shelf-landing .trust-logo--google {
+    width: clamp(118px, 34vw, 154px);
+    height: 52px;
+  }
+
+  .shelf-landing .catalog-heading-action {
+    justify-self: start;
+    padding-top: 0;
+  }
+
   .shelf-landing .section-heading p,
   .shelf-landing .split-heading > p,
   .shelf-landing .split-heading > div > p,
@@ -573,6 +727,12 @@
   }
   .shelf-landing .feature-point {
     font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelf-landing .trust-marquee-track {
+    animation: none;
   }
 }
 
@@ -793,18 +953,18 @@
 .shelf-landing .landing-plan {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 0.9fr) minmax(420px, 1fr);
-  gap: clamp(28px, 3.8vw, 68px);
+  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 0.9fr);
+  gap: clamp(38px, 7vw, 120px);
   align-items: center;
-  min-height: 680px;
-  padding: 74px 4.25vw;
+  justify-content: center;
+  min-height: 640px;
+  padding: 74px 6vw;
   overflow: hidden;
   background: var(--blue);
   color: #fff;
 }
 
-.shelf-landing .landing-plan::before,
-.shelf-landing .landing-plan::after {
+.shelf-landing .landing-plan::before {
   content: "";
   position: absolute;
   border-radius: 50%;
@@ -817,14 +977,6 @@
   left: -54px;
   top: 36px;
   background: var(--coral);
-}
-
-.shelf-landing .landing-plan::after {
-  width: 280px;
-  height: 280px;
-  left: 14vw;
-  bottom: -112px;
-  background: var(--lilac);
 }
 
 .shelf-landing .landing-plan__image {
@@ -918,37 +1070,92 @@
 .shelf-landing .landing-plan__form-card {
   position: relative;
   z-index: 2;
-  padding: clamp(26px, 3vw, 36px);
-  border-radius: 24px;
+  width: min(100%, 538px);
+  justify-self: center;
+  padding: clamp(24px, 3vw, 32px);
+  border: 0;
+  border-radius: 8px;
   background: #fff;
   color: var(--ink);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 18px 70px rgba(72, 47, 130, 0.16);
+  font-family: Inter, Arial, Helvetica, sans-serif;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__field label {
-  color: #050505;
-  font-size: 15px;
-  font-weight: 850;
+  color: #3f3f3f;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__form--landing {
+  gap: 14px 16px;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__field input,
-.shelf-landing .landing-plan__form-card .request-demo__field select {
-  height: 60px;
-  border-color: #d4dae5;
-  border-radius: 8px;
+.shelf-landing .landing-plan__form-card .request-demo__field select,
+.shelf-landing .landing-plan__form-card .request-demo__select-button {
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid #c7c7c7;
+  border-radius: 14px;
+  background: #f1f1f1;
+  color: #000;
+  font-size: 14px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__field input::placeholder {
+  color: #8a8a8a;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__field input:focus,
+.shelf-landing .landing-plan__form-card .request-demo__field select:focus,
+.shelf-landing .landing-plan__form-card .request-demo__select-button:focus-visible,
+.shelf-landing .landing-plan__form-card .request-demo__select-button[aria-expanded="true"] {
+  border-color: #8b8b8b;
+  background: #f1f1f1;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__select-menu {
+  padding: 8px;
+  border-color: #c7c7c7;
+  border-radius: 14px;
   background: #fff;
-  color: #141414;
-  font-size: 18px;
+  box-shadow: 0 18px 42px rgba(18, 18, 18, 0.16);
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__select-option {
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__select-option:hover,
+.shelf-landing .landing-plan__form-card .request-demo__select-option.is-selected {
+  background: #f1f1f1;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__submit {
-  min-height: 63px;
-  margin-top: 2px;
-  padding: 0 28px;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 0 22px;
   justify-content: center;
-  gap: 18px;
+  gap: 12px;
+  border-radius: 10px;
   background: #151515;
-  font-size: 18px;
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__submit:hover {
+  transform: none;
+  box-shadow: none;
+  opacity: 0.9;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__submit > span {
@@ -959,15 +1166,24 @@
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__consent {
-  margin-top: -4px;
+  margin-top: -2px;
   text-align: left;
-  color: #666;
-  font-size: 13px;
+  color: #6b7280;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__whatsapp-divider {
+  margin: 0;
+  color: #6b7280;
+  font-size: 11px;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__whatsapp-button {
-  min-height: 63px;
-  font-size: 18px;
+  min-height: 48px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__commitment {
@@ -976,6 +1192,32 @@
 
 .shelf-landing .landing-plan__form-card .request-demo__success {
   min-height: 0;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success--landing {
+  gap: 18px;
+  padding: 6px 0;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success--landing .request-demo__success-icon {
+  width: 54px;
+  height: 54px;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success--landing .request-demo__success-copy h2 {
+  margin-bottom: 8px;
+  font-size: clamp(30px, 3vw, 38px);
+  letter-spacing: -0.04em;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success--landing .request-demo__success-subtitle {
+  margin-bottom: 12px !important;
+  font-size: 16px !important;
+}
+
+.shelf-landing .landing-plan__form-card .request-demo__success--landing .request-demo__success-copy p {
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .shelf-landing .landing-plan__floating-whatsapp {
@@ -1005,19 +1247,11 @@
 
 @media (max-width: 1180px) {
   .shelf-landing .landing-plan {
-    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1fr);
-  }
-
-  .shelf-landing .landing-plan__image {
-    grid-row: span 2;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1fr);
   }
 
   .shelf-landing .landing-plan__copy h2 {
     font-size: clamp(48px, 7vw, 76px);
-  }
-
-  .shelf-landing .landing-plan__form-card {
-    grid-column: 2;
   }
 }
 
@@ -1037,13 +1271,6 @@
     left: auto;
     right: -90px;
     bottom: 38%;
-  }
-
-  .shelf-landing .landing-plan__image {
-    grid-row: auto;
-    min-height: 360px;
-    margin: 0 -5vw;
-    border-radius: 0;
   }
 
   .shelf-landing .landing-plan__form-card {

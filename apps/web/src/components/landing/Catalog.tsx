@@ -88,14 +88,11 @@ export function Catalog() {
             <em>Every occasion.</em>
           </h2>
         </div>
-        <div>
-          <p className="desktop-only">
-            From apparel to tech accessories, explore what you can put your logo on.
-          </p>
-          <Link to="/app/catalog" className="text-link">
-            <span className="desktop-only">View full catalog</span>
-            <span className="mobile-only">See all</span>
-            <span>
+        <div className="catalog-heading-action">
+          <Link to="/app/catalog" className="text-link catalog-link">
+            <span className="catalog-link-label desktop-only">View full catalog</span>
+            <span className="catalog-link-label mobile-only">See all</span>
+            <span className="catalog-link-icon">
               <ArrowIcon />
             </span>
           </Link>
