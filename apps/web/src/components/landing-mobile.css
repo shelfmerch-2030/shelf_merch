@@ -99,10 +99,10 @@
     order: 10;
   }
   .shelf-landing .landing-main > .events-section {
-    order: 11;
+    order: 12;
   }
   .shelf-landing .landing-main > .festive-banner {
-    order: 12;
+    order: 11;
   }
   .shelf-landing .landing-main > .occasion-section {
     order: 13;
@@ -151,7 +151,9 @@
     height: 2px;
     margin: 0;
     background: var(--ink);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      opacity 0.2s ease;
     position: absolute;
   }
 
@@ -211,7 +213,9 @@
     transform: translateY(-8px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease;
     z-index: 22;
     max-height: calc(100dvh - 60px);
     overflow: auto;
@@ -551,11 +555,15 @@
 
   .shelf-landing .bento-shop {
     grid-column: 1 / -1;
-    grid-template-columns: 1fr;
-    gap: 20px;
-    padding: 24px 20px 0;
+    gap: 0;
+    padding: 28px 16px 22px;
     min-height: 0;
     border-radius: var(--mobile-radius);
+  }
+
+  .shelf-landing .bento-shop > .mini-label {
+    top: 18px;
+    left: 16px;
   }
 
   .shelf-landing .bento-copy h3 {
@@ -563,41 +571,23 @@
     margin: 14px 0 12px;
   }
 
-  .shelf-landing .bento-copy > p {
+  .shelf-landing .bento-shop > p {
     font-size: 15px !important;
     line-height: 1.55;
-    max-width: 32ch;
+    max-width: none;
+    margin: 12px 0 0;
   }
 
-  .shelf-landing .bento-copy .text-link {
-    margin-top: 16px;
+  .shelf-landing .bento-shop > .text-link {
+    margin-top: 12px;
     min-height: 44px;
     font-size: 14px;
   }
 
-  .shelf-landing .shop-ui {
-    min-height: 0;
-    transform: none;
-    border-radius: 16px 16px 0 0;
-    margin-top: 8px;
-  }
-
-  .shelf-landing .shop-banner {
-    height: 120px;
-  }
-
-  .shelf-landing .product-row {
-    padding-bottom: 12px;
-  }
-
-  .shelf-landing .shop-banner strong {
-    font-size: 22px;
-    margin-top: 14px;
-  }
-
-  .shelf-landing .mini-product {
-    height: 72px;
-    font-size: 28px;
+  .shelf-landing .shop-visual {
+    width: 86%;
+    max-width: 360px;
+    margin: 12px 0 0;
   }
 
   .shelf-landing .bento-mini {
@@ -756,15 +746,20 @@
   }
 
   /* ========== 9. CATALOG CAROUSEL ========== */
-  .shelf-landing .catalog-section .split-heading {
-    grid-template-columns: 1fr auto;
-    align-items: end;
-    gap: 12px;
+  .shelf-landing .catalog-section .catalog-heading {
     margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .shelf-landing .catalog-section .catalog-heading h2 {
+    font-size: clamp(16px, 4.6vw, 28px);
+    line-height: 1.05;
+    margin: 12px 0 8px;
+    white-space: nowrap;
   }
 
   .shelf-landing .catalog-section .text-link {
-    margin-top: 0;
+    margin-top: 4px;
     white-space: nowrap;
   }
 
@@ -823,14 +818,14 @@
   }
 
   .shelf-landing .recognition-ui {
-    border-radius: 18px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.35);
-    box-shadow: 0 12px 28px rgba(41, 22, 63, 0.12);
+    border-radius: 0;
+    overflow: visible;
+    background: transparent;
+    box-shadow: none;
   }
 
   .shelf-landing .recognition-ui img {
-    border-radius: 18px;
+    border-radius: 0;
   }
 
   /* ========== 11. FINAL CTA ========== */

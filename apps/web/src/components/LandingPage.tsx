@@ -34,8 +34,8 @@ export default function LandingPage() {
         <Catalog />
         <Quote />
         <Solutions />
-        <Events />
         <FestiveBanner />
+        <Events />
         <Occasions />
         <Flexibility />
         <MerchPlan />
