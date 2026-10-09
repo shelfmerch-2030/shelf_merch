@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowUpRight, Check, ChevronDown, Home, MessageCircle } from "lucide-react";
+import { Check, ChevronDown, Home, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
 import { ApiError, publicFetch } from "@/services/api";
 import {
@@ -201,9 +201,18 @@ export function RequestDemoForm({
     <>
       {showHeading ? (
         <div className="request-demo__form-heading">
-          <span>REQUEST A DEMO</span>
-          <h2 id={titleId}>Tell us about your team.</h2>
-          <p>We&apos;ll tailor the conversation to your goals, team size and gifting needs.</p>
+          <div
+            className="request-demo__g2-rating"
+            aria-label="G2 Rating: 4.7 out of 5 stars from 15,128 reviews"
+          >
+            <span className="request-demo__g2-badge">G²</span>
+            <span className="request-demo__g2-star">★</span>
+            <strong className="request-demo__g2-score">4.7 / 5</strong>
+            <span className="request-demo__g2-divider">|</span>
+            <span className="request-demo__g2-count">15,128 Reviews</span>
+          </div>
+          <h2 id={titleId}>Book a free merch planning demo</h2>
+          <p>Experience a personalised Shelf Merch walkthrough and get your questions answered.</p>
         </div>
       ) : (
         <h2 id={titleId} className="request-demo__visually-hidden">
@@ -225,7 +234,7 @@ export function RequestDemoForm({
             name="fullName"
             type="text"
             autoComplete="name"
-            placeholder={variant === "landing" ? "Your full name" : "Enter your full name"}
+            placeholder="Full Name"
             required
             disabled={isSubmitting}
           />
@@ -240,7 +249,7 @@ export function RequestDemoForm({
             name="companyName"
             type="text"
             autoComplete="organization"
-            placeholder={variant === "landing" ? "Company name" : "Enter your company name"}
+            placeholder="Company Name"
             required
             disabled={isSubmitting}
           />
@@ -256,7 +265,7 @@ export function RequestDemoForm({
             type="email"
             autoComplete="email"
             inputMode="email"
-            placeholder={variant === "landing" ? "you@company.com" : "name@company.com"}
+            placeholder="@company.com"
             required
             disabled={isSubmitting}
           />
@@ -272,7 +281,7 @@ export function RequestDemoForm({
             type="tel"
             autoComplete="tel"
             inputMode="tel"
-            placeholder={variant === "landing" ? "+91 98765 43210" : "Enter your mobile number"}
+            placeholder="Mobile number"
             pattern="[0-9+() -]{7,20}"
             title="Enter a valid mobile number"
             required
@@ -349,9 +358,6 @@ export function RequestDemoForm({
           aria-busy={isSubmitting}
         >
           {isSubmitting ? "Submitting..." : submitLabel}
-          <span aria-hidden="true">
-            <ArrowUpRight size={18} />
-          </span>
         </button>
 
         {message ? (

@@ -79,24 +79,18 @@ function CatalogArrow() {
 export function Catalog() {
   return (
     <section className="section catalog-section" id="catalog">
-      <div className="split-heading">
-        <div>
-          <span className="kicker">SOMETHING FOR EVERYONE</span>
-          <h2>
-            One catalog.
-            <br />
-            <em>Every occasion.</em>
-          </h2>
-        </div>
-        <div className="catalog-heading-action">
-          <Link to="/app/catalog" className="text-link catalog-link">
-            <span className="catalog-link-label desktop-only">View full catalog</span>
-            <span className="catalog-link-label mobile-only">See all</span>
-            <span className="catalog-link-icon">
-              <ArrowIcon />
-            </span>
-          </Link>
-        </div>
+      <div className="section-heading centered catalog-heading">
+        <span className="kicker">SOMETHING FOR EVERYONE</span>
+        <h2>
+          One catalog <em>for every occasion</em>
+        </h2>
+        <Link to="/app/catalog" className="text-link catalog-link">
+          <span className="catalog-link-label desktop-only">View full catalog</span>
+          <span className="catalog-link-label mobile-only">See all</span>
+          <span className="catalog-link-icon">
+            <ArrowIcon />
+          </span>
+        </Link>
       </div>
       <div className="catalog-grid">
         {CATALOG_ITEMS.map((item) => (
