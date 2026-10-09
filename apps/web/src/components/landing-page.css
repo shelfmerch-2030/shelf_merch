@@ -1537,7 +1537,7 @@
   color: #777;
 }
 .shelf-landing .events-section {
-  padding: 48px 6.8vw 52px;
+  padding: 48px 4.8vw 56px;
   background: #ffffff;
   color: var(--ink);
   display: flex;
@@ -1572,40 +1572,49 @@
   margin: 0 auto 16px;
   opacity: 0.85;
 }
-.shelf-landing .events-copy .button {
+.shelf-landing .events-cta {
   margin: 0 auto;
 }
 .shelf-landing .event-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  gap: 22px;
   width: 100%;
-  max-width: 1380px;
+  max-width: 1560px;
   margin: 0 auto;
 }
 .shelf-landing .event-grid article {
   min-height: 0;
-  padding: 0;
-  background: transparent;
+  padding: 18px 18px 24px;
+  background: #ffffff;
   border: none;
-  border-radius: 0;
-  box-shadow: none;
+  border-radius: 22px;
+  box-shadow: 0 18px 45px rgba(18, 18, 18, 0.08);
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
   transition: transform 0.25s ease;
 }
 .shelf-landing .event-grid article:hover {
   transform: translateY(-4px);
 }
+.shelf-landing .event-card-media {
+  width: 100%;
+  aspect-ratio: 1.35 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+  padding: 4px;
+}
 .shelf-landing .event-grid article.event-image-card img {
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
   display: block;
-  border-radius: 0;
   transition: transform 0.3s ease;
 }
 .shelf-landing .event-grid article > span {
@@ -1615,14 +1624,17 @@
   font: 8.5px var(--font-geist-mono);
 }
 .shelf-landing .event-grid h3 {
-  font-size: 18.7px;
+  color: var(--ink);
+  font-size: 24px;
   letter-spacing: -0.04em;
-  margin: 46.8px 0 8.5px;
+  line-height: 1.05;
+  margin: 20px 10px 8px;
 }
 .shelf-landing .event-grid p {
-  font-size: 10.2px;
-  line-height: 1.5;
-  color: #666;
+  color: #3f3d3a;
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0 10px;
 }
 .shelf-landing .festive-banner {
   min-height: 578px;
@@ -2304,14 +2316,22 @@
     padding: 68px 4.25vw;
   }
   .shelf-landing .event-grid {
-    gap: 6.8px;
+    gap: 14px;
   }
   .shelf-landing .event-grid article {
-    min-height: 191.3px;
-    padding: 16.2px;
+    min-height: 0;
+    padding: 14px 14px 20px;
+  }
+  .shelf-landing .event-card-media {
+    border-radius: 14px;
   }
   .shelf-landing .event-grid h3 {
-    font-size: 15.3px;
+    font-size: 21px;
+    margin: 17px 8px 7px;
+  }
+  .shelf-landing .event-grid p {
+    font-size: 15px;
+    margin: 0 8px;
   }
   .shelf-landing .festive-banner {
     min-height: 552.5px;
@@ -2652,6 +2672,9 @@
 .shelf-landing .catalog-coral.has-image,
 .shelf-landing .catalog-festive.has-image {
   color: #fff;
+}
+.shelf-landing .catalog-black.has-image {
+  color: var(--ink);
 }
 .shelf-landing .catalog-blue.has-image .round-arrow {
   color: var(--blue);

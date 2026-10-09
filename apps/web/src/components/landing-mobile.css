@@ -1011,16 +1011,28 @@
 
   .shelf-landing .event-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 
   .shelf-landing .event-grid article {
-    min-height: 160px;
-    padding: 14px;
+    min-height: 0;
+    padding: 9px 9px 15px;
+    border-radius: 18px;
+  }
+
+  .shelf-landing .event-card-media {
+    border-radius: 12px;
   }
 
   .shelf-landing .event-grid h3 {
-    font-size: 15px;
-    margin-top: 36px;
+    font-size: 16px;
+    margin: 12px 5px 5px;
+  }
+
+  .shelf-landing .event-grid p {
+    font-size: 12.5px;
+    line-height: 1.35;
+    margin: 0 5px;
   }
 
   .shelf-landing .festive-banner {
