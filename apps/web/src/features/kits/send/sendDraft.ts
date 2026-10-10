@@ -126,7 +126,7 @@ export function sendKitReducer(state: SendKitDraft, action: SendKitAction): Send
       const { [action.fromId]: fromVariants, ...restVariants } = state.recipVariants;
       return {
         ...state,
-        selRecips: state.selRecips.map((id) => (id === action.fromId ? action.toId : id)),
+        selRecips: [...new Set(state.selRecips.map((id) => (id === action.fromId ? action.toId : id)))],
         recipVariants: fromVariants
           ? {
               ...restVariants,

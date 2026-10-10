@@ -21,6 +21,7 @@ export type SendPointsAction =
   | { type: "setRecips"; recips: number }
   | { type: "toggleRecip"; id: string }
   | { type: "setSelRecips"; selRecips: string[] }
+  | { type: "remapRecipId"; fromId: string; toId: string }
   | { type: "deselectRecips" }
   | { type: "setPointsScope"; pointsScope: "stadium" | "shop" }
   | { type: "setFrom"; from: string }
@@ -60,6 +61,11 @@ export function sendPointsReducer(
     }
     case "setSelRecips":
       return { ...state, selRecips: action.selRecips };
+    case "remapRecipId":
+      return {
+        ...state,
+        selRecips: [...new Set(state.selRecips.map((id) => (id === action.fromId ? action.toId : id)))],
+      };
     case "deselectRecips":
       return { ...state, selRecips: [] };
     case "setPointsScope":
