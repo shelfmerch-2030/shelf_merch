@@ -60,6 +60,7 @@ export type SendPointsVm = {
   draft: SendPointsDraft;
   dispatch: (action: SendPointsAction) => void;
   totals: PointsSendTotals;
+  billableRecipientCount: number;
   contacts: UiContact[];
   pickerContacts: UiContact[];
   shop: UiShop | undefined;
@@ -199,7 +200,8 @@ export function useSendPointsController(): SendPointsVm {
     };
   }, [campaignParam, shopId, initial, workspace]);
 
-  const totals = pointsSendTotals(draft.ppr, draft.recips);
+  const billableRecipientCount = draft.selRecips.length || recipientLimit;
+  const totals = pointsSendTotals(draft.ppr, billableRecipientCount);
   const checkoutWallets = useMemo(
     () => (workspace ? walletsForCheckout(workspace) : []),
     [workspace],
@@ -592,6 +594,7 @@ export function useSendPointsController(): SendPointsVm {
     draft,
     dispatch,
     totals,
+    billableRecipientCount,
     contacts,
     pickerContacts,
     shop,

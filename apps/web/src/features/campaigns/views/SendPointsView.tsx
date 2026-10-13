@@ -39,6 +39,7 @@ export function SendPointsView({
   draft,
   dispatch,
   totals,
+  billableRecipientCount,
   shop,
   shopCurrencyLabel,
   currencyMode,
@@ -359,7 +360,7 @@ export function SendPointsView({
               </div>
               <SumRow
                 k="No. of recipients"
-                v={draft.recips ? String(draft.recips) : SEND_POINTS_PLACEHOLDERS.recips}
+                v={billableRecipientCount ? String(billableRecipientCount) : SEND_POINTS_PLACEHOLDERS.recips}
               />
               <SumRow
                 k={`${draft.pointsScope === "stadium" ? "Shelf Merch" : "Shop"} ${unitLower} per recipient`}

@@ -124,7 +124,7 @@ export function Catalog() {
               </svg>
             </div>
             <h3>{item.title}</h3>
-            <span className="round-arrow">{item.image ? <CatalogArrow /> : "↗"}</span>
+            <span className="round-arrow">{item.image ? <CatalogArrow /> : "→"}</span>
           </Link>
         ))}
       </div>

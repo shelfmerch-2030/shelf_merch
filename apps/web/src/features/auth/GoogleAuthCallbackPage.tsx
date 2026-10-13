@@ -34,7 +34,7 @@ export function GoogleAuthCallbackPage() {
 
     const session = parseHashSession(window.location.hash);
     if (!session) {
-      const text = "Invalid Google sign-in response — try again";
+      const text = "Invalid Google sign-in response. Try again";
       setMessage(text);
       toast.error(text);
       const timer = window.setTimeout(() => navigate("/login", { replace: true }), 2400);

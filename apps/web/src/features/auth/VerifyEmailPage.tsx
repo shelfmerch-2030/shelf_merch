@@ -82,7 +82,7 @@ export function VerifyEmailPage() {
           setError("Incorrect verification code. Please try again.");
           setOtp("");
         } else if (err.code === "EMAIL_EXISTS") {
-          setError("Account already exists — sign in");
+          setError("Account already exists. Sign in");
         } else if (err.code === "SIGNUP_SESSION_EXPIRED") {
           setError("Signup session expired. Please sign up again.");
         } else {

@@ -308,7 +308,7 @@ export function RecipientPicker({
                   </td>
                   <td className="muted">{c.email}</td>
                   <td style={{ fontWeight: 600 }}>{c.name}</td>
-                  <td className="muted">{c.loc || "—"}</td>
+                  <td className="muted">{c.loc || "N/A"}</td>
                 </tr>
               );
             })}

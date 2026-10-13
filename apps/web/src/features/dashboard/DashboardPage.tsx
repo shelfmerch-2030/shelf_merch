@@ -219,7 +219,7 @@ function VideoCard({ wide = false, centered = false }: { wide?: boolean; centere
         <h3>Welcome to Shelf Merch</h3>
         <p>
           {centered || !wide
-            ? "Your corporate gifting workspace - 2 min overview"
+            ? "Your corporate gifting workspace: 2 min overview"
             : "See how your corporate gifting workspace works"}
         </p>
       </div>
