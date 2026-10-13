@@ -70,7 +70,7 @@ export function VerifyEmailPage() {
       const user = await verifySignupOtp(pendingId, otp);
       clearSignupDraft();
       toast.success(`Welcome to Shelf Merch, ${user.name.split(" ")[0]} 👋`);
-      const destination = isPlatformUser(user) ? "/platform/dashboard" : "/app";
+      const destination = isPlatformUser(user) ? "/platform/dashboard" : "/dashboard";
       window.location.assign(destination);
     } catch (err) {
       submitInFlight.current = false;

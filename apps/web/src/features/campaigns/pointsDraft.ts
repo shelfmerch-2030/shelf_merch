@@ -82,7 +82,7 @@ export function sendPointsReducer(
 }
 
 export const SEND_POINTS_PLACEHOLDERS = {
-  orderName: "e.g. Diwali Gifting 2026",
+  orderName: "e.g. Diwali Campaign 2026",
   recips: "100",
   ppr: "1500",
   points: "1500.00",

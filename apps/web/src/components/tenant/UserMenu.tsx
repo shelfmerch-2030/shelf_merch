@@ -4,6 +4,7 @@ import { Check, Globe, HelpCircle, User } from "lucide-react";
 import { toast } from "sonner";
 import { logout, logoutEverywhere } from "@/services/api-bridge";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { tenantPath } from "@/lib/workspaceSlug";
 
 function TopbarChevron({ open }: { open: boolean }) {
   return (
@@ -95,7 +96,7 @@ export function UserMenu({
             </div>
 
             <div className="user-menu-body">
-              <Link to="/app/settings" className="user-menu-link" role="menuitem" onClick={close}>
+              <Link to={tenantPath("/settings")} className="user-menu-link" role="menuitem" onClick={close}>
                 Account Settings
               </Link>
               <button

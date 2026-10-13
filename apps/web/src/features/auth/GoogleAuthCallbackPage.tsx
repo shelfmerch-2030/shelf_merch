@@ -44,7 +44,7 @@ export function GoogleAuthCallbackPage() {
     setSession(session);
     window.history.replaceState(null, "", window.location.pathname);
     toast.success(`Welcome, ${session.user.name.split(" ")[0]} 👋`);
-    const destination = isPlatformUser(session.user) ? "/platform/dashboard" : "/app";
+    const destination = isPlatformUser(session.user) ? "/platform/dashboard" : "/dashboard";
     navigate(destination, { replace: true });
   }, [navigate, searchParams]);
 
