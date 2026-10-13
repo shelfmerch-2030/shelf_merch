@@ -13,7 +13,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "I shared our new Shelf Merch store with our CEO this week. His exact words were - 'Yes! This is exactly what I've been asking for!' Thank YOU for helping us hit this out of the park.",
+      "I shared our new Shelf Merch store with our CEO this week. His exact words were: 'Yes! This is exactly what I've been asking for!' Thank YOU for helping us hit this out of the park.",
     name: "Sneha K.",
     role: "APEX SOLUTIONS | VP OF MARKETING",
   },

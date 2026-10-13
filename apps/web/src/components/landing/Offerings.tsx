@@ -20,7 +20,7 @@ function ChipSet({ id }: { id: string }) {
     <div className="chip-set">
       {CHIPS.map((chip, index) => (
         <span key={`${id}-${chip.label}-${index}`} className={chip.className}>
-          {chip.label} <b>↗</b>
+          {chip.label} <b>→</b>
         </span>
       ))}
     </div>
@@ -41,7 +41,7 @@ function MobileExploreChips() {
             to={item.to}
             className={`chip chip-${index % 5}`}
           >
-            {item.shortTitle} <b>↗</b>
+            {item.shortTitle} <b>→</b>
           </Link>
         ))}
         {!showMore && items.length > EXPLORE_PRIMARY ? (

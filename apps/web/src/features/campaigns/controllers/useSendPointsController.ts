@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspace, useInvalidateWorkspace } from "@/hooks/useWorkspace";
 import { openRazorpayCheckout } from "@/lib/razorpay";
@@ -18,18 +17,14 @@ import {
   type SendFlowBlockReason,
 } from "@/features/send/fundsGate";
 import { toSchedulePayload } from "@/features/send/types";
-import { CONTACTS_QUERY_KEY } from "@/features/contacts/model";
-import { persistNewRecipientContacts } from "@/features/send/persistNewRecipientContacts";
 import {
-  addRecipientRowsUpToLimit,
   addRecipientsUpToLimit,
   emailFromManualRecipientId,
   isManualRecipientId,
   mergePickerContacts,
-  parseCsvRecipientRows,
+  parseCsvEmails,
   parseEmailInput,
   selectAllRecipientIds,
-  type CsvRecipientRow,
 } from "@/features/send/recipientSelection";
 import type { PointsSendTotals } from "@/features/send/money";
 import type { ShopCurrencyMode } from "@/lib/storeCurrency";
@@ -65,6 +60,7 @@ export type SendPointsVm = {
   draft: SendPointsDraft;
   dispatch: (action: SendPointsAction) => void;
   totals: PointsSendTotals;
+  billableRecipientCount: number;
   contacts: UiContact[];
   pickerContacts: UiContact[];
   shop: UiShop | undefined;
@@ -91,7 +87,6 @@ export type SendPointsVm = {
 /** Controller for the send-points wizard: draft reducer, hydration, save, and launch. */
 export function useSendPointsController(): SendPointsVm {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const shopParam = searchParams.get("shop") ?? undefined;
   const campaignParam = searchParams.get("campaign") ?? undefined;
@@ -105,8 +100,6 @@ export function useSendPointsController(): SendPointsVm {
   const [sendError, setSendError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const successNavTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingContactSaves = useRef<Promise<void>>(Promise.resolve());
-  const savedContacts = useRef<Record<string, UiContact>>({});
   const [hydrating, setHydrating] = useState(Boolean(campaignParam));
   const [selectedWalletId, setSelectedWalletId] = useState("");
   const [campaignId, setCampaignId] = useState<string | undefined>(campaignParam);
@@ -127,15 +120,6 @@ export function useSendPointsController(): SendPointsVm {
     () => mergePickerContacts(contacts, draft.selRecips),
     [contacts, draft.selRecips],
   );
-
-  useEffect(() => {
-    for (const id of draft.selRecips) {
-      if (!isManualRecipientId(id)) continue;
-      const email = emailFromManualRecipientId(id);
-      const contact = contacts.find((row) => row.email.toLowerCase() === email);
-      if (contact) dispatch({ type: "remapRecipId", fromId: id, toId: contact.id });
-    }
-  }, [contacts, draft.selRecips]);
   const sendRecipients = useMemo<SendingPointsRecipient[]>(
     () =>
       draft.selRecips.map((id) => {
@@ -216,7 +200,8 @@ export function useSendPointsController(): SendPointsVm {
     };
   }, [campaignParam, shopId, initial, workspace]);
 
-  const totals = pointsSendTotals(draft.ppr, draft.recips);
+  const billableRecipientCount = draft.selRecips.length || recipientLimit;
+  const totals = pointsSendTotals(draft.ppr, billableRecipientCount);
   const checkoutWallets = useMemo(
     () => (workspace ? walletsForCheckout(workspace) : []),
     [workspace],
@@ -278,31 +263,6 @@ export function useSendPointsController(): SendPointsVm {
     dispatch({ type: "setSelRecips", selRecips: ids });
   }
 
-  function saveAddedContacts(emails: string[], rows: CsvRecipientRow[] = []) {
-    if (!emails.length) return;
-    pendingContactSaves.current = pendingContactSaves.current.then(async () => {
-      const entries = emails.map((email) => rows.find((row) => row.email.toLowerCase() === email) ?? { email });
-      const { saved, failed } = await persistNewRecipientContacts(entries, contacts);
-      if (saved.length) {
-        await queryClient.invalidateQueries({ queryKey: CONTACTS_QUERY_KEY });
-        try {
-          await refreshWorkspace();
-        } catch {
-          // The contact records are saved; the next workspace read will pick them up.
-        }
-        for (const { fromId, contact } of saved) {
-          savedContacts.current[contact.id] = contact;
-          dispatch({ type: "remapRecipId", fromId, toId: contact.id });
-        }
-      }
-      if (failed.length) {
-        toast.error(`Could not save ${failed.length === 1 ? "1 contact" : `${failed.length} contacts`} to Contacts`);
-      }
-    }).catch(() => {
-      toast.error("Could not refresh Contacts");
-    });
-  }
-
   function onAddRecipientEmails(raw: string) {
     if (!recipientLimit) {
       toast.error("Set recipient count first");
@@ -316,7 +276,6 @@ export function useSendPointsController(): SendPointsVm {
     );
     dispatch({ type: "setSelRecips", selRecips: ids });
     reportRecipientAddResult(result);
-    saveAddedContacts(result.added);
   }
 
   function onImportRecipientCsv(file: File) {
@@ -327,16 +286,14 @@ export function useSendPointsController(): SendPointsVm {
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === "string" ? reader.result : "";
-      const rows = parseCsvRecipientRows(text);
-      const { ids, result } = addRecipientRowsUpToLimit(
-        rows,
+      const { ids, result } = addRecipientsUpToLimit(
+        parseCsvEmails(text),
         draft.selRecips,
         contacts,
         recipientLimit,
       );
       dispatch({ type: "setSelRecips", selRecips: ids });
       reportRecipientAddResult(result);
-      saveAddedContacts(result.added, rows);
     };
     reader.onerror = () => toast.error("Could not read CSV file");
     reader.readAsText(file);
@@ -345,14 +302,12 @@ export function useSendPointsController(): SendPointsVm {
   function resolveRecipientPayload(id: string) {
     if (isManualRecipientId(id)) {
       const email = emailFromManualRecipientId(id);
-      const saved = Object.values(savedContacts.current).find((contact) => contact.email === email);
       return {
-        ...(saved ? { contactId: saved.id } : {}),
-        name: saved?.name || email.split("@")[0] || email,
+        name: email.split("@")[0] || email,
         email,
       };
     }
-    const contact = contacts.find((c) => c.id === id) || savedContacts.current[id];
+    const contact = contacts.find((c) => c.id === id);
     if (!contact) return null;
     return {
       contactId: contact.id,
@@ -390,7 +345,6 @@ export function useSendPointsController(): SendPointsVm {
   }
 
   async function saveAndExit() {
-    await pendingContactSaves.current;
     let entityId: string | undefined;
     try {
       entityId = await resolveEntityId();
@@ -444,7 +398,7 @@ export function useSendPointsController(): SendPointsVm {
     }
   }
 
-  async function next() {
+  function next() {
     if (step === 0) {
       if (!draft.recips) {
         toast.error("Enter number of recipients");
@@ -461,13 +415,12 @@ export function useSendPointsController(): SendPointsVm {
       autoSelectRecipients();
     }
     if (step === 1) {
-      await pendingContactSaves.current;
-      if (!draft.selRecips.length) {
-        toast.error("Select at least one recipient");
+      if (recipientLimit && draft.selRecips.length !== recipientLimit) {
+        toast.error(`Select exactly ${recipientLimit} recipients`);
         return;
       }
-      if (recipientLimit && draft.selRecips.length > recipientLimit) {
-        toast.error(`Maximum ${recipientLimit} recipients`);
+      if (!recipientLimit && !draft.selRecips.length) {
+        toast.error("Select at least one recipient");
         return;
       }
     }
@@ -475,7 +428,6 @@ export function useSendPointsController(): SendPointsVm {
   }
 
   async function payNow() {
-    await pendingContactSaves.current;
     const walletId = selectedWalletId || checkoutWallets[0]?.id || workspace?.wallets[0]?.id;
     let entityId: string | undefined;
     try {
@@ -492,12 +444,12 @@ export function useSendPointsController(): SendPointsVm {
       toast.error("Select a shop for this campaign");
       return;
     }
-    if (!draft.selRecips.length) {
-      toast.error("Select at least one recipient");
+    if (recipientLimit && draft.selRecips.length !== recipientLimit) {
+      toast.error(`Select exactly ${recipientLimit} recipients`);
       return;
     }
-    if (recipientLimit && draft.selRecips.length > recipientLimit) {
-      toast.error(`Maximum ${recipientLimit} recipients`);
+    if (!recipientLimit && !draft.selRecips.length) {
+      toast.error("Select at least one recipient");
       return;
     }
     if (!isValidBudgetPerRecipient(String(draft.ppr || ""))) {
@@ -580,7 +532,7 @@ export function useSendPointsController(): SendPointsVm {
         },
         schedule: toSchedulePayload(draft.when, draft.schedule),
         contactIds: draft.selRecips,
-        contacts: [...contacts, ...Object.values(savedContacts.current).filter((saved) => !contacts.some((c) => c.id === saved.id))].map((c) => ({
+        contacts: contacts.map((c) => ({
           id: c.id,
           name: c.name,
           email: c.email,
@@ -642,6 +594,7 @@ export function useSendPointsController(): SendPointsVm {
     draft,
     dispatch,
     totals,
+    billableRecipientCount,
     contacts,
     pickerContacts,
     shop,

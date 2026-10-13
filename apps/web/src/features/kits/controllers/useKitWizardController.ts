@@ -224,7 +224,7 @@ export function useKitWizardController(): KitWizardVm {
           return n + (listPrintAreas(catalog[i]).length > 0 ? 1 : 0);
         }, 0);
         if (brandableCount > 0 && mockups.length < brandableCount) {
-          throw new Error("Failed to generate mockups for all kit products — try again");
+          throw new Error("Failed to generate mockups for all kit products. Try again");
         }
       }
 

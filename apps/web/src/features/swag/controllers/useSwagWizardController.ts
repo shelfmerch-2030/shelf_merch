@@ -245,8 +245,8 @@ export function useSwagWizardController(): SwagWizardVm {
       if (brandableCount > 0 && mockups.length < brandableCount) {
         throw new Error(
           mockups.length
-            ? "Failed to generate designs for all products — try again"
-            : "Failed to generate designs — try again",
+            ? "Failed to generate designs for all products. Try again"
+            : "Failed to generate designs. Try again",
         );
       }
 
