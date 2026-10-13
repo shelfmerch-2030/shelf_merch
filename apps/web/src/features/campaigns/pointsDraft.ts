@@ -82,7 +82,7 @@ export function sendPointsReducer(
 }
 
 export const SEND_POINTS_PLACEHOLDERS = {
-  orderName: "Order R249681093",
+  orderName: "e.g. Diwali Gifting 2026",
   recips: "100",
   ppr: "1500",
   points: "1500.00",
@@ -118,7 +118,10 @@ export function isValidBudgetPerRecipient(raw: string): boolean {
 }
 
 export function suggestOrderName() {
-  return "Order R" + (200000000 + Math.floor(Math.random() * 99_999_999));
+  const now = new Date();
+  const month = now.toLocaleString("en-IN", { month: "short" });
+  const year = now.getFullYear();
+  return `Campaign ${month} ${year}`;
 }
 
 export function resolveOrderName(orderName: string) {
