@@ -85,7 +85,9 @@ export function resolvePrintAreaStage(
   areaKey?: string | null,
 ) {
   const area = pickPrintArea(p, areaKey);
-  const phys = physicalFrameForView(productPhysical(p), printAreaGeometryViewKey(p, area));
+  // Catalog editing stores inches against the area's key, even when a Left/Right
+  // chest area is displayed on the front mockup. Keep that same physical frame.
+  const phys = physicalFrameForView(productPhysical(p), area?.key);
   const raw = area
     ? (area as unknown as Record<string, unknown>)
     : { box: DEFAULT_BOX, widthIn: 0, heightIn: 0 };
@@ -230,17 +232,6 @@ export function printAreaUsesDedicatedSideView(
     resolveMediaUrl(p?.baseRightImageUrl),
   ].filter(Boolean) as string[];
   return sideUrls.some((url) => sameMediaPath(mockup, url));
-}
-
-function printAreaGeometryViewKey(
-  p: UiProduct | undefined,
-  area: { key?: string; label?: string; mockupImageUrl?: string } | null | undefined,
-): ProductViewKey {
-  const view = printAreaViewKey(p, area);
-  if ((view === "left" || view === "right") && !printAreaUsesDedicatedSideView(p, area)) {
-    return "front";
-  }
-  return view;
 }
 
 /** Views available for a product (always front; others when mask/stage/areas exist). */

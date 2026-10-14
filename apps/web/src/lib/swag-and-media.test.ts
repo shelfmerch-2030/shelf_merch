@@ -5,7 +5,9 @@ import {
   imageContainRect,
   inchesToPx,
   parentToPrintLocal,
+  physicalFrameForView,
   physicalFrameStageRect,
+  placeholderToStagePixels,
   printLocalToParent,
   pxToInches,
   resolvePhysical,
@@ -23,7 +25,11 @@ import {
 } from "@/lib/shopRedeemUrl";
 import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
 import { mockupStageFit } from "@/features/swag/MockupCanvas";
-import { pickPrintArea, printAreaStableKey } from "@/features/swag/mockup-bake";
+import {
+  pickPrintArea,
+  printAreaStableKey,
+  resolvePrintAreaStage,
+} from "@/features/swag/mockup-bake";
 import type { UiProduct } from "@/services/mappers";
 
 describe("mediaUrl", () => {
@@ -84,6 +90,59 @@ describe("printCoords", () => {
     expect(placed.rotationDeg).toBe(-18);
     expect(placed.w).toBeGreaterThan(0);
     expect(placed.h).toBeGreaterThan(0);
+  });
+
+  it("keeps front Left and Right chest areas at their catalog editor positions", () => {
+    const product = {
+      id: "polo",
+      nm: "Polo",
+      g: "polo",
+      maskImageUrl: "/polo-front.png",
+      physicalDimensions: { width: 20, height: 24, length: 18 },
+      printAreas: [
+        {
+          key: "left",
+          label: "Left",
+          mockupImageUrl: "/polo-front.png",
+          xIn: 9,
+          yIn: 5,
+          widthIn: 2,
+          heightIn: 2.3,
+        },
+        {
+          key: "right",
+          label: "Right",
+          mockupImageUrl: "/polo-front.png",
+          xIn: 6,
+          yIn: 5,
+          widthIn: 2,
+          heightIn: 2.3,
+        },
+      ],
+    } as UiProduct;
+    const opts = { imageNaturalWidth: 1000, imageNaturalHeight: 1000 };
+
+    for (const area of product.printAreas!) {
+      const catalogFrame = physicalFrameForView(product.physicalDimensions, area.key);
+      const catalogStage = placeholderToStagePixels(area, catalogFrame, opts);
+      const swagStage = resolvePrintAreaStage(product, opts, area.key);
+      expect(swagStage.stage.x).toBeCloseTo(catalogStage.x);
+      expect(swagStage.stage.y).toBeCloseTo(catalogStage.y);
+      expect(swagStage.stage.w).toBeCloseTo(catalogStage.w);
+      expect(swagStage.stage.h).toBeCloseTo(catalogStage.h);
+
+      const baked = designPlacementOnMockup({
+        mockupWidthPx: 1000,
+        mockupHeightPx: 1000,
+        placeholder: swagStage.ph,
+        physicalDimensions: product.physicalDimensions,
+        viewKey: area.key,
+      });
+      expect(baked.x).toBeCloseTo((area.xIn / catalogFrame.width) * 1000);
+      expect(baked.y).toBeCloseTo((area.yIn / catalogFrame.height) * 1000);
+      expect(baked.w).toBeCloseTo((area.widthIn / catalogFrame.width) * 1000);
+      expect(baked.h).toBeCloseTo((area.heightIn / catalogFrame.height) * 1000);
+    }
   });
 });
 
