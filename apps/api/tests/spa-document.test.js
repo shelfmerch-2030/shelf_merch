@@ -61,7 +61,9 @@ describe('SPA document SEO', () => {
     expect(resolveSpaSeo(catalog, '/s/acme').mode).toBe('preserve');
     expect(resolveSpaSeo(catalog, '/shop/abc').mode).toBe('preserve');
     expect(resolveSpaSeo(catalog, '/app/orders').mode).toBe('private');
-    expect(resolveSpaSeo(catalog, '/not-a-real-page').mode).toBe('unknown');
+    expect(resolveSpaSeo(catalog, '/wipro').mode).toBe('private');
+    expect(resolveSpaSeo(catalog, '/wipro/shops').mode).toBe('private');
+    expect(resolveSpaSeo(catalog, '/not/a-real-page').mode).toBe('unknown');
   });
 
   it('points duplicate legal routes at the server-rendered canonical', () => {
@@ -93,8 +95,12 @@ describe('SPA document SEO', () => {
     expect(documentKind('/docs/zoho-people')).toBe('shell');
     expect(documentKind('/case-studies/zoho-people')).toBe('shell');
     expect(documentKind('/apps/catalog/category/apparel')).toBe('shell');
+    expect(documentKind('/wipro')).toBe('workspace');
+    expect(documentKind('/wipro/shops')).toBe('workspace');
+    expect(documentKind('/wipro/campaigns/send-points')).toBe('workspace');
+    expect(documentKind('/wipro/not-a-workspace-route')).toBe('not-found');
     expect(documentKind('/legal/privacy-policy')).toBe('not-found');
-    expect(documentKind('/no-such-marketing-page')).toBe('not-found');
+    expect(documentKind('/no/such-marketing-page')).toBe('not-found');
     expect(publicRedirectTarget('/about/')).toBe('/about');
     expect(publicRedirectTarget('/platform/')).toBe('/platform');
     expect(publicRedirectTarget('/platform/dashboard/')).toBeNull();

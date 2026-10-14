@@ -41,7 +41,7 @@ import toteImg from "../../../assets/tote.png";
 import diaryImg from "../../../assets/diary.png";
 import capImg from "../../../assets/cap.png";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
-import { tenantPath, slugify as workspaceSlug } from "@/lib/workspaceSlug";
+import { tenantPath } from "@/lib/workspaceSlug";
 import type { UiProduct } from "@/services/mappers";
 import { EntityManagerKitsSection } from "./EntityManagerKitsSection";
 import { NewUserWelcomeDialog } from "./NewUserWelcomeDialog";
@@ -301,13 +301,15 @@ function WorkspaceSettingsCard({
   art = false,
   account = "Workspace",
   ownerName = "Owner",
+  workspaceSlug = "",
 }: {
   preview?: boolean;
   art?: boolean;
   account?: string;
   ownerName?: string;
+  workspaceSlug?: string;
 }) {
-  const slug = workspaceSlug(account);
+  const slug = workspaceSlug || "workspace";
 
   if (preview || art) {
     return (
@@ -467,10 +469,12 @@ function OnboardingDashboard({
   catalogProducts,
   account,
   ownerName,
+  workspaceSlug,
 }: {
   catalogProducts: UiProduct[];
   account: string;
   ownerName: string;
+  workspaceSlug: string;
 }) {
   return (
     <div className="dash-onboard">
@@ -519,7 +523,7 @@ function OnboardingDashboard({
 
         <div className="dash-onboard-side">
           <HelpCenter onboarding />
-          <WorkspaceSettingsCard art account={account} ownerName={ownerName} />
+          <WorkspaceSettingsCard art account={account} ownerName={ownerName} workspaceSlug={workspaceSlug} />
         </div>
       </section>
 
@@ -838,6 +842,7 @@ function ExistingDashboard({
   isEntityManager,
   catalogProducts,
   ownerName,
+  workspaceSlug,
 }: {
   account: string;
   memberCount: number;
@@ -850,6 +855,7 @@ function ExistingDashboard({
   isEntityManager: boolean;
   catalogProducts: UiProduct[];
   ownerName: string;
+  workspaceSlug: string;
 }) {
   const overviewItems = [
     { label: "Gifts sent", value: senderCount, subcopy: "Total gifts sent", tone: "violet" as const, href: tenantPath("/kits"), cta: "Go to kits" },
@@ -862,7 +868,7 @@ function ExistingDashboard({
     <>
       <section className="dash-existing-top">
         <MetricSummaryPanel items={overviewItems} />
-        <WorkspaceSettingsCard preview account={account} ownerName={ownerName} />
+        <WorkspaceSettingsCard preview account={account} ownerName={ownerName} workspaceSlug={workspaceSlug} />
       </section>
 
   
@@ -916,6 +922,7 @@ export function DashboardPage() {
   const initials = workspace.userPatch.initials || "U";
   const account = workspace.account || "Workspace";
   const ownerName = workspace.owner?.name || userName;
+  const workspaceSlug = workspace.slug || "workspace";
   const roleLabel = formatRole(workspace.userPatch.role);
   const contacts = workspace.contacts ?? [];
   const memberCount = contacts.length;
@@ -974,6 +981,7 @@ export function DashboardPage() {
           catalogProducts={workspace.catalogProducts ?? []}
           account={account}
           ownerName={ownerName}
+          workspaceSlug={workspaceSlug}
         />
       ) : (
         <ExistingDashboard
@@ -988,6 +996,7 @@ export function DashboardPage() {
           isEntityManager={isEntityManager}
           catalogProducts={workspace.catalogProducts ?? []}
           ownerName={ownerName}
+          workspaceSlug={workspaceSlug}
         />
       )}
     </div>
