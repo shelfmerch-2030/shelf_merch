@@ -82,8 +82,10 @@ import {
   sendSeoPublicFile,
 } from './modules/seo/sitemap.controller.js';
 import { renderSpaDocument, spaDocumentHeaders, documentKind, publicRedirectTarget, seoNotFoundHtml } from './modules/seo/spaDocument.js';
+import { workspaceSlugForPath } from './modules/seo/resolvePublicSeo.js';
 import { sendContentArticle, sendContentIndex, sendContentSitemap } from './modules/seo/contentPublic.controller.js';
 import { sendCatalogProductSeo } from './modules/seo/catalogProductSeo.controller.js';
+import { Tenant } from './modules/tenants/tenant.model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = path.resolve(__dirname, '../../web/dist');
@@ -442,7 +444,26 @@ export function createApp() {
     ) {
       return next();
     }
-    if (documentKind(req.path) === 'not-found') {
+    const kind = documentKind(req.path);
+    if (kind === 'workspace') {
+      const slug = workspaceSlugForPath(req.path);
+      return Tenant.exists({ slug, status: { $ne: 'archived' } })
+        .setOptions({ skipTenantGuard: true })
+        .then((tenant) => {
+          if (tenant && env.NODE_ENV === 'production' && existsSync(WEB_DIST)) {
+            if (sendSpaIndex(req, res)) return;
+          }
+          if (tenant) return next();
+          return res
+            .status(404)
+            .type('html')
+            .set('Cache-Control', 'private, no-store')
+            .set('X-Robots-Tag', 'noindex, follow')
+            .send(seoNotFoundHtml());
+        })
+        .catch(next);
+    }
+    if (kind === 'not-found') {
       return res
         .status(404)
         .type('html')
