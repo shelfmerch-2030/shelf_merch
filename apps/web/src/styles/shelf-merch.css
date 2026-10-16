@@ -573,9 +573,9 @@ select.inp{appearance:none;background:url("data:image/svg+xml,%3Csvg xmlns='http
   box-shadow: 0 22px 55px rgba(15, 18, 25, 0.07);
 }
 .app-simple-empty__art{
-  width: min(180px, 42%);
+  width: min(132px, 38%);
   height: auto;
-  margin: 0 0 -12px;
+  margin: 0 0 -4px;
   object-fit: contain;
 }
 .app-simple-empty h3{
@@ -8430,6 +8430,30 @@ a.shop-collection-cell:hover{background:var(--gray-100)}
   margin-top:4px;
 }
 .wallet-balance-strip .stat .k{font-size:11px}
+.wallet-budget-overview-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+  margin-bottom:18px;
+  align-items:stretch;
+}
+.wallet-budget-distribution-card,
+.wallet-budget-allocation-card{padding:18px 20px}
+.wallet-budget-distribution-content{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  max-width:480px;
+}
+.wallet-budget-distribution-legend{
+  width:min(100%,280px);
+  min-width:0;
+}
+@media(max-width:840px){
+  .wallet-budget-overview-grid{grid-template-columns:1fr}
+  .wallet-budget-distribution-content{max-width:none}
+  .wallet-budget-distribution-legend{width:100%}
+}
 .org-step.done .sline,.org-step.active .sline{background:var(--brand)}
 .org-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:26px;padding-top:18px}
 .org-foot .note{font-size:13px;color:var(--ink-3)}

@@ -768,7 +768,7 @@ function PinnedShopCard({ pinnedShop, canCreateShop }: { pinnedShop: DashboardSh
 
 function ExistingDashboard({
   account,
-  memberCount,
+  peopleReachedCount,
   senderCount,
   activeShopCount,
   mainBalance,
@@ -779,7 +779,7 @@ function ExistingDashboard({
   workspaceSlug,
 }: {
   account: string;
-  memberCount: number;
+  peopleReachedCount: number;
   senderCount: number;
   activeShopCount: number;
   mainBalance: number;
@@ -791,7 +791,7 @@ function ExistingDashboard({
 }) {
   const overviewItems = [
     { label: "Gifts sent", value: senderCount, subcopy: "Total gifts sent", tone: "violet" as const, icon: Gift, href: tenantPath("/kits"), cta: "Go to kits" },
-    { label: "People reached", value: memberCount, subcopy: "Recipients reached", tone: "blue" as const, icon: Users, href: tenantPath("/orders"), cta: "Go to orders" },
+    { label: "People reached", value: peopleReachedCount, subcopy: "Recipients reached", tone: "blue" as const, icon: Users, href: tenantPath("/orders"), cta: "Go to orders" },
     { label: "Active shops", value: activeShopCount, subcopy: "Live shops", tone: "green" as const, icon: Store, href: tenantPath("/shops"), cta: "Go to shops" },
     { label: "Available budget", value: formatInr(mainBalance), subcopy: "Available to spend", tone: "amber" as const, icon: Landmark, href: tenantPath("/wallets"), cta: "Go to budget" },
   ];
@@ -854,8 +854,11 @@ export function DashboardPage() {
   const ownerName = workspace.owner?.name || userName;
   const workspaceSlug = workspace.slug || "workspace";
   const roleLabel = formatRole(workspace.userPatch.role);
-  const contacts = workspace.contacts ?? [];
-  const memberCount = contacts.length;
+  const campaigns = workspace.campaigns ?? [];
+  const peopleReachedCount = campaigns.reduce(
+    (total, campaign) => total + (campaign.recipientCount || 0),
+    0,
+  );
   const senderCount = workspace.orders?.length ?? 0;
   const wallets = workspace.wallets ?? [];
   const orgWallet = workspace.org?.wallet;
@@ -915,7 +918,7 @@ export function DashboardPage() {
       ) : (
         <ExistingDashboard
           account={account}
-          memberCount={memberCount}
+          peopleReachedCount={peopleReachedCount}
           activeShopCount={activeShopCount}
           senderCount={senderCount}
           mainBalance={mainBalance}

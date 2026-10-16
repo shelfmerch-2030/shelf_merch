@@ -487,6 +487,9 @@
   margin: 45.9px -5.95vw 61.2px;
   overflow: hidden;
 }
+.shelf-landing .offerings--without-cards .chip-marquee {
+  margin-bottom: 0;
+}
 .shelf-landing .chip-track {
   display: flex;
   width: max-content;

@@ -277,8 +277,8 @@ export function OrgDashboard({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 18, marginBottom: 18 }}>
-        <div className="card" style={{ padding: 22 }}>
+      <div className="wallet-budget-overview-grid">
+        <div className="card wallet-budget-distribution-card">
           <div
             className="mut3"
             style={{
@@ -291,7 +291,7 @@ export function OrgDashboard({
           >
             Budget distribution
           </div>
-          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+          <div className="wallet-budget-distribution-content">
             <Donut
               segments={depts.map((d, i) => ({
                 color: deptPaletteColor(i),
@@ -299,8 +299,10 @@ export function OrgDashboard({
               }))}
               centerValue={depts.length}
               centerLabel="Depts"
+              size={112}
+              centerFontSize={20}
             />
-            <div style={{ flex: 1 }}>
+            <div className="wallet-budget-distribution-legend">
               {depts.length === 0 ? (
                 <p className="muted" style={{ fontSize: 13 }}>
                   No departments yet.{" "}
@@ -337,8 +339,8 @@ export function OrgDashboard({
             </div>
           </div>
         </div>
-        <div className="card" style={{ padding: 22 }}>
-          <div className="stat" style={{ padding: 0, marginBottom: 14 }}>
+        <div className="card wallet-budget-allocation-card">
+          <div className="stat" style={{ padding: 0, marginBottom: 10 }}>
             <div className="k">Allocated to departments</div>
             <div className="v num">{inr(alloc)}</div>
           </div>
@@ -360,7 +362,7 @@ export function OrgDashboard({
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              style={{ marginTop: 16 }}
+              style={{ marginTop: 12 }}
               onClick={handleAllocateClick}
             >
               {depts.length ? "Edit allocation" : "Allocate budget"}
