@@ -662,7 +662,12 @@ function BudgetSection({
         },
       ];
   const chartBase = allocatedToDepartments + Math.max(0, mainBalance);
-  const chartPercent = chartBase > 0 ? Math.max(0, Math.min(100, Math.round((allocatedToDepartments / chartBase) * 100))) : 0;
+  const chartPercent = chartBase > 0
+    ? Math.max(0, Math.min(100, (allocatedToDepartments / chartBase) * 100))
+    : 0;
+  const chartPercentLabel = chartPercent > 0 && chartPercent < 0.1
+    ? "<0.1%"
+    : `${chartPercent < 10 ? Number(chartPercent.toFixed(1)) : Math.round(chartPercent)}%`;
   let segmentStart = 0;
   const allocatedStops = departmentSegments.map((item) => {
     const segmentEnd = segmentStart + (chartBase > 0 ? (item.value / chartBase) * 100 : 0);
@@ -688,7 +693,7 @@ function BudgetSection({
       <div className="dash-budget-distribution">
         <div className="dash-budget-distribution__chart" aria-hidden="true">
           <span style={{ background: `conic-gradient(from -130deg, ${gaugeGradient})` }}>
-            <b>{chartPercent}%</b>
+            <b>{chartPercentLabel}</b>
             <small>Allocated</small>
           </span>
         </div>
