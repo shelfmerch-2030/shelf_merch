@@ -3,20 +3,19 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
   ArrowRight,
-  Backpack,
   Box,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Coffee,
   GlassWater,
   Globe2,
+  Gift,
   Headphones,
   Lightbulb,
   LockKeyhole,
   Megaphone,
-  NotebookPen,
   Play,
+  Plus,
   Settings,
   ShieldCheck,
   Shirt,
@@ -42,7 +41,7 @@ import diaryImg from "../../../assets/diary.png";
 import capImg from "../../../assets/cap.png";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { tenantPath } from "@/lib/workspaceSlug";
-import type { UiProduct } from "@/services/mappers";
+import type { UiOrgDept, UiProduct } from "@/services/mappers";
 import { EntityManagerKitsSection } from "./EntityManagerKitsSection";
 import { NewUserWelcomeDialog } from "./NewUserWelcomeDialog";
 import "./dashboard.css";
@@ -545,6 +544,7 @@ function MetricSummaryPanel({ items }: {
     href: string;
     cta: string;
     tone: "violet" | "blue" | "green" | "amber";
+    icon: LucideIcon;
   }[];
 }) {
   return (
@@ -556,6 +556,9 @@ function MetricSummaryPanel({ items }: {
       <div className="dash-metrics-panel__grid">
         {items.map((item) => (
           <article key={item.label} className={`dash-metric-summary dash-metric-summary--${item.tone}`}>
+            <span className="dash-metric-summary__icon" aria-hidden="true">
+              <item.icon size={22} strokeWidth={2.2} />
+            </span>
             <div className="dash-metric-summary__top">
               <span>{item.label}</span>
             </div>
@@ -574,216 +577,144 @@ function MetricSummaryPanel({ items }: {
   );
 }
 
-type SwagStripCategory = {
-  label: string;
-  icon: LucideIcon;
-  count: number;
-};
-
-function productHaystack(p: UiProduct) {
-  return `${p.category || ""} ${p.nm || ""} ${p.g || ""}`.toLowerCase();
-}
-
-function buildSwagStripCategories(products: UiProduct[]): SwagStripCategory[] {
-  const defs: { label: string; icon: LucideIcon; match: (p: UiProduct) => boolean }[] = [
-    {
-      label: "Hoodies",
-      icon: Shirt,
-      match: (p) =>
-        p.category === "Apparel" || /hoodie|sweatshirt|apparel|tee|shirt/.test(productHaystack(p)),
-    },
-    {
-      label: "Drinkware",
-      icon: GlassWater,
-      match: (p) =>
-        (p.category === "Drinkware" || /bottle|tumbler|flask|drinkware/.test(productHaystack(p))) &&
-        !/mug|cup/.test(productHaystack(p)),
-    },
-    {
-      label: "Office Supplies",
-      icon: NotebookPen,
-      match: (p) =>
-        p.category === "Office" || /note|pen|diary|journal|stationery|office/.test(productHaystack(p)),
-    },
-    {
-      label: "Bags",
-      icon: Backpack,
-      match: (p) => p.category === "Bags" || /bag|tote|backpack/.test(productHaystack(p)),
-    },
-    {
-      label: "Mugs",
-      icon: Coffee,
-      match: (p) => /mug|cup/.test(productHaystack(p)) || p.g === "mug",
-    },
-  ];
-
-  return defs.map((def) => ({
-    label: def.label,
-    icon: def.icon,
-    count: products.filter(def.match).length,
-  }));
-}
-
 function CampaignPromoCard() {
   return (
-    <section className="dash-campaign-card card" aria-labelledby="dash-campaign-title">
-      <div className="dash-campaign-card__copy">
-        <h3 id="dash-campaign-title">Campaigns</h3>
-        <p>Create and track sends.</p>
-        <ul className="dash-campaign-card__points">
-          <li>Points campaigns</li>
-          <li>Kits for teams</li>
-          <li>Delivery visibility</li>
-        </ul>
-        <Link to={tenantPath("/campaigns")} className="dash-campaign-card__cta">
+    <section className="dash-campaign-card dash-feature-card dash-feature-card--campaign card" aria-labelledby="dash-campaign-title">
+      <header className="dash-feature-card__header">
+        <span className="dash-feature-card__header-icon" aria-hidden="true"><Megaphone size={17} /></span>
+        <div>
+          <h3 id="dash-campaign-title">Campaigns</h3>
+          <p>Create and track sends</p>
+        </div>
+      </header>
+      <ul className="dash-feature-card__list">
+        <li><Link to={tenantPath("/campaigns")}><Sparkles size={14} /><span>Points campaigns</span><ChevronRight size={14} /></Link></li>
+        <li><Link to={tenantPath("/kits")}><Box size={14} /><span>Kits for teams</span><ChevronRight size={14} /></Link></li>
+        <li><Link to={tenantPath("/orders")}><Globe2 size={14} /><span>Delivery visibility</span><ChevronRight size={14} /></Link></li>
+      </ul>
+      <div className="dash-feature-card__art" aria-hidden="true">
+        <img src="/images/dashboard-campaigns-corner.png" alt="" />
+      </div>
+      <footer className="dash-feature-card__footer">
+        <Link to={tenantPath("/campaigns")} className="dash-feature-card__link">
           View Campaigns
           <ArrowRight size={13} strokeWidth={2.4} aria-hidden="true" />
         </Link>
-      </div>
-      <div className="dash-campaign-card__art" aria-hidden="true">
-        <img src="/images/dashboard-campaigns-corner.png" alt="" />
-      </div>
+        <Link to={tenantPath("/campaigns")} className="dash-feature-card__button"><Plus size={14} />New campaign</Link>
+      </footer>
     </section>
   );
 }
-function SwagPromoCard({ products }: { products: UiProduct[] }) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  const categories = buildSwagStripCategories(products);
-
-  function scrollCategories() {
-    stripRef.current?.scrollBy({ left: 168, behavior: "smooth" });
-  }
-
+function SwagPromoCard() {
   return (
-    <section className="dash-swag-card card" aria-labelledby="dash-swag-title">
-      <div className="dash-swag-card__main">
-        <div className="dash-swag-card__copy">
+    <section className="dash-swag-card dash-feature-card dash-feature-card--swag card" aria-labelledby="dash-swag-title">
+      <div className="dash-swag-card__main dash-feature-card__surface">
+        <header className="dash-feature-card__header">
+          <span className="dash-feature-card__header-icon" aria-hidden="true"><Shirt size={17} /></span>
+          <div>
           <h3 id="dash-swag-title">Swag</h3>
-          <p>Explore team merch.</p>
-          <ul className="dash-swag-card__points">
-            <li>Apparel and bags</li>
-            <li>Bottles and notebooks</li>
-            <li>Ready-to-send gifts</li>
-          </ul>
-          <Link to={tenantPath("/swag")} className="dash-swag-card__cta">
+            <p>Explore team merch</p>
+          </div>
+        </header>
+        <ul className="dash-feature-card__list">
+          <li><Link to={tenantPath("/swag")}><Shirt size={14} /><span>Apparel and bags</span><ChevronRight size={14} /></Link></li>
+          <li><Link to={tenantPath("/swag")}><GlassWater size={14} /><span>Bottles and notebooks</span><ChevronRight size={14} /></Link></li>
+          <li><Link to={tenantPath("/kits")}><Gift size={14} /><span>Ready-to-send gifts</span><ChevronRight size={14} /></Link></li>
+        </ul>
+        <div className="dash-feature-card__art" aria-hidden="true">
+          <img src="/images/dashboard-swag-corner.png" alt="" />
+        </div>
+        <footer className="dash-feature-card__footer">
+          <Link to={tenantPath("/swag")} className="dash-feature-card__link">
             Browse Swag
             <ArrowRight size={13} strokeWidth={2.4} aria-hidden="true" />
           </Link>
-        </div>
-
-        <div className="dash-swag-card__showcase" aria-hidden="true">
-          <span className="dash-swag-card__glow" />
-          <span className="dash-swag-card__dots" />
-          <span className="dash-swag-card__leaf">
-            <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M32 68C32 68 8 52 8 28C8 14 18 4 32 4C46 4 56 14 56 28C56 52 32 68 32 68Z"
-                fill="url(#swagLeafGrad)"
-                opacity="0.55"
-              />
-              <path d="M32 66V10" stroke="#e8a078" strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
-              <path
-                d="M32 24C24 28 18 34 14 42M32 36C38 40 44 46 48 54"
-                stroke="#f0b892"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                opacity="0.65"
-              />
-              <defs>
-                <linearGradient id="swagLeafGrad" x1="8" y1="4" x2="56" y2="68" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#ffd4b8" />
-                  <stop offset="1" stopColor="#f4a574" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </span>
-          <span className="dash-swag-card__podium" />
-          <img className="dash-swag-card__showcase-img" src="/images/dashboard-swag-corner.png" alt="" />
-        </div>
-      </div>
-
-      <div className="dash-swag-card__strip">
-        <div className="dash-swag-card__cats" ref={stripRef} role="list">
-          {categories.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <div key={cat.label} className="dash-swag-card__cat" role="listitem">
-                <span className="dash-swag-card__cat-icon" aria-hidden="true">
-                  <Icon size={16} strokeWidth={2} />
-                </span>
-                <span className="dash-swag-card__cat-copy">
-                  <strong>{cat.label}</strong>
-                  <small>
-                    {cat.count} {cat.count === 1 ? "Item" : "Items"}
-                  </small>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className="dash-swag-card__scroll"
-          aria-label="Scroll categories"
-          onClick={scrollCategories}
-        >
-          <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" />
-        </button>
+          <Link to={tenantPath("/kits/new")} className="dash-feature-card__button"><Plus size={14} />Build a kit</Link>
+        </footer>
       </div>
     </section>
   );
 }
 
 function BudgetSection({
-  account,
   mainBalance,
-  hasBudget,
-  isEntityManager,
+  departments,
 }: {
-  account: string;
   mainBalance: number;
-  hasBudget: boolean;
-  isEntityManager: boolean;
+  departments: UiOrgDept[];
 }) {
-  const title = isEntityManager ? "My budget" : "Organization budget";
-  const tileName = isEntityManager ? "My allocated budget" : `${account} budget`;
+  const colors = ["#35b5e5", "#df4545", "#ffc329", "#30b87a", "#7657d6"];
+  const allocatedDepartments = departments.filter((dept) => (dept.allocated ?? 0) > 0);
+  const departmentSegments = allocatedDepartments.map((dept, index) => ({
+    name: dept.name,
+    value: Math.max(0, dept.allocated ?? 0),
+    color: colors[index % colors.length],
+  }));
+  const allocatedToDepartments = departmentSegments.reduce((sum, item) => sum + item.value, 0);
+  const visibleDepartments = departmentSegments.slice(0, 5);
+  const distributionItems = visibleDepartments.length
+    ? visibleDepartments
+    : [
+        {
+          name: "No department allocations",
+          value: 0,
+          color: colors[0],
+        },
+      ];
+  const chartBase = allocatedToDepartments + Math.max(0, mainBalance);
+  const chartPercent = chartBase > 0 ? Math.max(0, Math.min(100, Math.round((allocatedToDepartments / chartBase) * 100))) : 0;
+  let segmentStart = 0;
+  const allocatedStops = departmentSegments.map((item) => {
+    const segmentEnd = segmentStart + (chartBase > 0 ? (item.value / chartBase) * 100 : 0);
+    const stop = `${item.color} ${segmentStart}% ${segmentEnd}%`;
+    segmentStart = segmentEnd;
+    return stop;
+  });
+  const gaugeGradient = [
+    ...allocatedStops,
+    `#edf1f7 ${segmentStart}% 100%`,
+  ].join(", ");
+
   return (
     <section className="dash-card card dash-wallets-card">
       <SectionHead
-        title={title}
+        title="Budget distribution"
         action={
           <Link to={tenantPath("/wallets")} className="dash-inline-action">
             View budget <ArrowRight size={14} />
           </Link>
         }
       />
-      <div className="dash-wallet-preview-grid">
-        <Link
-          to={tenantPath("/wallets")}
-          className="dash-wallet-mini"
-          aria-label={`${tileName} ${formatInr(mainBalance)}`}
-        >
-          <span className="dash-wallet-mini__icon">
-            <Landmark size={18} aria-hidden="true" />
+      <div className="dash-budget-distribution">
+        <div className="dash-budget-distribution__chart" aria-hidden="true">
+          <span style={{ background: `conic-gradient(from -130deg, ${gaugeGradient})` }}>
+            <b>{chartPercent}%</b>
+            <small>Allocated</small>
           </span>
-          <span className="dash-wallet-mini__name">
-            {tileName} <ChevronRight size={14} aria-hidden="true" />
-          </span>
-          <strong>{formatInr(mainBalance)}</strong>
-          <small>Available to spend</small>
-          <i />
-        </Link>
-        {isEntityManager ? null : !hasBudget ? (
-          <Link to={tenantPath("/wallets")} state={{ startCreateWallet: true }} className="dash-wallet-create">
-            <span>+</span>
-            Setup budget
-          </Link>
-        ) : (
-          <Link to={`${tenantPath("/wallets")}?addFunds=1`} className="dash-wallet-create">
-            <span>+</span>
-            Request top-up
-          </Link>
-        )}
+        </div>
+        <div className="dash-budget-distribution__details">
+          <div className="dash-budget-distribution__summary">
+            <span>Allocated to departments</span>
+            <strong>{formatInr(allocatedToDepartments)}</strong>
+            <small>Earmarked for department budgets</small>
+          </div>
+          <div className="dash-budget-distribution__list">
+            {distributionItems.map((item) => {
+              const percent = allocatedToDepartments > 0
+                ? Math.round((item.value / allocatedToDepartments) * 100)
+                : 0;
+              return (
+                <Link to={tenantPath("/wallets")} key={item.name} className="dash-budget-distribution__row">
+                  <span>
+                    <i style={{ background: item.color }} />
+                    {item.name}
+                  </span>
+                  <b>{percent}%</b>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -836,11 +767,9 @@ function ExistingDashboard({
   senderCount,
   activeShopCount,
   mainBalance,
-  hasBudget,
+  departments,
   pinnedShop,
   canCreateShop,
-  isEntityManager,
-  catalogProducts,
   ownerName,
   workspaceSlug,
 }: {
@@ -849,19 +778,17 @@ function ExistingDashboard({
   senderCount: number;
   activeShopCount: number;
   mainBalance: number;
-  hasBudget: boolean;
+  departments: UiOrgDept[];
   pinnedShop: DashboardShop | null;
   canCreateShop: boolean;
-  isEntityManager: boolean;
-  catalogProducts: UiProduct[];
   ownerName: string;
   workspaceSlug: string;
 }) {
   const overviewItems = [
-    { label: "Gifts sent", value: senderCount, subcopy: "Total gifts sent", tone: "violet" as const, href: tenantPath("/kits"), cta: "Go to kits" },
-    { label: "People reached", value: memberCount, subcopy: "Recipients reached", tone: "blue" as const, href: tenantPath("/orders"), cta: "Go to orders" },
-    { label: "Active shops", value: activeShopCount, subcopy: "Live shops", tone: "green" as const, href: tenantPath("/shops"), cta: "Go to shops" },
-    { label: "Available budget", value: formatInr(mainBalance), subcopy: "Available to spend", tone: "amber" as const, href: tenantPath("/wallets"), cta: "Go to budget" },
+    { label: "Gifts sent", value: senderCount, subcopy: "Total gifts sent", tone: "violet" as const, icon: Gift, href: tenantPath("/kits"), cta: "Go to kits" },
+    { label: "People reached", value: memberCount, subcopy: "Recipients reached", tone: "blue" as const, icon: Users, href: tenantPath("/orders"), cta: "Go to orders" },
+    { label: "Active shops", value: activeShopCount, subcopy: "Live shops", tone: "green" as const, icon: Store, href: tenantPath("/shops"), cta: "Go to shops" },
+    { label: "Available budget", value: formatInr(mainBalance), subcopy: "Available to spend", tone: "amber" as const, icon: Landmark, href: tenantPath("/wallets"), cta: "Go to budget" },
   ];
 
   return (
@@ -876,13 +803,11 @@ function ExistingDashboard({
       <section className="dash-existing-main">
         <div className="dash-existing-main__wallets">
           <BudgetSection
-            account={account}
             mainBalance={mainBalance}
-            hasBudget={hasBudget}
-            isEntityManager={isEntityManager}
+            departments={departments}
           />
         </div>
-        <div className="dash-existing-main__video"><div className="dash-promo-pair"><CampaignPromoCard /><SwagPromoCard products={catalogProducts} /></div></div>
+        <div className="dash-existing-main__video"><div className="dash-promo-pair"><CampaignPromoCard /><SwagPromoCard /></div></div>
       </section>
 
       <section className="dash-existing-grid dash-existing-grid--balanced">
@@ -942,7 +867,6 @@ export function DashboardPage() {
   const pinnedShop = workspace.shops.find((s) => s.live) ?? workspace.shops[0] ?? null;
   const activeShopCount = workspace.shops.filter((s) => s.live).length || workspace.shops.length;
   const showOnboarding = wallets.length === 0;
-  const isEntityManager = workspace.userPatch.role === "entity_manager";
   const previewWelcome = new URLSearchParams(location.search).get("previewWelcome") === "1";
   const showWelcome =
     welcomeOpen && (previewWelcome || (showOnboarding && !wasNewUserWelcomeDismissed()));
@@ -990,11 +914,9 @@ export function DashboardPage() {
           activeShopCount={activeShopCount}
           senderCount={senderCount}
           mainBalance={mainBalance}
-          hasBudget={wallets.length > 0}
+          departments={workspace.org.departments ?? []}
           pinnedShop={pinnedShop}
           canCreateShop={canCreateShop}
-          isEntityManager={isEntityManager}
-          catalogProducts={workspace.catalogProducts ?? []}
           ownerName={ownerName}
           workspaceSlug={workspaceSlug}
         />
