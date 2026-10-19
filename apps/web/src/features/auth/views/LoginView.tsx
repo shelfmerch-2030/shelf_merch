@@ -5,6 +5,7 @@ import { AuthLayout, authInputClassName } from "./AuthLayout";
 export function LoginView(vm: LoginVm) {
   return (
     <AuthLayout
+      className="auth-simple--login"
       variant="welcome"
       title="Welcome back"
       footerLink={{ hint: "Need an account?", label: "Create account", to: "/signup" }}
@@ -19,10 +20,10 @@ export function LoginView(vm: LoginVm) {
               id="login-email"
               type="email"
               autoComplete="email"
+              placeholder="Work email"
               value={vm.email}
               onChange={(e) => vm.onEmail(e.target.value)}
               className={authInputClassName}
-              autoFocus
             />
           </div>
 
@@ -35,6 +36,7 @@ export function LoginView(vm: LoginVm) {
               value={vm.password}
               onValueChange={vm.onPassword}
               autoComplete="current-password"
+              placeholder="Password"
             />
             <button
               type="button"
