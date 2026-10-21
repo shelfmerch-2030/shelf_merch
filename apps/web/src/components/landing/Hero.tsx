@@ -21,13 +21,8 @@ export function Hero() {
           <span className="hero-lead__line">printed and delivered anywhere in India.</span>
         </p>
         <div className="hero-actions">
-          <a className="button button-dark" href="#contact">
+          <a className="button button-dark" href="/request-demo">
             Get started <ArrowIcon />
-          </a>
-          <a className="play-link" href="#platform">
-            <span className="play">▶</span>
-            <span className="desktop-only">See how it works</span>
-            <span className="mobile-only">Watch video</span>
           </a>
         </div>
         <div className="hero-proof desktop-only">

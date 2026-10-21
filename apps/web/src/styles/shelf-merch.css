@@ -6069,6 +6069,33 @@ button.thumb{font:inherit;color:inherit}
   width: 260px !important;
   max-width: calc(100vw - 48px);
 }
+.sm-sonner[data-sonner-toaster][data-x-position="right"] {
+  left: auto !important;
+}
+.sm-sonner [data-sonner-toast][data-x-position="right"] {
+  left: auto !important;
+  right: 0 !important;
+}
+.sm-sonner [data-sonner-toast][data-x-position="right"][data-mounted="false"] {
+  --y: translateY(0) !important;
+}
+.sm-sonner [data-sonner-toast][data-x-position="right"][data-mounted="true"] {
+  animation: sm-toast-enter-right 240ms ease-out;
+}
+@keyframes sm-toast-enter-right {
+  from { translate: calc(100% + 24px) 0; }
+  to { translate: 0 0; }
+}
+@media (max-width: 600px) {
+  .sm-sonner[data-sonner-toaster][data-x-position="right"] {
+    right: var(--mobile-offset-right) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sm-sonner [data-sonner-toast][data-x-position="right"][data-mounted="true"] {
+    animation: none;
+  }
+}
 .sm-toast {
   position: relative;
   display: flex;

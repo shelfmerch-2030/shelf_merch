@@ -1200,7 +1200,15 @@
 }
 
 @media (max-width: 1080px) {
-  .request-demo__shell,
+  .request-demo__shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .request-demo__intro,
+  .request-demo__form-card {
+    min-width: 0;
+  }
+
   .request-demo__compare,
   .request-demo__cards,
   .request-demo__plan-grid,
@@ -1242,13 +1250,17 @@
 
   .request-demo__shell {
     min-height: 0;
-    padding-top: 64px;
+    padding-top: 28px;
     gap: 28px;
   }
 
   .request-demo__intro h1 {
     width: auto;
     font-size: clamp(38px, 11.2vw, 54px);
+  }
+
+  .request-demo__intro h1 span {
+    white-space: normal;
   }
 
   .request-demo__lead {
@@ -1270,8 +1282,12 @@
 
   .request-demo__form,
   .request-demo__form--landing {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
+  }
+
+  .request-demo__field {
+    min-width: 0;
   }
 
   .request-demo__field label {
