@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { ArrowRight, Check, Star } from "lucide-react";
 import { Link } from "react-router";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
@@ -99,6 +100,10 @@ const faqs = [
 ];
 
 export function RequestDemoPage() {
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, []);
+
   return (
     <main className="request-demo">
       <section className="request-demo__hero">

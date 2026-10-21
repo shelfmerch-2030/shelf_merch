@@ -153,6 +153,13 @@ export function CatalogStep({
           {entries.map(({ p, i }) => {
             const on = picked.includes(i);
             const swatches = productColorNames(p).slice(0, 6);
+            const sizes = [
+              ...new Set(
+                (p.variants ?? [])
+                  .map((variant) => variant.size?.trim())
+                  .filter((size): size is string => Boolean(size)),
+              ),
+            ];
             return (
               <button
                 key={p.id ?? `${p.nm}-${i}`}
@@ -196,6 +203,21 @@ export function CatalogStep({
                           style={{ background: productColorHex(p, c) }}
                           title={c}
                         />
+                      ))}
+                    </div>
+                  )}
+                  {sizes.length > 0 && (
+                    <div
+                      style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 10, fontSize: 11 }}
+                    >
+                      <span className="muted">Sizes:</span>
+                      {sizes.map((size) => (
+                        <span
+                          key={size}
+                          style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--surface-2)", fontWeight: 600 }}
+                        >
+                          {size}
+                        </span>
                       ))}
                     </div>
                   )}

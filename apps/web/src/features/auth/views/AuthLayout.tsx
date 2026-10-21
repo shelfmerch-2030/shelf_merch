@@ -4,6 +4,7 @@ import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import authMerchImage from "@/assets/auth-merch-login.jpg";
 
 type AuthLayoutProps = {
+  className?: string;
   children: ReactNode;
   title: string;
   subtitle?: string;
@@ -15,6 +16,7 @@ type AuthLayoutProps = {
 };
 
 export function AuthLayout({
+  className,
   children,
   title,
   subtitle,
@@ -30,7 +32,7 @@ export function AuthLayout({
 
   return (
     <div
-      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}${isCompact ? " auth-simple--compact" : ""}${dense ? " auth-simple--dense" : ""}`}
+      className={`auth-simple${isWelcome ? " auth-simple--welcome" : ""}${isCompact ? " auth-simple--compact" : ""}${dense ? " auth-simple--dense" : ""}${className ? ` ${className}` : ""}`}
       style={authBackgroundStyle}
     >
       <div className="auth-simple-body">
