@@ -23,6 +23,8 @@ import {
 import type { SendKitVm } from "../controllers/useSendKitController";
 import type { UiContact } from "@/services/mappers";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
+import { ProductThumb } from "@/features/shops/ProductThumb";
+import { listPrintAreas } from "@/features/swag/mockup-bake";
 import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
 import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog";
 import { usePlatformKits } from "../model";
@@ -527,9 +529,13 @@ export function SendKitView(vm: SendKitVm) {
     productId: string,
     patch: { size?: string; color?: string },
   ) {
-    const cleanPatch = Object.fromEntries(
-      Object.entries(patch).filter((entry): entry is [string, string] => Boolean(entry[1])),
-    ) as { size?: string; color?: string };
+    const item = kitItems.find(({ product }) => product.id === productId);
+    if (!item || (!item.opts.requiresSize && !item.opts.requiresColor)) return;
+
+    const cleanPatch = {
+      ...(item.opts.requiresSize && patch.size?.trim() ? { size: patch.size } : {}),
+      ...(item.opts.requiresColor && patch.color?.trim() ? { color: patch.color } : {}),
+    };
     if (!cleanPatch.size && !cleanPatch.color) {
       toast.error("Select a size or color first");
       return;
@@ -760,11 +766,15 @@ export function SendKitView(vm: SendKitVm) {
                 return (
                   <div key={p.id} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, borderRadius: 12 }}>
                     <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", position: "relative" }}>
-                      <DesignedProductThumb
-                        product={p}
-                        artworkUrl={p.mockupUrl ? undefined : kit.artworkUrl}
-                        frontOnly
-                      />
+                      {listPrintAreas(p).length ? (
+                        <DesignedProductThumb
+                          product={p}
+                          artworkUrl={p.mockupUrl ? undefined : kit.artworkUrl}
+                          frontOnly
+                        />
+                      ) : (
+                        <ProductThumb product={{ ...p, mockupUrl: undefined }} />
+                      )}
                     </div>
                     {p.brand && <div className="mut3" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em" }}>{p.brand}</div>}
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{p.nm}</div>
@@ -783,11 +793,11 @@ export function SendKitView(vm: SendKitVm) {
                     {distinctColors.length > 0 && (
                       <div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 500 }}>Colors</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", flexDirection: "row", gap: 6 }}>
                           {distinctColors.map(c => (
                             <div key={c} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
                               <ColorSwatch color={c} product={p} />
-                              <span style={{ color: "var(--text)" }}>{c}</span>
+                              {/* <span style={{ color: "var(--text)" }}>{c}</span> */}
                             </div>
                           ))}
                         </div>
@@ -1034,6 +1044,7 @@ export function SendKitView(vm: SendKitVm) {
               {showVariantCols && !isCurated ? (
                 <div className="sk-recip-bulk-strip">
                   {kitItems.map(({ product: prod, opts }) => {
+                    if (!opts.requiresSize && !opts.requiresColor) return null;
                     const bulk = bulkProductVariants[prod.id || ""] || {};
                     return (
                       <div key={prod.id} className="sk-recip-bulk-strip__item">
@@ -1089,7 +1100,7 @@ export function SendKitView(vm: SendKitVm) {
                   <textarea
                     className="inp"
                     rows={2}
-                    placeholder="One or more emails (comma, space, or new line separated)"
+                    placeholder="Please enter the email here"
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                   />
@@ -1146,11 +1157,15 @@ export function SendKitView(vm: SendKitVm) {
                               <th key={p.id} className="sk-recip-th sk-recip-th--product">
                                 <div className="sk-recip-product-head">
                                   <div className="sk-recip-product-thumb">
-                                    <DesignedProductThumb
-                                      product={p}
-                                      artworkUrl={kit.artworkUrl}
-                                      frontOnly
-                                    />
+                                    {listPrintAreas(p).length ? (
+                                      <DesignedProductThumb
+                                        product={p}
+                                        artworkUrl={kit.artworkUrl}
+                                        frontOnly
+                                      />
+                                    ) : (
+                                      <ProductThumb product={{ ...p, mockupUrl: undefined }} />
+                                    )}
                                   </div>
                                   <span>{p.nm}</span>
                                 </div>
