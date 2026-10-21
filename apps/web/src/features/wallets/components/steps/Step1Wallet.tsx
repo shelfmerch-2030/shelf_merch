@@ -33,11 +33,7 @@ export function Step1Wallet({
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 22 }}>
       <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: 18, marginBottom: 4 }}>Setup Organization Budget</h3>
-        <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", marginBottom: 18 }}>
-          Create your organization&apos;s merchandise budget. Submit a Purchase Order or Agreement
-          for ShelfMerch approval — this is your single budget for all campaigns and orders.
-        </p>
+        <h3 style={{ fontSize: 18, marginBottom: 18 }}>Setup Organization Budget</h3>
 
         <div className="field">
           <label className="lbl" htmlFor="org-wname">
@@ -249,7 +245,7 @@ export function Step1Wallet({
         )}
       </div>
 
-      <aside>
+      <aside style={{ display: "grid", gap: 16, alignContent: "start" }}>
         <div className="card" style={{ padding: 20 }}>
           <div
             className="row"

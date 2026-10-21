@@ -101,7 +101,7 @@ export default function TenantLayout() {
     ? Boolean(workspace && entityManagerDepartments(workspace).length > 0)
     : (workspace?.wallets?.length ?? 0) > 0;
   const canRequestTopup = canWrite("wallets") && !isEntityManager && hasBudget;
-  const budgetTitle = isEntityManager ? "My budget" : "Organization budget";
+  const budgetTitle = isEntityManager ? "My budget" : "Available budget";
   const balanceCaption = isEntityManager ? "Available for you" : "Available balance";
 
   return (

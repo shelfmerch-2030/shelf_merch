@@ -1316,6 +1316,7 @@ export type WalletTransactionRow = {
   type: string;
   amount: number;
   balanceAfter?: number;
+  availableAfter?: number;
   relatedEntityId?: string;
   description?: string;
   createdAt?: string;

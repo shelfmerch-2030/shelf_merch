@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Box,
   CalendarDays,
+  ChartNoAxesCombined,
   ChevronLeft,
   ChevronRight,
   GlassWater,
@@ -16,7 +17,6 @@ import {
   Megaphone,
   Play,
   Plus,
-  Settings,
   ShieldCheck,
   Shirt,
   ShoppingBag,
@@ -35,11 +35,6 @@ import { useTenantAccess } from "@/hooks/useTenantAccess";
 import { getStoredUser } from "@/services/api-bridge";
 import { entityManagerBudgetRemaining } from "@/services/workspace-api";
 import { walletUnallocated } from "@/lib/walletFormat";
-import hoodieImg from "../../../assets/hoodie.png";
-import bottleImg from "../../../assets/bottle.png";
-import toteImg from "../../../assets/tote.png";
-import diaryImg from "../../../assets/diary.png";
-import capImg from "../../../assets/cap.png";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { tenantPath } from "@/lib/workspaceSlug";
 import type { UiOrgDept, UiProduct } from "@/services/mappers";
@@ -103,9 +98,9 @@ function helpLinks() {
 }
 
 const WHY_CARDS = [
-  { label: "Gift Employees", body: "Celebrate, reward & motivate your team", icon: "/images/landing/why-gift-employees.png" },
-  { label: "Create Shops", body: "Build beautiful shops for teams & events", icon: "/images/landing/why-create-shops.png" },
-  { label: "Track & Manage", body: "Track orders, budgets and approvals", icon: "/images/landing/why-track-manage.png" },
+  { label: "Gift Employees", body: "Reward your team", icon: Gift },
+  { label: "Create Shops", body: "Shops for your team", icon: Store },
+  { label: "Track & Manage", body: "Manage orders & budgets", icon: ChartNoAxesCombined },
 ] as const;
 
 function shortcuts() {
@@ -145,14 +140,6 @@ function shortcuts() {
   ];
 }
 
-const FALLBACK_SEND_ITEMS = [
-  { id: "hoodie", name: "Classic Fleece Hoodie", price: "From ₹899", image: hoodieImg, href: tenantPath("/catalog") },
-  { id: "bottle", name: "Insulated Water Bottle", price: "From ₹499", image: bottleImg, href: tenantPath("/catalog") },
-  { id: "tote", name: "Everyday Canvas Tote", price: "From ₹399", image: toteImg, href: tenantPath("/catalog") },
-  { id: "diary", name: "Softcover Notebook", price: "From ₹299", image: diaryImg, href: tenantPath("/catalog") },
-  { id: "cap", name: "Structured Cap", price: "From ₹349", image: capImg, href: tenantPath("/catalog") },
-] as const;
-
 function quickActions() {
   return [
     { label: "Quick tip", icon: Lightbulb, tone: "blue", href: tenantPath() },
@@ -165,36 +152,22 @@ function productThumb(p: UiProduct): string | undefined {
   return resolveMediaUrl(p.mockupUrl) || resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imgUrl);
 }
 
-function productSearchText(p: UiProduct) {
-  return `${p.nm || ""} ${p.brand || ""} ${p.category || ""} ${p.subcategory || ""} ${p.g || ""}`.toLowerCase();
-}
-
 function pickCatalogPreviewProducts(products: UiProduct[]) {
-  const blocked = /foldable wireless|activedry polo|activewear crew|anti-theft laptop|bamboo bluetooth/i;
-  const available = products.filter((product) => productThumb(product) && !blocked.test(product.nm));
-  const used = new Set<string>();
+  const featured = [
+    { id: "6a69a28328d51c137c8e9530", name: "ActiveDry Polo" },
+    { id: "6a69a2a328d51c137c8e962e", name: "Desk Organizer with Clock & Date Blocks" },
+    { name: "Premium Business Blend Mug" },
+    { id: "6abb6a21d602f72fd2df9100", name: "Neck & Shoulder Massager" },
+    { name: "Customized Cap" },
+  ];
 
-  const pickOne = (match: RegExp) => {
-    const found = available.find((product) => {
-      const key = product.id || product.nm;
-      return key && !used.has(key) && match.test(productSearchText(product));
-    });
-    if (found) used.add(found.id || found.nm);
-    return found;
-  };
-
-  const curated = [
-    pickOne(/bottle|tumbler|mug|flask|drinkware/),
-    pickOne(/notebook|diary|journal|planner|pen|office|stationery/),
-    pickOne(/tote|duffle|sling|bag|backpack/),
-    pickOne(/cap|hat|keychain|key chain|accessor/),
-    pickOne(/hoodie|jacket|sweatshirt|apparel|shirt|tee/),
-  ].filter((product): product is UiProduct => Boolean(product));
-
-  const rest = available.filter((product) => !used.has(product.id || product.nm));
-  return [...curated, ...rest].slice(0, 10);
+  return featured
+    .map((item) => products.find((product) =>
+      (item.id && product.id === item.id) ||
+      product.nm.trim().toLowerCase() === item.name.toLowerCase(),
+    ))
+    .filter((product): product is UiProduct => Boolean(product));
 }
-
 function SectionHead({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="dash-section-head">
@@ -298,56 +271,6 @@ function HelpCenter({ onboarding = false }: { onboarding?: boolean }) {
   );
 }
 
-function WorkspaceSettingsCard({
-  preview = false,
-  art = false,
-  account = "Workspace",
-  ownerName = "Owner",
-  workspaceSlug = "",
-}: {
-  preview?: boolean;
-  art?: boolean;
-  account?: string;
-  ownerName?: string;
-  workspaceSlug?: string;
-}) {
-  const slug = workspaceSlug || "workspace";
-
-  if (preview || art) {
-    return (
-      <Link
-        to={tenantPath("/settings")}
-        className="dash-settings-card dash-settings-card--preview card"
-        aria-label="Customize workspace settings"
-      >
-        <span className="dash-settings-card__icon"><Settings size={18} aria-hidden="true" /></span>
-        <span className="dash-settings-card__copy">
-          <strong>Workspace settings</strong>
-          <span>Update company profile, owner and workspace URL.</span>
-        </span>
-        <span className="dash-settings-card__rows" aria-hidden="true">
-          <span><Store size={15} /> Workspace name <b>{account}</b></span>
-          <span><Users size={15} /> Owner <b>{ownerName}</b></span>
-          <span><Globe2 size={15} /> Workspace URL <b>/{slug}</b></span>
-        </span>
-        <span className="dash-settings-card__cta">Customize workspace <ArrowRight size={15} /></span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link to={tenantPath("/settings")} className="dash-settings-card card">
-      <span className="dash-settings-card__icon"><Settings size={22} aria-hidden="true" /></span>
-      <span className="dash-settings-card__copy">
-        <strong>Workspace settings</strong>
-        <span>Manage members, approvals, budgets & more.</span>
-      </span>
-      <span className="dash-settings-card__art" aria-hidden="true"><i /><b /></span>
-      <span className="dash-settings-card__cta">Customize workspace <ArrowRight size={16} /></span>
-    </Link>
-  );
-}
-
 function ShortcutGrid() {
   return (
     <section className="dash-services">
@@ -429,7 +352,7 @@ function CatalogSendCard({ products }: { products: UiProduct[] }) {
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .slice(0, 10);
 
-  const sendItems = items.length > 0 ? items : FALLBACK_SEND_ITEMS;
+  const sendItems = items;
 
   const scrollBy = (dir: -1 | 1) => {
     scrollerRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
@@ -466,14 +389,8 @@ function CatalogSendCard({ products }: { products: UiProduct[] }) {
 
 function OnboardingDashboard({
   catalogProducts,
-  account,
-  ownerName,
-  workspaceSlug,
 }: {
   catalogProducts: UiProduct[];
-  account: string;
-  ownerName: string;
-  workspaceSlug: string;
 }) {
   return (
     <div className="dash-onboard">
@@ -502,10 +419,10 @@ function OnboardingDashboard({
         <section className="dash-why-panel card">
           <SectionHead title="Why Shelf Merch?" />
           <ul className="dash-why-list">
-            {WHY_CARDS.map((item) => (
+            {WHY_CARDS.map(({ icon: Icon, ...item }) => (
               <li key={item.label}>
                 <span className="dash-why-list__icon" aria-hidden="true">
-                  <img src={item.icon} alt="" />
+                  <Icon size={26} strokeWidth={1.5} />
                 </span>
                 <span>
                   <strong>{item.label}</strong>
@@ -522,7 +439,6 @@ function OnboardingDashboard({
 
         <div className="dash-onboard-side">
           <HelpCenter onboarding />
-          <WorkspaceSettingsCard art account={account} ownerName={ownerName} workspaceSlug={workspaceSlug} />
         </div>
       </section>
 
@@ -827,8 +743,6 @@ export function DashboardPage() {
   const userName = workspace.userPatch.name || sessionUser?.name || "User";
   const initials = workspace.userPatch.initials || "U";
   const account = workspace.account || "Workspace";
-  const ownerName = workspace.owner?.name || userName;
-  const workspaceSlug = workspace.slug || "workspace";
   const roleLabel = formatRole(workspace.userPatch.role);
   const campaigns = workspace.campaigns ?? [];
   const peopleReachedCount = campaigns.reduce(
@@ -887,9 +801,6 @@ export function DashboardPage() {
       {showOnboarding ? (
         <OnboardingDashboard
           catalogProducts={workspace.catalogProducts ?? []}
-          account={account}
-          ownerName={ownerName}
-          workspaceSlug={workspaceSlug}
         />
       ) : (
         <ExistingDashboard

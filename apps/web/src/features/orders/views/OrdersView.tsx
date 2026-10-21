@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
 import { inr } from "@/components/platform/platform-ui";
-import ordersEmptyArt from "../../../../assets/orders-empty.png";
+import ordersEmptyArt from "../../../../assets/orders-empty-rounded.png";
 import type { OrdersVm } from "../controllers/useOrdersController";
 import { OrderDetailDialogView } from "./OrderDetailDialogView";
 import { OrderStatusTag } from "./OrderStatusTag";

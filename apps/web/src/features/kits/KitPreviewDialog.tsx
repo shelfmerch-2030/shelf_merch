@@ -405,7 +405,7 @@ export function buildKitPreviewFromPlatform(
 const btnGhostStyle: CSSProperties = {
   border: "1px solid var(--line)",
   padding: "8px 24px",
-  borderRadius: 6,
+  borderRadius: 10,
   fontWeight: "var(--font-weight-bold)",
 };
 
@@ -563,11 +563,12 @@ export function KitPreviewDialog({
     <Dialog open={open && data !== null} onOpenChange={onOpenChange}>
       <DialogContent
         className={wide ? "sm-modal kit-preview-dialog kit-preview-dialog--wide" : "sm-modal kit-preview-dialog"}
-        style={{
-          maxHeight: "90vh",
-        }}
       >
         {data && (
+          <>
+          <header className="kit-preview-dialog__header">
+            <DialogTitle>Kit preview</DialogTitle>
+          </header>
           <div className="modal-pad kit-preview-dialog__body">
             {data.coverImage && (
               <div
@@ -575,14 +576,12 @@ export function KitPreviewDialog({
                   width: "100%",
                   height: 180,
                   borderRadius: 10,
-                  background: "var(--gray-50)",
-                  border: "1px solid var(--line)",
+                  background: "transparent",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 20,
                   overflow: "hidden",
-                  padding: 12,
                 }}
               >
                 <img
@@ -602,11 +601,11 @@ export function KitPreviewDialog({
                 marginBottom: 12,
               }}
             >
-              <DialogTitle
+              <h2
                 style={{ fontSize: 20, fontWeight: "var(--font-weight-bold)", color: "var(--ink)", margin: 0 }}
               >
                 {data.name}
-              </DialogTitle>
+              </h2>
               {data.pricePerKitInr != null && data.pricePerKitInr > 0 ? (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div style={{ ...labelStyle, marginBottom: 2 }}>Price per kit</div>
@@ -811,7 +810,8 @@ export function KitPreviewDialog({
               </div>
             ) : null}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+          </div>
+            <footer className="kit-preview-dialog__footer">
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -820,8 +820,8 @@ export function KitPreviewDialog({
               >
                 Close
               </button>
-            </div>
-          </div>
+            </footer>
+          </>
         )}
       </DialogContent>
     </Dialog>

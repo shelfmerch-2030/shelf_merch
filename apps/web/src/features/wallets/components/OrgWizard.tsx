@@ -299,7 +299,7 @@ export function OrgWizard({
 
   return (
     <div className={!isWalletFlow ? "allocation-wizard" : undefined}>
-      <div className="page-h">
+      <div className={isWalletFlow ? "page-h budget-setup-header" : "page-h"}>
         <div>
           <button
             type="button"
@@ -320,13 +320,18 @@ export function OrgWizard({
           </button>
           <h1>{isWalletFlow ? "Setup budget" : "Allocate budget"}</h1>
           {isWalletFlow && (
-            <div className="sub">
+            <div className="sub budget-setup-subtitle">
               {isPayOnline
-                ? `${account} · pay online to fund your organization budget.`
-                : `${account} · submit a Purchase Order or Agreement to fund your organization budget.`}
+                ? "Pay online to fund your organization budget."
+                : "Submit a Purchase Order or Agreement to fund your organization budget."}
             </div>
           )}
         </div>
+        {isWalletFlow && (
+          <div className="budget-setup-info">
+            <p>Create your organization&apos;s merchandise budget. Submit a Purchase Order or Agreement for ShelfMerch approval. This is your single budget for all campaigns and orders.</p>
+          </div>
+        )}
       </div>
 
       {!isWalletFlow && (
@@ -409,17 +414,17 @@ export function OrgWizard({
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm-modal" style={{ maxWidth: 440 }}>
+        <DialogContent className="sm-modal budget-confirm-dialog">
           <div className="modal-pad">
-            <DialogHeader>
-              <DialogTitle style={{ fontSize: 20, fontFamily: "var(--font-family-primary)" }}>
+            <DialogHeader className="budget-confirm-dialog__header">
+              <DialogTitle>
                 {isWalletFlow ? "Submit budget for review?" : "Finish allocation?"}
               </DialogTitle>
-              <DialogDescription className="muted" style={{ fontSize: 14, margin: "8px 0 0" }}>
+              <DialogDescription className="budget-confirm-dialog__copy">
                 {isWalletFlow ? (
                   <>
-                    Submit <b>{state.wallet.name}</b> ({inr(state.wallet.amount)}) funding request
-                    and send your PO to ShelfMerch for approval.
+                    Submit <b>{state.wallet.name}</b> ({inr(state.wallet.amount)})
+                    {" "}to ShelfMerch for approval.
                   </>
                 ) : (
                   <>
@@ -429,7 +434,7 @@ export function OrgWizard({
                 )}
               </DialogDescription>
             </DialogHeader>
-            <div className="row" style={{ gap: 10, marginTop: 24 }}>
+            <div className="budget-confirm-dialog__actions">
               <button
                 type="button"
                 className="btn btn-ghost"

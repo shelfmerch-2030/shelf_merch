@@ -375,11 +375,50 @@ export async function transfer({ tenantId, walletId, toWalletId, amount, userId 
 }
 
 export async function listTransactions({ tenantId, walletId, query }) {
-  await getWallet({ tenantId, walletId });
+  const wallet = await getWallet({ tenantId, walletId });
   const { page, limit, skip } = getPagination(query);
-  const filter = { tenantId, walletId, ...(query.type ? { type: query.type } : {}) };
+  const scope = { tenantId: wallet.tenantId, walletId: wallet._id };
+  const filter = { ...scope, ...(query.type ? { type: query.type } : {}) };
   const [items, total] = await Promise.all([
-    WalletTransaction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    WalletTransaction.aggregate([
+      { $match: scope },
+      // Include the entire ledger before filtering/pagination. Cash snapshots alone
+      // do not account for earmarks, and a page may omit the opening funding.
+      {
+        $setWindowFields: {
+          sortBy: { createdAt: 1, _id: 1 },
+          output: {
+            outstandingAllocation: {
+              $sum: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$type', 'allocation_to_entity'] }, then: '$amount' },
+                    {
+                      case: {
+                        $and: [
+                          { $in: ['$type', ['campaign_spend', 'order_payment']] },
+                          { $ne: ['$relatedEntityId', null] },
+                          { $lt: ['$amount', 0] },
+                        ],
+                      },
+                      then: '$amount',
+                    },
+                  ],
+                  default: 0,
+                },
+              },
+              window: { documents: ['unbounded', 'current'] },
+            },
+          },
+        },
+      },
+      { $set: { availableAfter: { $subtract: ['$balanceAfter', '$outstandingAllocation'] } } },
+      { $unset: 'outstandingAllocation' },
+      ...(query.type ? [{ $match: { type: query.type } }] : []),
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ]),
     WalletTransaction.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, { page, limit });

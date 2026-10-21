@@ -72,7 +72,7 @@ export function WalletContactFieldsForm({
         </div>
       </div>
 
-      <div className="field">
+      <div className="field" style={{ marginTop: 16 }}>
         <label className="lbl" htmlFor={`${idPrefix}-gstin`}>
           GSTIN *
         </label>

@@ -649,8 +649,8 @@
 .camp-empty__options {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  width: min(920px, 100%);
+  gap: 20px;
+  width: min(1100px, 100%);
   margin-top: 18px;
   text-align: left;
 }
@@ -658,18 +658,30 @@
 .camp-empty__option {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 100%;
-  padding: 18px 16px;
+  gap: 12px;
+  min-height: 264px;
+  padding: 24px;
   border: 1px solid var(--line);
-  border-radius: var(--r, 14px);
-  background: var(--bg-card, #fff);
+  border-top: 8px solid #9fc5fb;
+  border-radius: 18px;
+  background: #fff;
 }
 
-.camp-empty__option strong {
+.camp-empty__option-category {
+  margin-bottom: 8px;
   color: var(--ink);
-  font-size: var(--workspace-font-body, 15px);
+  font-size: var(--workspace-font-caption, 14px);
   font-weight: var(--font-weight-bold);
+  line-height: 1.4;
+}
+
+.camp-empty__option h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .camp-empty__option p {
@@ -681,9 +693,15 @@
 }
 
 .camp-empty__option .camp-empty__cta {
-  align-self: flex-start;
-  margin-top: 6px;
+  align-self: stretch;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #111;
 }
+.camp-empty__option .camp-empty__cta:hover:not(:disabled) { background: #303030; }
+.camp-empty__option .camp-empty__cta:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.camp-empty__option .camp-empty__cta:disabled { opacity: .45; cursor: not-allowed; }
 
 @media (max-width: 900px) {
   .camp-empty__options {
@@ -710,7 +728,7 @@
 }
 
 .camp-empty__art {
-  width: min(168px, 42%);
+  width: min(var(--empty-state-art-size), 46vw);
   height: auto;
   margin: 0 0 4px;
   object-fit: contain;
@@ -836,7 +854,7 @@
 
 .camp-hero {
   align-items: center;
-  margin: 0 0 24px;
+  margin: 0 0 12px;
   padding: 0;
 }
 
@@ -1238,7 +1256,7 @@
 @media (max-width: 640px) {
   .camp-hero {
     align-items: stretch;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
   }
 
   .camp-hero__copy h1 {

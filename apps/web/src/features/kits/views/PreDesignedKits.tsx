@@ -62,8 +62,8 @@ export function PreDesignedKitsView({
           <div
             style={{
               width: "100%",
-              aspectRatio: "1.4",
-              background: "var(--gray-100)",
+              aspectRatio: "1",
+              background: "transparent",
               borderRadius: "var(--r-sm)",
               display: "flex",
               alignItems: "center",
@@ -76,7 +76,7 @@ export function PreDesignedKitsView({
               src={templateImage(kit)}
               alt={kit.name}
               loading="lazy"
-              style={{ maxHeight: "90%", maxWidth: "90%", objectFit: "contain" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
           <div

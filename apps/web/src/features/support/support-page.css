@@ -44,7 +44,7 @@
 .sup-hero__cta {
   height: 46px;
   padding: 0 18px;
-  border-radius: 12px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -333,7 +333,7 @@
   height: 44px;
   padding: 0 18px;
   border: none;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--ink);
   color: #fff;
   font-weight: var(--font-weight-bold);
