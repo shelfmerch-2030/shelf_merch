@@ -855,7 +855,7 @@ function KitProductBrandingModal({
                         displayOnly
                         onRemove={removeActiveArt}
                       />
-                      <p className="mut3" style={{ fontSize: 12, marginTop: 8 }}>
+                      <p className="mut3" style={{ fontSize: "var(--workspace-font-caption, 12px)", marginTop: 8 }}>
                         Drag the logo on the mockup to reposition. Remove to clear this placeholder
                         only.
                       </p>
@@ -992,7 +992,7 @@ function KitProductBrandingModal({
               ) : (
                 <div className="sw-art-panel sw-art-panel--side">
                   <h2 className="sw-art-panel-title">Preview</h2>
-                  <p className="mut3" style={{ fontSize: 13 }}>
+                  <p className="mut3" style={{ fontSize: "var(--workspace-font-caption, 13px)" }}>
                     Clean product view with logos applied. Return to edit to adjust placement or
                     placeholders.
                   </p>

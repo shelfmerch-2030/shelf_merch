@@ -259,11 +259,11 @@ function ColorSelect({
               }}
             />
           )}
-          <span style={{ fontSize: 12, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {value || "Color"}
           </span>
         </div>
-        <span style={{ fontSize: 9, opacity: 0.7 }}>▼</span>
+        <span style={{ fontSize: "var(--workspace-font-caption, 9px)", opacity: 0.7 }}>▼</span>
       </button>
 
       {open && (
@@ -278,20 +278,20 @@ function ColorSelect({
             <div
               onClick={() => { onChange(""); setOpen(false); }}
               style={{
-                padding: "6px 8px", fontSize: 12, cursor: "pointer",
+                padding: "6px 8px", fontSize: "var(--workspace-font-caption, 12px)", cursor: "pointer",
                 borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
                 background: !value ? "var(--surface-2)" : "transparent"
               }}
             >
               <span style={{ width: 12, height: 12, borderRadius: "50%", border: "1px dashed var(--border)", display: "inline-block" }} />
-              <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>Color</span>
+              <span style={{ color: "var(--text-muted)", fontWeight: "var(--font-weight-medium)" }}>Color</span>
             </div>
             {colors.map(c => (
               <div
                 key={c}
                 onClick={() => { onChange(c); setOpen(false); }}
                 style={{
-                  padding: "6px 8px", fontSize: 12, cursor: "pointer",
+                  padding: "6px 8px", fontSize: "var(--workspace-font-caption, 12px)", cursor: "pointer",
                   borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
                   background: value === c ? "var(--surface-2)" : "transparent"
                 }}
@@ -304,7 +304,7 @@ function ColorSelect({
                     display: "inline-block", flexShrink: 0
                   }}
                 />
-                <span style={{ color: "var(--text)", fontWeight: 505 }}>{c}</span>
+                <span style={{ color: "var(--text)", fontWeight: "var(--font-weight-medium)" }}>{c}</span>
               </div>
             ))}
           </div>
@@ -323,9 +323,9 @@ function SizeSelect({
       onChange={e => onChange(e.target.value)}
       style={{
         border: "1px solid var(--border)", borderRadius: 8,
-        padding: "4px 8px", fontSize: 12, background: "var(--surface)",
+        padding: "4px 8px", fontSize: "var(--workspace-font-caption, 12px)", background: "var(--surface)",
         outline: "none", cursor: "pointer", minWidth: 90, color: "var(--text)",
-        fontWeight: 500, height: 32,
+        fontWeight: "var(--font-weight-medium)", height: 32,
       }}
     >
       <option value="">Size</option>
@@ -581,30 +581,30 @@ export function SendKitView(vm: SendKitVm) {
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               {/* Editable Kit Name */}
               <div style={{ maxWidth: 480 }}>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                   Kit Name
                 </label>
                 <input
                   className="inp"
                   value={vm.kitName}
                   onChange={(e) => vm.setKitName(e.target.value)}
-                  style={{ width: "100%", fontSize: 14, height: 38 }}
+                  style={{ width: "100%", fontSize: "var(--workspace-font-body, 14px)", height: 38 }}
                 />
               </div>
 
               {/* Read-only Description */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                   Description
                 </label>
-                <p style={{ color: "var(--text)", fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+                <p style={{ color: "var(--text)", fontSize: "var(--workspace-font-body, 14px)", margin: 0, lineHeight: 1.5 }}>
                   {curatedMeta.description || "No description provided."}
                 </p>
               </div>
 
               {/* Read-only Product Images as cards */}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
                   Included Items ({curatedItemImages.length})
                 </label>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
@@ -617,7 +617,7 @@ export function SendKitView(vm: SendKitVm) {
                           style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                         />
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{item.label}</div>
+                      <div style={{ fontSize: "var(--workspace-font-body, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--ink)" }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
@@ -626,7 +626,7 @@ export function SendKitView(vm: SendKitVm) {
               {/* Brand logo — only when platform kit rules.requireLogo is on (default). */}
               {vm.curatedRequiresLogo ? (
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                  <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
                     Add logo <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
                   <div
@@ -662,7 +662,7 @@ export function SendKitView(vm: SendKitVm) {
                             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                           />
                         ) : (
-                          <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: 8 }}>
+                          <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 12px)", textAlign: "center", padding: 8 }}>
                             Logo preview
                           </span>
                         )}
@@ -697,14 +697,14 @@ export function SendKitView(vm: SendKitVm) {
                       <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
                         This logo will be printed on the items in the designated placeholders.
                         {!vm.hasCuratedLogo ? (
-                          <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: 13 }}>
+                          <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: "var(--workspace-font-body, 13px)" }}>
                             Upload a logo to continue.
                           </span>
                         ) : null}
                       </p>
                     </div>
                   </div>
-                  <p className="muted" style={{ margin: "10px 0 0", fontSize: 12, lineHeight: 1.5 }}>
+                  <p className="muted" style={{ margin: "10px 0 0", fontSize: "var(--workspace-font-caption, 12px)", lineHeight: 1.5 }}>
                     This logo will be printed in the design area as shown in the images; there may be slight
                     variation in colour when printed.
                   </p>
@@ -713,10 +713,10 @@ export function SendKitView(vm: SendKitVm) {
 
               {curatedVariantImages.length > 0 ? (
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                  <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                     Kit designs
                   </label>
-                  <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+                  <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", margin: "0 0 12px" }}>
                   Available variants for this kit are shown below. You can select the preferred variant for each recipient in the next step.
                   </p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
@@ -744,7 +744,7 @@ export function SendKitView(vm: SendKitVm) {
                               style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                             />
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700 }}>{variant.label}</div>
+                          <div style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-bold)" }}>{variant.label}</div>
                         </button>
                       );
                     })}
@@ -766,26 +766,26 @@ export function SendKitView(vm: SendKitVm) {
                         frontOnly
                       />
                     </div>
-                    {p.brand && <div className="mut3" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em" }}>{p.brand}</div>}
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{p.nm}</div>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Qty: 1 unit</div>
+                    {p.brand && <div className="mut3" style={{ fontSize: "var(--workspace-font-caption, 11px)", textTransform: "uppercase", letterSpacing: ".04em" }}>{p.brand}</div>}
+                    <div style={{ fontWeight: "var(--font-weight-semibold)", fontSize: "var(--workspace-font-body, 14px)" }}>{p.nm}</div>
+                    <div style={{ fontSize: "var(--workspace-font-caption, 12px)", color: "var(--text-muted)" }}>Qty: 1 unit</div>
                     <div className="divider" style={{ margin: "2px 0" }} />
                     {distinctSizes.length > 0 && (
                       <div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 500 }}>Sizes</div>
+                        <div style={{ fontSize: "var(--workspace-font-caption, 11px)", color: "var(--text-muted)", marginBottom: 4, fontWeight: "var(--font-weight-medium)" }}>Sizes</div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {distinctSizes.map(s => (
-                            <span key={s} style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 4, background: "var(--surface-2)", border: "1px solid var(--border)" }}>{s}</span>
+                            <span key={s} style={{ fontSize: "var(--workspace-font-caption, 11px)", fontWeight: "var(--font-weight-semibold)", padding: "2px 7px", borderRadius: 4, background: "var(--surface-2)", border: "1px solid var(--border)" }}>{s}</span>
                           ))}
                         </div>
                       </div>
                     )}
                     {distinctColors.length > 0 && (
                       <div>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 500 }}>Colors</div>
+                        <div style={{ fontSize: "var(--workspace-font-caption, 11px)", color: "var(--text-muted)", marginBottom: 4, fontWeight: "var(--font-weight-medium)" }}>Colors</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                           {distinctColors.map(c => (
-                            <div key={c} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                            <div key={c} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--workspace-font-caption, 12px)" }}>
                               <ColorSwatch color={c} product={p} />
                               <span style={{ color: "var(--text)" }}>{c}</span>
                             </div>
@@ -794,7 +794,7 @@ export function SendKitView(vm: SendKitVm) {
                       </div>
                     )}
                     {distinctSizes.length === 0 && distinctColors.length === 0 && (
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>No variants for this product</div>
+                      <div style={{ fontSize: "var(--workspace-font-caption, 12px)", color: "var(--text-muted)" }}>No variants for this product</div>
                     )}
                   </div>
                 );
@@ -865,7 +865,7 @@ export function SendKitView(vm: SendKitVm) {
                 className="card sk-recip-single-loc"
                 style={{ marginBottom: 18, boxShadow: "none" }}
               >
-                <h3 style={{ fontSize: 15, marginBottom: 12 }}>Single delivery location</h3>
+                <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", marginBottom: 12 }}>Single delivery location</h3>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                   <LocField
                     label="Contact name"
@@ -1093,7 +1093,7 @@ export function SendKitView(vm: SendKitVm) {
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                   />
-                  <p className="muted" style={{ margin: "12px 0 8px", fontSize: 12 }}>
+                  <p className="muted" style={{ margin: "12px 0 8px", fontSize: "var(--workspace-font-caption, 12px)" }}>
                     Contact details below are saved to Contacts (same fields as the Contacts page)
                     and applied to every email above.
                   </p>
@@ -1248,7 +1248,7 @@ export function SendKitView(vm: SendKitVm) {
                                     <button
                                       type="button"
                                       className="lnk"
-                                      style={{ fontSize: 12, alignSelf: "flex-start" }}
+                                      style={{ fontSize: "var(--workspace-font-caption, 12px)", alignSelf: "flex-start" }}
                                       onClick={() => startEditContact(contact)}
                                     >
                                       {hasCompleteRecipientAddress(contact)
@@ -1375,13 +1375,13 @@ export function SendKitView(vm: SendKitVm) {
             onPreview={preview => dispatch({ type: "setPreview", preview })}
             extraLeft={
               <div className="card" style={{ padding: 20 }}>
-                <h3 style={{ fontSize: 15, marginBottom: 6 }}>Printed card note</h3>
-                <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
+                <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", marginBottom: 6 }}>Printed card note</h3>
+                <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
                 <textarea className="inp" rows={3} value={draft.note} onChange={e => dispatch({ type: "setNote", note: e.target.value })} />
                 <div className="card" style={{ padding: 14, background: "#fff", marginTop: 12 }}>
-                  <div className="mut3" style={{ fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 700, marginBottom: 6 }}>Card preview</div>
-                  <div style={{ fontFamily: "var(--disp)", fontStyle: "italic", fontSize: 14 }}>{draft.note}</div>
-                  <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>The {vm.account} team</div>
+                  <div className="mut3" style={{ fontSize: "var(--workspace-font-caption, 10px)", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: "var(--font-weight-bold)", marginBottom: 6 }}>Card preview</div>
+                  <div style={{ fontFamily: "var(--font-family-primary)", fontStyle: "italic", fontSize: "var(--workspace-font-body, 14px)" }}>{draft.note}</div>
+                  <div className="muted" style={{ marginTop: 8, fontSize: "var(--workspace-font-caption, 12px)" }}>The {vm.account} team</div>
                 </div>
               </div>
             }
@@ -1497,7 +1497,7 @@ function KitCheckoutPaymentSummary({
     return (
       <div style={{ marginTop: 4 }}>
         {walletName ? (
-          <p className="muted" style={{ fontSize: 12.5, marginBottom: 10, lineHeight: 1.45 }}>
+          <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", marginBottom: 10, lineHeight: 1.45 }}>
             Paying from <strong>{walletName}</strong>. No UPI or card payment needed — the order
             amount is deducted from your wallet.
           </p>
@@ -1513,8 +1513,8 @@ function KitCheckoutPaymentSummary({
             padding: "10px 0 0",
           }}
         >
-          <b style={{ fontSize: 15 }}>Remaining balance</b>
-          <b className="num" style={{ fontSize: 18, fontFamily: "var(--disp)" }}>
+          <b style={{ fontSize: "var(--workspace-font-body, 15px)" }}>Remaining balance</b>
+          <b className="num" style={{ fontSize: 18, fontFamily: "var(--font-family-primary)" }}>
             {formatWalletAmount(remainingBalance, walletCur)}
           </b>
         </div>
@@ -1529,7 +1529,7 @@ function KitCheckoutPaymentSummary({
         style={{ justifyContent: "space-between", alignItems: "baseline", paddingTop: 8 }}
       >
         <b style={{ fontSize: 18 }}>Amount to be paid now</b>
-        <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>
+        <b className="num" style={{ fontSize: 22, fontFamily: "var(--font-family-primary)" }}>
           {inr(total)}
         </b>
       </div>
@@ -1549,15 +1549,15 @@ function SumRow({
   large?: boolean;
 }) {
   const labelStyle = large
-    ? { fontSize: 16, fontWeight: 800 as const, color: "var(--ink)" }
+    ? { fontSize: 16, fontWeight: "var(--font-weight-bold)" as const, color: "var(--ink)" }
     : emphasis
-      ? { fontSize: 14, fontWeight: 700 as const, color: "var(--ink)" }
+      ? { fontSize: 14, fontWeight: "var(--font-weight-bold)" as const, color: "var(--ink)" }
       : { fontSize: 13 };
   const valueStyle = large
-    ? { fontWeight: 800 as const, fontSize: 18 }
+    ? { fontWeight: "var(--font-weight-bold)" as const, fontSize: 18 }
     : emphasis
-      ? { fontWeight: 700 as const, fontSize: 15 }
-      : { fontWeight: 600 as const, fontSize: 13 };
+      ? { fontWeight: "var(--font-weight-bold)" as const, fontSize: 15 }
+      : { fontWeight: "var(--font-weight-semibold)" as const, fontSize: 13 };
 
   return (
     <div

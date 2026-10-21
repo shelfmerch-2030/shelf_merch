@@ -49,7 +49,7 @@ export function OrdersView(vm: OrdersVm) {
           {vm.filtered.length === 0 ? (
             <div className="data-list-empty">
               <h4>No matching orders</h4>
-              <p className="muted" style={{ fontSize: 13 }}>
+              <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)" }}>
                 Try a different order name or ID.
               </p>
             </div>

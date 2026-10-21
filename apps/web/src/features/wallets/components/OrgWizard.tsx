@@ -36,6 +36,7 @@ import { Step2Departments } from "./steps/Step2Departments";
 import { Step3Allocate } from "./steps/Step3Allocate";
 import { Step4Managers } from "./steps/Step4Managers";
 import { Step5Review } from "./steps/Step5Review";
+import { managersValid } from "../managerValidation";
 
 type AllocationSuccessManager = {
   name: string;
@@ -66,6 +67,7 @@ export function OrgWizard({
   onFinished: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showManagerErrors, setShowManagerErrors] = useState(false);
   const [contactErrors, setContactErrors] = useState<WalletContactFieldErrors>({});
   const submitInFlight = useRef(false);
   const [submitting, setSubmitting] = useState(false);
@@ -185,6 +187,19 @@ export function OrgWizard({
     }
   }
 
+  function validateManagersStep(): boolean {
+    setShowManagerErrors(true);
+    if (managersValid(state.departments)) return true;
+    dispatch({ type: "goto", step: 4 });
+    toast.error("Check the highlighted manager details");
+    return false;
+  }
+
+  function goToStep(step: number) {
+    if (step > 4 && !validateManagersStep()) return;
+    dispatch({ type: "goto", step });
+  }
+
   function handleNext() {
     if (isWalletFlow) {
       if (!validateWalletStep()) return;
@@ -204,6 +219,7 @@ export function OrgWizard({
       toast.error("Reduce your allocations");
       return;
     }
+    if (n >= 4 && !validateManagersStep()) return;
     if (n === ALLOC_STEP_MAX) {
       if (walletAlloc <= 0) {
         toast.error("Allocate a department budget");
@@ -216,6 +232,10 @@ export function OrgWizard({
   }
 
   async function handleFinish() {
+    if (!isWalletFlow && !validateManagersStep()) {
+      setConfirmOpen(false);
+      return;
+    }
     if (submitInFlight.current) return;
     submitInFlight.current = true;
     setSubmitting(true);
@@ -278,7 +298,7 @@ export function OrgWizard({
   const stepNumbers = [2, 3, 4, 5];
 
   return (
-    <>
+    <div className={!isWalletFlow ? "allocation-wizard" : undefined}>
       <div className="page-h">
         <div>
           <button
@@ -299,13 +319,13 @@ export function OrgWizard({
             <ArrowLeft size={15} /> Back to budget dashboard
           </button>
           <h1>{isWalletFlow ? "Setup budget" : "Allocate budget"}</h1>
-          <div className="sub">
-            {isWalletFlow
-              ? isPayOnline
+          {isWalletFlow && (
+            <div className="sub">
+              {isPayOnline
                 ? `${account} · pay online to fund your organization budget.`
-                : `${account} · submit a Purchase Order or Agreement to fund your organization budget.`
-              : `${account} · split your organization budget across departments and assign managers.`}
-          </div>
+                : `${account} · submit a Purchase Order or Agreement to fund your organization budget.`}
+            </div>
+          )}
         </div>
       </div>
 
@@ -319,7 +339,7 @@ export function OrgWizard({
                 <button
                   type="button"
                   className="sbtn"
-                  onClick={() => dispatch({ type: "goto", step: s })}
+                  onClick={() => goToStep(s)}
                 >
                   <div className="snum">{s < n ? "✓" : i + 1}</div>
                   <div className="smeta">
@@ -344,7 +364,7 @@ export function OrgWizard({
       )}
       {!isWalletFlow && n === 2 && <Step2Departments state={state} dispatch={dispatch} />}
       {!isWalletFlow && n === 3 && <Step3Allocate state={state} dispatch={dispatch} />}
-      {!isWalletFlow && n === 4 && <Step4Managers state={state} dispatch={dispatch} />}
+      {!isWalletFlow && n === 4 && <Step4Managers state={state} dispatch={dispatch} showErrors={showManagerErrors} />}
       {!isWalletFlow && n === 5 && (
         <Step5Review state={state} dispatch={dispatch} account={account} />
       )}
@@ -392,7 +412,7 @@ export function OrgWizard({
         <DialogContent className="sm-modal" style={{ maxWidth: 440 }}>
           <div className="modal-pad">
             <DialogHeader>
-              <DialogTitle style={{ fontSize: 20, fontFamily: "var(--disp)" }}>
+              <DialogTitle style={{ fontSize: 20, fontFamily: "var(--font-family-primary)" }}>
                 {isWalletFlow ? "Submit budget for review?" : "Finish allocation?"}
               </DialogTitle>
               <DialogDescription className="muted" style={{ fontSize: 14, margin: "8px 0 0" }}>
@@ -480,6 +500,6 @@ export function OrgWizard({
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

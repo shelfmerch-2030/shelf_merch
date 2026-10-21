@@ -13,7 +13,7 @@ import type { SendGiftVm } from "../controllers/useCampaignsController";
 
 type SendChoice = "kit" | "points";
 
-const titleStyle = { fontSize: 20, fontFamily: "var(--disp)" } as const;
+const titleStyle = { fontSize: 20, fontFamily: "var(--font-family-primary)" } as const;
 const descStyle = { fontSize: 14, margin: "8px 0 0" } as const;
 const actionRowStyle = { gap: 10, marginTop: 24 } as const;
 const actionBtnStyle = { flex: 1, justifyContent: "center" } as const;

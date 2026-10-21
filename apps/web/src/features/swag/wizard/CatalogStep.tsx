@@ -96,7 +96,7 @@ export function CatalogStep({
         style={{
           fontSize: 24,
           marginBottom: 6,
-          fontFamily: "var(--disp)",
+          fontFamily: "var(--font-family-primary)",
           letterSpacing: "-.02em",
         }}
       >
@@ -181,10 +181,10 @@ export function CatalogStep({
                 </div>
                 <div className="meta">
                   {p.brand && <div className="brand">{p.brand}</div>}
-                  <div className="nm" style={{ fontWeight: 600, fontSize: 14, marginTop: 4 }}>
+                  <div className="nm" style={{ fontWeight: "var(--font-weight-semibold)", fontSize: "var(--workspace-font-body, 14px)", marginTop: 4 }}>
                     {p.nm}
                   </div>
-                  <div className="pr" style={{ fontWeight: 700, marginTop: 8 }}>
+                  <div className="pr" style={{ fontWeight: "var(--font-weight-bold)", marginTop: 8 }}>
                     {p.price}
                   </div>
                   {swatches.length > 0 && (

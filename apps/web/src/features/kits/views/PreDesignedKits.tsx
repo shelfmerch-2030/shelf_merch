@@ -30,14 +30,14 @@ export function PreDesignedKitsView({
 }: PreDesignedKitsVm) {
   if (isLoading) {
     return (
-      <div className="muted" style={{ textAlign: "center", padding: "32px 12px", fontSize: 13 }}>
+      <div className="muted" style={{ textAlign: "center", padding: "32px 12px", fontSize: "var(--workspace-font-caption, 13px)" }}>
         Loading pre-designed kits…
       </div>
     );
   }
   if (!kits || kits.length === 0) {
     return (
-      <div className="muted" style={{ textAlign: "center", padding: "32px 12px", fontSize: 13 }}>
+      <div className="muted" style={{ textAlign: "center", padding: "32px 12px", fontSize: "var(--workspace-font-caption, 13px)" }}>
         No pre-designed kits available yet.
       </div>
     );
@@ -81,8 +81,8 @@ export function PreDesignedKitsView({
           </div>
           <div
             style={{
-              fontWeight: 700,
-              fontSize: 13.5,
+              fontWeight: "var(--font-weight-bold)",
+              fontSize: "var(--workspace-font-body, 13.5px)",
               marginBottom: 2,
               color: "var(--ink)",
               textAlign: "center",
@@ -90,7 +90,7 @@ export function PreDesignedKitsView({
           >
             {kit.name}
           </div>
-          <div className="muted" style={{ fontSize: 11.5, marginBottom: 10, textAlign: "center" }}>
+          <div className="muted" style={{ fontSize: "var(--workspace-font-caption, 11.5px)", marginBottom: 10, textAlign: "center" }}>
             {templateItemLabel(kit)}
           </div>
           {Math.round(Number(kit.approxValueInr) || 0) > 0 ? (

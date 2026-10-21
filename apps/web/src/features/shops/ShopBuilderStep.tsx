@@ -131,7 +131,7 @@ export function ShopBuilderStep({
           Exit
         </button>
         <span
-          style={{ fontFamily: "var(--disp)", fontWeight: 800, fontSize: 18, fontStyle: "italic" }}
+          style={{ fontFamily: "var(--font-family-primary)", fontWeight: "var(--font-weight-bold)", fontSize: 18, fontStyle: "italic" }}
         >
           Shelf Merch
         </span>
@@ -207,7 +207,7 @@ export function ShopBuilderStep({
             <DialogHeader>
               <DialogTitle>Edit banner</DialogTitle>
             </DialogHeader>
-            <p className="muted" style={{ fontSize: 13, margin: "6px 0 12px" }}>
+            <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", margin: "6px 0 12px" }}>
               Choose a library banner, solid pattern, or upload your own image.
             </p>
 

@@ -9,7 +9,7 @@ export function AcceptInviteView(vm: AcceptInviteVm) {
   if (!vm.token) {
     return (
       <AuthLayout
-        variant="compact"
+        variant="welcome"
         title="Invitation link invalid"
         subtitle="This invite link is missing or no longer valid. Ask your admin to resend the invitation."
         footerLink={{ hint: "", label: "Log in", to: "/login" }}
@@ -25,7 +25,7 @@ export function AcceptInviteView(vm: AcceptInviteVm) {
 
   if (vm.done) {
     return (
-      <AuthLayout variant="compact" title="You're in">
+      <AuthLayout variant="welcome" title="You're in">
         <div className="auth-success-panel" role="status">
           <CheckCircle2 className="auth-success-icon auth-success-icon--pop" size={52} strokeWidth={1.75} />
           <p className="auth-success-headline">Invitation accepted</p>
@@ -40,7 +40,7 @@ export function AcceptInviteView(vm: AcceptInviteVm) {
 
   return (
     <AuthLayout
-      variant="compact"
+      variant="welcome"
       title="Accept your invitation"
       subtitle="Set a password for the email this invite was sent to. We'll sign you in as your department manager."
       footerLink={

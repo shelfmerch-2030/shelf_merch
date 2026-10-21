@@ -2845,7 +2845,7 @@ export default function StoreShell({
                       }}
                     >
                       <span>
-                        <span style={{ display: "block", fontWeight: 600 }}>{t.subject}</span>
+                        <span style={{ display: "block", fontWeight: "var(--font-weight-semibold)" }}>{t.subject}</span>
                         <span className="mut3" style={{ fontSize: 12 }}>
                           {SUPPORT_TYPE_LABELS[t.type] ?? t.type} ·{" "}
                           {formatOrderDate(t.createdAt)} · {visibleMessages.length}{" "}
@@ -2856,7 +2856,7 @@ export default function StoreShell({
                         className="sf-order-status-pill"
                         style={{
                           fontSize: 12,
-                          fontWeight: 600,
+                          fontWeight: "var(--font-weight-semibold)",
                           whiteSpace: "nowrap",
                           padding: "4px 10px",
                           borderRadius: 999,
@@ -2911,7 +2911,7 @@ export default function StoreShell({
                               marginTop: 10,
                             }}
                           >
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>
+                            <div style={{ fontWeight: "var(--font-weight-semibold)", fontSize: 13 }}>
                               Did we solve your issue?
                             </div>
                             <p className="mut3" style={{ fontSize: 12, margin: "4px 0 8px" }}>

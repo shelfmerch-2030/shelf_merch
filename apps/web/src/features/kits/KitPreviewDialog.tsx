@@ -406,12 +406,12 @@ const btnGhostStyle: CSSProperties = {
   border: "1px solid var(--line)",
   padding: "8px 24px",
   borderRadius: 6,
-  fontWeight: 700,
+  fontWeight: "var(--font-weight-bold)",
 };
 
 const labelStyle: CSSProperties = {
   fontSize: 10,
-  fontWeight: 700,
+  fontWeight: "var(--font-weight-bold)",
   color: "var(--gray-500)",
   textTransform: "uppercase",
   letterSpacing: "0.04em",
@@ -507,7 +507,7 @@ function ProductAvailability({
               />
             ))}
             {colors.length > 10 && (
-              <span style={{ fontSize: 11, color: "var(--gray-500)" }}>
+              <span style={{ fontSize: "var(--workspace-font-caption, 11px)", color: "var(--gray-500)" }}>
                 +{colors.length - 10}
               </span>
             )}
@@ -517,7 +517,7 @@ function ProductAvailability({
       {sizes.length > 0 && (
         <div>
           <div style={{ ...labelStyle, marginBottom: 4 }}>Sizes</div>
-          <div style={{ fontSize: 12, color: "var(--ink-2)", lineHeight: 1.35 }}>
+          <div style={{ fontSize: "var(--workspace-font-caption, 12px)", color: "var(--ink-2)", lineHeight: 1.35 }}>
             {sizes.join(" · ")}
           </div>
         </div>
@@ -603,25 +603,25 @@ export function KitPreviewDialog({
               }}
             >
               <DialogTitle
-                style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", margin: 0 }}
+                style={{ fontSize: 20, fontWeight: "var(--font-weight-bold)", color: "var(--ink)", margin: 0 }}
               >
                 {data.name}
               </DialogTitle>
               {data.pricePerKitInr != null && data.pricePerKitInr > 0 ? (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div style={{ ...labelStyle, marginBottom: 2 }}>Price per kit</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>
+                  <div style={{ fontSize: 18, fontWeight: "var(--font-weight-bold)", color: "var(--ink)" }}>
                     {inr(data.pricePerKitInr)}
                   </div>
                 </div>
               ) : null}
             </div>
 
-            <p style={{ color: "var(--gray-500)", fontSize: 14, lineHeight: 1.5, margin: "0 0 12px" }}>
+            <p style={{ color: "var(--gray-500)", fontSize: "var(--workspace-font-body, 14px)", lineHeight: 1.5, margin: "0 0 12px" }}>
               {data.description}
             </p>
             {data.packaging ? (
-              <p className="muted" style={{ fontSize: 13, margin: "0 0 20px" }}>
+              <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", margin: "0 0 20px" }}>
                 Packaging: <strong style={{ color: "var(--ink)" }}>{data.packaging}</strong>
               </p>
             ) : (
@@ -634,8 +634,8 @@ export function KitPreviewDialog({
               <div style={{ marginBottom: 20 }}>
                 <h4
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
+                    fontSize: "var(--workspace-font-heading, 12px)",
+                    fontWeight: "var(--font-weight-bold)",
                     textTransform: "uppercase",
                     color: "var(--gray-500)",
                     marginBottom: 12,
@@ -687,8 +687,8 @@ export function KitPreviewDialog({
             <div style={{ marginBottom: 20 }}>
               <h4
                 style={{
-                  fontSize: 12,
-                  fontWeight: 700,
+                  fontSize: "var(--workspace-font-heading, 12px)",
+                  fontWeight: "var(--font-weight-bold)",
                   textTransform: "uppercase",
                   color: "var(--gray-500)",
                   marginBottom: 12,
@@ -698,7 +698,7 @@ export function KitPreviewDialog({
               </h4>
 
               {productCards.length === 0 ? (
-                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                <p className="muted" style={{ margin: 0, fontSize: "var(--workspace-font-caption, 13px)" }}>
                   No products in this kit.
                 </p>
               ) : (
@@ -732,7 +732,7 @@ export function KitPreviewDialog({
                         {p.brand ? (
                           <div style={labelStyle}>{p.brand}</div>
                         ) : null}
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                        <div style={{ fontSize: "var(--workspace-font-body, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--ink)" }}>
                           {p.name}
                         </div>
                         <ProductAvailability
@@ -750,8 +750,8 @@ export function KitPreviewDialog({
               <div style={{ marginBottom: 20 }}>
                 <h4
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
+                    fontSize: "var(--workspace-font-heading, 12px)",
+                    fontWeight: "var(--font-weight-bold)",
                     textTransform: "uppercase",
                     color: "var(--gray-500)",
                     marginBottom: 12,
@@ -801,7 +801,7 @@ export function KitPreviewDialog({
                             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                           />
                         </div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
+                        <div style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-bold)", color: "var(--ink)" }}>
                           {variant.label}
                         </div>
                       </button>

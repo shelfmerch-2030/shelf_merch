@@ -178,7 +178,7 @@ export function RecipientExperience({
         </span>
         <span className="tag tag-draft">ETA {eta}</span>
       </div>
-      <div className="mut3" style={{ fontSize: 10, fontWeight: 700 }}>
+      <div className="mut3" style={{ fontSize: 10, fontWeight: "var(--font-weight-bold)" }}>
         TRACKING {track} · {itemCount} item{itemCount > 1 ? "s" : ""}
       </div>
     </>
@@ -197,7 +197,7 @@ export function RecipientExperience({
             fontSize: 9,
             letterSpacing: ".08em",
             textTransform: "uppercase",
-            fontWeight: 700,
+            fontWeight: "var(--font-weight-bold)",
           }}
         >
           {shipMode ? `A gift from ${previewFrom}` : `${previewFrom} created a gift for you`}
@@ -254,7 +254,7 @@ export function RecipientExperience({
             fontSize: 9,
             letterSpacing: ".08em",
             textTransform: "uppercase",
-            fontWeight: 700,
+            fontWeight: "var(--font-weight-bold)",
           }}
         >
           {shipMode ? `${previewFrom} · shipping update` : `${previewFrom} sent you something`}
@@ -278,7 +278,7 @@ export function RecipientExperience({
             </p>
           )}
           <div style={{ height: 3, borderRadius: 3, margin: "12px 0", background: RAINBOW }} />
-          <div className="mut3" style={{ fontSize: 10, fontWeight: 700 }}>
+          <div className="mut3" style={{ fontSize: 10, fontWeight: "var(--font-weight-bold)" }}>
             FROM {(previewFrom || "").toUpperCase()}
           </div>
         </div>
@@ -320,7 +320,7 @@ export function RecipientExperience({
                 Message{" "}
                 <span
                   className="mut3"
-                  style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}
+                  style={{ fontWeight: "var(--font-weight-regular)", textTransform: "none", letterSpacing: 0 }}
                 >
                   {msgCaption}
                 </span>

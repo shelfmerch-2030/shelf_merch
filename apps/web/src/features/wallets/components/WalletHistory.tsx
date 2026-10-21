@@ -156,7 +156,7 @@ export function WalletHistory({
       <div className="data-list-title">{title}</div>
 
       {isLoading && (
-        <p className="muted" style={{ fontSize: 13 }}>
+        <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)" }}>
           Loading transactions…
         </p>
       )}
@@ -167,7 +167,7 @@ export function WalletHistory({
             <Wallet size={28} color="var(--brand)" />
           </div>
           <h4>{entityMode ? "No budget activity yet" : "No funding history yet"}</h4>
-          <p className="muted" style={{ fontSize: 13, maxWidth: 360, margin: "0 auto" }}>
+          <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", maxWidth: 360, margin: "0 auto" }}>
             {entityMode
               ? "Allocations and campaign spend for your department will appear here."
               : "Funding events and budget activity will appear here after your first top-up."}

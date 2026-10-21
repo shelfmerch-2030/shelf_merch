@@ -46,7 +46,7 @@ function CostRows({
       {showTotal ? (
         <div className="sample-cost__total">
           <b>Total</b>
-          <b className="num" style={{ fontSize: 18, fontFamily: "var(--disp)" }}>
+          <b className="num" style={{ fontSize: 18, fontFamily: "var(--font-family-primary)" }}>
             {inr(t.total)}
           </b>
         </div>
@@ -58,10 +58,10 @@ function CostRows({
 function CostRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="row" style={{ justifyContent: "space-between", padding: "7px 0" }}>
-      <span className="muted" style={{ fontSize: 13, ...(bold ? { color: "var(--ink)", fontWeight: 700 } : {}) }}>
+      <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", ...(bold ? { color: "var(--ink)", fontWeight: "var(--font-weight-bold)" } : {}) }}>
         {label}
       </span>
-      <span className="num" style={{ fontWeight: bold ? 700 : 600, fontSize: bold ? 15 : 13 }}>
+      <span className="num" style={{ fontWeight: bold ? "var(--font-weight-bold)" : "var(--font-weight-semibold)", fontSize: bold ? 15 : 13 }}>
         {value}
       </span>
     </div>
@@ -98,7 +98,7 @@ function ProductCard({
         {item.imageUrl ? (
           <img src={item.imageUrl} alt={item.name} />
         ) : (
-          <span className="muted" style={{ fontSize: 12 }}>
+          <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 12px)" }}>
             No image
           </span>
         )}
@@ -191,7 +191,7 @@ export function RequestSampleView(vm: RequestSampleVm) {
           <div className="sample-review" style={{ marginTop: 20 }}>
             <div className="card sample-review__block">
               <h3>Kit</h3>
-              <div style={{ fontWeight: 700 }}>{s.kitName}</div>
+              <div style={{ fontWeight: "var(--font-weight-bold)" }}>{s.kitName}</div>
             </div>
             <div className="card sample-review__block">
               <h3>Included products</h3>
@@ -204,11 +204,11 @@ export function RequestSampleView(vm: RequestSampleVm) {
                     <div className="sample-product__name">
                       {p.name}
                       {p.variantLabel ? (
-                        <div className="muted" style={{ fontWeight: 500, fontSize: 12, marginTop: 4 }}>
+                        <div className="muted" style={{ fontWeight: "var(--font-weight-medium)", fontSize: "var(--workspace-font-caption, 12px)", marginTop: 4 }}>
                           {p.variantLabel}
                         </div>
                       ) : null}
-                      <div className="muted" style={{ fontWeight: 500, fontSize: 12, marginTop: 2 }}>
+                      <div className="muted" style={{ fontWeight: "var(--font-weight-medium)", fontSize: "var(--workspace-font-caption, 12px)", marginTop: 2 }}>
                         Qty {p.qty}
                       </div>
                     </div>
@@ -237,7 +237,7 @@ export function RequestSampleView(vm: RequestSampleVm) {
             </div>
             <div className="card sample-review__block">
               <h3>Total</h3>
-              <b className="num" style={{ fontSize: 22, fontFamily: "var(--disp)" }}>
+              <b className="num" style={{ fontSize: 22, fontFamily: "var(--font-family-primary)" }}>
                 {inr(s.total)}
               </b>
             </div>
@@ -330,7 +330,7 @@ function ItemsStep({ vm }: { vm: RequestSampleVm }) {
       {vm.isCuratedKit && vm.curatedVariants.length > 0 ? (
         <div className="sample-section" style={{ marginTop: 28 }}>
           <h2>VARIANTS</h2>
-          <p className="muted" style={{ margin: "0 0 14px", fontSize: 13.5 }}>
+          <p className="muted" style={{ margin: "0 0 14px", fontSize: "var(--workspace-font-caption, 13.5px)" }}>
             Choose the look you want for this sample.
           </p>
           <div className="sample-variants-grid">
@@ -369,7 +369,7 @@ function ItemsStep({ vm }: { vm: RequestSampleVm }) {
                       style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                     />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{variant.label}</div>
+                  <div style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-bold)" }}>{variant.label}</div>
                 </button>
               );
             })}
@@ -429,7 +429,7 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
               <span className="rd" />
               <span>
                 <b>Without branding</b>
-                <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                <div className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", marginTop: 2 }}>
                   No logo applied 
                 </div>
               </span>
@@ -442,7 +442,7 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
               <span className="rd" />
               <span>
                 <b>With branding</b>
-                <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                <div className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", marginTop: 2 }}>
                   Logo in product placeholders
                 </div>
               </span>
@@ -451,14 +451,14 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
 
           {vm.brandingEnabled ? (
             <>
-              <h3 style={{ fontSize: 15, margin: "18px 0 10px" }}>Upload your logo</h3>
+              <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", margin: "18px 0 10px" }}>Upload your logo</h3>
               <div className="card sample-logo">
                 <div>
                   <div className="sample-logo__preview">
                     {vm.logoPreview ? (
                       <img src={vm.logoPreview} alt="Logo preview" />
                     ) : (
-                      <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: 8 }}>
+                      <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 12px)", textAlign: "center", padding: 8 }}>
                         Logo preview
                       </span>
                     )}
@@ -490,7 +490,7 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
                     ) : null}
                   </div>
                 </div>
-                <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, flex: 1, minWidth: 200 }}>
+                <p className="muted" style={{ margin: 0, fontSize: "var(--workspace-font-caption, 13.5px)", lineHeight: 1.55, flex: 1, minWidth: 200 }}>
                   Your logo will be applied to the designated branding placeholders on the products, as shown
                   in the product images.
                 </p>
@@ -519,7 +519,7 @@ function ReviewStep({ vm }: { vm: RequestSampleVm }) {
         <div className="sample-review">
           <div className="card sample-review__block">
             <h3>Kit</h3>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>{vm.kitName}</div>
+            <div style={{ fontWeight: "var(--font-weight-bold)", fontSize: 16 }}>{vm.kitName}</div>
           </div>
 
           <div className="card sample-review__block">
@@ -538,11 +538,11 @@ function ReviewStep({ vm }: { vm: RequestSampleVm }) {
                     <div className="sample-product__name">
                       {item.name}
                       {variant ? (
-                        <div className="muted" style={{ fontWeight: 500, fontSize: 12, marginTop: 4 }}>
+                        <div className="muted" style={{ fontWeight: "var(--font-weight-medium)", fontSize: "var(--workspace-font-caption, 12px)", marginTop: 4 }}>
                           {variant}
                         </div>
                       ) : null}
-                      <div className="muted" style={{ fontWeight: 500, fontSize: 12, marginTop: 2 }}>
+                      <div className="muted" style={{ fontWeight: "var(--font-weight-medium)", fontSize: "var(--workspace-font-caption, 12px)", marginTop: 2 }}>
                         Qty {item.qty}
                       </div>
                     </div>
@@ -566,7 +566,7 @@ function ReviewStep({ vm }: { vm: RequestSampleVm }) {
               </div>
             ) : null}
             {vm.brandingEnabled ? (
-              <p className="muted" style={{ margin: "12px 0 0", fontSize: 13, lineHeight: 1.5 }}>
+              <p className="muted" style={{ margin: "12px 0 0", fontSize: "var(--workspace-font-caption, 13px)", lineHeight: 1.5 }}>
                 Your logo will appear in the branding placeholders on applicable products.
               </p>
             ) : null}

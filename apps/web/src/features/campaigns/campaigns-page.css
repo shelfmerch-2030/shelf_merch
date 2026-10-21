@@ -22,15 +22,15 @@
   display: inline-flex;
   margin-bottom: 8px;
   color: var(--brand, #3152ff);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .camp-hero__copy h1 {
   margin: 0;
-  font-family: var(--disp);
+  font-family: var(--font-family-primary);
   font-size: var(--page-title-size);
   font-weight: var(--page-title-weight);
   letter-spacing: var(--page-title-tracking);
@@ -40,7 +40,7 @@
 
 .camp-hero__sub {
   margin: 10px 0 0;
-  font-size: 15px;
+  font-size: var(--workspace-font-body, 15px);
   line-height: 1.5;
   color: var(--ink-2);
   max-width: 54ch;
@@ -62,8 +62,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 14px;
-  font-weight: 750;
+  font-size: var(--workspace-font-body, 14px);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -131,8 +131,8 @@
 }
 
 .camp-kpi__label {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--workspace-font-caption, 12px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -147,9 +147,9 @@
 }
 
 .camp-kpi__value {
-  font-family: var(--disp);
+  font-family: var(--font-family-primary);
   font-size: 30px;
-  font-weight: 850;
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.04em;
   color: var(--ink);
   line-height: 0.95;
@@ -158,7 +158,7 @@
 .camp-kpi__hint {
   margin-top: 8px;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--workspace-font-caption, 13px);
   line-height: 1.3;
 }
 
@@ -215,8 +215,8 @@
   border-radius: 10px;
   background: transparent;
   color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 750;
+  font-size: var(--workspace-font-body, 13px);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
@@ -238,8 +238,8 @@
   border-radius: 999px;
   background: rgba(15, 18, 25, 0.06);
   color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 850;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
@@ -271,7 +271,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: var(--workspace-font-body, 14px);
   color: var(--ink);
 }
 
@@ -288,8 +288,8 @@
   border-radius: 12px;
   background: #fff;
   color: var(--ink);
-  font-size: 14px;
-  font-weight: 750;
+  font-size: var(--workspace-font-body, 14px);
+  font-weight: var(--font-weight-bold);
   box-shadow: none;
 }
 
@@ -303,8 +303,8 @@
 
 .camp-status-select__label {
   color: var(--ink-3);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--workspace-font-caption, 12px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-status-select__content {
@@ -319,7 +319,7 @@
   min-height: 38px;
   border-radius: 7px;
   color: var(--ink-2);
-  font-weight: 650;
+  font-weight: var(--font-weight-semibold);
 }
 
 .camp-status-select__option[data-state="checked"] {
@@ -335,8 +335,8 @@
   padding: 12px 22px;
   border-bottom: 1px solid var(--line);
   background: #fff;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -389,8 +389,8 @@
 .camp-row__resume {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--workspace-font-caption, 12px);
+  font-weight: var(--font-weight-semibold);
   color: var(--brand, #3152ff);
 }
 
@@ -462,8 +462,8 @@
 .camp-row__title {
   display: block;
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: var(--workspace-font-heading, 15px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -474,7 +474,7 @@
   display: block;
   margin-top: 4px;
   color: var(--ink-3);
-  font-size: 12.5px;
+  font-size: var(--workspace-font-body, 12.5px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -492,8 +492,8 @@
   color: var(--ink-2);
   background: #fff;
   border: 1px solid var(--line);
-  font-size: 12.5px;
-  font-weight: 750;
+  font-size: var(--workspace-font-body, 12.5px);
+  font-weight: var(--font-weight-bold);
   white-space: nowrap;
 }
 
@@ -511,8 +511,8 @@
   border-radius: 999px;
   background: #eef8ed;
   color: #25732c;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-chip.camp-chip--type {
@@ -521,8 +521,8 @@
   padding: 0 8px;
   border: 0;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-chip--type-points {
@@ -568,8 +568,8 @@
 
 .camp-row__num {
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 850;
+  font-size: var(--workspace-font-body, 15px);
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -578,7 +578,7 @@
   padding: 54px 24px;
   color: var(--ink-2);
   text-align: center;
-  font-size: 14px;
+  font-size: var(--workspace-font-body, 14px);
 }
 
 .camp-panel__footer {
@@ -594,7 +594,7 @@
 
 .camp-panel__meta {
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--workspace-font-caption, 13px);
 }
 
 .camp-pager {
@@ -612,8 +612,8 @@
   border: 1px solid var(--line);
   background: #fff;
   color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 800;
+  font-size: var(--workspace-font-body, 13px);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease,
     transform 0.12s ease;
@@ -668,15 +668,15 @@
 
 .camp-empty__option strong {
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: var(--workspace-font-body, 15px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-empty__option p {
   margin: 0;
   flex: 1;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--workspace-font-body, 13px);
   line-height: 1.45;
 }
 
@@ -720,9 +720,9 @@
 .camp-empty__title {
   margin: 0;
   color: var(--ink);
-  font-family: var(--disp);
+  font-family: var(--font-family-primary);
   font-size: 22px;
-  font-weight: 850;
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-empty__desc {
@@ -741,8 +741,8 @@
   border-radius: 12px;
   background: var(--ink);
   color: #fff;
-  font-size: 14px;
-  font-weight: 750;
+  font-size: var(--workspace-font-body, 14px);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
@@ -754,7 +754,7 @@
   margin-top: 10px;
   max-width: 42ch;
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: var(--workspace-font-caption, 13px);
   line-height: 1.45;
 }
 
@@ -843,7 +843,7 @@
 .camp-hero__copy h1 {
   color: #202124;
   font-size: 34px;
-  font-weight: 750;
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
   line-height: 1.15;
 }
@@ -851,7 +851,7 @@
 .camp-hero__sub {
   margin-top: 6px;
   color: #62666d;
-  font-size: 15px;
+  font-size: var(--workspace-font-body, 15px);
 }
 
 .camp-hero__actions {
@@ -863,8 +863,8 @@
   height: 42px;
   padding: 0 16px;
   border-radius: var(--r-pill, 999px);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--workspace-font-body, 13px);
+  font-weight: var(--font-weight-bold);
   box-shadow: none;
   transform: none;
 }
@@ -944,8 +944,8 @@
   min-height: 16px;
   padding-right: 46px;
   color: #111827;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--workspace-font-caption, 10px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.12em;
   line-height: 1.35;
 }
@@ -958,7 +958,7 @@
 .camp-kpi__value {
   color: #191a1d;
   font-size: 28px;
-  font-weight: 750;
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
   line-height: 1;
 }
@@ -966,8 +966,8 @@
 .camp-kpi__hint {
   margin-top: 10px;
   color: #111827;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--workspace-font-caption, 12px);
+  font-weight: var(--font-weight-medium);
   letter-spacing: 0;
 }
 
@@ -1010,8 +1010,8 @@
   padding: 0 2px;
   border-radius: 0;
   color: #111827;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--workspace-font-caption, 10px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.12em;
   line-height: 1.35;
   text-transform: uppercase;
@@ -1044,8 +1044,8 @@
   padding: 2px 5px;
   color: #62666d;
   background: #f0f1f3;
-  font-size: 10px;
-  font-weight: 900;
+  font-size: var(--workspace-font-caption, 10px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
 }
 
@@ -1064,7 +1064,7 @@
   height: 42px;
   border-color: #d9dce1;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: var(--workspace-font-body, 13px);
 }
 
 .camp-status-select__content {
@@ -1078,8 +1078,8 @@
   border-bottom-color: #e5e6e9;
   background: #fafafb;
   color: #656970;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: var(--workspace-font-caption, 10px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.06em;
 }
 
@@ -1126,8 +1126,8 @@
   height: 36px;
   border: 1px solid transparent;
   border-radius: 50%;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: var(--workspace-font-caption, 11px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
   line-height: 1;
 }
@@ -1164,27 +1164,27 @@
 
 .camp-row__title {
   color: #202124;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--workspace-font-heading, 16px);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
 }
 
 .camp-row__sub,
 .camp-row__resume {
-  font-size: 11.5px;
+  font-size: var(--workspace-font-caption, 11.5px);
 }
 
 .camp-chip {
   height: 27px;
   padding: 0 10px;
   border-radius: 7px;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: var(--workspace-font-caption, 11.5px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-row__num {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--workspace-font-body, 14px);
+  font-weight: var(--font-weight-bold);
 }
 
 .camp-panel__footer {
@@ -1197,7 +1197,7 @@
   min-width: 32px;
   height: 32px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--workspace-font-caption, 12px);
 }
 
 .camp-pager__btn:hover:not(:disabled) {
@@ -1329,8 +1329,8 @@
 
 .camp-status-select__label {
   color: #565a62;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--workspace-font-caption, 13px);
+  font-weight: var(--font-weight-semibold);
 }
 
 @media (max-width: 1100px) {

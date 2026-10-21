@@ -93,8 +93,8 @@ export function SwagWizardView(vm: SwagWizardVm) {
             }}
           >
             <div className="row" style={{ gap: 12, alignItems: "center" }}>
-              <b style={{ fontSize: 15 }}>{draft.name}</b>
-              <span className="tag tag-soft" style={{ fontWeight: 700 }}>
+              <b style={{ fontSize: "var(--workspace-font-body, 15px)" }}>{draft.name}</b>
+              <span className="tag tag-soft" style={{ fontWeight: "var(--font-weight-bold)" }}>
                 {draft.picked.length} item{draft.picked.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -132,8 +132,8 @@ export function SwagWizardView(vm: SwagWizardVm) {
         footer={
           <>
             <div className="row" style={{ gap: 12, alignItems: "center" }}>
-              <b style={{ fontSize: 15 }}>{draft.name}</b>
-              <span className="tag tag-soft" style={{ fontWeight: 700 }}>
+              <b style={{ fontSize: "var(--workspace-font-body, 15px)" }}>{draft.name}</b>
+              <span className="tag tag-soft" style={{ fontWeight: "var(--font-weight-bold)" }}>
                 {vm.pickedProducts.length} item{vm.pickedProducts.length === 1 ? "" : "s"} selected
               </span>
             </div>
@@ -180,8 +180,8 @@ export function SwagWizardView(vm: SwagWizardVm) {
         footer={
           <>
             <div className="row" style={{ gap: 12, alignItems: "center" }}>
-              <b style={{ fontSize: 15 }}>{draft.name}</b>
-              <span className="tag tag-soft" style={{ fontWeight: 700 }}>
+              <b style={{ fontSize: "var(--workspace-font-body, 15px)" }}>{draft.name}</b>
+              <span className="tag tag-soft" style={{ fontWeight: "var(--font-weight-bold)" }}>
                 {vm.pickedProducts.length} item{vm.pickedProducts.length === 1 ? "" : "s"}
               </span>
               {vm.pickedShops.size > 0 ? (

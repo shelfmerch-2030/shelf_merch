@@ -70,14 +70,14 @@ function KitsSectionEmptyState({
           style={{ maxHeight: 140, marginBottom: 20, objectFit: "contain" }}
         />
       ) : null}
-      <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>
+      <h3 style={{ fontSize: 18, fontWeight: "var(--font-weight-bold)", color: "var(--ink)", margin: "0 0 8px" }}>
         {title}
       </h3>
       <p className="muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0, maxWidth: 420 }}>
         {description}
       </p>
       {secondary ? (
-        <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, margin: "10px 0 0", maxWidth: 420 }}>
+        <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", lineHeight: 1.5, margin: "10px 0 0", maxWidth: 420 }}>
           {secondary}
         </p>
       ) : null}
@@ -91,7 +91,7 @@ const previewBtnStyle: CSSProperties = {
   border: "1px solid var(--line)",
   height: 32,
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: "var(--font-weight-bold)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -105,7 +105,7 @@ const sendBtnStyle: CSSProperties = {
   flex: 1,
   height: 32,
   fontSize: 13,
-  fontWeight: 700,
+  fontWeight: "var(--font-weight-bold)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -696,7 +696,7 @@ export function KitsView(vm: KitsVm) {
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    fontSize: 13,
+                    fontSize: "var(--workspace-font-body, 13px)",
                     cursor: "pointer",
                     borderRadius: 4,
                   }}
@@ -713,7 +713,7 @@ export function KitsView(vm: KitsVm) {
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    fontSize: 13,
+                    fontSize: "var(--workspace-font-body, 13px)",
                     cursor: "pointer",
                     borderRadius: 4,
                   }}
@@ -730,7 +730,7 @@ export function KitsView(vm: KitsVm) {
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    fontSize: 13,
+                    fontSize: "var(--workspace-font-body, 13px)",
                     cursor: "pointer",
                     borderRadius: 4,
                   }}
@@ -747,7 +747,7 @@ export function KitsView(vm: KitsVm) {
                     textAlign: "left",
                     background: "none",
                     border: "none",
-                    fontSize: 13,
+                    fontSize: "var(--workspace-font-body, 13px)",
                     cursor: "pointer",
                     borderRadius: 4,
                   }}
@@ -920,8 +920,8 @@ export function KitsView(vm: KitsVm) {
                       borderRadius: 8,
                       border: "1px solid var(--line)",
                       background: "var(--bg-card)",
-                      fontSize: 13,
-                      fontWeight: 800,
+                      fontSize: "var(--workspace-font-body, 13px)",
+                      fontWeight: "var(--font-weight-bold)",
                       height: 40,
                       appearance: "none",
                       cursor: "pointer",
@@ -1032,7 +1032,7 @@ export function KitsView(vm: KitsVm) {
                               handleSendWorkspaceKit(row.kit);
                             }
                           }}
-                          style={{ height: 36, padding: "0 16px", fontSize: 13 }}
+                          style={{ height: 36, padding: "0 16px", fontSize: "var(--workspace-font-body, 13px)" }}
                           disabled={ensureCuratedKit.isPending}
                         >
                           Send
@@ -1058,7 +1058,7 @@ export function KitsView(vm: KitsVm) {
                 borderTop: "1px solid var(--line)",
               }}
             >
-              <span style={{ fontSize: 13, color: "var(--gray-500)" }}>
+              <span style={{ fontSize: "var(--workspace-font-body, 13px)", color: "var(--gray-500)" }}>
                 Showing {processedRecentRows.length > 0 ? (recentPage - 1) * RECENT_ITEMS_PER_PAGE + 1 : 0} to{" "}
                 {Math.min(processedRecentRows.length, recentPage * RECENT_ITEMS_PER_PAGE)} of{" "}
                 {processedRecentRows.length} records
@@ -1074,8 +1074,8 @@ export function KitsView(vm: KitsVm) {
                       border: "1px solid var(--line)",
                       background: "transparent",
                       borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
+                      fontSize: "var(--workspace-font-body, 13px)",
+                      fontWeight: "var(--font-weight-bold)",
                       cursor: recentPage === 1 ? "not-allowed" : "pointer",
                       opacity: recentPage === 1 ? 0.5 : 1,
                     }}
@@ -1091,8 +1091,8 @@ export function KitsView(vm: KitsVm) {
                       border: "1px solid var(--line)",
                       background: "transparent",
                       borderRadius: 6,
-                      fontSize: 13,
-                      fontWeight: 700,
+                      fontSize: "var(--workspace-font-body, 13px)",
+                      fontWeight: "var(--font-weight-bold)",
                       cursor: recentPage === recentTotalPages ? "not-allowed" : "pointer",
                       opacity: recentPage === recentTotalPages ? 0.5 : 1,
                     }}

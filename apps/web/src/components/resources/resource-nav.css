@@ -57,10 +57,10 @@
   display: block;
   padding: 6px 8px 12px;
   font-size: 9px;
-  font-weight: 900;
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.16em;
   color: #777;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-family-primary);
 }
 .resources-menu > a {
   display: grid;
@@ -72,7 +72,7 @@
   color: #121212;
   text-decoration: none;
   opacity: 1;
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   font-size: inherit;
   min-width: 0;
   transition:
@@ -106,12 +106,12 @@
 .resources-menu b,
 .resources-menu em {
   display: block;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-family-primary);
   min-width: 0;
 }
 .resources-menu b {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0;
 }
 .resources-menu em {
@@ -119,11 +119,11 @@
   color: #777;
   font-style: normal;
   margin-top: 4px;
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
 }
 .resources-menu strong {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 @media (max-width: 760px) {

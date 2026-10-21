@@ -142,12 +142,12 @@ export function CreateShopView(vm: CreateShopVm) {
                             style={{ marginTop: 3 }}
                           />
                           <span>
-                            <span style={{ display: "block", fontWeight: 700, fontSize: 14 }}>
+                            <span style={{ display: "block", fontWeight: "var(--font-weight-bold)", fontSize: "var(--workspace-font-body, 14px)" }}>
                               {option.title}
                             </span>
                             <span
                               className="muted"
-                              style={{ display: "block", fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}
+                              style={{ display: "block", fontSize: "var(--workspace-font-caption, 12.5px)", marginTop: 4, lineHeight: 1.5 }}
                             >
                               {option.desc}
                             </span>
@@ -181,7 +181,7 @@ export function CreateShopView(vm: CreateShopVm) {
                 </div> */}
                 <p
                   className="mut3"
-                  style={{ fontSize: 11.5, margin: "6px 0 16px", lineHeight: 1.5 }}
+                  style={{ fontSize: "var(--workspace-font-caption, 11.5px)", margin: "6px 0 16px", lineHeight: 1.5 }}
                 >
                   The selected currency is permanent and cannot be changed after the shop is created.
                   The shop name can be edited later from your dashboard.
@@ -199,10 +199,10 @@ export function CreateShopView(vm: CreateShopVm) {
                 >
                   <ArrowLeft size={15} /> Back
                 </button>
-                <h3 style={{ fontSize: 22, fontFamily: "var(--disp)", margin: "0 0 4px" }}>
+                <h3 style={{ fontSize: 22, fontFamily: "var(--font-family-primary)", margin: "0 0 4px" }}>
                   Add your logo
                 </h3>
-                <p className="muted" style={{ fontSize: 13, margin: "0 0 16px" }}>
+                <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 13px)", margin: "0 0 16px" }}>
                   We&apos;ll use your logo to generate assets for your shop.
                 </p>
                 {draft.logoUrl ? (

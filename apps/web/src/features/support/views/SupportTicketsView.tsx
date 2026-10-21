@@ -386,13 +386,13 @@ export function SupportTicketsView(vm: SupportTicketsVm) {
                 {vm.file ? (
                   <div
                     className="row"
-                    style={{ alignItems: "center", gap: 8, fontSize: 13, marginTop: 2 }}
+                    style={{ alignItems: "center", gap: 8, fontSize: "var(--workspace-font-body, 13px)", marginTop: 2 }}
                   >
                     <Paperclip size={14} aria-hidden="true" />
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                       {vm.file.name}
                     </span>
-                    <span className="muted" style={{ fontSize: 12 }}>
+                    <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 12px)" }}>
                       ({fmtBytes(vm.file.size)})
                     </span>
                     <button
