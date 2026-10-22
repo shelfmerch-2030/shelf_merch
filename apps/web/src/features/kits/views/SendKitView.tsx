@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { MessageSquareText, Quote, Search } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingState } from "@/components/LoadingState";
 import { inr } from "@/components/platform/platform-ui";
@@ -25,7 +25,11 @@ import type { UiContact } from "@/services/mappers";
 import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { ProductThumb } from "@/features/shops/ProductThumb";
 import { listPrintAreas } from "@/features/swag/mockup-bake";
-import { resolveKitItemOptions, getCuratedKitMeta, CURATED_VARIANT_KEY } from "../controllers/useSendKitController";
+import {
+  resolveKitItemOptions,
+  getCuratedKitMeta,
+  CURATED_VARIANT_KEY,
+} from "../controllers/useSendKitController";
 import { curatedIncludedItems, curatedKitVariantRows } from "../KitPreviewDialog";
 import { usePlatformKits } from "../model";
 import type { UiProduct } from "@/services/mappers";
@@ -55,7 +59,9 @@ function ContactFieldsForm({
           <input
             className="inp"
             value={values.firstName}
-            onChange={(e) => onChange("firstName", sanitizeContactField("personName", e.target.value))}
+            onChange={(e) =>
+              onChange("firstName", sanitizeContactField("personName", e.target.value))
+            }
           />
         </div>
         <div className="field" style={{ flex: 1, minWidth: 140 }}>
@@ -63,7 +69,9 @@ function ContactFieldsForm({
           <input
             className="inp"
             value={values.lastName}
-            onChange={(e) => onChange("lastName", sanitizeContactField("personName", e.target.value))}
+            onChange={(e) =>
+              onChange("lastName", sanitizeContactField("personName", e.target.value))
+            }
           />
         </div>
       </div>
@@ -124,9 +132,7 @@ function ContactFieldsForm({
         </div>
       </div>
       <div className="field">
-        <label className="lbl">
-          Address{requireAddress ? " *" : ""}
-        </label>
+        <label className="lbl">Address{requireAddress ? " *" : ""}</label>
         <input
           className="inp"
           value={values.line1}
@@ -135,9 +141,7 @@ function ContactFieldsForm({
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <div className="field" style={{ flex: 1, minWidth: 120 }}>
-          <label className="lbl">
-            City{requireAddress ? " *" : ""}
-          </label>
+          <label className="lbl">City{requireAddress ? " *" : ""}</label>
           <input
             className="inp"
             value={values.city}
@@ -145,9 +149,7 @@ function ContactFieldsForm({
           />
         </div>
         <div className="field" style={{ flex: 1, minWidth: 120 }}>
-          <label className="lbl">
-            State{requireAddress ? " *" : ""}
-          </label>
+          <label className="lbl">State{requireAddress ? " *" : ""}</label>
           <input
             className="inp"
             value={values.state}
@@ -155,9 +157,7 @@ function ContactFieldsForm({
           />
         </div>
         <div className="field" style={{ flex: 1, minWidth: 120 }}>
-          <label className="lbl">
-            PIN code{requireAddress ? " *" : ""}
-          </label>
+          <label className="lbl">PIN code{requireAddress ? " *" : ""}</label>
           <input
             className="inp"
             inputMode="numeric"
@@ -186,20 +186,41 @@ function ContactFieldsForm({
 }
 
 const COLOR_MAP: Record<string, string> = {
-  black: "#1a1a1a", white: "#f8f8f8", navy: "#001f5b", red: "#c0392b",
-  blue: "#2980b9", green: "#27ae60", gray: "#95a5a6", grey: "#95a5a6",
-  brown: "#8B4513", beige: "#f5f5dc", yellow: "#f1c40f", orange: "#e67e22",
-  purple: "#8e44ad", pink: "#e91e8c", teal: "#1abc9c", maroon: "#800000",
-  olive: "#808000", cream: "#fffdd0", charcoal: "#36454f", gold: "#FFD700",
-  silver: "#C0C0C0", coral: "#FF6B6B", "royal blue": "#4169e1",
+  black: "#1a1a1a",
+  white: "#f8f8f8",
+  navy: "#001f5b",
+  red: "#c0392b",
+  blue: "#2980b9",
+  green: "#27ae60",
+  gray: "#95a5a6",
+  grey: "#95a5a6",
+  brown: "#8B4513",
+  beige: "#f5f5dc",
+  yellow: "#f1c40f",
+  orange: "#e67e22",
+  purple: "#8e44ad",
+  pink: "#e91e8c",
+  teal: "#1abc9c",
+  maroon: "#800000",
+  olive: "#808000",
+  cream: "#fffdd0",
+  charcoal: "#36454f",
+  gold: "#FFD700",
+  silver: "#C0C0C0",
+  coral: "#FF6B6B",
+  "royal blue": "#4169e1",
 };
 
 function swatchColor(product: UiProduct, colorName: string): string {
-  const variantWithHex = product.variants?.find(v => v.color?.toLowerCase() === colorName.toLowerCase() && v.colorHex);
+  const variantWithHex = product.variants?.find(
+    (v) => v.color?.toLowerCase() === colorName.toLowerCase() && v.colorHex,
+  );
   if (variantWithHex?.colorHex) return variantWithHex.colorHex;
 
   if (product.colorHexByName) {
-    const nameMatch = Object.keys(product.colorHexByName).find(k => k.toLowerCase() === colorName.toLowerCase());
+    const nameMatch = Object.keys(product.colorHexByName).find(
+      (k) => k.toLowerCase() === colorName.toLowerCase(),
+    );
     if (nameMatch && product.colorHexByName[nameMatch]) {
       return product.colorHexByName[nameMatch];
     }
@@ -213,18 +234,29 @@ function ColorSwatch({ color, product }: { color: string; product: UiProduct }) 
     <span
       title={color}
       style={{
-        width: 14, height: 14, borderRadius: "50%",
+        width: 14,
+        height: 14,
+        borderRadius: "50%",
         background: swatchColor(product, color),
         border: "1.5px solid rgba(0,0,0,.18)",
-        display: "inline-block", flexShrink: 0,
+        display: "inline-block",
+        flexShrink: 0,
       }}
     />
   );
 }
 
 function ColorSelect({
-  value, colors, onChange, product
-}: { value: string; colors: string[]; onChange: (v: string) => void; product: UiProduct }) {
+  value,
+  colors,
+  onChange,
+  product,
+}: {
+  value: string;
+  colors: string[];
+  onChange: (v: string) => void;
+  product: UiProduct;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -233,35 +265,57 @@ function ColorSelect({
         type="button"
         onClick={() => setOpen(!open)}
         style={{
-          display: "flex", alignItems: "center", gap: 5,
-          border: "1px solid var(--border)", borderRadius: 8,
-          padding: "4px 8px", background: "var(--surface)", width: 105,
-          height: 32, cursor: "pointer", textAlign: "left",
-          justifyContent: "space-between", color: value ? "var(--text)" : "var(--text-muted)",
-          outline: "none"
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          border: "1px solid var(--border)",
+          borderRadius: 8,
+          padding: "4px 8px",
+          background: "var(--surface)",
+          width: 105,
+          height: 32,
+          cursor: "pointer",
+          textAlign: "left",
+          justifyContent: "space-between",
+          color: value ? "var(--text)" : "var(--text-muted)",
+          outline: "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden" }}>
           {value ? (
             <span
               style={{
-                width: 12, height: 12, borderRadius: "50%",
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
                 background: swatchColor(product, value),
                 border: "1px solid rgba(0,0,0,0.15)",
-                display: "inline-block", flexShrink: 0,
+                display: "inline-block",
+                flexShrink: 0,
               }}
             />
           ) : (
             <span
               style={{
-                width: 12, height: 12, borderRadius: "50%",
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
                 background: "transparent",
                 border: "1px dashed var(--border)",
-                display: "inline-block", flexShrink: 0,
+                display: "inline-block",
+                flexShrink: 0,
               }}
             />
           )}
-          <span style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-medium)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span
+            style={{
+              fontSize: "var(--workspace-font-caption, 12px)",
+              fontWeight: "var(--font-weight-medium)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {value || "Color"}
           </span>
         </div>
@@ -270,43 +324,88 @@ function ColorSelect({
 
       {open && (
         <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 999 }} onClick={() => setOpen(false)} />
-          <div style={{
-            position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
-            background: "var(--surface)", border: "1px solid var(--border)",
-            borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", zIndex: 1000,
-            maxHeight: 180, overflowY: "auto", padding: 4
-          }}>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 999 }}
+            onClick={() => setOpen(false)}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              marginTop: 4,
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              zIndex: 1000,
+              maxHeight: 180,
+              overflowY: "auto",
+              padding: 4,
+            }}
+          >
             <div
-              onClick={() => { onChange(""); setOpen(false); }}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
               style={{
-                padding: "6px 8px", fontSize: "var(--workspace-font-caption, 12px)", cursor: "pointer",
-                borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
-                background: !value ? "var(--surface-2)" : "transparent"
+                padding: "6px 8px",
+                fontSize: "var(--workspace-font-caption, 12px)",
+                cursor: "pointer",
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: !value ? "var(--surface-2)" : "transparent",
               }}
             >
-              <span style={{ width: 12, height: 12, borderRadius: "50%", border: "1px dashed var(--border)", display: "inline-block" }} />
-              <span style={{ color: "var(--text-muted)", fontWeight: "var(--font-weight-medium)" }}>Color</span>
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  border: "1px dashed var(--border)",
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ color: "var(--text-muted)", fontWeight: "var(--font-weight-medium)" }}>
+                Color
+              </span>
             </div>
-            {colors.map(c => (
+            {colors.map((c) => (
               <div
                 key={c}
-                onClick={() => { onChange(c); setOpen(false); }}
+                onClick={() => {
+                  onChange(c);
+                  setOpen(false);
+                }}
                 style={{
-                  padding: "6px 8px", fontSize: "var(--workspace-font-caption, 12px)", cursor: "pointer",
-                  borderRadius: 6, display: "flex", alignItems: "center", gap: 6,
-                  background: value === c ? "var(--surface-2)" : "transparent"
+                  padding: "6px 8px",
+                  fontSize: "var(--workspace-font-caption, 12px)",
+                  cursor: "pointer",
+                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: value === c ? "var(--surface-2)" : "transparent",
                 }}
               >
                 <span
                   style={{
-                    width: 12, height: 12, borderRadius: "50%",
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
                     background: swatchColor(product, c),
                     border: "1px solid rgba(0,0,0,0.15)",
-                    display: "inline-block", flexShrink: 0
+                    display: "inline-block",
+                    flexShrink: 0,
                   }}
                 />
-                <span style={{ color: "var(--text)", fontWeight: "var(--font-weight-medium)" }}>{c}</span>
+                <span style={{ color: "var(--text)", fontWeight: "var(--font-weight-medium)" }}>
+                  {c}
+                </span>
               </div>
             ))}
           </div>
@@ -317,21 +416,38 @@ function ColorSelect({
 }
 
 function SizeSelect({
-  value, sizes, onChange,
-}: { value: string; sizes: string[]; onChange: (v: string) => void }) {
+  value,
+  sizes,
+  onChange,
+}: {
+  value: string;
+  sizes: string[];
+  onChange: (v: string) => void;
+}) {
   return (
     <select
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       style={{
-        border: "1px solid var(--border)", borderRadius: 8,
-        padding: "4px 8px", fontSize: "var(--workspace-font-caption, 12px)", background: "var(--surface)",
-        outline: "none", cursor: "pointer", minWidth: 90, color: "var(--text)",
-        fontWeight: "var(--font-weight-medium)", height: 32,
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        padding: "4px 8px",
+        fontSize: "var(--workspace-font-caption, 12px)",
+        background: "var(--surface)",
+        outline: "none",
+        cursor: "pointer",
+        minWidth: 90,
+        color: "var(--text)",
+        fontWeight: "var(--font-weight-medium)",
+        height: 32,
       }}
     >
       <option value="">Size</option>
-      {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+      {sizes.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
     </select>
   );
 }
@@ -357,7 +473,9 @@ export function SendKitView(vm: SendKitVm) {
     return (
       <div className="card" style={{ padding: 16 }}>
         Kit not found.{" "}
-        <button type="button" className="lnk" onClick={vm.onExit}>Back to kits</button>
+        <button type="button" className="lnk" onClick={vm.onExit}>
+          Back to kits
+        </button>
       </div>
     );
   }
@@ -387,9 +505,7 @@ export function SendKitView(vm: SendKitVm) {
       )
     : [];
 
-  const curatedKitVariants = curatedMeta
-    ? curatedKitVariantRows(curatedMeta, platformKits)
-    : [];
+  const curatedKitVariants = curatedMeta ? curatedKitVariantRows(curatedMeta, platformKits) : [];
   const curatedVariantImages = curatedKitVariants.map((v) => v.imageUrl);
   const activeCuratedVariant =
     selectedCuratedVariant && curatedVariantImages.includes(selectedCuratedVariant)
@@ -493,11 +609,11 @@ export function SendKitView(vm: SendKitVm) {
       return;
     }
     if (
-      draft.mode === "surprise"
-      && (!contactEditDraft.line1.trim()
-        || !contactEditDraft.city.trim()
-        || !contactEditDraft.state.trim()
-        || !contactEditDraft.pincode.trim())
+      draft.mode === "surprise" &&
+      (!contactEditDraft.line1.trim() ||
+        !contactEditDraft.city.trim() ||
+        !contactEditDraft.state.trim() ||
+        !contactEditDraft.pincode.trim())
     ) {
       toast.error("Enter address, city, state, and PIN code");
       return;
@@ -522,13 +638,14 @@ export function SendKitView(vm: SendKitVm) {
       productId: CURATED_VARIANT_KEY,
       patch: { variantImage },
     });
-    toast.success(contactIds.length === 1 ? "Variant applied to 1 recipient" : `Variant applied to ${contactIds.length} recipients`);
+    toast.success(
+      contactIds.length === 1
+        ? "Variant applied to 1 recipient"
+        : `Variant applied to ${contactIds.length} recipients`,
+    );
   }
 
-  function applyProductVariantToAll(
-    productId: string,
-    patch: { size?: string; color?: string },
-  ) {
+  function applyProductVariantToAll(productId: string, patch: { size?: string; color?: string }) {
     const item = kitItems.find(({ product }) => product.id === productId);
     if (!item || (!item.opts.requiresSize && !item.opts.requiresColor)) return;
 
@@ -551,7 +668,11 @@ export function SendKitView(vm: SendKitVm) {
       productId,
       patch: cleanPatch,
     });
-    toast.success(contactIds.length === 1 ? "Applied to 1 recipient" : `Applied to ${contactIds.length} recipients`);
+    toast.success(
+      contactIds.length === 1
+        ? "Applied to 1 recipient"
+        : `Applied to ${contactIds.length} recipients`,
+    );
   }
 
   function handleNext() {
@@ -565,65 +686,155 @@ export function SendKitView(vm: SendKitVm) {
 
   const footer = (
     <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-      {vm.step > 0
-        ? <button type="button" className="lnk" style={{ background: "none", border: "none", cursor: "pointer" }} onClick={vm.onBack}>Back</button>
-        : <span />}
-      {vm.step < 4
-        ? <button type="button" className="btn btn-dark" onClick={handleNext}>Next</button>
-        : <span />}
+      {vm.step > 0 ? (
+        <button
+          type="button"
+          className="lnk"
+          style={{ background: "none", border: "none", cursor: "pointer" }}
+          onClick={vm.onBack}
+        >
+          Back
+        </button>
+      ) : (
+        <span />
+      )}
+      {vm.step < 4 ? (
+        <button type="button" className="btn btn-dark" onClick={handleNext}>
+          Next
+        </button>
+      ) : (
+        <span />
+      )}
     </div>
   );
 
   return (
-    <WizardChrome title="Send Items" steps={STEPS} activeIndex={vm.step} onExit={vm.onExit} exitLabel="Cancel" footer={footer}>
-
+    <WizardChrome
+      title="Send Items"
+      steps={STEPS}
+      activeIndex={vm.step}
+      onExit={vm.onExit}
+      exitLabel="Cancel"
+      footer={footer}
+    >
       {/* ── Step 0: Items ── */}
       {vm.step === 0 && (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "10px 0" }}>
           <h1 style={{ fontSize: 24, marginBottom: 6 }}>Review Items</h1>
-          <p className="muted" style={{ marginBottom: 24 }}>Review the items included in this kit before continuing.</p>
+          <p className="muted" style={{ marginBottom: 24 }}>
+            Review the items included in this kit before continuing.
+          </p>
 
           {isCurated && curatedMeta ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               {/* Editable Kit Name */}
               <div style={{ maxWidth: 480 }}>
-                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                <label
+                  style={{
+                    fontSize: "var(--workspace-font-caption, 13px)",
+                    fontWeight: "var(--font-weight-bold)",
+                    color: "var(--text-muted)",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
                   Kit Name
                 </label>
                 <input
                   className="inp"
                   value={vm.kitName}
                   onChange={(e) => vm.setKitName(e.target.value)}
-                  style={{ width: "100%", fontSize: "var(--workspace-font-body, 14px)", height: 38 }}
+                  style={{
+                    width: "100%",
+                    fontSize: "var(--workspace-font-body, 14px)",
+                    height: 38,
+                  }}
                 />
               </div>
 
               {/* Read-only Description */}
               <div>
-                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                <label
+                  style={{
+                    fontSize: "var(--workspace-font-caption, 13px)",
+                    fontWeight: "var(--font-weight-bold)",
+                    color: "var(--text-muted)",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
                   Description
                 </label>
-                <p style={{ color: "var(--text)", fontSize: "var(--workspace-font-body, 14px)", margin: 0, lineHeight: 1.5 }}>
+                <p
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "var(--workspace-font-body, 14px)",
+                    margin: 0,
+                    lineHeight: 1.5,
+                  }}
+                >
                   {curatedMeta.description || "No description provided."}
                 </p>
               </div>
 
               {/* Read-only Product Images as cards */}
               <div>
-                <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                <label
+                  style={{
+                    fontSize: "var(--workspace-font-caption, 13px)",
+                    fontWeight: "var(--font-weight-bold)",
+                    color: "var(--text-muted)",
+                    display: "block",
+                    marginBottom: 12,
+                  }}
+                >
                   Included Items ({curatedItemImages.length})
                 </label>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                    gap: 16,
+                  }}
+                >
                   {curatedItemImages.map((item, idx) => (
-                    <div key={`${item.imageUrl}-${idx}`} className="card" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, borderRadius: 12 }}>
-                      <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div
+                      key={`${item.imageUrl}-${idx}`}
+                      className="card"
+                      style={{
+                        padding: 12,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          aspectRatio: "1",
+                          borderRadius: 8,
+                          overflow: "hidden",
+                          background: "var(--gray-100)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
                         <img
                           src={resolveMediaUrl(item.imageUrl)}
                           alt={item.label}
                           style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                         />
                       </div>
-                      <div style={{ fontSize: "var(--workspace-font-body, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--ink)" }}>{item.label}</div>
+                      <div
+                        style={{
+                          fontSize: "var(--workspace-font-body, 13px)",
+                          fontWeight: "var(--font-weight-bold)",
+                          color: "var(--ink)",
+                        }}
+                      >
+                        {item.label}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -632,7 +843,15 @@ export function SendKitView(vm: SendKitVm) {
               {/* Brand logo — only when platform kit rules.requireLogo is on (default). */}
               {vm.curatedRequiresLogo ? (
                 <div>
-                  <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 12 }}>
+                  <label
+                    style={{
+                      fontSize: "var(--workspace-font-caption, 13px)",
+                      fontWeight: "var(--font-weight-bold)",
+                      color: "var(--text-muted)",
+                      display: "block",
+                      marginBottom: 12,
+                    }}
+                  >
                     Add logo <span style={{ color: "var(--danger)" }}>*</span>
                   </label>
                   <div
@@ -646,7 +865,9 @@ export function SendKitView(vm: SendKitVm) {
                       flexWrap: "wrap",
                     }}
                   >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}>
+                    <div
+                      style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 160 }}
+                    >
                       <div
                         style={{
                           width: 140,
@@ -668,7 +889,14 @@ export function SendKitView(vm: SendKitVm) {
                             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
                           />
                         ) : (
-                          <span className="muted" style={{ fontSize: "var(--workspace-font-caption, 12px)", textAlign: "center", padding: 8 }}>
+                          <span
+                            className="muted"
+                            style={{
+                              fontSize: "var(--workspace-font-caption, 12px)",
+                              textAlign: "center",
+                              padding: 8,
+                            }}
+                          >
                             Logo preview
                           </span>
                         )}
@@ -699,33 +927,75 @@ export function SendKitView(vm: SendKitVm) {
                         />
                       </label>
                     </div>
-                    <div style={{ flex: "1 1 220px", minWidth: 200, display: "flex", alignItems: "center" }}>
+                    <div
+                      style={{
+                        flex: "1 1 220px",
+                        minWidth: 200,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
                       <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
                         This logo will be printed on the items in the designated placeholders.
                         {!vm.hasCuratedLogo ? (
-                          <span style={{ display: "block", marginTop: 8, color: "var(--danger)", fontSize: "var(--workspace-font-body, 13px)" }}>
+                          <span
+                            style={{
+                              display: "block",
+                              marginTop: 8,
+                              color: "var(--danger)",
+                              fontSize: "var(--workspace-font-body, 13px)",
+                            }}
+                          >
                             Upload a logo to continue.
                           </span>
                         ) : null}
                       </p>
                     </div>
                   </div>
-                  <p className="muted" style={{ margin: "10px 0 0", fontSize: "var(--workspace-font-caption, 12px)", lineHeight: 1.5 }}>
-                    This logo will be printed in the design area as shown in the images; there may be slight
-                    variation in colour when printed.
+                  <p
+                    className="muted"
+                    style={{
+                      margin: "10px 0 0",
+                      fontSize: "var(--workspace-font-caption, 12px)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    This logo will be printed in the design area as shown in the images; there may
+                    be slight variation in colour when printed.
                   </p>
                 </div>
               ) : null}
 
               {curatedVariantImages.length > 0 ? (
                 <div>
-                  <label style={{ fontSize: "var(--workspace-font-caption, 13px)", fontWeight: "var(--font-weight-bold)", color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                  <label
+                    style={{
+                      fontSize: "var(--workspace-font-caption, 13px)",
+                      fontWeight: "var(--font-weight-bold)",
+                      color: "var(--text-muted)",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
                     Kit designs
                   </label>
-                  <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", margin: "0 0 12px" }}>
-                  Available variants for this kit are shown below. You can select the preferred variant for each recipient in the next step.
+                  <p
+                    className="muted"
+                    style={{
+                      fontSize: "var(--workspace-font-caption, 12.5px)",
+                      margin: "0 0 12px",
+                    }}
+                  >
+                    Available variants for this kit are shown below. You can select the preferred
+                    variant for each recipient in the next step.
                   </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                      gap: 12,
+                    }}
+                  >
                     {curatedKitVariants.map((variant) => {
                       const selected = activeCuratedVariant === variant.imageUrl;
                       return (
@@ -743,14 +1013,32 @@ export function SendKitView(vm: SendKitVm) {
                             textAlign: "left",
                           }}
                         >
-                          <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+                          <div
+                            style={{
+                              aspectRatio: "1",
+                              borderRadius: 8,
+                              overflow: "hidden",
+                              background: "var(--gray-100)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginBottom: 8,
+                            }}
+                          >
                             <img
                               src={variant.imageUrl}
                               alt={variant.label}
                               style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain" }}
                             />
                           </div>
-                          <div style={{ fontSize: "var(--workspace-font-caption, 12px)", fontWeight: "var(--font-weight-bold)" }}>{variant.label}</div>
+                          <div
+                            style={{
+                              fontSize: "var(--workspace-font-caption, 12px)",
+                              fontWeight: "var(--font-weight-bold)",
+                            }}
+                          >
+                            {variant.label}
+                          </div>
                         </button>
                       );
                     })}
@@ -759,13 +1047,45 @@ export function SendKitView(vm: SendKitVm) {
               ) : null}
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 16,
+              }}
+            >
               {kitItems.map(({ product: p, opts }) => {
-                const distinctSizes = (p.variants?.map(v => v.size).filter((v): v is string => Boolean(v)).filter((v, i, a) => a.indexOf(v) === i)) ?? [];
-                const distinctColors = (p.variants?.map(v => v.color).filter((v): v is string => Boolean(v)).filter((v, i, a) => a.indexOf(v) === i)) ?? [];
+                const distinctSizes =
+                  p.variants
+                    ?.map((v) => v.size)
+                    .filter((v): v is string => Boolean(v))
+                    .filter((v, i, a) => a.indexOf(v) === i) ?? [];
+                const distinctColors =
+                  p.variants
+                    ?.map((v) => v.color)
+                    .filter((v): v is string => Boolean(v))
+                    .filter((v, i, a) => a.indexOf(v) === i) ?? [];
                 return (
-                  <div key={p.id} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10, borderRadius: 12 }}>
-                    <div style={{ aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: "var(--gray-100)", position: "relative" }}>
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      borderRadius: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        aspectRatio: "1",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "var(--gray-100)",
+                        position: "relative",
+                      }}
+                    >
                       {listPrintAreas(p).length ? (
                         <DesignedProductThumb
                           product={p}
@@ -776,26 +1096,89 @@ export function SendKitView(vm: SendKitVm) {
                         <ProductThumb product={{ ...p, mockupUrl: undefined }} />
                       )}
                     </div>
-                    {p.brand && <div className="mut3" style={{ fontSize: "var(--workspace-font-caption, 11px)", textTransform: "uppercase", letterSpacing: ".04em" }}>{p.brand}</div>}
-                    <div style={{ fontWeight: "var(--font-weight-semibold)", fontSize: "var(--workspace-font-body, 14px)" }}>{p.nm}</div>
-                    <div style={{ fontSize: "var(--workspace-font-caption, 12px)", color: "var(--text-muted)" }}>Qty: 1 unit</div>
+                    {p.brand && (
+                      <div
+                        className="mut3"
+                        style={{
+                          fontSize: "var(--workspace-font-caption, 11px)",
+                          textTransform: "uppercase",
+                          letterSpacing: ".04em",
+                        }}
+                      >
+                        {p.brand}
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        fontWeight: "var(--font-weight-semibold)",
+                        fontSize: "var(--workspace-font-body, 14px)",
+                      }}
+                    >
+                      {p.nm}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "var(--workspace-font-caption, 12px)",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      Qty: 1 unit
+                    </div>
                     <div className="divider" style={{ margin: "2px 0" }} />
                     {distinctSizes.length > 0 && (
                       <div>
-                        <div style={{ fontSize: "var(--workspace-font-caption, 11px)", color: "var(--text-muted)", marginBottom: 4, fontWeight: "var(--font-weight-medium)" }}>Sizes</div>
+                        <div
+                          style={{
+                            fontSize: "var(--workspace-font-caption, 11px)",
+                            color: "var(--text-muted)",
+                            marginBottom: 4,
+                            fontWeight: "var(--font-weight-medium)",
+                          }}
+                        >
+                          Sizes
+                        </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {distinctSizes.map(s => (
-                            <span key={s} style={{ fontSize: "var(--workspace-font-caption, 11px)", fontWeight: "var(--font-weight-semibold)", padding: "2px 7px", borderRadius: 4, background: "var(--surface-2)", border: "1px solid var(--border)" }}>{s}</span>
+                          {distinctSizes.map((s) => (
+                            <span
+                              key={s}
+                              style={{
+                                fontSize: "var(--workspace-font-caption, 11px)",
+                                fontWeight: "var(--font-weight-semibold)",
+                                padding: "2px 7px",
+                                borderRadius: 4,
+                                background: "var(--surface-2)",
+                                border: "1px solid var(--border)",
+                              }}
+                            >
+                              {s}
+                            </span>
                           ))}
                         </div>
                       </div>
                     )}
                     {distinctColors.length > 0 && (
                       <div>
-                        <div style={{ fontSize: "var(--workspace-font-caption, 11px)", color: "var(--text-muted)", marginBottom: 4, fontWeight: "var(--font-weight-medium)" }}>Colors</div>
+                        <div
+                          style={{
+                            fontSize: "var(--workspace-font-caption, 11px)",
+                            color: "var(--text-muted)",
+                            marginBottom: 4,
+                            fontWeight: "var(--font-weight-medium)",
+                          }}
+                        >
+                          Colors
+                        </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {distinctColors.map(c => (
-                            <div key={c} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--workspace-font-caption, 12px)" }}>
+                          {distinctColors.map((c) => (
+                            <div
+                              key={c}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                fontSize: "var(--workspace-font-caption, 12px)",
+                              }}
+                            >
                               <ColorSwatch color={c} product={p} />
                               {/* <span style={{ color: "var(--text)" }}>{c}</span> */}
                             </div>
@@ -804,7 +1187,14 @@ export function SendKitView(vm: SendKitVm) {
                       </div>
                     )}
                     {distinctSizes.length === 0 && distinctColors.length === 0 && (
-                      <div style={{ fontSize: "var(--workspace-font-caption, 12px)", color: "var(--text-muted)" }}>No variants for this product</div>
+                      <div
+                        style={{
+                          fontSize: "var(--workspace-font-caption, 12px)",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        No variants for this product
+                      </div>
                     )}
                   </div>
                 );
@@ -875,7 +1265,9 @@ export function SendKitView(vm: SendKitVm) {
                 className="card sk-recip-single-loc"
                 style={{ marginBottom: 18, boxShadow: "none" }}
               >
-                <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", marginBottom: 12 }}>Single delivery location</h3>
+                <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", marginBottom: 12 }}>
+                  Single delivery location
+                </h3>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                   <LocField
                     label="Contact name"
@@ -948,9 +1340,7 @@ export function SendKitView(vm: SendKitVm) {
                   />
                   <CountrySelect
                     value={draft.singleLocation.country || "IN"}
-                    onChange={(value) =>
-                      dispatch({ type: "setSingleLoc", key: "country", value })
-                    }
+                    onChange={(value) => dispatch({ type: "setSingleLoc", key: "country", value })}
                     required
                   />
                 </div>
@@ -1104,7 +1494,13 @@ export function SendKitView(vm: SendKitVm) {
                     value={emailDraft}
                     onChange={(e) => setEmailDraft(e.target.value)}
                   />
-                  <p className="muted" style={{ margin: "12px 0 8px", fontSize: "var(--workspace-font-caption, 12px)" }}>
+                  <p
+                    className="muted"
+                    style={{
+                      margin: "12px 0 8px",
+                      fontSize: "var(--workspace-font-caption, 12px)",
+                    }}
+                  >
                     Contact details below are saved to Contacts (same fields as the Contacts page)
                     and applied to every email above.
                   </p>
@@ -1116,7 +1512,11 @@ export function SendKitView(vm: SendKitVm) {
                     }
                   />
                   <div className="sk-recip-email-panel__actions" style={{ marginTop: 12 }}>
-                    <button type="button" className="btn btn-brand btn-sm" onClick={handleAddEmails}>
+                    <button
+                      type="button"
+                      className="btn btn-brand btn-sm"
+                      onClick={handleAddEmails}
+                    >
                       Add recipients
                     </button>
                     <button
@@ -1263,7 +1663,10 @@ export function SendKitView(vm: SendKitVm) {
                                     <button
                                       type="button"
                                       className="lnk"
-                                      style={{ fontSize: "var(--workspace-font-caption, 12px)", alignSelf: "flex-start" }}
+                                      style={{
+                                        fontSize: "var(--workspace-font-caption, 12px)",
+                                        alignSelf: "flex-start",
+                                      }}
                                       onClick={() => startEditContact(contact)}
                                     >
                                       {hasCompleteRecipientAddress(contact)
@@ -1339,7 +1742,9 @@ export function SendKitView(vm: SendKitVm) {
                                       !opts.requiresColor &&
                                       opts.sizes.length === 0 &&
                                       opts.colors.length === 0 ? (
-                                        <span className="sk-recip-muted">No variants for this product</span>
+                                        <span className="sk-recip-muted">
+                                          No variants for this product
+                                        </span>
                                       ) : null}
                                     </div>
                                   </td>
@@ -1380,23 +1785,47 @@ export function SendKitView(vm: SendKitVm) {
             itemCount={draft.picked.length}
             from={draft.from}
             message={draft.msg}
-            onFrom={from => dispatch({ type: "setFrom", from })}
-            onMessage={msg => dispatch({ type: "setMsg", msg })}
+            onFrom={(from) => dispatch({ type: "setFrom", from })}
+            onMessage={(msg) => dispatch({ type: "setMsg", msg })}
             when={draft.when}
-            onWhen={when => dispatch({ type: "setWhen", when })}
+            onWhen={(when) => dispatch({ type: "setWhen", when })}
             schedule={draft.schedule}
             onSchedule={(key, value) => dispatch({ type: "setSchedule", key, value })}
             preview={draft.preview}
-            onPreview={preview => dispatch({ type: "setPreview", preview })}
+            onPreview={(preview) => dispatch({ type: "setPreview", preview })}
             extraLeft={
-              <div className="card" style={{ padding: 20 }}>
-                <h3 style={{ fontSize: "var(--workspace-font-heading, 15px)", marginBottom: 6 }}>Printed card note</h3>
-                <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", marginBottom: 10 }}>Printed on a card tucked inside every kit.</p>
-                <textarea className="inp" rows={3} value={draft.note} onChange={e => dispatch({ type: "setNote", note: e.target.value })} />
-                <div className="card" style={{ padding: 14, background: "#fff", marginTop: 12 }}>
-                  <div className="mut3" style={{ fontSize: "var(--workspace-font-caption, 10px)", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: "var(--font-weight-bold)", marginBottom: 6 }}>Card preview</div>
-                  <div style={{ fontFamily: "var(--font-family-primary)", fontStyle: "italic", fontSize: "var(--workspace-font-body, 14px)" }}>{draft.note}</div>
-                  <div className="muted" style={{ marginTop: 8, fontSize: "var(--workspace-font-caption, 12px)" }}>The {vm.account} team</div>
+              <div className="card printed-note-card">
+                <div className="printed-note-card__header">
+                  <span className="printed-note-card__icon" aria-hidden="true">
+                    <MessageSquareText size={18} strokeWidth={1.8} />
+                  </span>
+                  <div>
+                    <h3>Printed card note</h3>
+                    <p>Included inside every kit.</p>
+                  </div>
+                </div>
+                <div className="printed-note-card__editor">
+                  <textarea
+                    className="inp"
+                    rows={4}
+                    maxLength={280}
+                    aria-label="Printed card note"
+                    placeholder="Write a short note for the recipient"
+                    value={draft.note}
+                    onChange={(e) => dispatch({ type: "setNote", note: e.target.value })}
+                  />
+                  <span>{draft.note.length}/280</span>
+                </div>
+                <div className="printed-note-preview">
+                  <div className="printed-note-preview__label">
+                    <span>Card preview</span>
+                    <Quote size={17} strokeWidth={1.7} aria-hidden="true" />
+                  </div>
+                  <p>{draft.note || "Your note will appear here."}</p>
+                  <div className="printed-note-preview__signature">
+                    <span>With appreciation,</span>
+                    <strong>The {vm.account} team</strong>
+                  </div>
                 </div>
               </div>
             }
@@ -1424,7 +1853,7 @@ export function SendKitView(vm: SendKitVm) {
               wallet={vm.wallet}
               wallets={vm.wallets}
               selected={draft.pay}
-              onSelect={pay => dispatch({ type: "setPay", pay })}
+              onSelect={(pay) => dispatch({ type: "setPay", pay })}
               selectedWalletId={vm.selectedWalletId}
               onWalletSelect={vm.onWalletSelect}
               walletAvailable={vm.walletAvailable}
@@ -1441,9 +1870,7 @@ export function SendKitView(vm: SendKitVm) {
                     k={`${totals.qty} kit${totals.qty === 1 ? "" : "s"} × ${inr(customisedProductPerKit)}`}
                     v={inr(customisedKitsLineTotal)}
                   />
-                  {totals.pkgPerKit > 0 ? (
-                    <SumRow k="Packaging" v={inr(totals.pkgCost)} />
-                  ) : null}
+                  {totals.pkgPerKit > 0 ? <SumRow k="Packaging" v={inr(totals.pkgCost)} /> : null}
                   <SumRow k="Subtotal" v={inr(customisedSubtotal)} large />
                   <SumRow
                     k={`GST (${Math.round((totals.kitGstRate ?? 0.18) * 100)}%)`}
@@ -1457,9 +1884,7 @@ export function SendKitView(vm: SendKitVm) {
                     k={`${totals.qty} kit${totals.qty === 1 ? "" : "s"} × ${inr(totals.unitPrice)}`}
                     v={inr(totals.unitPrice * totals.qty)}
                   />
-                  {totals.pkgPerKit > 0 ? (
-                    <SumRow k="Packaging" v={inr(totals.pkgCost)} />
-                  ) : null}
+                  {totals.pkgPerKit > 0 ? <SumRow k="Packaging" v={inr(totals.pkgCost)} /> : null}
                   <SumRow k="Subtotal" v={inr(totals.sub)} large />
                   <SumRow
                     k={`GST (${Math.round((totals.kitGstRate ?? 0.18) * 100)}%)`}
@@ -1512,7 +1937,14 @@ function KitCheckoutPaymentSummary({
     return (
       <div style={{ marginTop: 4 }}>
         {walletName ? (
-          <p className="muted" style={{ fontSize: "var(--workspace-font-caption, 12.5px)", marginBottom: 10, lineHeight: 1.45 }}>
+          <p
+            className="muted"
+            style={{
+              fontSize: "var(--workspace-font-caption, 12.5px)",
+              marginBottom: 10,
+              lineHeight: 1.45,
+            }}
+          >
             Paying from <strong>{walletName}</strong>. No UPI or card payment needed — the order
             amount is deducted from your wallet.
           </p>
@@ -1582,8 +2014,12 @@ function SumRow({
         padding: large ? "10px 0" : emphasis ? "9px 0" : "7px 0",
       }}
     >
-      <span className={emphasis || large ? undefined : "muted"} style={labelStyle}>{k}</span>
-      <span className="num" style={valueStyle}>{v}</span>
+      <span className={emphasis || large ? undefined : "muted"} style={labelStyle}>
+        {k}
+      </span>
+      <span className="num" style={valueStyle}>
+        {v}
+      </span>
     </div>
   );
 }

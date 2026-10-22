@@ -555,8 +555,9 @@ async function buildInviteContext(campaign, tenantId) {
   const isSurprise = campaign.fulfillmentMode === 'surprise';
   const isSingle = campaign.fulfillmentMode === 'single';
   const fromLabel = campaign.message?.from?.trim() || campaign.name;
+  const customMessage = campaign.message?.body?.trim() || '';
   const inviteBody =
-    campaign.message?.body?.trim() ||
+    customMessage ||
     (isSurprise
       ? `${fromLabel} is sending you a surprise gift. No action is required from you.`
       : isFulfillment
@@ -575,6 +576,7 @@ async function buildInviteContext(campaign, tenantId) {
     isSurprise,
     isSingle,
     fromLabel,
+    customMessage,
     inviteBody,
     inviteTitle,
     companyName,
@@ -612,7 +614,7 @@ async function sendCampaignInvites(campaign, tenantId) {
         meta: {
           recipientName: r.name,
           senderName: ctx.fromLabel,
-          message: ctx.inviteBody,
+          message: ctx.customMessage,
           giftName: ctx.giftName,
           companyName: ctx.companyName,
           campaignType: campaign.type,

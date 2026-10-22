@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { startScheduledCampaignWorker } from './jobs/scheduledCampaign.worker.js';
 import { startNotificationWorker } from './jobs/notification.worker.js';
 import { ensureRedisReady } from './config/redis.js';
+import { ensureBuiltInPlatformTeam } from './modules/platform/team.service.js';
 
 async function main() {
   const mergeEnv = validateMergeEnvironment();
@@ -19,6 +20,7 @@ async function main() {
   // Prove which logger module production is running (no secrets / env dumps).
   logActiveLoggerConfig();
   await connectDb();
+  await ensureBuiltInPlatformTeam();
 
   // Ensure overdue scheduled sends are recovered even when the dedicated
   // worker process is not running (common in local / single-node deploys).

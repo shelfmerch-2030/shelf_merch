@@ -183,7 +183,7 @@ export function OrgDashboard({
         <div className="banner" style={{ marginBottom: 18 }}>
           <CircleDollarSign size={16} aria-hidden="true" />
           <div>
-            <b>Budget funded — allocation not finished.</b> Split your balance across departments
+            <b>Budget funded allocation not finished.</b> Split your balance across departments
             and assign managers.{" "}
             <span className="lnk" role="button" tabIndex={0} onClick={handleAllocateClick}>
               Allocate budget
