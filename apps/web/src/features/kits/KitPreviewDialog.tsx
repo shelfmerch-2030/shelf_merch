@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
+// import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveColorHex } from "@/lib/colorMap";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
@@ -439,16 +439,16 @@ function KitPreviewProductImage({
   let inner: ReactNode;
   if (baked) {
     inner = <img src={baked} alt={name} style={imgStyle} />;
-  } else if (product && artworkUrl) {
-    inner = (
-      <DesignedProductThumb
-        product={previewCompositeProduct(product)}
-        artworkUrl={artworkUrl}
-        frontOnly
-        className="kit-preview-dpt"
-        style={{ width: "100%", height: "100%" }}
-      />
-    );
+  // } else if (product && artworkUrl) {
+  //   inner = (
+  //     <DesignedProductThumb
+  //       product={previewCompositeProduct(product)}
+  //       artworkUrl={artworkUrl}
+  //       frontOnly
+  //       className="kit-preview-dpt"
+  //       style={{ width: "100%", height: "100%" }}
+  //     />
+  //   );
   } else if (imageUrl) {
     inner = <img src={imageUrl} alt={name} style={imgStyle} />;
   } else {

@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { ArrowLeft, Box, CheckCircle2, Pencil, Send } from "lucide-react";
 import { LoadingState } from "@/components/LoadingState";
 import { PageHeader } from "@/components/tenant/PageHeader";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
+// import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { KitDetailVm } from "../controllers/useKitDetailController";
 
@@ -167,12 +167,12 @@ export function KitDetailView(vm: KitDetailVm) {
                   : undefined);
                 return (
                   <div key={`${p.name}-${i}`} className="pcard" style={{ cursor: "default" }}>
-                    {!isCuratedKit && p.img && kit.artworkUrl ? (
+                    {/* {!isCuratedKit && p.img && kit.artworkUrl ? (
                       <DesignedProductThumb
                         product={p.img}
                         artworkUrl={p.img.mockupUrl ? undefined : kit.artworkUrl}
                       />
-                    ) : (
+                    ) : ( */}
                       <div className="img">
                         {src ? (
                           <img
@@ -189,7 +189,7 @@ export function KitDetailView(vm: KitDetailVm) {
                           />
                         )}
                       </div>
-                    )}
+                    {/* )} */}
                     <div className="meta">
                       {p.brand && <div className="brand">{p.brand}</div>}
                       <div className="nm">{p.name}</div>

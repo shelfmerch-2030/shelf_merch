@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DesignedProductThumb } from "./DesignedProductThumb";
 import type { UiCollection, UiProduct } from "@/services/mappers";
+import { listPrintAreas } from "@/features/swag/mockup-bake";
 
 function colorSwatches(p: UiProduct) {
   const hexes: string[] = [];
@@ -33,9 +34,8 @@ export function CollectionInlineCard({
   /** Opens product detail when a product card is clicked. */
   onProductClick?: (product: UiProduct, pIdx: number) => void;
 }) {
-  const defaultSub = `${collection.code ? `${collection.code} · ` : ""}${collection.products.length} ${
-    collection.products.length === 1 ? "item" : "items"
-  }`;
+  const defaultSub = `${collection.code ? `${collection.code} · ` : ""}${collection.products.length} ${collection.products.length === 1 ? "item" : "items"
+    }`;
 
   return (
     <article className="swag-col-card card">
@@ -55,7 +55,11 @@ export function CollectionInlineCard({
               <div className="swag-col-pcard-img">
                 <DesignedProductThumb
                   product={p}
-                  artworkUrl={collection.artworkUrl}
+                  artworkUrl={
+                    listPrintAreas(p).length !== 0
+                      ? collection.artworkUrl
+                      : undefined
+                  }
                   hoverSwapViews
                 />
               </div>

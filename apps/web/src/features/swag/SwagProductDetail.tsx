@@ -9,7 +9,7 @@ import {
   productColorHex,
 } from "./colors";
 import { DesignedProductThumb } from "./DesignedProductThumb";
-import { listProductViews, type ProductViewKey } from "./mockup-bake";
+import { listPrintAreas, listProductViews, type ProductViewKey } from "./mockup-bake";
 import { MockupViewGallery } from "./MockupViewGallery";
 import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
 
@@ -81,7 +81,8 @@ export function SwagProductDetail({
           renderThumb={(view) => (
             <DesignedProductThumb
               product={product}
-              artworkUrl={collection.artworkUrl}
+              // artworkUrl={collection.artworkUrl}
+              artworkUrl={listPrintAreas(product).length!==0 ? collection.artworkUrl : undefined}
               tintHex={tintHex}
               view={view}
             />
@@ -89,7 +90,7 @@ export function SwagProductDetail({
         >
           <DesignedProductThumb
             product={product}
-            artworkUrl={collection.artworkUrl}
+            artworkUrl={listPrintAreas(product).length!==0 ? collection.artworkUrl : undefined}
             tintHex={tintHex}
             view={hasMultipleViews ? activeView : undefined}
             onViewChange={hasMultipleViews ? setMockupView : undefined}
