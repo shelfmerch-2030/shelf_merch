@@ -121,6 +121,9 @@ function tidyName(value: string) {
 
 /** HRIS people directory — MergeHrisEmployee list; also mirrored into Workspace Contacts on sync. */
 export function HrisEmployeesView(vm: HrisEmployeesVm) {
+  const hasConnection = vm.connections.some(
+    (connection) => connection.status === "connected" || connection.status === "needs_attention",
+  );
   const filtered = vm.employees.length;
   const [providerOpen, setProviderOpen] = useState(false);
   const totalLabel = filtered === 1 ? "item" : "items";

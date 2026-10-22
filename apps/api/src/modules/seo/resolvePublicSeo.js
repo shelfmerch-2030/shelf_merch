@@ -50,6 +50,7 @@ const RESERVED_TOP_LEVEL_PATHS = new Set([
   'privacy',
   'redeem',
   'request-demo',
+  'reset-password',
   'resources',
   's',
   'shop',
