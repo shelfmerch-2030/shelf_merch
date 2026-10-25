@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import type { CatalogVm } from "../controllers/useCatalogController";
 import {
@@ -7,11 +7,14 @@ import {
   CUSTOMISED_KITS_SUBCATEGORY,
   KITS_CATEGORY,
   PREDESIGNED_KITS_SUBCATEGORY,
+  catalogCategorySlug,
   productMatchesLevel,
   productMatchesSubcategory,
+  productPhotoUrl,
   type CatalogCategoryChild,
 } from "../types";
 import { ProductCard } from "./ProductCard";
+import { CatalogProductListing } from "./CatalogProductListing";
 import { CatalogKitsGrid } from "./CatalogKitsGrid";
 import { useCatalogKitsController } from "../controllers/useCatalogKitsController";
 import "./catalog-view.css";
@@ -22,6 +25,9 @@ import drinkwareImg from "../../../../assets/catalog/category-heroes/drinkware-b
 import officeImg from "../../../../assets/catalog/category-heroes/office-supplies-bystadium.png";
 import technologyImg from "../../../../assets/catalog/category-heroes/technology-bystadium.png";
 import kitsImg from "../../../../assets/catalog-style-spotlight/kits.png";
+import apparelTShirtImg from "../../../../assets/catalog/category-tiles/apparel/t-shirts.png";
+import apparelPoloImg from "../../../../assets/catalog/category-tiles/apparel/polo-shirts.png";
+import apparelJacketImg from "../../../../assets/catalog/category-tiles/apparel/jackets.png";
 
 const CATEGORY_COPY: Record<string, string> = {
   Apparel:
@@ -48,6 +54,17 @@ const CATEGORY_IMAGES: Record<string, string> = {
   Technology: technologyImg,
   "Office Supplies": officeImg,
   Kits: kitsImg,
+};
+
+const CATEGORY_TILE_IMAGES: Record<string, string> = {
+  "T-Shirts": apparelTShirtImg,
+  "T-Shirt": apparelTShirtImg,
+  "Crew Neck": apparelTShirtImg,
+  "Polo Shirts": apparelPoloImg,
+  "Polo Shirt": apparelPoloImg,
+  Polo: apparelPoloImg,
+  Jackets: apparelJacketImg,
+  Outerwear: apparelJacketImg,
 };
 
 function CategoryPageSkeleton() {
@@ -108,7 +125,7 @@ function resolveBrowseLevels(
 }
 
 export function CatalogCategoryView(vm: CatalogVm) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isPublicApps = pathname.startsWith("/apps/catalog");
   const catalogHome = isPublicApps ? "/apps/catalog" : "/app/catalog";
   const parentName = vm.parent;
@@ -321,6 +338,39 @@ export function CatalogCategoryView(vm: CatalogVm) {
       : selectedSubcategory
     : selectedCategory;
 
+  const treeTypes = useMemo(
+    () => levels.categories.map((node) => node.name).filter((name) => name && name !== "Others"),
+    [levels.categories],
+  );
+  const typeNames = useMemo(
+    () => Array.from(new Set([...treeTypes, ...sidebarCategories])),
+    [sidebarCategories, treeTypes],
+  );
+  const viewingType = Boolean(activeTag);
+  const viewingProducts = viewingType || new URLSearchParams(search).get("view") === "products";
+  /** Parent pages (Apparel, Drinkware) show a photo card per type. A chosen type opens its products. */
+  const showTypeCards = !isKitsCategory && !viewingProducts && typeNames.length > 0;
+  const typeCardsBackName =
+    levels.focusCategory && levels.focusCategory !== activeTag ? levels.focusCategory : parentName;
+
+  function imageForType(name: string) {
+    const editorialImage = CATEGORY_TILE_IMAGES[name];
+    if (editorialImage) return editorialImage;
+
+    const match = vm.items.find(
+      (item) =>
+        (productMatchesLevel(item, "subcategory", name) ||
+          productMatchesLevel(item, "category", name)) &&
+        productPhotoUrl(item),
+    );
+    return (
+      (match && productPhotoUrl(match)) ||
+      CATEGORY_IMAGES[name] ||
+      CATEGORY_IMAGES[parentName] ||
+      apparelImg
+    );
+  }
+
   function selectTag(next: string | null) {
     if (levels.collapsed) {
       selectCategory(next);
@@ -366,6 +416,17 @@ export function CatalogCategoryView(vm: CatalogVm) {
       </nav>
     ) : null;
 
+  const categoryNavigation = (
+    <nav className="sm-catalog-shop__categories" aria-label="Product types">
+      <p>Product types</p>
+      <Link to={`${catalogHome}/category/${catalogCategorySlug(leafScopeName)}?view=products`}>All {leafScopeName}</Link>
+      {typeNames.map((name) => (
+        <Link key={name} to={`${catalogHome}/category/${catalogCategorySlug(name)}`} aria-current={activeTag === name ? "page" : undefined}>{name}</Link>
+      ))}
+      <Link to={`${catalogHome}/browse`}>All categories</Link>
+    </nav>
+  );
+
   return (
     <div className="sm-cat-page sm-cat-page--public">
       <div className="sm-cat-page__container">
@@ -373,11 +434,21 @@ export function CatalogCategoryView(vm: CatalogVm) {
           <nav className="sm-cat-page__crumbs" aria-label="Breadcrumb">
             <Link to={catalogHome}>Catalog</Link>
             <ChevronRight size={14} aria-hidden="true" />
-            <span>{parentName}</span>
-            {crumbCategory ? (
+            {viewingType || (crumbCategory && crumbCategory !== parentName) ? (
+              <Link to={`${catalogHome}/category/${catalogCategorySlug(parentName)}`}>{parentName}</Link>
+            ) : (
+              <span>{parentName}</span>
+            )}
+            {crumbCategory && crumbCategory !== parentName ? (
               <>
                 <ChevronRight size={14} aria-hidden="true" />
-                <span>{crumbCategory}</span>
+                {crumbSubcategory ? (
+                  <Link to={`${catalogHome}/category/${catalogCategorySlug(crumbCategory)}`}>
+                    {crumbCategory}
+                  </Link>
+                ) : (
+                  <span>{crumbCategory}</span>
+                )}
               </>
             ) : null}
             {crumbSubcategory ? (
@@ -399,12 +470,14 @@ export function CatalogCategoryView(vm: CatalogVm) {
           ) : null}
         </div>
 
+        {viewingProducts ? null : (
         <header className="sm-cat-page__hero">
           <div className="sm-cat-page__hero-copy">
             <p className="sm-cat-page__eyebrow">The best in</p>
             <h1 className="sm-cat-page__title">{displayName}</h1>
             <p className="sm-cat-page__copy">{heroCopy}</p>
             <div className="sm-cat-page__hero-nav">
+              <Link className="btn btn-dark" to={`${pathname}?view=products`}>View all {displayName}</Link>
               {categorySlides.length > 1 ? (
                 <>
                   <button
@@ -431,11 +504,44 @@ export function CatalogCategoryView(vm: CatalogVm) {
             <img src={heroImage} alt="" />
           </div>
         </header>
+        )}
 
         <div className="sm-cat-page__body">
+          {!isKitsCategory && !showTypeCards ? (
+            <CatalogProductListing
+              key={pathname + search}
+              products={filteredItems}
+              title={filterLabel ?? displayName}
+              home={catalogHome}
+              navigation={categoryNavigation}
+              loading={vm.isSkeleton}
+              error={vm.errorMessage}
+            />
+          ) : (
+          <div className={showTypeCards ? "sm-catalog-shop" : undefined}>
+          {showTypeCards ? <aside className="sm-catalog-shop__sidebar">{categoryNavigation}</aside> : null}
           <div className="sm-cat-page__main">
-            {tagFilters}
-            {isKitsCategory ? (
+            {showTypeCards ? (
+              <div className="sm-cat-type-grid">
+                {typeNames.map((name) => (
+                  <Link
+                    key={name}
+                    className="sm-cat-type-card"
+                    to={`${catalogHome}/category/${catalogCategorySlug(name)}`}
+                  >
+                    <span className="sm-cat-type-card__media">
+                      <img src={imageForType(name)} alt={`${name} category`} />
+                    </span>
+                    <span className="sm-cat-type-card__label">
+                      <span>{name}</span>
+                      <ArrowUpRight size={16} strokeWidth={1.8} aria-hidden="true" />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {showTypeCards || typeNames.length > 0 ? null : tagFilters}
+            {showTypeCards ? null : isKitsCategory ? (
               <>
                 <CatalogKitsGrid
                   {...kitsVm}
@@ -498,8 +604,15 @@ export function CatalogCategoryView(vm: CatalogVm) {
                     {filteredItems.length === 1 ? "product" : "products"}
                     {filterLabel ? ` in ${filterLabel}` : ""}
                   </p>
-                  <Link to={catalogHome} className="sm-cat-page__back">
-                    Back to all categories
+                  <Link
+                    to={
+                      viewingType
+                        ? `${catalogHome}/category/${catalogCategorySlug(typeCardsBackName)}`
+                        : catalogHome
+                    }
+                    className="sm-cat-page__back"
+                  >
+                    {viewingType ? `Back to ${typeCardsBackName}` : "Back to all categories"}
                   </Link>
                 </div>
 
@@ -516,6 +629,8 @@ export function CatalogCategoryView(vm: CatalogVm) {
               </section>
             )}
           </div>
+          </div>
+          )}
         </div>
       </div>
     </div>

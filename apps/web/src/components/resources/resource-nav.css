@@ -60,7 +60,7 @@
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.16em;
   color: #777;
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 .resources-menu > a {
   display: grid;
@@ -106,7 +106,7 @@
 .resources-menu b,
 .resources-menu em {
   display: block;
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
   min-width: 0;
 }
 .resources-menu b {

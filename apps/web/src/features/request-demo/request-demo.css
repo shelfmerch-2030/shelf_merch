@@ -21,7 +21,7 @@
   overflow-x: hidden;
   background: #f6f5f2;
   color: var(--demo-ink);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 
 .request-demo a {
@@ -90,7 +90,7 @@
   border-radius: 22px;
   background: var(--demo-card);
   box-shadow: 0 26px 80px rgba(33, 61, 101, 0.16);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 
 .request-demo__form-heading {
