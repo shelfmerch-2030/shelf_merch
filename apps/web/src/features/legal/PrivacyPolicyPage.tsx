@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import { MeasurementConsentChoice } from "@/features/privacy/MeasurementConsentChoice";
 import "./legal.css";
 
 /** Public Privacy Policy — also served as static HTML at GET /legal/privacy-policy. */
@@ -22,7 +23,7 @@ export function PrivacyPolicyPage() {
       <main className="legal-main">
         <article className="legal-article">
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: 30 July 2026</p>
+          <p className="legal-updated">Last updated: 25 October 2026</p>
 
           <p className="legal-intro">
             This Privacy Policy describes how <strong>Chitlu Innovations Private Limited</strong> (“
@@ -293,6 +294,8 @@ export function PrivacyPolicyPage() {
               <strong>Website:</strong> <a href="https://shelfmerch.io">https://shelfmerch.io</a>
             </li>
           </ul>
+
+          <MeasurementConsentChoice />
 
           <p className="legal-note">
             This page is a product privacy notice tailored to the current ShelfMerch implementation.

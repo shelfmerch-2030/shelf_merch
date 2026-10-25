@@ -8,6 +8,7 @@ import { pinoHttp } from 'pino-http';
 import { createPinoHttpOptions } from './config/logger.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { env, corsOrigins } from './config/env.js';
+import { mergeOpenAiPixelCsp } from './config/openaiPixelCsp.js';
 import { ensureRedisReady } from './config/redis.js';
 import { LOCAL_UPLOAD_DIR } from './services/storage.service.js';
 import { asyncHandler } from './utils/asyncHandler.js';
@@ -150,7 +151,7 @@ function helmetOptions() {
     contentSecurityPolicy: {
       useDefaults: true,
       reportOnly: env.CSP_MODE === 'report-only',
-      directives: {
+      directives: mergeOpenAiPixelCsp({
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         // Vite/React inject hashed style tags at runtime; allow inline styles.
@@ -163,7 +164,7 @@ function helmetOptions() {
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
         upgradeInsecureRequests: [],
-      },
+      }),
     },
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: false,

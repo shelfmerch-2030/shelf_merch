@@ -157,6 +157,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
       <>
         <a href="/terms">Terms &amp; Conditions</a>
         <a href="/privacy">Privacy Policy</a>
+        <a href="/privacy#measurement-choice">Advertising measurement</a>
         <span>Refund Policy</span>
         <span>Shipping Policy</span>
         <span>Cookie Policy</span>
