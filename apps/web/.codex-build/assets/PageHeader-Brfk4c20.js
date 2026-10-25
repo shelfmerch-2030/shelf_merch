@@ -1,1 +1,0 @@
-import{t as e}from"./jsx-runtime-n5LQ9ujS.js";var t=e();function n({title:e,subtitle:n,actions:r}){return(0,t.jsxs)(`div`,{className:`page-h`,children:[(0,t.jsxs)(`div`,{children:[(0,t.jsx)(`h1`,{children:e}),n&&(0,t.jsx)(`div`,{className:`sub`,children:n})]}),r&&(0,t.jsx)(`div`,{className:`row`,style:{gap:8},children:r})]})}export{n as t};

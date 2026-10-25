@@ -6,8 +6,8 @@
 .shelf-landing {
   scroll-behavior: smooth;
   margin: 0;
-  --font-geist-sans: var(--font-family-primary);
-  --font-geist-mono: var(--font-family-primary);
+  --font-geist-sans: var(--font-family-public-sans);
+  --font-geist-mono: var(--font-family-public-mono);
   --ink: #121212;
   --cream: #f7f3ea;
   --blue: #3155ff;
@@ -19,7 +19,7 @@
   --line: rgba(18, 18, 18, 0.14);
   background: var(--cream);
   color: var(--ink);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
   overflow-x: clip;
 }
 .shelf-landing .brand-wordmark {
@@ -207,7 +207,7 @@
 .shelf-landing .occasion-section h2 em,
 .shelf-landing .testimonial-heading h2 em,
 .shelf-landing .final-cta h2 em {
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-serif);
   font-weight: var(--font-weight-regular);
 }
 .shelf-landing .hero h1 em {
@@ -825,7 +825,7 @@
   position: absolute;
   right: 19.6px;
   top: 19.6px;
-  font: 10.2px var(--font-family-primary);
+  font: 10.2px var(--font-family-public-mono);
 }
 .shelf-landing .feature-card h3 {
   font-size: 28.1px;
@@ -1221,7 +1221,7 @@
   max-width: 144.5px;
 }
 .shelf-landing .catalog-count {
-  font: 8.5px var(--font-family-primary);
+  font: 8.5px var(--font-family-public-mono);
 }
 .shelf-landing .catalog-icon {
   position: absolute;
@@ -1287,7 +1287,7 @@
   position: relative;
 }
 .shelf-landing .quote-mark {
-  font: 85px/0.5 var(--font-family-primary);
+  font: 85px/0.5 var(--font-family-public-serif);
   color: var(--blue);
 }
 .shelf-landing .quote-section blockquote {
@@ -1340,7 +1340,7 @@
   background: transparent;
   padding: 8.5px 13.6px;
   border-radius: 84.1px;
-  font: var(--font-weight-semibold) 10.2px var(--font-family-primary);
+  font: var(--font-weight-semibold) 10.2px var(--font-family-public-sans);
   cursor: pointer;
 }
 .shelf-landing .tabs button[aria-selected="true"] {
@@ -1651,7 +1651,7 @@
   position: absolute;
   right: 17px;
   top: 17px;
-  font: 8.5px var(--font-family-primary);
+  font: 8.5px var(--font-family-public-mono);
 }
 .shelf-landing .event-grid h3 {
   color: var(--ink);
@@ -1784,7 +1784,7 @@
   position: relative;
 }
 .shelf-landing .choice-grid article > span {
-  font: 8.5px var(--font-family-primary);
+  font: 8.5px var(--font-family-public-mono);
 }
 .shelf-landing .choice-grid h3 {
   font-size: 25.5px;
@@ -2629,13 +2629,13 @@
 .shelf-landing,
 .shelf-landing button,
 .shelf-landing a {
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 .shelf-landing h1,
 .shelf-landing h2,
 .shelf-landing h3,
 .shelf-landing h4 {
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 .shelf-landing h1 em,
 .shelf-landing h2 em,
@@ -2648,7 +2648,7 @@
 .shelf-landing .occasion-section h2 em,
 .shelf-landing .testimonial-heading h2 em,
 .shelf-landing .final-cta h2 em {
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-serif);
   font-style: italic;
   font-weight: var(--font-weight-regular);
 }
@@ -3141,6 +3141,7 @@
 .public-catalog {
   min-height: 100vh;
   background: #fff;
+  overflow-x: clip;
 }
 .public-catalog--marketing {
   background: #fff;
@@ -3201,7 +3202,7 @@
   height: 28px;
   width: auto;
   max-width: 220px;
-  filter: none;
+  filter: brightness(0) invert(1);
 }
 .shelf-landing .footer-brand-col > p {
   margin: 0 0 20px;
@@ -3452,7 +3453,7 @@
   display: block;
   margin-top: 4px;
   color: var(--ink);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-serif);
   font-size: 0.62em;
   font-style: italic;
   font-weight: var(--font-weight-regular);
@@ -3597,7 +3598,7 @@
   background: #fff;
   color: var(--ink);
   box-shadow: 0 18px 70px rgba(72, 47, 130, 0.16);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
 }
 
 .shelf-landing .landing-plan__form-card .request-demo__field label {

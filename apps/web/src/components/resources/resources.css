@@ -11,7 +11,7 @@
   margin: 0;
   background: var(--cream);
   color: var(--ink);
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-sans);
   overflow-x: clip;
 }
 .shelf-resources *,
@@ -135,7 +135,7 @@
   background: var(--yellow);
 }
 .shelf-resources .serif {
-  font-family: var(--font-family-primary);
+  font-family: var(--font-family-public-serif);
   font-weight: var(--font-weight-regular);
   font-style: italic;
   letter-spacing: 0.03em;
@@ -222,7 +222,7 @@
   flex-direction: column;
 }
 .shelf-resources .stack-card > span {
-  font: 10px var(--font-family-primary);
+  font: 10px var(--font-family-public-mono);
 }
 .shelf-resources .stack-card > i {
   width: 54px;
@@ -330,7 +330,7 @@
   justify-content: space-between;
 }
 .shelf-resources .team-card-top span {
-  font: 9px var(--font-family-primary);
+  font: 9px var(--font-family-public-mono);
 }
 .shelf-resources .round-icon {
   width: 54px;
@@ -723,7 +723,7 @@
   border-left: 1px solid #383838;
 }
 .shelf-resources .stats span {
-  font: 8px var(--font-family-primary);
+  font: 8px var(--font-family-public-mono);
   color: var(--mint);
   grid-row: 1 / 3;
   margin-right: 35px;
@@ -786,7 +786,7 @@
   align-items: center;
 }
 .shelf-resources .moment-top span {
-  font: 9px var(--font-family-primary);
+  font: 9px var(--font-family-public-mono);
 }
 .shelf-resources .moment-card h3 {
   font-size: 36px;
@@ -842,7 +842,7 @@
   border: 0;
 }
 .shelf-resources .workflow-card > span {
-  font: 8px var(--font-family-primary);
+  font: 8px var(--font-family-public-mono);
   color: var(--mint);
 }
 .shelf-resources .workflow-card > i {
@@ -921,7 +921,7 @@
   border: 0;
 }
 .shelf-resources .control-panel i {
-  font: 8px var(--font-family-primary);
+  font: 8px var(--font-family-public-mono);
   color: #888;
 }
 .shelf-resources .control-panel b {
