@@ -17,7 +17,7 @@ describe("consent banner", () => {
     const user = userEvent.setup();
     render(<ConsentBanner />);
 
-    expect(screen.getByRole("dialog", { name: "Cookies and measurement" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Your privacy choices" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reject optional" }));
     expect(JSON.parse(localStorage.getItem(CONSENT_STORAGE_KEY) ?? "")).toMatchObject({
       analytics: false,

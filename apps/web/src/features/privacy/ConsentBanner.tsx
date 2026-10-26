@@ -42,22 +42,28 @@ export function ConsentBanner() {
       aria-describedby="consent-banner-copy"
     >
       <div className="consent-banner__inner">
-        <h2 id="consent-banner-title">Cookies and measurement</h2>
-        <p id="consent-banner-copy">
-          Essential cookies keep sign-in, security, and the service working. Analytics and advertising
-          measurement stay off until you choose. Accepting advertising allows the Meta tag in Google Tag
-          Manager. The OpenAI pixel stays unloaded until Shelf Merch finishes a separate review.
-        </p>
-        <div className="consent-banner__actions">
-          <button type="button" onClick={() => closeAfterChoice(acceptAll)}>
-            Accept all
-          </button>
-          <button type="button" onClick={() => closeAfterChoice(rejectOptional)}>
-            Reject optional
-          </button>
-          <button type="button" onClick={() => setManaging((open) => !open)} aria-expanded={managing}>
-            Manage preferences
-          </button>
+        <div className="consent-banner__copy">
+          <h2 id="consent-banner-title">Your privacy choices</h2>
+          <p id="consent-banner-copy">
+            We use essential cookies to keep Shelfmerch working. With your permission, we also use
+            cookies for analytics and advertising.
+          </p>
+        </div>
+        <div className="consent-banner__controls">
+          <div className="consent-banner__actions">
+            <button type="button" onClick={() => closeAfterChoice(acceptAll)}>
+              Accept all
+            </button>
+            <button type="button" onClick={() => closeAfterChoice(rejectOptional)}>
+              Reject optional
+            </button>
+          </div>
+          <div className="consent-banner__links">
+            <button type="button" onClick={() => setManaging((open) => !open)} aria-expanded={managing}>
+              Manage preferences
+            </button>
+            <a href="/privacy#cookie-preferences">Privacy policy</a>
+          </div>
         </div>
         {managing ? (
           <fieldset className="consent-banner__prefs">
@@ -86,7 +92,6 @@ export function ConsentBanner() {
             </button>
           </fieldset>
         ) : null}
-        <a href="/privacy#cookie-preferences">Privacy and cookie details</a>
       </div>
     </div>
   );
