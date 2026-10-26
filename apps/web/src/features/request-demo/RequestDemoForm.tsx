@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check, ChevronDown, Home, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
+import { publishShelfMerchLeadCreated } from "@/lib/leadConversion";
 import { trackOpenAiLeadCreated } from "@/lib/openaiPixel";
 import { ApiError, publicFetch } from "@/services/api";
 import {
@@ -92,6 +93,7 @@ export function RequestDemoForm({
     try {
       const created = await publicFetch<{ id?: string; status?: string }>("/demo-leads", {
         method: "POST",
+        responseMeta: true,
         body: JSON.stringify({
           fullName: values.fullName,
           companyName: values.companyName,
@@ -101,10 +103,17 @@ export function RequestDemoForm({
         }),
       });
 
-      try {
-        trackOpenAiLeadCreated(created?.id);
-      } catch {
-        /* A measurement failure must not discard a saved demo request. */
+      if (created.status === 201) {
+        try {
+          trackOpenAiLeadCreated(created.body?.id);
+        } catch {
+          /* A measurement failure must not discard a saved demo request. */
+        }
+        try {
+          publishShelfMerchLeadCreated({ httpStatus: created.status, leadId: created.body?.id });
+        } catch {
+          /* A tag failure must not discard a saved demo request. */
+        }
       }
 
       currentForm.reset();

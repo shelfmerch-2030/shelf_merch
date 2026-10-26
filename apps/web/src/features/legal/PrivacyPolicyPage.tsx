@@ -23,7 +23,7 @@ export function PrivacyPolicyPage() {
       <main className="legal-main">
         <article className="legal-article">
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: 25 October 2026</p>
+          <p className="legal-updated">Last updated: 26 October 2026</p>
 
           <p className="legal-intro">
             This Privacy Policy describes how <strong>Chitlu Innovations Private Limited</strong> (“
@@ -294,6 +294,22 @@ export function PrivacyPolicyPage() {
               <strong>Website:</strong> <a href="https://shelfmerch.io">https://shelfmerch.io</a>
             </li>
           </ul>
+
+          <h2 id="cookies">Cookies and similar technology</h2>
+          <p>
+            Essential cookies support session continuity, security, preferences, and authentication. Those
+            cookies are not optional. Google Analytics 4 and the Meta pixel are loaded through the existing
+            Google Tag Manager container only after you allow the matching category. Until you choose, and
+            if you reject optional measurement, that container is not requested.
+          </p>
+          <p>
+            The OpenAI measurement pixel is a separate optional tag. It records a saved demo request or a
+            finished registration with an event id. It does not receive your name, email, phone number, or
+            verification code in the event Shelf Merch creates. If Shelf Merch later enables the pixel,
+            OpenAI automatic advanced matching can hash customer details it recognizes in forms. The pixel
+            stays unloaded until you allow advertising measurement and that review is complete. OpenAI may
+            then store __oppref for about 30 days and __obref for about 365 days.
+          </p>
 
           <MeasurementConsentChoice />
 

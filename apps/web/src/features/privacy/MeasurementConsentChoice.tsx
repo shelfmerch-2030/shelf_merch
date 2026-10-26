@@ -1,65 +1,67 @@
-import { useEffect, useState } from "react";
-import {
-  readMeasurementConsent,
-  setMeasurementConsent,
-  subscribeMeasurementConsent,
-  withdrawMeasurementConsent,
-  type MeasurementConsent,
-} from "@/lib/measurementConsent";
+import { useConsentDraft } from "./useConsentDraft";
 import "./measurement-consent.css";
 
-const STATUS: Record<MeasurementConsent, string> = {
-  unknown: "No choice is saved in this browser. Advertising measurement stays off.",
-  granted: "You allowed advertising measurement in this browser. You can withdraw that choice at any time.",
-  denied: "You declined advertising measurement in this browser. It stays off.",
-};
-
 export function MeasurementConsentChoice() {
-  const [consent, setConsent] = useState<MeasurementConsent>("unknown");
-
-  useEffect(() => {
-    setConsent(readMeasurementConsent());
-    return subscribeMeasurementConsent(() => setConsent(readMeasurementConsent()));
-  }, []);
+  const { choice, draft, setDraft, acceptAll, rejectOptional, saveDraft } = useConsentDraft();
 
   return (
     <section
-      id="measurement-choice"
+      id="cookie-preferences"
       className="measurement-consent"
-      aria-labelledby="measurement-choice-title"
+      aria-labelledby="cookie-preferences-title"
     >
-      <h2 id="measurement-choice-title">Advertising measurement</h2>
-      <p>
-        Shelf Merch can use an optional OpenAI measurement pixel to record that a demo request was
-        saved or an account registration finished. That pixel is not loaded unless you allow it here
-        and Shelf Merch has switched it on. Event data is limited to the event name and an id. Your
-        name, email, phone number, and verification code are not included.
+      <h2 id="cookie-preferences-title">Cookie preferences</h2>
+      <p id="measurement-choice">
+        Essential cookies are required for sign-in, security, and the service. They are not switched off
+        here. Analytics covers Google Analytics 4 loaded by Google Tag Manager. Advertising covers the
+        Meta tag in that container and the optional OpenAI measurement pixel. The OpenAI pixel is still
+        not loaded until Shelf Merch completes its advanced-matching review, even if you allow advertising.
       </p>
       <p>
-        If the pixel runs, OpenAI may store two first-party cookies in this browser: __oppref for
-        about 30 days and __obref for about 365 days. Withdrawing consent stops later measurement and
-        asks the pixel to remove those cookies. This choice is saved only in this browser. It does not
-        control essential cookies, and it does not control other tags that the site may already load.
+        If that pixel is later enabled, OpenAI can hash customer details it recognizes in forms before
+        sending a conversion. The events Shelf Merch sends itself contain only an event name and an event
+        id, not your name, email, phone number, or verification code. OpenAI may store __oppref for about
+        30 days and __obref for about 365 days. Withdrawing advertising consent stops later OpenAI
+        measurement and, if the pixel is already loaded, asks it to remove those cookies.
       </p>
       <p className="measurement-consent__status" role="status">
-        {STATUS[consent]}
+        {choice
+          ? `Saved in this browser. Analytics ${choice.analytics ? "on" : "off"}. Advertising ${choice.advertising ? "on" : "off"}.`
+          : "No choice is saved in this browser. Optional measurement stays off."}
       </p>
       <div className="measurement-consent__actions">
-        {consent !== "granted" ? (
-          <button type="button" onClick={() => setMeasurementConsent("granted")}>
-            Allow advertising measurement
-          </button>
-        ) : (
-          <button type="button" onClick={() => withdrawMeasurementConsent()}>
-            Withdraw consent
-          </button>
-        )}
-        {consent === "unknown" ? (
-          <button type="button" onClick={() => withdrawMeasurementConsent()}>
-            Don&apos;t allow
-          </button>
-        ) : null}
+        <button type="button" onClick={acceptAll}>
+          Accept all
+        </button>
+        <button type="button" onClick={rejectOptional}>
+          Reject optional
+        </button>
       </div>
+      <fieldset className="measurement-consent__prefs">
+        <legend>Manage preferences</legend>
+        <label>
+          <input type="checkbox" checked disabled /> Essential (always on)
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.analytics}
+            onChange={(event) => setDraft((current) => ({ ...current, analytics: event.target.checked }))}
+          />
+          Analytics
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={draft.advertising}
+            onChange={(event) => setDraft((current) => ({ ...current, advertising: event.target.checked }))}
+          />
+          Advertising
+        </label>
+        <button type="button" onClick={saveDraft}>
+          Save preferences
+        </button>
+      </fieldset>
     </section>
   );
 }

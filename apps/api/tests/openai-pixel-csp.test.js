@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeOpenAiPixelCsp } from '../src/config/openaiPixelCsp.js';
+import { mergeBrowserTagCsp, mergeOpenAiPixelCsp } from '../src/config/openaiPixelCsp.js';
 
 describe('OpenAI measurement pixel CSP', () => {
   it('adds the documented script, connect, and image hosts without replacing existing sources', () => {
@@ -26,5 +26,15 @@ describe('OpenAI measurement pixel CSP', () => {
     expect(merged.connectSrc).toContain('https:');
     expect(merged.scriptSrc).not.toContain('https://www.googletagmanager.com');
     expect(merged.scriptSrcElem).toBeUndefined();
+  });
+
+  it('allows the existing GTM, GA4, and Meta script hosts without removing self', () => {
+    const merged = mergeBrowserTagCsp({ scriptSrc: ["'self'"] });
+    expect(merged.scriptSrc).toEqual([
+      "'self'",
+      'https://www.googletagmanager.com',
+      'https://www.google-analytics.com',
+      'https://connect.facebook.net',
+    ]);
   });
 });

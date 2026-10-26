@@ -56,12 +56,10 @@ function conditionalGtmPlugin(envDir: string): Plugin {
     },
     transformIndexHtml(html) {
       if (gtmId) return html;
-      return html
-        .replace(/<!-- Google Tag Manager -->[\s\S]*?<!-- End Google Tag Manager -->\s*/g, "")
-        .replace(
-          /<!-- Google Tag Manager \(noscript\) -->[\s\S]*?<!-- End Google Tag Manager \(noscript\) -->\s*/g,
-          "",
-        );
+      return html.replace(
+        /<!-- Consent and Google Tag Manager -->[\s\S]*?<!-- End Consent and Google Tag Manager -->\s*/g,
+        "",
+      );
     },
   };
 }
