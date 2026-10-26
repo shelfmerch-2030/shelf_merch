@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import { Footer } from "@/components/landing/Footer";
+import { MeasurementConsentChoice } from "@/features/privacy/MeasurementConsentChoice";
 import { Header } from "@/components/landing/Header";
 import "@/components/landing-page.css";
 import aboutHtml from "./pages/about.html?raw";
@@ -1220,7 +1221,13 @@ function ShadowPageBody({ page }: { page: MarketingPageKey }) {
   return <div ref={hostRef} />;
 }
 
-export function MarketingHtmlPage({ page }: { page: MarketingPageKey }) {
+export function MarketingHtmlPage({
+  page,
+  afterContent,
+}: {
+  page: MarketingPageKey;
+  afterContent?: ReactNode;
+}) {
   useEffect(() => {
     document.title = PAGE_TITLE[page];
   }, [page]);
@@ -1230,6 +1237,7 @@ export function MarketingHtmlPage({ page }: { page: MarketingPageKey }) {
       <Header />
       <main style={{ paddingTop: 70 }}>
         <ShadowPageBody page={page} />
+        {afterContent}
       </main>
       <Footer />
     </div>
@@ -1249,7 +1257,7 @@ export function PlatformMarketingPage() {
 }
 
 export function PrivacyPage() {
-  return <MarketingHtmlPage page="privacy" />;
+  return <MarketingHtmlPage page="privacy" afterContent={<MeasurementConsentChoice />} />;
 }
 
 export function TermsPage() {

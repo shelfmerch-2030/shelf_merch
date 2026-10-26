@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check, ChevronDown, Home, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
+import { publishShelfMerchLeadCreated } from "@/lib/leadConversion";
+import { trackOpenAiLeadCreated } from "@/lib/openaiPixel";
 import { ApiError, publicFetch } from "@/services/api";
 import {
   buildRequestDemoWhatsAppHref,
@@ -50,6 +52,7 @@ export function RequestDemoForm({
   idPrefix = "demo",
 }: RequestDemoFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const submitInFlight = useRef(false);
   const [submitState, setSubmitState] = useState<"idle" | "submitting" | "success" | "error">(
     "idle",
   );
@@ -78,17 +81,19 @@ export function RequestDemoForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitState === "submitting" || submitState === "success") return;
+    if (submitInFlight.current || submitState === "success") return;
 
     const currentForm = event.currentTarget;
     const values = readLeadFormValues(currentForm);
 
+    submitInFlight.current = true;
     setSubmitState("submitting");
     setMessage("");
 
     try {
-      await publicFetch("/demo-leads", {
+      const created = await publicFetch<{ id?: string; status?: string }>("/demo-leads", {
         method: "POST",
+        responseMeta: true,
         body: JSON.stringify({
           fullName: values.fullName,
           companyName: values.companyName,
@@ -98,6 +103,19 @@ export function RequestDemoForm({
         }),
       });
 
+      if (created.status === 201) {
+        try {
+          trackOpenAiLeadCreated(created.body?.id);
+        } catch {
+          /* A measurement failure must not discard a saved demo request. */
+        }
+        try {
+          publishShelfMerchLeadCreated({ httpStatus: created.status, leadId: created.body?.id });
+        } catch {
+          /* A tag failure must not discard a saved demo request. */
+        }
+      }
+
       currentForm.reset();
       setRequirement("");
       setIsRequirementOpen(false);
@@ -106,6 +124,7 @@ export function RequestDemoForm({
       setSubmitState("success");
       setMessage("");
     } catch (error) {
+      submitInFlight.current = false;
       setSubmitState("error");
       const isValidation =
         error instanceof ApiError && (error.status === 400 || error.code === "VALIDATION_ERROR");

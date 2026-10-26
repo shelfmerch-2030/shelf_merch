@@ -1,0 +1,1 @@
+function e(e){return e.current?!1:(e.current=!0,!0)}function t(e){e.current=!1}export{t as n,e as t};

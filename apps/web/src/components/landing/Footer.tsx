@@ -157,6 +157,15 @@ const FOOTER_SECTIONS: FooterSection[] = [
       <>
         <a href="/terms">Terms &amp; Conditions</a>
         <a href="/privacy">Privacy Policy</a>
+        <a
+          href="/privacy#cookie-preferences"
+          onClick={(event) => {
+            event.preventDefault();
+            window.dispatchEvent(new Event("shelfmerch:open-consent"));
+          }}
+        >
+          Cookie preferences
+        </a>
         <span>Refund Policy</span>
         <span>Shipping Policy</span>
         <span>Cookie Policy</span>
