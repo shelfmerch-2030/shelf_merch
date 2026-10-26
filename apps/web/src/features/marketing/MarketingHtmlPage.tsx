@@ -22,7 +22,7 @@ const PAGE_HTML: Record<MarketingPageKey, string> = {
 const MARKETING_PAGE_NORMALIZE_CSS = `
   :host {
     --marketing-header-offset: 70px;
-    font-family:var(--font-family-primary);
+    font-family:var(--font-family-public-sans);
     letter-spacing: 0;
   }
 
@@ -31,7 +31,7 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
   }
 
   body, main, section, article, div, p, a, button, input, textarea, select {
-    font-family:var(--font-family-primary);
+    font-family:var(--font-family-public-sans);
   }
 
   h1, h2, h3, h4, p, ul, ol, blockquote {
@@ -39,13 +39,13 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
   }
 
   h1, h2, h3, h4 {
-    font-family:var(--font-family-primary);
+    font-family:var(--font-family-public-sans);
     font-weight:var(--font-weight-bold);
     letter-spacing: -0.02em;
   }
 
   h1 em, h2 em, h3 em, h4 em {
-    font-family:var(--font-family-primary);
+    font-family:var(--font-family-public-serif);
     font-style: italic;
     font-weight:var(--font-weight-regular);
     letter-spacing: 0;
@@ -624,7 +624,7 @@ const MARKETING_PAGE_NORMALIZE_CSS = `
 
   .stores h2 em {
     color: #e9599d !important;
-    font-family:var(--font-family-primary);
+    font-family:var(--font-family-public-sans);
     font-style: normal !important;
     font-weight:var(--font-weight-bold) !important;
   }
@@ -1212,7 +1212,7 @@ function ShadowPageBody({ page }: { page: MarketingPageKey }) {
     const host = hostRef.current;
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>:host{display:block;background:#f7f3ea;color:#121212;font-family:var(--font-family-primary)}${parsed.style}${MARKETING_PAGE_NORMALIZE_CSS}</style>${parsed.bodyMarkup}`;
+    root.innerHTML = `<style>:host{display:block;background:#f7f3ea;color:#121212;font-family:var(--font-family-public-sans)}${parsed.style}${MARKETING_PAGE_NORMALIZE_CSS}</style>${parsed.bodyMarkup}`;
   }, [parsed]);
 
   useShadowHashLinks(hostRef);

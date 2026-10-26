@@ -161,6 +161,10 @@ const tenantChildren: RouteObject[] = [
     children: [
       { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
       {
+        path: "browse",
+        lazy: page(() => import("@/features/catalog/CatalogBrowsePage"), "CatalogBrowsePage"),
+      },
+      {
         path: ":id",
         lazy: page(() => import("@/features/catalog/CatalogProductPage"), "CatalogProductPage"),
       },
@@ -272,6 +276,10 @@ export const appRouter = createBrowserRouter([
         children: [
           { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
           {
+            path: "browse",
+            lazy: page(() => import("@/features/catalog/CatalogBrowsePage"), "CatalogBrowsePage"),
+          },
+          {
             path: "category/:category",
             lazy: page(() => import("@/features/catalog/CatalogCategoryPage"), "CatalogCategoryPage"),
           },
@@ -288,6 +296,10 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/features/catalog/PublicCatalogPage"), "PublicCatalogLayout"),
         children: [
           { index: true, lazy: page(() => import("@/features/catalog/CatalogPage"), "CatalogPage") },
+          {
+            path: "browse",
+            lazy: page(() => import("@/features/catalog/CatalogBrowsePage"), "CatalogBrowsePage"),
+          },
           {
             path: "category/:category",
             lazy: page(() => import("@/features/catalog/CatalogCategoryPage"), "CatalogCategoryPage"),

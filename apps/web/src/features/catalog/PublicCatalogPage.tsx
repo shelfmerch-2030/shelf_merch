@@ -31,11 +31,9 @@ export function PublicCatalogLayout() {
       <main className="public-catalog-main public-catalog-main--flush">
         <Outlet />
       </main>
-      {isCatalogIndex ? null : (
-        <div className="shelf-landing public-catalog-chrome">
-          <Footer />
-        </div>
-      )}
+      <div className="shelf-landing public-catalog-chrome">
+        <Footer />
+      </div>
     </div>
   );
 }
