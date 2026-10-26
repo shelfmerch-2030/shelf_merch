@@ -42,6 +42,8 @@ export type CatalogVm = {
   items: UiProduct[];
   /** Product pool for style-carousel tile photos (landing only). */
   stylePreviewProducts: UiProduct[];
+  stylePreviewLoading?: boolean;
+  stylePreviewError?: string | null;
   count: number;
   isSkeleton: boolean;
   errorMessage: string | null;
@@ -124,6 +126,8 @@ export function useCatalogController(): CatalogVm {
     categoriesByParent,
     items,
     stylePreviewProducts,
+    stylePreviewLoading: stylePreview.isLoading && stylePreviewProducts.length === 0,
+    stylePreviewError: stylePreview.isError ? "Could not load catalog products. Please try again." : null,
     count: data?.total ?? items.length,
     isSkeleton: (isLoading || isFetching) && items.length === 0,
     errorMessage: isError
@@ -139,7 +143,7 @@ export function useCatalogController(): CatalogVm {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete("category");
         navigate(
-          `${basePath}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`,
+          `${basePath}/category/all-products${nextParams.toString() ? `?${nextParams.toString()}` : ""}`,
           { replace: false },
         );
         return;

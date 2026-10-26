@@ -27,3 +27,7 @@ coverage/
 
 # Local file-storage uploads (runtime/test artifacts)
 apps/api/uploads/
+
+# Local catalog verification builds
+.catalog-review-build/
+.codex-build/

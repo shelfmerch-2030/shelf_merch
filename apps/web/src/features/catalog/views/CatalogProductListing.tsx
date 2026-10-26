@@ -1,8 +1,11 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "react-router";
+import { Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UiProduct } from "../model";
 import { ProductCard } from "./ProductCard";
 import { newestProducts } from "../newestProducts";
+import { ALL_PRODUCTS } from "../types";
 
 function amount(product: UiProduct) {
   return product.basePriceInr ?? (Number(product.price.replace(/[^\d.]/g, "")) || 0);
@@ -62,11 +65,14 @@ export function CatalogProductListing({ products, title, home, navigation, loadi
   }
 
   return (
-    <div className="sm-catalog-shop">
+    <div className={`sm-catalog-shop${title === ALL_PRODUCTS ? " sm-catalog-shop--all-products" : ""}`}>
       <aside className="sm-catalog-shop__sidebar" aria-label="Product filters">
         <label className="sm-catalog-shop__search">
           <span>Search products</span>
-          <input type="search" placeholder={`Search ${title}`} value={search} onChange={(event) => setSearch(event.target.value)} />
+          <span className="sm-catalog-shop__search-field">
+            <Search size={15} aria-hidden="true" />
+            <input type="search" placeholder={`Search ${title}`} value={search} onChange={(event) => setSearch(event.target.value)} />
+          </span>
         </label>
         {navigation}
         <details className="sm-catalog-shop__filter" open>
@@ -99,15 +105,18 @@ export function CatalogProductListing({ products, title, home, navigation, loadi
       <section className="sm-catalog-shop__results" aria-label={`${title} products`}>
         <div className="sm-catalog-shop__toolbar">
           <div><h1>{title}</h1><p role="status">{loading ? "Loading products…" : `${filtered.length} ${filtered.length === 1 ? "product" : "products"}`}</p></div>
-          <label>Sort by
-            <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              <option value="recommended">Recommended</option>
-              <option value="newest">Newest arrivals</option>
-              <option value="price-asc">Price: low to high</option>
-              <option value="price-desc">Price: high to low</option>
-              <option value="name">Name: A–Z</option>
-            </select>
-          </label>
+          <div className="sm-catalog-sort"><span>Sort by</span>
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="sm-catalog-sort__trigger" aria-label="Sort by"><SelectValue /></SelectTrigger>
+              <SelectContent className="sm-catalog-sort__menu" align="end" sideOffset={6}>
+                <SelectItem className="sm-catalog-sort__option" value="recommended">Recommended</SelectItem>
+                <SelectItem className="sm-catalog-sort__option" value="newest">Newest arrivals</SelectItem>
+                <SelectItem className="sm-catalog-sort__option" value="price-asc">Price: low to high</SelectItem>
+                <SelectItem className="sm-catalog-sort__option" value="price-desc">Price: high to low</SelectItem>
+                <SelectItem className="sm-catalog-sort__option" value="name">Name: A–Z</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         {error ? <div className="card sm-cat-error" role="alert">{error}</div> : loading ? (
           <div className="sm-cat-grid" aria-busy="true" aria-label="Loading products">

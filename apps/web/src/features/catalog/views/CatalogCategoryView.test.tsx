@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useParams } from "react-router";
 import { CatalogCategoryView } from "./CatalogCategoryView";
+import { CatalogBrowseView } from "./CatalogBrowseView";
+import { Header } from "../../../components/landing/Header";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { FALLBACK_CATALOG_NODES, resolveCatalogBrowseTarget } from "../types";
 import type { CatalogVm } from "../controllers/useCatalogController";
 import type { UiProduct } from "../model";
@@ -24,19 +27,39 @@ const products: UiProduct[] = [
   { id: "laptop-bag", g: "", brand: "", nm: "Work Laptop Bag", category: "Accessories", subcategory: "Bags", childCategory: "Laptop Bags", price: "₹1200", sw: 0 },
   { id: "generic-bag", g: "", brand: "", nm: "Everyday Carry", category: "Accessories", subcategory: "Bags", price: "₹800", sw: 0 },
   { id: "massager", g: "", brand: "", nm: "Neck & Shoulder Massager", category: "Accessories", subcategory: "Travel Accessories", price: "₹1500", sw: 0 },
+  { id: "toaster", g: "", brand: "", nm: "Pop-Up Toaster", category: "Home & Living", subcategory: "Kitchenware", price: "₹1800", sw: 0 },
+  { id: "kettle", g: "", brand: "", nm: "Glass Kettle", category: "Home & Living", subcategory: "Kitchenware", price: "₹1400", sw: 0 },
+  { id: "vacuum", g: "", brand: "", nm: "Stick Vacuum", category: "Home & Living", subcategory: "Home Appliances", price: "₹4000", sw: 0 },
+  { id: "steamer", g: "", brand: "", nm: "Garment Steamer", category: "Home & Living", subcategory: "Home Appliances", price: "₹2000", sw: 0 },
+  { id: "charger", g: "", brand: "", nm: "Wireless Charging Dock", category: "Accessories", subcategory: "Electronics & Gadgets", categoryLabels: ["Accessories", "Electronics & Gadgets", "Gadgets", "Wireless Chargers"], price: "₹1400", sw: 0 },
+  { id: "tech-pouch", g: "", brand: "", nm: "Cable Organiser", category: "Accessories", subcategory: "Electronics & Gadgets", categoryLabels: ["Accessories", "Electronics & Gadgets", "Gadget Organisers"], price: "₹600", sw: 0 },
 ];
+
+const categoryNodes = [...FALLBACK_CATALOG_NODES.map((node) => node.name !== "Accessories" ? node : {
+  ...node, children: node.children.map((child) => child.name !== "Electronics & Gadgets" ? child : {
+    ...child, slug: "electronics-gadgets", children: [
+      { name: "Gadgets", slug: "gadgets", children: [] },
+      { name: "Gadget Organisers", slug: "gadget-organisers", children: [] },
+    ],
+  }),
+}), {
+  name: "Home & Living", slug: "home-living", children: [
+    { name: "Kitchenware", slug: "kitchenware", children: [] },
+    { name: "Home Appliances", slug: "home-appliances", children: [] },
+  ],
+}];
 
 function Page() {
   const { category } = useParams();
-  const browse = resolveCatalogBrowseTarget(category);
+  const browse = resolveCatalogBrowseTarget(category, categoryNodes);
   const vm: CatalogVm = {
-    ...browse, isCategorySelected: true, categories: FALLBACK_CATALOG_NODES.map((node) => node.name),
-    categoryNodes: FALLBACK_CATALOG_NODES,
-    categoriesByParent: Object.fromEntries(FALLBACK_CATALOG_NODES.map((node) => [node.name, node.children])),
-    subcategoriesByCategory: {}, items: products.filter((product) => product.category === browse.parent),
+    ...browse, isCategorySelected: true, categories: categoryNodes.map((node) => node.name),
+    categoryNodes,
+    categoriesByParent: Object.fromEntries(categoryNodes.map((node) => [node.name, node.children])),
+    subcategoriesByCategory: {}, items: browse.parent === "All Products" ? products : products.filter((product) => product.category === browse.parent),
     stylePreviewProducts: [], count: products.length, isSkeleton: false, errorMessage: null, onCategory: vi.fn(),
   };
-  return <CatalogCategoryView {...vm} />;
+  return category ? <CatalogCategoryView {...vm} /> : <CatalogBrowseView {...vm} />;
 }
 
 function open(path = "/apps/catalog/category/apparel") {
@@ -45,6 +68,73 @@ function open(path = "/apps/catalog/category/apparel") {
 afterEach(cleanup);
 
 describe("category shopping flow", () => {
+  it.each(["/app/catalog", "/apps/catalog"])("returns to category overview from Apparel navigation under %s", (home) => {
+    render(<MemoryRouter initialEntries={[`${home}/category/apparel`]}><Routes>
+      <Route path={`${home}/category/:category`} element={<><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { enabled: false } } })}><Header /></QueryClientProvider><Page /></>} />
+      <Route path={`${home}/browse`} element={<Page />} />
+    </Routes></MemoryRouter>);
+    const headerCatalog = within(screen.getByRole("navigation", { name: "Main navigation" })).getByRole("link", { name: "Catalog" });
+    const breadcrumbCatalog = within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Catalog" });
+    expect(breadcrumbCatalog.getAttribute("href")).toBe(`${home}/browse`);
+    expect(headerCatalog.getAttribute("href")).toBe(`${home}/browse`);
+    fireEvent.click(headerCatalog);
+    expect(screen.getByRole("heading", { name: "Catalog" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "All Products" })).toBeTruthy();
+    const kitsLinks = screen.getAllByRole("link", { name: "Kits" });
+    expect(kitsLinks).toHaveLength(2);
+    for (const link of kitsLinks) expect(link.getAttribute("href")).toBe(`${home}/category/kits`);
+  });
+  it.each(["/app/catalog", "/apps/catalog"])("opens every product from the All Products tile under %s", (home) => {
+    render(<MemoryRouter initialEntries={[`${home}/browse`]}><Routes>
+      <Route path={`${home}/browse`} element={<Page />} />
+      <Route path={`${home}/category/:category`} element={<Page />} />
+    </Routes></MemoryRouter>);
+    fireEvent.click(screen.getByRole("link", { name: "All Products" }));
+    const listing = screen.getByRole("region", { name: "All Products products" });
+    expect(within(listing).getByRole("heading", { name: "All Products" })).toBeTruthy();
+    expect(within(listing).getByRole("status").textContent).toBe(`${products.length} products`);
+    for (const product of products) expect(within(listing).getByText(product.nm)).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Classic Tee" } });
+    expect(within(listing).getByRole("status").textContent).toBe("1 product");
+  });
+  it.each(["/app/catalog", "/apps/catalog"])("supports Electronics groups, featured products and both category slugs under %s", (home) => {
+    open(`${home}/category/electronics-gadgets`);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Electronics & Gadgets");
+    const featured = screen.getByRole("region", { name: "The latest in Electronics & Gadgets" });
+    expect(within(featured).getByRole("link", { name: "View Wireless Charging Dock" }).getAttribute("href")).toBe(`${home}/charger`);
+    expect(within(featured).queryByRole("link", { name: "View Linen Diary" })).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "Gadgets category Gadgets" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Gadgets");
+    expect(screen.getByRole("link", { name: "View Wireless Charging Dock" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "View Cable Organiser" })).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "Electronics & Gadgets" }));
+    fireEvent.click(screen.getByRole("link", { name: "View all Electronics & Gadgets" }));
+    expect(screen.getByRole("status").textContent).toBe("2 products");
+    expect(screen.getByRole("link", { name: "View Cable Organiser" })).toBeTruthy();
+  });
+  it.each(["/app/catalog", "/apps/catalog"])("keeps Home Appliances separate from Kitchenware under %s", (home) => {
+    open(`${home}/category/home-appliances`);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Home Appliances");
+    const collection = screen.getByRole("region", { name: "Home Appliances collection" });
+    expect(within(collection).getByRole("link", { name: "View Stick Vacuum" }).getAttribute("href")).toBe(`${home}/vacuum`);
+    expect(within(collection).queryByRole("link", { name: "View Pop-Up Toaster" })).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "View all Home Appliances" }));
+    expect(screen.getByRole("status").textContent).toBe("2 products");
+    expect(screen.getByRole("link", { name: "View Garment Steamer" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "View Glass Kettle" })).toBeNull();
+  });
+  it.each(["/app/catalog", "/apps/catalog"])("shows the Kitchenware landing and scopes all products under %s", (home) => {
+    open(`${home}/category/kitchenware`);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Kitchenware");
+    const collection = screen.getByRole("region", { name: "Kitchenware collection" });
+    expect(within(collection).getByRole("link", { name: "View Pop-Up Toaster" }).getAttribute("href")).toBe(`${home}/toaster`);
+    expect(within(collection).queryByRole("link", { name: "View Stick Vacuum" })).toBeNull();
+    expect(screen.getByRole("link", { name: /Explore custom kits/ }).getAttribute("href")).toBe(`${home}/category/kits`);
+    fireEvent.click(screen.getByRole("link", { name: "View all Kitchenware" }));
+    expect(screen.getByRole("status").textContent).toBe("2 products");
+    expect(screen.getByRole("link", { name: "View Glass Kettle" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "View Stick Vacuum" })).toBeNull();
+  });
   it.each(["/app/catalog", "/apps/catalog"])("opens the flat Travel Accessories collection and its products under %s", (home) => {
     open(`${home}/category/travel-accessories`);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Travel Accessories");
@@ -79,7 +169,7 @@ describe("category shopping flow", () => {
     expect(within(latest).getAllByRole("link", { name: /View (Blue Bottle|Ceramic Mug)/ }).map((link) => link.getAttribute("href"))).toEqual([`${home}/bottle`, `${home}/mug`]);
     expect(within(latest).queryByRole("link", { name: "View Linen Diary" })).toBeNull();
     fireEvent.click(screen.getByRole("link", { name: /New arrivals/ }));
-    expect((screen.getByRole("combobox", { name: "Sort by" }) as HTMLSelectElement).value).toBe("newest");
+    expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe("Newest arrivals");
     expect(screen.getByRole("status").textContent).toBe("2 products");
     const results = screen.getByRole("region", { name: "Drinkware products" });
     expect(within(results).getAllByRole("link")[0].getAttribute("href")).toBe(`${home}/bottle`);
@@ -97,6 +187,22 @@ describe("category shopping flow", () => {
     expect(screen.getByRole("status").textContent).toBe("2 products");
     expect(screen.queryByRole("link", { name: "View Ceramic Mug" })).toBeNull();
   });
+  it.each(["/app/catalog", "/apps/catalog"])("keeps the Accessories overview distinct from Stationery under %s", (home) => {
+    open(`${home}/category/accessories`);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Accessories");
+    expect(screen.queryByRole("link", { name: "View all Stationery" })).toBeNull();
+    const overviewNavigation = screen.getByRole("navigation", { name: "Product types" });
+    fireEvent.click(within(overviewNavigation).getByRole("link", { name: "Stationery" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Stationery");
+    const stationeryNavigation = screen.getByRole("navigation", { name: "Product types" });
+    expect(within(stationeryNavigation).getByRole("link", { name: "All Stationery" })).toBeTruthy();
+    expect(within(stationeryNavigation).getByRole("link", { name: "Diaries" })).toBeTruthy();
+    expect(within(stationeryNavigation).getByRole("link", { name: "Pens & Pencils" })).toBeTruthy();
+    for (const name of ["Bags", "Travel Accessories", "Drinkware", "Electronics & Gadgets"]) {
+      expect(within(stationeryNavigation).queryByRole("link", { name })).toBeNull();
+    }
+    expect(screen.queryByRole("link", { name: "Bags category Bags" })).toBeNull();
+  });
   it("opens T-Shirts from the Apparel image card and shows only T-shirts", () => {
     open();
     fireEvent.click(screen.getByRole("link", { name: "T-Shirts category T-Shirts" }));
@@ -111,7 +217,8 @@ describe("category shopping flow", () => {
 
   it("supports search, price sorting, attribute filters and clearing", () => {
     open("/apps/catalog/category/t-shirts");
-    fireEvent.change(screen.getByRole("combobox", { name: "Sort by" }), { target: { value: "price-desc" } });
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Sort by" }), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("option", { name: "Price: high to low" }), { key: "Enter" });
     const results = screen.getByRole("region", { name: "T-Shirts products" });
     expect(within(results).getAllByRole("link")[0].textContent).toContain("Premium Tee");
     fireEvent.click(screen.getByRole("checkbox", { name: "Black" }));

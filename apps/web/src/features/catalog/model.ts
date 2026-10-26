@@ -40,7 +40,9 @@ export function useCatalog(
   return useQuery({
     queryKey: [CATALOG_QUERY_KEY, category],
     queryFn: () => refreshCatalogProducts(category === ALL_PRODUCTS ? undefined : category),
-    initialData: enabled && category === ALL_PRODUCTS ? seed : undefined,
+    initialData: enabled && category === ALL_PRODUCTS && seed && seed.items.length >= seed.total
+      ? seed
+      : undefined,
     staleTime: 30_000,
     enabled,
   });

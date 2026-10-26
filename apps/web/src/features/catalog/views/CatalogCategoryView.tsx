@@ -19,6 +19,8 @@ import { CatalogKitsGrid } from "./CatalogKitsGrid";
 import { CatalogEditorialGrid } from "./CatalogEditorialGrid";
 import { DrinkwareEditorialGrid } from "./DrinkwareEditorialGrid";
 import { TravelEditorialView } from "./TravelEditorialView";
+import { HomeEditorialView } from "./HomeEditorialView";
+import { ElectronicsEditorialView } from "./ElectronicsEditorialView";
 import { useCatalogKitsController } from "../controllers/useCatalogKitsController";
 import "./catalog-view.css";
 import accessoriesImg from "../../../../assets/catalog/category-heroes/accessories-bystadium.png";
@@ -54,8 +56,17 @@ import bagsLaptops from "../../../../assets/catalog/bags-editorial/laptop-bags.p
 import bagsDuffels from "../../../../assets/catalog/bags-editorial/duffels.png";
 import bagsMessengers from "../../../../assets/catalog/bags-editorial/messengers.png";
 import travelEditorialHero from "../../../../assets/catalog/travel-editorial/hero.png";
+import kitchenEditorialHero from "../../../../assets/catalog/kitchen-editorial/hero.png";
+import appliancesEditorialHero from "../../../../assets/catalog/home-appliances-editorial/hero.png";
+import electronicsEditorialHero from "../../../../assets/catalog/electronics-editorial/hero.png";
 
 const CATEGORY_COPY: Record<string, string> = {
+  "Electronics & Gadgets":
+    "Useful tech for connected teams and everyday life. Discover smart charging, sound and workspace essentials that make your brand part of the daily routine.",
+  "Home Appliances":
+    "Practical home appliances for easier everyday living. Discover useful essentials that bring comfort, care and a little more ease to the routines people love.",
+  Kitchenware:
+    "Thoughtful kitchenware for the everyday moments that matter. From the first coffee to a shared meal, find useful favourites for homes, teams and meaningful gifts.",
   "Travel Accessories":
     "Thoughtful travel accessories for teams on the move. Bring a little comfort to every commute, business trip and new destination.",
   Stationery:
@@ -200,8 +211,6 @@ export function CatalogCategoryView(vm: CatalogVm) {
   const displayName =
     levels.focusCategory ??
     vm.category ??
-    (parentCategories.length === 1 ? parentCategories[0].name : null) ??
-    categorySlides[0] ??
     parentName;
 
   const currentIndex = Math.max(0, categorySlides.indexOf(displayName));
@@ -399,15 +408,19 @@ export function CatalogCategoryView(vm: CatalogVm) {
   );
   const viewingType = Boolean(activeTag);
   const isTravelOverview = displayName === "Travel Accessories" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
-  const viewingProducts = !isTravelOverview && (viewingType || new URLSearchParams(search).get("view") === "products");
+  const isKitchenOverview = displayName === "Kitchenware" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
+  const isAppliancesOverview = displayName === "Home Appliances" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
+  const isElectronicsOverview = displayName === "Electronics & Gadgets" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
+  const viewingProducts = parentName === ALL_PRODUCTS || (!isTravelOverview && !isKitchenOverview && !isAppliancesOverview && !isElectronicsOverview && (viewingType || new URLSearchParams(search).get("view") === "products"));
   /** Parent pages (Apparel, Drinkware) show a photo card per type. A chosen type opens its products. */
   const showTypeCards = !isKitsCategory && !viewingProducts && typeNames.length > 0;
   const isApparelOverview = parentName === "Apparel" && showTypeCards;
   const isStationeryOverview = displayName === "Stationery" && showTypeCards;
   const isDrinkwareOverview = displayName === "Drinkware" && showTypeCards;
   const isBagsOverview = displayName === "Bags" && showTypeCards;
-  const isEditorialOverview = isApparelOverview || isStationeryOverview || isDrinkwareOverview || isBagsOverview || isTravelOverview;
-  const editorialHero = isTravelOverview ? travelEditorialHero : isBagsOverview ? bagsEditorialHero : isDrinkwareOverview ? drinkwareHero : isStationeryOverview ? stationeryHero : apparelEditorialHero;
+  const isEditorialOverview = isApparelOverview || isStationeryOverview || isDrinkwareOverview || isBagsOverview || isTravelOverview || isKitchenOverview || isAppliancesOverview || isElectronicsOverview;
+  const hasEditorialHero = isEditorialOverview || isKitsCategory;
+  const editorialHero = isElectronicsOverview ? electronicsEditorialHero : isAppliancesOverview ? appliancesEditorialHero : isKitchenOverview ? kitchenEditorialHero : isTravelOverview ? travelEditorialHero : isBagsOverview ? bagsEditorialHero : isDrinkwareOverview ? drinkwareHero : isStationeryOverview ? stationeryHero : apparelEditorialHero;
   const typeCardsBackName =
     levels.focusCategory && levels.focusCategory !== activeTag ? levels.focusCategory : parentName;
 
@@ -477,7 +490,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
   const categoryNavigation = (
     <nav className="sm-catalog-shop__categories" aria-label="Product types">
       <p>{isEditorialOverview ? `Shop ${displayName.toLowerCase()}` : "Product types"}</p>
-      <Link to={`${catalogHome}/category/${catalogCategorySlug(leafScopeName)}?view=products`}>All {leafScopeName}</Link>
+      <Link to={`${catalogHome}/category/${catalogCategorySlug(leafScopeName)}?view=products`}>{leafScopeName === ALL_PRODUCTS ? ALL_PRODUCTS : `All ${leafScopeName}`}</Link>
       {typeNames.map((name) => (
         <Link key={name} to={`${catalogHome}/category/${catalogCategorySlug(name)}`} aria-current={activeTag === name ? "page" : undefined}>{name}{isEditorialOverview ? <ChevronRight size={14} aria-hidden="true" /> : null}</Link>
       ))}
@@ -486,12 +499,12 @@ export function CatalogCategoryView(vm: CatalogVm) {
   );
 
   return (
-    <div className={`sm-cat-page sm-cat-page--public${isEditorialOverview ? " sm-editorial-page" : ""}${isStationeryOverview ? " sm-stationery-page" : ""}${isDrinkwareOverview ? " sm-drinkware-page" : ""}${isTravelOverview ? " sm-travel-page" : ""}`}>
+    <div className={`sm-cat-page sm-cat-page--public${!isKitsCategory && viewingProducts ? " sm-cat-page--listing" : ""}${hasEditorialHero ? " sm-editorial-page" : ""}${isStationeryOverview ? " sm-stationery-page" : ""}${isDrinkwareOverview ? " sm-drinkware-page" : ""}${isTravelOverview ? " sm-travel-page" : ""}${isAppliancesOverview ? " sm-home-appliances-page" : ""}${isElectronicsOverview ? " sm-tech-page" : ""}`}>
       <div className="sm-cat-page__container">
         <div className="sm-cat-page__topbar">
           <nav className="sm-cat-page__crumbs" aria-label="Breadcrumb">
-            {isEditorialOverview ? <><Link to="/">Home</Link><span aria-hidden="true">/</span></> : null}
-            <Link to={catalogHome}>Catalog</Link>
+            {hasEditorialHero ? <><Link to="/">Home</Link><span aria-hidden="true">/</span></> : null}
+            <Link to={`${catalogHome}/browse`}>Catalog</Link>
             <ChevronRight size={14} aria-hidden="true" />
             {viewingType || (crumbCategory && crumbCategory !== parentName) ? (
               <Link to={`${catalogHome}/category/${catalogCategorySlug(parentName)}`}>{parentName}</Link>
@@ -517,7 +530,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
               </>
             ) : null}
           </nav>
-          {!isPublicApps && !isEditorialOverview ? (
+          {!isPublicApps && !hasEditorialHero ? (
             <div className="sm-cat-page__topbar-actions">
               <Link to="/app/swag/new" className="btn btn-ghost sm-cat-page__topbar-btn">
                 Design Swag
@@ -537,7 +550,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
             <p className="sm-cat-page__copy">{heroCopy}</p>
             <div className="sm-cat-page__hero-nav">
               <Link className="btn btn-dark" to={`${pathname}?view=products`}>View all {displayName}</Link>
-              {categorySlides.length > 1 && !isEditorialOverview ? (
+              {categorySlides.length > 1 && !hasEditorialHero ? (
                 <>
                   <button
                     type="button"
@@ -560,13 +573,17 @@ export function CatalogCategoryView(vm: CatalogVm) {
             </div>
           </div>
           <div className="sm-cat-page__hero-visual">
-            <img src={isEditorialOverview ? editorialHero : heroImage} alt="" fetchPriority={isEditorialOverview ? "high" : "auto"} />
+            <img src={isEditorialOverview ? editorialHero : heroImage} alt="" fetchPriority={hasEditorialHero ? "high" : "auto"} />
           </div>
         </header>
         )}
 
         <div className="sm-cat-page__body">
-          {isTravelOverview ? (
+          {isElectronicsOverview ? (
+            <ElectronicsEditorialView home={catalogHome} types={(levels.focusCategory ? levels.categories : parentName === displayName ? parentCategories : []).map((node) => node.name)} products={filteredItems} loading={vm.isSkeleton} error={vm.errorMessage} />
+          ) : isKitchenOverview || isAppliancesOverview ? (
+            <HomeEditorialView home={catalogHome} products={filteredItems} loading={vm.isSkeleton} error={vm.errorMessage} collection={isAppliancesOverview ? "home-appliances" : "kitchenware"} />
+          ) : isTravelOverview ? (
             <TravelEditorialView home={catalogHome} products={filteredItems} loading={vm.isSkeleton} error={vm.errorMessage} />
           ) : !isKitsCategory && !showTypeCards ? (
             <CatalogProductListing
@@ -624,7 +641,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
                         {filteredItems.length === 1 ? "product" : "products"}
                         {filterLabel ? ` in ${filterLabel}` : ""}
                       </p>
-                      <Link to={catalogHome} className="sm-cat-page__back">
+                      <Link to={`${catalogHome}/browse`} className="sm-cat-page__back">
                         Back to all categories
                       </Link>
                     </div>

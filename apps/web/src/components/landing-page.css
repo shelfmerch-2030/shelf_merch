@@ -3161,6 +3161,10 @@
   max-width: none;
   background: #fff;
 }
+@media (min-width: 981px) {
+  .public-catalog .site-header { height: 80px; }
+  .public-catalog .public-catalog-main--flush { padding-top: 80px; }
+}
 @media (max-width: 760px) {
   .public-catalog-main--flush {
     padding-top: 59.5px;

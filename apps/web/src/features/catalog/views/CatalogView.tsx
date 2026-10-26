@@ -1,23 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import { ArrowRight, ArrowUpRight, Globe2, Package, Palette, Shirt } from "lucide-react";
-import {
-  ALL_PRODUCTS,
-  buildStyleTaxonomyTiles,
-  pickStyleTileImage,
-  type CatalogCategoryNode,
-} from "../types";
+import { ALL_PRODUCTS } from "../types";
 import type { CatalogVm } from "../controllers/useCatalogController";
-import type { UiProduct } from "../model";
 import { ProductCard } from "./ProductCard";
+import { FeaturedCatalogProducts } from "./FeaturedCatalogProducts";
 import { CategoryCarousel, type CategoryTile } from "./CategoryCarousel";
 import { CatalogMarketingFooter } from "./CatalogMarketingFooter";
 import { catalogHomePath } from "./CatalogBrowseView";
+import { buildCatalogOverviewTiles } from "./catalog-navigation";
 import { TRUST_LOGOS } from "../../../components/landing/TrustBar";
 import "./catalog-view.css";
 import catalogHeroImg from "../../../../assets/catalog-hero-background.png";
 import apparelImg from "../../../../assets/catalog/apparel-shelfmerch.png";
-import accessoriesImg from "../../../../assets/catalog/key-chains.webp";
 import overviewCorporateGiftsImg from "../../../../assets/catalog-overview/corporate-gifts.png";
 import premiumUnbrandedMerchBannerImg from "../../../../assets/catalog-overview/premium-unbranded-merch-banner.png";
 import overviewSustainableImg from "../../../../assets/catalog-overview/sustainability-new.png";
@@ -34,10 +29,6 @@ import dtfImg from "../../../../assets/catalog-print-methods/dtf.png";
 import sublimationImg from "../../../../assets/catalog-print-methods/sublimation.png";
 import laserEngravingImg from "../../../../assets/catalog-print-methods/laser-engraving.png";
 import uvDtfStickerImg from "../../../../assets/catalog-print-methods/uv-dtf-sticker.png";
-import festiveGiftBoxImg from "../../../../assets/catalog/occasions/festive-gifting-mug.jpg";
-import occasionOnboardingImg from "../../../../assets/catalog/occasions/employee-onboarding.jpg";
-import occasionEventsImg from "../../../../assets/catalog/occasions/events.jpg";
-import occasionRemoteTeamsImg from "../../../../assets/catalog/occasions/remote-teams.jpg";
 import worldDotsImg from "../../../../assets/catalog/world-dots.svg";
 import australiaGourmetHamperImg from "../../../../assets/catalog/worldwide/australia-gourmet-hamper.jpg";
 import mexicoCoffeeChocolateImg from "../../../../assets/catalog/worldwide/mexico-coffee-chocolate.jpg";
@@ -58,78 +49,6 @@ const STYLE_SPOTLIGHT_WORDS = [
   { label: "Fit", className: "sm-style-spotlight__copy--fit" },
   { label: "Occasion", className: "sm-style-spotlight__copy--occasion" },
 ];
-
-/** Fallback art for parent-category carousel tiles (same set as category page). */
-const PARENT_CATEGORY_IMAGES: Record<string, string> = {
-  Apparel: apparelImg,
-  Accessories: accessoriesImg,
-  "Food & Beverage": overviewSustainableImg,
-  Kits: styleKitsImg,
-};
-
-/** Fallback art when Accessories is expanded into its Category tiles. */
-const ACCESSORIES_CATEGORY_IMAGES: Record<string, string> = {
-  Stationery: styleNotebookImg,
-  Drinkware: styleDrinkwareImg,
-  Bags: styleToteImg,
-  "Travel Accessories": styleToteImg,
-  "Electronics & Gadgets": accessoriesImg,
-};
-
-/** Parent categories — Accessories expands to its Categories; others stay as roots. */
-function buildParentCategoryTiles(
-  categories: readonly string[],
-  nodes: readonly CatalogCategoryNode[],
-  products: readonly UiProduct[],
-): CategoryTile[] {
-  const tiles: CategoryTile[] = [];
-
-  for (const category of categories) {
-    if (category === ALL_PRODUCTS) continue;
-
-    if (category === "Accessories") {
-      const children =
-        nodes.find((node) => node.name === "Accessories")?.children ?? [];
-      for (const child of children) {
-        if (child.name === "Others") continue;
-        tiles.push({
-          label: child.name,
-          category: child.name,
-          imageAlt: child.name,
-          image: pickStyleTileImage(
-            products,
-            child.name,
-            ACCESSORIES_CATEGORY_IMAGES[child.name] ?? accessoriesImg,
-            nodes,
-          ),
-        });
-      }
-      continue;
-    }
-
-    tiles.push({
-      label: category,
-      category,
-      imageAlt: category,
-      image: pickStyleTileImage(
-        products,
-        category,
-        PARENT_CATEGORY_IMAGES[category] ?? apparelImg,
-        nodes,
-      ),
-    });
-  }
-
-  const electronicsIndex = tiles.findIndex((tile) => tile.label === "Electronics & Gadgets");
-  const homeIndex = tiles.findIndex((tile) => tile.label === "Home & Living");
-  if (electronicsIndex >= 0 && homeIndex >= 0) {
-    const electronics = tiles[electronicsIndex];
-    tiles[electronicsIndex] = tiles[homeIndex];
-    tiles[homeIndex] = electronics;
-  }
-
-  return tiles;
-}
 
 /** Spotlight collage: Apparel as category, other roots expand to subcategories. */
 // function buildSpotlightTiles(
@@ -216,16 +135,6 @@ const INDUSTRY_CATEGORIES: CategoryTile[] = [
     imageAlt: "Event merch",
   },
 ];
-
-const REFERENCE_OCCASIONS = [
-  { label: "Employee Onboarding", category: "Kits", image: occasionOnboardingImg },
-  { label: "Client Appreciation", category: "Kits", image: styleKitsImg },
-  { label: "Festive Gifting", category: "Kits", image: festiveGiftBoxImg },
-  { label: "Events & Conferences", category: "Accessories", image: occasionEventsImg },
-  { label: "Team Offsites", category: "Apparel", image: apparelImg },
-  { label: "Milestones & Anniversaries", category: "Office Supplies", image: overviewSustainableImg },
-  { label: "Remote Teams", category: "Bags", image: occasionRemoteTeamsImg },
-] as const;
 
 const GLOBAL_DESTINATIONS = [
   { country: "Australia", flag: "au", image: australiaGourmetHamperImg },
@@ -314,9 +223,13 @@ function ImpactPointIcon({ tone }: { tone: (typeof IMPACT_POINTS)[number]["tone"
 function ReferenceCatalogContent({
   categories,
   onSelect,
+  onViewAllCategories,
+  catalog,
 }: {
   categories: readonly CategoryTile[];
   onSelect: (category?: string) => void;
+  onViewAllCategories: () => void;
+  catalog: Pick<CatalogVm, "stylePreviewProducts" | "stylePreviewLoading" | "stylePreviewError">;
 }) {
   return (
     <div className="sm-ref-catalog">
@@ -326,7 +239,7 @@ function ReferenceCatalogContent({
           titleId="sm-cat-style-title"
           viewAllLabel="View all categories"
           items={categories}
-          onViewAll={() => onSelect(ALL_PRODUCTS)}
+          onViewAll={onViewAllCategories}
           onSelect={(item) => onSelect(item.category ?? ALL_PRODUCTS)}
         />
       </section>
@@ -343,7 +256,7 @@ function ReferenceCatalogContent({
               Give branded merch<br />that people <span>actually love.</span>
             </h2>
             <div>From everyday essentials to premium gift kits, explore a collection that helps you build stronger teams, happier clients, and memorable brands.</div>
-            <button type="button" onClick={() => onSelect(ALL_PRODUCTS)}>
+            <button type="button" onClick={onViewAllCategories}>
               Explore the catalog <ArrowRight aria-hidden="true" />
             </button>
           </div>
@@ -408,19 +321,7 @@ function ReferenceCatalogContent({
         </div>
       </section>
 
-      <section className="sm-ref-occasions sm-ref-container" aria-labelledby="sm-ref-occasions-title">
-        <h2 id="sm-ref-occasions-title">Swag for every occasion</h2>
-        <div className="sm-ref-occasion-grid">
-          {REFERENCE_OCCASIONS.map((item) => (
-            <button type="button" key={item.label} onClick={() => onSelect(item.category)}>
-              <span className="sm-ref-occasion-grid__media">
-                <img src={item.image} alt="" />
-              </span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      <FeaturedCatalogProducts products={catalog.stylePreviewProducts} loading={catalog.stylePreviewLoading} error={catalog.stylePreviewError} />
 
       <section className="sm-ref-worldwide" aria-labelledby="sm-ref-worldwide-title">
         <div className="sm-ref-worldwide__globe" aria-hidden="true">
@@ -794,8 +695,10 @@ export function CatalogView(vm: CatalogVm) {
   const isPublic = pathname.startsWith("/apps/catalog");
 
   const styleCategories = useMemo(
-    () => buildParentCategoryTiles(vm.categories, vm.categoryNodes, vm.stylePreviewProducts),
-    [vm.categories, vm.categoryNodes, vm.stylePreviewProducts],
+    () => buildCatalogOverviewTiles(vm.categoryNodes, vm.stylePreviewProducts).map((tile) => ({
+      label: tile.name, category: tile.name, imageAlt: tile.name, image: tile.image,
+    })),
+    [vm.categoryNodes, vm.stylePreviewProducts],
   );
 
   function selectCategory(next = ALL_PRODUCTS) {
@@ -832,7 +735,7 @@ export function CatalogView(vm: CatalogVm) {
         </div>
       </section>
 
-      <ReferenceCatalogContent categories={styleCategories} onSelect={selectCategory} />
+      <ReferenceCatalogContent categories={styleCategories} catalog={vm} onSelect={selectCategory} onViewAllCategories={() => navigate(`${catalogHomePath(pathname)}/browse`)} />
 
       {isPublic ? <CatalogMarketingFooter onViewCatalog={scrollToProducts} /> : null}
     </div>
