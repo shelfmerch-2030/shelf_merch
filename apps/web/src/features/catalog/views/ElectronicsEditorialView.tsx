@@ -14,7 +14,7 @@ type Props = { home: string; types: string[]; products: UiProduct[]; loading: bo
 
 export function ElectronicsEditorialView({ home, types, products, loading, error }: Props) {
   const { pathname } = useLocation();
-  const allProducts = `${home}/category/electronics-and-gadgets?view=products`;
+  const allProducts = `${pathname}?view=products`;
   const latestUrl = `${allProducts}&sort=newest`;
   const latest = newestProducts(products.filter((product) => product.id));
 

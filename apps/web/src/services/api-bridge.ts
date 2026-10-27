@@ -320,6 +320,8 @@ export type PublicCatalogCategory = {
   sortOrder: number;
   description?: string;
   children: PublicCatalogCategory[];
+  /** Client-side browse adapter only; absent from the API/database. */
+  productScope?: string;
 };
 
 /** Active Parent → Category → Sub-Category tree for public catalog browse. */

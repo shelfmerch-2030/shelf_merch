@@ -23,6 +23,9 @@ const TILE_IMAGES: Partial<Record<string, string>> = {
   Drinkware: drinkwareLifestyleImg,
   Bags: backpackLifestyleImg,
   "Electronics & Gadgets": electronicsSpeakerImg,
+  Technology: electronicsSpeakerImg,
+  Office: officeImg,
+  "Office Supplies": officeImg,
   "Travel Accessories": travelCloseupImg,
 };
 
@@ -76,7 +79,13 @@ export function browseCatalogEntries(nodes: readonly CatalogCategoryNode[]): Cat
       continue;
     }
 
-    entries.push(...children);
+    // Product-derived groups belong inside a real production collection.
+    // Keep Bags/Office/Technology as the overview tiles, not their product types.
+    if (node.productScope) {
+      entries.push({ name: node.name, slug: node.slug, children });
+    } else {
+      entries.push(...children);
+    }
   }
 
   if (!entries.some((entry) => entry.name === KITS_CATEGORY)) {
