@@ -145,7 +145,13 @@ export function createOpenAiPixelTracker(deps: OpenAiPixelDeps) {
     try {
       const id = safeEventId(eventId);
       if (!measurementAllowed() || !id) return;
-      if (eventName === "registration_completed" && !options?.replay) rememberRegistration(id);
+      // The verification page navigates immediately. Measuring there and again
+      // after load delivers the same signup twice, so the id is only sent once
+      // the next page is running.
+      if (eventName === "registration_completed" && !options?.replay) {
+        rememberRegistration(id);
+        return;
+      }
       const key = `${eventName}:${id}`;
       if (sent.has(key)) return;
       sent.add(key);

@@ -70,8 +70,7 @@ export function VerifyEmailPage() {
     try {
       const user = await verifySignupOtp(pendingId, otp);
       try {
-        // Records the event immediately, and keeps the same event id so the next
-        // page can send it if this navigation unloads the pixel queue first.
+        // Stores the user id. The next page sends registration_completed once.
         trackOpenAiRegistrationCompleted(user.id);
       } catch {
         /* A measurement failure must not block a created account. */
