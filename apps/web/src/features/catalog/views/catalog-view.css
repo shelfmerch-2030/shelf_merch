@@ -2584,7 +2584,7 @@
 
 .sm-ref-style-section .sm-cat-tile-label {
   color: #111;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: .04em;
 }
 
@@ -3926,8 +3926,8 @@ button.sm-ref-feature {
   .sm-ref-section-head > button {
     flex: none;
     gap: 4px;
-    font-size: 10px;
-    white-space: nowrap;
+    font-size: 13px;
+    white-space: normal;
   }
 
   .sm-ref-category-grid {

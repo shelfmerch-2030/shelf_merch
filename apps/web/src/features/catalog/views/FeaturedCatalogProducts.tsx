@@ -9,8 +9,13 @@ import "./featured-catalog-products.css";
 
 /** Show a cross-section of the live catalog, without repeating products. */
 export function selectFeaturedProducts(products: readonly UiProduct[]) {
+  const excludedIds = new Set([
+    "6a82b7e5a03ad62bdb7f3c23", // Pen packaging
+    "6ac49be66f87655fa994cfb0", // Vacuum cleaner
+    "6abb6a21d602f72fd2df9100", // Neck and shoulder massager
+  ]);
   const available = products.filter((product) => product.id &&
-    product.id !== "6a82b7e5a03ad62bdb7f3c23" && (product.mockupUrl || productPhotoUrl(product)));
+    !excludedIds.has(product.id) && (product.mockupUrl || productPhotoUrl(product)));
   const selected: UiProduct[] = [];
   const ids = new Set<string>();
   const add = (product: UiProduct | undefined) => {
@@ -25,8 +30,8 @@ export function selectFeaturedProducts(products: readonly UiProduct[]) {
       : undefined;
     add(preferred ?? available.find((product) => !ids.has(product.id!) && productMatchesLevel(product, "category", category)));
   }
-  // Curated home and travel picks; their image, price and link still come from the live catalog.
-  for (const id of ["6ac49be66f87655fa994cfb0", "6abb6a21d602f72fd2df9100"]) {
+  // Compact names and upright product photos keep the featured row balanced.
+  for (const id of ["6a8c3ff29d19e345e7c3f5a2", "6a69a2a228d51c137c8e962b"]) {
     add(available.find((product) => product.id === id));
   }
   for (const category of ["Electronics & Gadgets", "Bags"]) {
