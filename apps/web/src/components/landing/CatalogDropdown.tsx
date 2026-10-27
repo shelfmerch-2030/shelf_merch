@@ -15,11 +15,11 @@ export function CatalogDropdown({ onNavigate }: { onNavigate: () => void }) {
   const { pathname } = useLocation();
   const home = pathname.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
   const catalogDestination = /^\/(?:app|apps)\/catalog(?:\/|$)/.test(pathname) ? `${home}/browse` : home;
-  const tree = useCatalogCategoryTree();
+  const [open, setOpen] = useState(false);
+  const tree = useCatalogCategoryTree(open);
   const nodes = useMemo(() => tree.data?.length ? normalize(tree.data) : FALLBACK_CATALOG_NODES, [tree.data]);
   const categories = useMemo(() => browseCatalogEntries(nodes), [nodes]);
   const images = useMemo(() => buildCatalogOverviewTiles(nodes, []), [nodes]);
-  const [open, setOpen] = useState(false);
   const [activeName, setActiveName] = useState("Apparel");
   const active = categories.find((category) => category.name === activeName) ?? categories[0];
   const root = useRef<HTMLDivElement>(null);

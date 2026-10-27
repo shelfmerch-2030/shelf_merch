@@ -7,6 +7,7 @@ import {
   FALLBACK_CATALOG_NODES,
   catalogCategorySlug,
   resolveCatalogBrowseTarget,
+  productMatchesCollection,
   type CatalogCategoryChild,
   type CatalogCategoryNode,
 } from "../types";
@@ -63,6 +64,7 @@ export function useCatalogController(): CatalogVm {
       return remote.map((node) => ({
         name: node.name,
         slug: node.slug,
+        productScope: node.productScope,
         children: mapPublicChildren(node.children),
       }));
     }
@@ -95,7 +97,10 @@ export function useCatalogController(): CatalogVm {
   );
   /** Landing carousel: load products so tiles can show Category / Sub-Category photos. */
   const stylePreview = useCatalog(ALL_PRODUCTS, workspaceCatalog, !isCategorySelected);
-  const items = data?.items ?? [];
+  const productScope = categoryNodes.find((node) => node.name === parent)?.productScope;
+  const items = useMemo(() => productScope
+    ? (data?.items ?? []).filter((product) => productMatchesCollection(product, productScope))
+    : data?.items ?? [], [data?.items, productScope]);
   const stylePreviewProducts = !isCategorySelected
     ? (stylePreview.data?.items ?? workspaceCatalog?.items ?? [])
     : [];
@@ -128,7 +133,7 @@ export function useCatalogController(): CatalogVm {
     stylePreviewProducts,
     stylePreviewLoading: stylePreview.isLoading && stylePreviewProducts.length === 0,
     stylePreviewError: stylePreview.isError ? "Could not load catalog products. Please try again." : null,
-    count: data?.total ?? items.length,
+    count: productScope ? items.length : data?.total ?? items.length,
     isSkeleton: (isLoading || isFetching) && items.length === 0,
     errorMessage: isError
       ? error instanceof Error

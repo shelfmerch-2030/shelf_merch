@@ -8,6 +8,7 @@ import {
   KITS_CATEGORY,
   PREDESIGNED_KITS_SUBCATEGORY,
   catalogCategorySlug,
+  catalogCollectionName,
   productMatchesLevel,
   productMatchesSubcategory,
   productPhotoUrl,
@@ -212,6 +213,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
     levels.focusCategory ??
     vm.category ??
     parentName;
+  const collectionName = catalogCollectionName(displayName);
 
   const currentIndex = Math.max(0, categorySlides.indexOf(displayName));
   const prevCategory =
@@ -221,6 +223,7 @@ export function CatalogCategoryView(vm: CatalogVm) {
   const heroImage = CATEGORY_IMAGES[displayName] ?? CATEGORY_IMAGES[parentName] ?? apparelImg;
   const heroCopy =
     CATEGORY_COPY[displayName] ??
+    CATEGORY_COPY[collectionName] ??
     CATEGORY_COPY[parentName] ??
     "Browse curated products in this category and open any item to see full details.";
 
@@ -403,21 +406,24 @@ export function CatalogCategoryView(vm: CatalogVm) {
     [levels.categories],
   );
   const typeNames = useMemo(
-    () => Array.from(new Set([...treeTypes, ...sidebarCategories])).filter((name) => name !== leafScopeName),
+    () => Array.from(new Set([...treeTypes, ...sidebarCategories])).filter((name) =>
+      name !== leafScopeName && name !== catalogCollectionName(leafScopeName)),
     [sidebarCategories, treeTypes, leafScopeName],
   );
   const viewingType = Boolean(activeTag);
   const isTravelOverview = displayName === "Travel Accessories" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
   const isKitchenOverview = displayName === "Kitchenware" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
   const isAppliancesOverview = displayName === "Home Appliances" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
-  const isElectronicsOverview = displayName === "Electronics & Gadgets" && !vm.subcategory && new URLSearchParams(search).get("view") !== "products";
+  const isElectronicsOverview = collectionName === "Electronics & Gadgets" && !vm.subcategory && !viewingType && new URLSearchParams(search).get("view") !== "products";
   const viewingProducts = parentName === ALL_PRODUCTS || (!isTravelOverview && !isKitchenOverview && !isAppliancesOverview && !isElectronicsOverview && (viewingType || new URLSearchParams(search).get("view") === "products"));
   /** Parent pages (Apparel, Drinkware) show a photo card per type. A chosen type opens its products. */
   const showTypeCards = !isKitsCategory && !viewingProducts && typeNames.length > 0;
-  const isApparelOverview = parentName === "Apparel" && showTypeCards;
-  const isStationeryOverview = displayName === "Stationery" && showTypeCards;
-  const isDrinkwareOverview = displayName === "Drinkware" && showTypeCards;
-  const isBagsOverview = displayName === "Bags" && showTypeCards;
+  // A collection hero must not depend on having nested category records.
+  const collectionLanding = !viewingProducts && !viewingType;
+  const isApparelOverview = collectionName === "Apparel" && collectionLanding;
+  const isStationeryOverview = collectionName === "Stationery" && collectionLanding;
+  const isDrinkwareOverview = collectionName === "Drinkware" && collectionLanding;
+  const isBagsOverview = collectionName === "Bags" && collectionLanding;
   const isEditorialOverview = isApparelOverview || isStationeryOverview || isDrinkwareOverview || isBagsOverview || isTravelOverview || isKitchenOverview || isAppliancesOverview || isElectronicsOverview;
   const hasEditorialHero = isEditorialOverview || isKitsCategory;
   const editorialHero = isElectronicsOverview ? electronicsEditorialHero : isAppliancesOverview ? appliancesEditorialHero : isKitchenOverview ? kitchenEditorialHero : isTravelOverview ? travelEditorialHero : isBagsOverview ? bagsEditorialHero : isDrinkwareOverview ? drinkwareHero : isStationeryOverview ? stationeryHero : apparelEditorialHero;
