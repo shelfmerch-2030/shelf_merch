@@ -18,6 +18,8 @@ describe("consent banner", () => {
     render(<ConsentBanner />);
 
     expect(screen.getByRole("dialog", { name: "Your privacy choices" })).toBeTruthy();
+    expect(screen.getByText(/hashes recognizable form details/)).toBeTruthy();
+    expect(screen.getByText(/does not provide a supported way to turn that hashing off/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reject optional" }));
     expect(JSON.parse(localStorage.getItem(CONSENT_STORAGE_KEY) ?? "")).toMatchObject({
       analytics: false,
@@ -30,6 +32,7 @@ describe("consent banner", () => {
     const user = userEvent.setup();
     render(<ConsentBanner />);
     await user.click(screen.getByRole("button", { name: "Manage preferences" }));
+    expect(screen.getByRole("checkbox", { name: /hashes recognizable form details/ })).toBeTruthy();
     await user.click(screen.getByRole("checkbox", { name: /Analytics/ }));
     await user.click(screen.getByRole("button", { name: "Save preferences" }));
     expect(JSON.parse(localStorage.getItem(CONSENT_STORAGE_KEY) ?? "")).toEqual({
@@ -59,6 +62,7 @@ describe("privacy consent choice", () => {
     const user = userEvent.setup();
     render(<MeasurementConsentChoice />);
     expect(screen.getByText(/Optional measurement stays off/)).toBeTruthy();
+    expect(screen.getByText(/does not provide a supported way to turn that hashing off/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Accept all" }));
     expect(JSON.parse(localStorage.getItem(CONSENT_STORAGE_KEY) ?? "")).toMatchObject({
       analytics: true,

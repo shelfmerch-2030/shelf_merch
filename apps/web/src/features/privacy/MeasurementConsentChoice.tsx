@@ -14,12 +14,14 @@ export function MeasurementConsentChoice() {
       <p id="measurement-choice">
         Essential cookies are required for sign-in, security, and the service. They are not switched off
         here. Analytics covers Google Analytics 4 loaded by Google Tag Manager. Advertising covers the
-        Meta tag in that container and the optional OpenAI measurement pixel. The OpenAI pixel is still
-        not loaded until Shelf Merch completes its advanced-matching review, even if you allow advertising.
+        Meta tag in that container and the optional OpenAI measurement pixel. The OpenAI pixel stays
+        unloaded until you allow advertising and Shelf Merch has accepted that automatic advanced matching
+        will run.
       </p>
       <p>
-        If that pixel is later enabled, OpenAI can hash customer details it recognizes in forms before
-        sending a conversion. The events Shelf Merch sends itself contain only an event name and an event
+        When the pixel is enabled, OpenAI automatic advanced matching hashes recognizable form details in
+        your browser, such as a name, email address, or phone number. OpenAI does not provide a supported
+        way to turn that hashing off. The events Shelf Merch sends contain only an event name and an event
         id, not your name, email, phone number, or verification code. OpenAI may store __oppref for about
         30 days and __obref for about 365 days. Withdrawing advertising consent stops later OpenAI
         measurement and, if the pixel is already loaded, asks it to remove those cookies.
@@ -56,7 +58,7 @@ export function MeasurementConsentChoice() {
             checked={draft.advertising}
             onChange={(event) => setDraft((current) => ({ ...current, advertising: event.target.checked }))}
           />
-          Advertising
+          Advertising. If the OpenAI pixel is enabled, it hashes recognizable form details.
         </label>
         <button type="button" onClick={saveDraft}>
           Save preferences

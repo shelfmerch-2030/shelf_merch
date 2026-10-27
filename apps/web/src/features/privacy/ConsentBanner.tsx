@@ -46,7 +46,11 @@ export function ConsentBanner() {
           <h2 id="consent-banner-title">Your privacy choices</h2>
           <p id="consent-banner-copy">
             We use essential cookies to keep Shelfmerch working. With your permission, we also use
-            cookies for analytics and advertising.
+            cookies for analytics and advertising. If you allow advertising and Shelf Merch enables the
+            OpenAI pixel, OpenAI automatic advanced matching hashes recognizable form details in your
+            browser, such as a name, email address, or phone number. OpenAI does not provide a supported
+            way to turn that hashing off. The events Shelf Merch sends contain only an event name and an
+            event id.
           </p>
         </div>
         <div className="consent-banner__controls">
@@ -85,7 +89,7 @@ export function ConsentBanner() {
                 checked={draft.advertising}
                 onChange={(event) => setDraft((current) => ({ ...current, advertising: event.target.checked }))}
               />
-              Advertising, Meta and OpenAI measurement
+              Advertising. Meta, and OpenAI if enabled. OpenAI hashes recognizable form details and that hashing cannot be switched off.
             </label>
             <button type="button" onClick={() => closeAfterChoice(saveDraft)}>
               Save preferences

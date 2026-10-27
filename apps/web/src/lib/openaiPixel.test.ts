@@ -144,16 +144,16 @@ describe("OpenAI measurement pixel", () => {
       ["init", { pixelId: "px_test" }],
       ["measure", "lead_created", { type: "customer_action" }, { event_id: "lead-1" }],
     ]);
-    expect(calls(registration.win)[2]).toEqual([
-      "measure",
-      "registration_completed",
-      { type: "customer_action" },
-      { event_id: "user-1" },
-    ]);
+    expect(calls(registration.win).filter((call) => call[0] === "measure")).toEqual([]);
     expect(lead.storage.getItem(OPENAI_PENDING_REGISTRATION_KEY)).toBeNull();
     expect(registration.storage.getItem(OPENAI_PENDING_REGISTRATION_KEY)).toBe("user-1");
+    const delivered = trackerFor("granted", "px_reg", fakeBrowser(), registration.storage);
+    delivered.tracker.prepare();
+    expect(calls(delivered.win).filter((call) => call[0] === "measure")).toEqual([
+      ["measure", "registration_completed", { type: "customer_action" }, { event_id: "user-1" }],
+    ]);
 
-    const payload = JSON.stringify([...calls(lead.win), ...calls(registration.win)]);
+    const payload = JSON.stringify([...calls(lead.win), ...calls(delivered.win)]);
     expect(payload).not.toContain("email");
     expect(payload).not.toContain("phone");
     expect(payload).not.toContain("name");
@@ -177,20 +177,41 @@ describe("OpenAI measurement pixel", () => {
     expect(scripts).toHaveLength(1);
   });
 
-  it("replays registration_completed once on the next page with the same event id", () => {
+  it("sends one registration_completed across navigation, reloads, and repeated initialization", () => {
     const storage = memoryStorage();
     const first = trackerFor("granted", "px_test", fakeBrowser(), storage);
     first.tracker.trackRegistrationCompleted("user-1");
     first.tracker.trackRegistrationCompleted("user-1");
+    expect(calls(first.win).filter((call) => call[0] === "measure")).toEqual([]);
+    expect(storage.getItem(OPENAI_PENDING_REGISTRATION_KEY)).toBe("user-1");
 
     const second = trackerFor("granted", "px_test", fakeBrowser(), storage);
     second.tracker.prepare();
     second.tracker.prepare();
 
-    expect(calls(second.win).filter((call) => call[0] === "measure")).toEqual([
+    const reloaded = trackerFor("granted", "px_test", fakeBrowser(), storage);
+    reloaded.tracker.prepare();
+
+    const measured = [
+      ...calls(first.win),
+      ...calls(second.win),
+      ...calls(reloaded.win),
+    ].filter((call) => call[0] === "measure");
+    expect(measured).toEqual([
       ["measure", "registration_completed", { type: "customer_action" }, { event_id: "user-1" }],
     ]);
     expect(storage.getItem(OPENAI_PENDING_REGISTRATION_KEY)).toBeNull();
+  });
+
+  it("does not send a registration that was attempted without advertising consent", () => {
+    const storage = memoryStorage();
+    const withoutConsent = trackerFor("unknown", "px_test", fakeBrowser(), storage);
+    withoutConsent.tracker.trackRegistrationCompleted("user-1");
+    expect(storage.getItem(OPENAI_PENDING_REGISTRATION_KEY)).toBeNull();
+
+    const grantedLater = trackerFor("granted", "px_test", fakeBrowser(), storage);
+    grantedLater.tracker.prepare();
+    expect(calls(grantedLater.win).filter((call) => call[0] === "measure")).toEqual([]);
   });
 
   it("drops a pending registration and records denial without loading the pixel", () => {
