@@ -4,9 +4,9 @@
  *
  * The script is not inserted, and `oaiq` is not called, unless all of these are true:
  * a non-empty `VITE_OPENAI_PIXEL_ID`, advertising-measurement consent `"granted"`,
- * and `VITE_OPENAI_AAM_REVIEWED=true` after automatic advanced matching is reviewed.
- * The SDK has no command to turn automatic advanced matching off. Keeping the
- * script unloaded is what stops it from reading form fields.
+ * and `VITE_OPENAI_AAM_REVIEWED=true` after automatic advanced matching is
+ * explicitly accepted. True does not disable matching. The SDK has no command
+ * to turn it off. Keeping the script unloaded is what stops it from reading form fields.
  *
  * A denied choice calls `oaiq("consent", false)` when the pixel is already
  * present. That is the documented way to stop pings and remove `__oppref`

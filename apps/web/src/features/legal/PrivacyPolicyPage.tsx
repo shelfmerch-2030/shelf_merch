@@ -304,11 +304,13 @@ export function PrivacyPolicyPage() {
           </p>
           <p>
             The OpenAI measurement pixel is a separate optional tag. It records a saved demo request or a
-            finished registration with an event id. It does not receive your name, email, phone number, or
-            verification code in the event Shelf Merch creates. If Shelf Merch later enables the pixel,
-            OpenAI automatic advanced matching can hash customer details it recognizes in forms. The pixel
-            stays unloaded until you allow advertising measurement and that review is complete. OpenAI may
-            then store __oppref for about 30 days and __obref for about 365 days.
+            finished registration with an event id. The event Shelf Merch creates does not include your
+            name, email, phone number, or verification code. If Shelf Merch enables the pixel, OpenAI
+            automatic advanced matching hashes recognizable form details in your browser. OpenAI does not
+            provide a supported way to turn that hashing off. The pixel stays unloaded until you allow
+            advertising measurement and Shelf Merch has explicitly accepted that behavior. OpenAI may then
+            store __oppref for about 30 days and __obref for about 365 days. Withdrawing advertising
+            consent stops later OpenAI measurement.
           </p>
 
           <MeasurementConsentChoice />
