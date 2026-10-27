@@ -10,11 +10,25 @@ const products = [makeProduct("tee", "Apparel"), makeProduct("tee2", "Apparel"),
 afterEach(cleanup);
 
 describe("featured catalog products", () => {
-  it("features the requested vacuum and massager in the last two slots when available", () => {
+  it("prefers the bamboo speaker and tote bag for the last two slots", () => {
+    const speaker = { ...makeProduct("6a8c3ff29d19e345e7c3f5a2", "Electronics & Gadgets"), nm: "Bamboo Bluetooth Speaker" };
+    const tote = { ...makeProduct("6a69a2a228d51c137c8e962b", "Bags"), nm: "Customized Tote Bag" };
+    expect(selectFeaturedProducts([...products, tote, speaker]).map((product) => product.id))
+      .toEqual(["tee", "bottle", "diary", speaker.id, tote.id]);
+  });
+  it("replaces pen packaging with the live Glimmer Diary, with a fallback when unavailable", () => {
+    const packaging = makeProduct("6a82b7e5a03ad62bdb7f3c23", "Stationery");
+    const glimmer = { ...makeProduct("6a69a2b128d51c137c8e964b", "Stationery"), nm: "Glimmer Diary" };
+    expect(selectFeaturedProducts([packaging, ...products, glimmer])[2]).toBe(glimmer);
+    expect(selectFeaturedProducts([packaging, ...products])[2].id).toBe("diary");
+    expect(selectFeaturedProducts([packaging])).toEqual([]);
+  });
+  it("replaces the vacuum and massager with other live products, including during fallback selection", () => {
     const vacuum = { ...makeProduct("6ac49be66f87655fa994cfb0", "Home Appliances"), nm: "2-in-1 Stick & Handy Vacuum Cleaner with Hepa Filter" };
     const massager = { ...makeProduct("6abb6a21d602f72fd2df9100", "Travel Accessories"), nm: "Neck & Shoulder Massager" };
-    expect(selectFeaturedProducts([...products, vacuum, massager]).map((product) => product.id))
-      .toEqual(["tee", "bottle", "diary", vacuum.id, massager.id]);
+    expect(selectFeaturedProducts([vacuum, massager, ...products]).map((product) => product.id))
+      .toEqual(["tee", "bottle", "diary", "speaker", "bag"]);
+    expect(selectFeaturedProducts([vacuum, massager])).toEqual([]);
   });
   it("selects five distinct live products across categories instead of the first five from one category", () => {
     expect(selectFeaturedProducts(products).map((product) => product.id)).toEqual(["tee", "bottle", "diary", "speaker", "bag"]);
