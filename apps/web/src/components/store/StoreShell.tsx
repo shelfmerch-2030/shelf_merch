@@ -8,7 +8,7 @@ import { DesignedProductThumb,
   storeProductAsUi,
 } from "@/features/swag/DesignedProductThumb";
 import { getMockupTintHex, defaultWhiteColorIndex } from "@/features/swag/colors";
-import { listProductViews, type ProductViewKey } from "@/features/swag/mockup-bake";
+import { listPrintAreas, listProductViews, type ProductViewKey } from "@/features/swag/mockup-bake";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import {
   appliedLabel,
@@ -141,8 +141,18 @@ function ArtworkMockup({
   className?: string;
   style?: CSSProperties;
 }) {
-  const ui = storeProductAsUi(product);
-  if (!ui.imgUrl && !ui.mockupUrl && !ui.mockupBackUrl && !product.artworkUrl) {
+  const raw = storeProductAsUi(product);
+  const canPrint = listPrintAreas(raw).length > 0;
+  const ui = canPrint
+    ? raw
+    : {
+        ...raw,
+        mockupUrl: undefined,
+        mockupBackUrl: undefined,
+        placement: undefined,
+        areaPlacements: undefined,
+      };
+  if (!ui.imgUrl && !ui.mockupUrl && !ui.mockupBackUrl && !(canPrint && product.artworkUrl)) {
     return (
       <div className={className} style={{ display: "grid", placeItems: "center", height: "100%", ...style }}>
         <span className="mut3" style={{ fontSize: 12 }}>No image</span>
@@ -152,7 +162,7 @@ function ArtworkMockup({
   return (
     <DesignedProductThumb
       product={ui}
-      artworkUrl={product.artworkUrl}
+      artworkUrl={canPrint ? product.artworkUrl : undefined}
       tintHex={tintHex}
       view={view}
       onViewChange={onViewChange}

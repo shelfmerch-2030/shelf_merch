@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { ArrowLeft, Upload } from "lucide-react";
 import { FullscreenOverlay } from "@/components/tenant/FullscreenOverlay";
+import { ARTWORK_ACCEPT, ARTWORK_REQUIREMENTS } from "@/lib/artworkValidation";
 import { ShopBuilderStep } from "../ShopBuilderStep";
 import { SHOP_CURRENCIES } from "../types";
 import type { CreateShopVm } from "../controllers/useCreateShopController";
@@ -224,23 +225,28 @@ export function CreateShopView(vm: CreateShopVm) {
                   <button
                     type="button"
                     className="sm-create-shop-dropzone"
+                    disabled={vm.validatingLogo}
+                    aria-busy={vm.validatingLogo}
                     onClick={() => fileRef.current?.click()}
                   >
                     <Upload size={28} strokeWidth={1.75} />
-                    <span className="sm-create-shop-dropzone-title">Drag and drop file</span>
+                    <span className="sm-create-shop-dropzone-title">
+                      {vm.validatingLogo ? "Validating logo…" : "Drag and drop file"}
+                    </span>
                     <span className="sm-create-shop-dropzone-hint">
-                      Accepted: SVG, PNG, WEBP, JPEG, JPG · Max 5 MB
+                      {ARTWORK_REQUIREMENTS}
                     </span>
                   </button>
                 )}
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".svg,.png,.webp,.jpeg,.jpg,image/svg+xml,image/png,image/webp,image/jpeg"
+                  accept={ARTWORK_ACCEPT}
+                  disabled={vm.validatingLogo}
                   style={{ display: "none" }}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) vm.onPickLogo(f);
+                    if (f) void vm.onPickLogo(f);
                     e.target.value = "";
                   }}
                 />
@@ -248,6 +254,7 @@ export function CreateShopView(vm: CreateShopVm) {
                   <button
                     type="button"
                     className="btn btn-ghost"
+                    disabled={vm.validatingLogo}
                     onClick={() => dispatch({ type: "set", patch: { step: 2 } })}
                   >
                     Skip for now
@@ -255,6 +262,7 @@ export function CreateShopView(vm: CreateShopVm) {
                   <button
                     type="button"
                     className="btn btn-dark"
+                    disabled={vm.validatingLogo}
                     onClick={() => dispatch({ type: "set", patch: { step: 2 } })}
                   >
                     Create shop

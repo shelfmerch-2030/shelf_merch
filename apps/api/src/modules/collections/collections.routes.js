@@ -1,3 +1,4 @@
+import { artworkUpload, validateArtworkUpload } from '../../middleware/artwork.middleware.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import { uploader, DOCUMENT_TYPES } from '../../middleware/upload.middleware.js';
@@ -17,7 +18,6 @@ import { collectionsForShopFilter } from './collectionQueries.js';
 import { publishCollectionToShop, unpublishCollectionFromShop, syncCollectionPublishTargets, unlinkCollectionFromAllShops } from '../shops/shopCatalogSync.js';
 import { Order } from '../orders/order.model.js';
 
-const upload = uploader({ allow: DOCUMENT_TYPES, maxSizeMb: 25, files: 50 });
 const router = Router();
 
 router.use(authenticate, resolveTenant, requireTenantContext);
@@ -314,8 +314,9 @@ router.post(
   '/:id/artwork',
   canWrite,
   validate({ params: z.object({ id: objectId }) }),
-  upload.single('artwork'),
+  artworkUpload.single('artwork'),
   asyncHandler(async (req, res) => {
+    validateArtworkUpload(req.file);
     const collection = await Collection.findOne({ _id: req.params.id, tenantId: req.tenantId });
     if (!collection) throw new NotFoundError('Collection not found');
     const { url } = await uploadFile({ tenantId: req.tenantId, kind: 'artwork', file: req.file });
@@ -376,6 +377,8 @@ router.post(
     const backFiles = req.files?.mockupsBack || [];
     const designFiles = req.files?.designOnly || [];
     const areaArtFiles = req.files?.areaArts || [];
+    // Validate all source artwork before persisting any files in this batch.
+    areaArtFiles.forEach(validateArtworkUpload);
     let meta;
     try {
       meta = mockupMetaItem.array().parse(JSON.parse(req.body.meta || '[]'));

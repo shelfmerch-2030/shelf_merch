@@ -26,9 +26,13 @@ import {
 import { storeProductAsUi } from "@/features/swag/DesignedProductThumb";
 import { mockupStageFit } from "@/features/swag/MockupCanvas";
 import {
+  areaPlacementKey,
+  collectBakeLayers,
   pickPrintArea,
   printAreaStableKey,
   resolvePrintAreaStage,
+  resolveProductArtworkLayers,
+  savedDesignPreview,
 } from "@/features/swag/mockup-bake";
 import type { UiProduct } from "@/services/mappers";
 
@@ -282,5 +286,63 @@ describe("printAreaStableKey", () => {
     const product = { printAreas: [front1, front2] } as UiProduct;
     expect(pickPrintArea(product, "front")?.heightIn).toBe(2.2);
     expect(pickPrintArea(product, "front__1")?.heightIn).toBe(2.317);
+  });
+});
+
+describe("saved design artwork stays on the selected print area", () => {
+  const box = { xPct: 10, yPct: 10, widthPct: 12, heightPct: 14 };
+  const placement = { xPct: 40, yPct: 30, wPct: 12, rot: 0 };
+  const product = {
+    id: "polo",
+    g: "polo",
+    brand: "Rubix",
+    nm: "Polo",
+    price: "",
+    sw: 4,
+    maskImageUrl: "/polo-front.png",
+    printAreas: [
+      { key: "left", label: "Left", mockupImageUrl: "/polo-front.png", widthIn: 2, heightIn: 2, box },
+      { key: "right", label: "Right", mockupImageUrl: "/polo-front.png", widthIn: 2, heightIn: 2, box },
+    ],
+    areaPlacements: {
+      left: placement,
+      right: { ...placement, artworkUrl: "/uploads/logo-right.png" },
+    },
+  } as UiProduct;
+
+  it("does not paint collection artwork onto placeholders that were not designed", () => {
+    const layers = resolveProductArtworkLayers(product, "/uploads/collection-logo.png");
+    expect(layers.map((l) => l.areaKey)).toEqual(["right"]);
+    expect(layers[0]?.artUrl).toContain("logo-right.png");
+  });
+
+  it("bakes only the print area assigned in the artwork step", () => {
+    const layers = collectBakeLayers(
+      product,
+      { [areaPlacementKey(product, 0, "right")]: placement },
+      { [areaPlacementKey(product, 0, "right")]: { preview: "/uploads/logo-right.png" } },
+      0,
+      "/uploads/collection-logo.png",
+    );
+    expect(layers.map((l) => l.areaKey)).toEqual(["right"]);
+  });
+
+  it("still uses collection artwork on the primary area when nothing was assigned", () => {
+    const blank = { ...product, areaPlacements: undefined };
+    const layers = resolveProductArtworkLayers(blank, "/uploads/collection-logo.png");
+    expect(layers.map((l) => l.areaKey)).toEqual(["left"]);
+    expect(savedDesignPreview(blank, "/uploads/collection-logo.png").preferBakedMockup).toBe(false);
+  });
+
+  it("does not apply collection artwork when the product has no print area", () => {
+    const plain = { ...product, printAreas: [], areaPlacements: undefined };
+    expect(resolveProductArtworkLayers(plain, "/uploads/collection-logo.png")).toEqual([]);
+  });
+
+  it("previews a multi-area design from per-area artwork, not the shared bake", () => {
+    expect(savedDesignPreview(product, "/uploads/collection-logo.png")).toEqual({
+      artworkUrl: undefined,
+      preferBakedMockup: false,
+    });
   });
 });

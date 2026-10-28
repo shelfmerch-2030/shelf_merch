@@ -9,7 +9,7 @@ import {
   productColorHex,
 } from "./colors";
 import { DesignedProductThumb } from "./DesignedProductThumb";
-import { listPrintAreas, listProductViews, type ProductViewKey } from "./mockup-bake";
+import { listProductViews, savedDesignPreview, type ProductViewKey } from "./mockup-bake";
 import { MockupViewGallery } from "./MockupViewGallery";
 import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
 
@@ -51,6 +51,7 @@ export function SwagProductDetail({
     hasUserPickedColor,
   );
   const activeView: ProductViewKey = productViews.includes(mockupView) ? mockupView : "front";
+  const preview = savedDesignPreview(product, collection.artworkUrl);
 
   return (
     <div className="swag-detail-page">
@@ -81,8 +82,8 @@ export function SwagProductDetail({
           renderThumb={(view) => (
             <DesignedProductThumb
               product={product}
-              // artworkUrl={collection.artworkUrl}
-              artworkUrl={listPrintAreas(product).length!==0 ? collection.artworkUrl : undefined}
+              artworkUrl={preview.artworkUrl}
+              preferBakedMockup={preview.preferBakedMockup}
               tintHex={tintHex}
               view={view}
             />
@@ -90,7 +91,8 @@ export function SwagProductDetail({
         >
           <DesignedProductThumb
             product={product}
-            artworkUrl={listPrintAreas(product).length!==0 ? collection.artworkUrl : undefined}
+            artworkUrl={preview.artworkUrl}
+            preferBakedMockup={preview.preferBakedMockup}
             tintHex={tintHex}
             view={hasMultipleViews ? activeView : undefined}
             onViewChange={hasMultipleViews ? setMockupView : undefined}

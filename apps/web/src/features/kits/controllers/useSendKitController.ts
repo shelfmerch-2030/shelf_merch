@@ -1,3 +1,4 @@
+import { validateArtworkFile } from "@/lib/artworkValidation";
 import { useMemo, useReducer, useState, useEffect, useRef, type Dispatch } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
@@ -992,8 +993,10 @@ export function useSendKitController(): SendKitVm {
 
   async function onCuratedLogoFile(file: File | null) {
     if (!kit || !file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Upload a PNG, JPG, or SVG file");
+    try {
+      await validateArtworkFile(file);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not read artwork");
       return;
     }
     if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);

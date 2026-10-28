@@ -1,3 +1,4 @@
+import { ARTWORK_ACCEPT, ARTWORK_REQUIREMENTS } from "@/lib/artworkValidation";
 import { useRef, useState } from "react";
 import { MessageSquareText, Quote, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -916,7 +917,8 @@ export function SendKitView(vm: SendKitVm) {
                             : "Upload logo"}
                         <input
                           type="file"
-                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          accept={ARTWORK_ACCEPT}
+                          title={ARTWORK_REQUIREMENTS}
                           hidden
                           disabled={vm.isUploadingCuratedLogo}
                           onChange={(e) => {
@@ -926,6 +928,7 @@ export function SendKitView(vm: SendKitVm) {
                           }}
                         />
                       </label>
+                      <span className="muted">{ARTWORK_REQUIREMENTS}</span>
                     </div>
                     <div
                       style={{

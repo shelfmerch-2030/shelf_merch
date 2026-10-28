@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { DesignedProductThumb } from "./DesignedProductThumb";
 import type { UiCollection, UiProduct } from "@/services/mappers";
-import { listPrintAreas } from "@/features/swag/mockup-bake";
+import { savedDesignPreview } from "@/features/swag/mockup-bake";
 
 function colorSwatches(p: UiProduct) {
   const hexes: string[] = [];
@@ -79,16 +81,14 @@ export function CollectionInlineCard({
       >
         {collection.products.map((p, i) => {
           const swatches = colorSwatches(p);
+          const preview = savedDesignPreview(p, collection.artworkUrl);
           const body = (
             <>
               <div className="swag-col-pcard-img">
                 <DesignedProductThumb
                   product={p}
-                  artworkUrl={
-                    listPrintAreas(p).length !== 0
-                      ? collection.artworkUrl
-                      : undefined
-                  }
+                  artworkUrl={preview.artworkUrl}
+                  preferBakedMockup={preview.preferBakedMockup}
                   hoverSwapViews
                 />
               </div>

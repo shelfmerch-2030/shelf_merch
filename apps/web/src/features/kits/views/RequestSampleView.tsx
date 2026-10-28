@@ -1,3 +1,4 @@
+import { ARTWORK_ACCEPT, ARTWORK_REQUIREMENTS } from "@/lib/artworkValidation";
 import { inr } from "@/components/platform/platform-ui";
 import { KitRedeemAddressForm } from "@/components/kit-redeem/KitRedeemAddressForm";
 import { LoadingState } from "@/components/LoadingState";
@@ -474,7 +475,8 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
                       {vm.isUploadingLogo ? "Uploading…" : vm.logoPreview ? "Replace logo" : "Upload logo"}
                       <input
                         type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        accept={ARTWORK_ACCEPT}
+                        title={ARTWORK_REQUIREMENTS}
                         hidden
                         disabled={vm.isUploadingLogo}
                         onChange={(e) => {
@@ -491,6 +493,7 @@ function PackagingBrandingStep({ vm }: { vm: RequestSampleVm }) {
                   </div>
                 </div>
                 <p className="muted" style={{ margin: 0, fontSize: "var(--workspace-font-caption, 13.5px)", lineHeight: 1.55, flex: 1, minWidth: 200 }}>
+                  {ARTWORK_REQUIREMENTS}{" "}
                   Your logo will be applied to the designated branding placeholders on the products, as shown
                   in the product images.
                 </p>
