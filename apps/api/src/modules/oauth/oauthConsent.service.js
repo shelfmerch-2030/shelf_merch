@@ -5,7 +5,13 @@ import { RoleAssignment } from '../roles/roleAssignment.model.js';
 import { ApiError, ConflictError, UnauthorizedError } from '../../utils/errors.js';
 import { getOidcProvider } from './createOidcProvider.js';
 import { mcpResourceUrl, oauthIssuer } from './oauth.config.js';
-import { PROTOCOL_SCOPE, requestedResourceScopes, requestedScopesAllowed, scopeList } from './oauthScopes.js';
+import {
+  OFFLINE_ACCESS_SCOPE,
+  PROTOCOL_SCOPE,
+  requestedResourceScopes,
+  requestedScopesAllowed,
+  scopeList,
+} from './oauthScopes.js';
 import {
   OAUTH_GRANT_ROLES,
   OauthConsentSubmission,
@@ -70,7 +76,7 @@ async function eligibleWorkspaces(userId) {
 function assertInteractionRequest(interaction) {
   const params = interaction?.params || {};
   if (!requestedScopesAllowed(params.scope)) {
-    throw new ApiError(400, 'Only catalog:read, orders:read, campaigns:read, wallets:read, employees:read, and gifts:read can be requested', 'INVALID_SCOPE');
+    throw new ApiError(400, 'Only the read scopes can be requested. offline_access may accompany them and does not grant data access', 'INVALID_SCOPE');
   }
   const resource = Array.isArray(params.resource) ? params.resource[0] : params.resource;
   if (resource !== mcpResourceUrl() || (Array.isArray(params.resource) && params.resource.length !== 1)) {
@@ -164,8 +170,10 @@ export async function submitDecision(req, res) {
       accountId: String(user._id),
       clientId: client.clientId,
     });
+    const requested = scopeList(params.scope);
     for (const scope of resourceScopes) grant.addOIDCScope(scope);
-    if (scopeList(params.scope).includes(PROTOCOL_SCOPE)) grant.addOIDCScope(PROTOCOL_SCOPE);
+    if (requested.includes(PROTOCOL_SCOPE)) grant.addOIDCScope(PROTOCOL_SCOPE);
+    if (requested.includes(OFFLINE_ACCESS_SCOPE)) grant.addOIDCScope(OFFLINE_ACCESS_SCOPE);
     grant.addResourceScope(mcpResourceUrl(), resourceScopes.join(' '));
     grantId = await grant.save();
     await OauthGrantBinding.create({

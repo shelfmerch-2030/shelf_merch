@@ -339,7 +339,7 @@ describe('OAuth consent and grants', () => {
     const discovery = await request(app).get('/.well-known/oauth-authorization-server');
     expect(discovery.body.scopes_supported).toContain('catalog:read');
     expect(discovery.body.scopes_supported).toContain('openid');
-    expect(discovery.body.scopes_supported).not.toContain('offline_access');
+    expect(discovery.body.scopes_supported).toContain('offline_access');
 
     for (const scope of ['openid', 'email', 'profile', 'offline_access', 'catalog:read email', 'orders:write', 'campaigns:write', 'wallets:write', 'employees:write', 'gifts:write', '*', 'catalog:read orders:write']) {
       const agent = request.agent(app);

@@ -55,10 +55,12 @@ export function getOidcProvider() {
       long: { httpOnly: true, sameSite: 'lax', secure },
       short: { httpOnly: true, sameSite: 'lax', secure },
     },
-    // Read scopes only. oidc-provider 9.13.3 also adds openid in collectScopes
-    // because the OIDC claims set is always present. Consent grants the subset
-    // the client requested, so an existing catalog:read grant stays unchanged.
-    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read'],
+    // Read scopes, then offline_access. offline_access only asks for a refresh
+    // token. It is not a ShelfMerch data permission and is not on the MCP
+    // resource. oidc-provider 9.13.3 also adds openid in collectScopes.
+    // Consent grants the subset the client requested, so an existing
+    // catalog:read grant stays unchanged.
+    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read', 'offline_access'],
     responseTypes: ['code'],
     clientAuthMethods: ['none', 'private_key_jwt'],
     pkce: {
@@ -66,13 +68,22 @@ export function getOidcProvider() {
         return true;
       },
     },
+    // ChatGPT keeps a refresh token when discovery advertises offline_access.
+    // Clients that already omit it still receive one when their grant allows
+    // refresh_token, so a catalog-only grant keeps working.
     issueRefreshToken(_ctx, client) {
       return client.grantTypeAllowed('refresh_token');
     },
     rotateRefreshToken(ctx) {
       const refreshToken = ctx.oidc.entities.RefreshToken;
-      if (refreshToken && refreshToken.totalLifetime() >= 365.25 * DAY) return false;
-      return true;
+      const client = ctx.oidc.entities.Client || ctx.oidc.client;
+      if (!refreshToken) return true;
+      if (refreshToken.totalLifetime() >= 365.25 * DAY) return false;
+      // Public clients rotate on every use. ChatGPT uses private_key_jwt.
+      // Rotating that client on every refresh consumes the token, and the
+      // next in-flight refresh revokes the grant.
+      if (client?.clientAuthMethod === 'none' && !refreshToken.isSenderConstrained()) return true;
+      return refreshToken.ttlPercentagePassed() >= 70;
     },
     async expiresWithSession() {
       return false;
@@ -81,7 +92,7 @@ export function getOidcProvider() {
     ttl: {
       AccessToken: 15 * 60,
       AuthorizationCode: 60,
-      RefreshToken: DAY,
+      RefreshToken: 30 * DAY,
       Grant: 30 * DAY,
       Session: 60 * 60,
       Interaction: 10 * 60,
@@ -126,5 +137,18 @@ export function getOidcProvider() {
     },
   });
   provider.proxy = env.TRUST_PROXY > 0;
+  // The access token scope stays the resource read scopes. Echo offline_access
+  // on the token response so a client that requested it can see it was granted.
+  provider.use(async (ctx, next) => {
+    await next();
+    const body = ctx.body;
+    if (!body || typeof body !== 'object' || typeof body.refresh_token !== 'string' || !body.refresh_token) return;
+    const grant = ctx.oidc?.entities?.Grant;
+    const oidcScope = typeof grant?.getOIDCScope === 'function' ? grant.getOIDCScope() : '';
+    if (!oidcScope.split(/\s+/).includes('offline_access')) return;
+    const current = typeof body.scope === 'string' ? body.scope.split(/\s+/).filter(Boolean) : [];
+    if (current.includes('offline_access')) return;
+    body.scope = [...current, 'offline_access'].join(' ');
+  });
   return provider;
 }

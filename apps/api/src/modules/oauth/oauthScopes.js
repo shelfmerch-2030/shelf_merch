@@ -10,6 +10,9 @@ export const RESOURCE_SCOPE = 'catalog:read';
  */
 export const PROTOCOL_SCOPE = 'openid';
 
+/** OIDC scope that asks for a refresh token. It is not a ShelfMerch data permission. */
+export const OFFLINE_ACCESS_SCOPE = 'offline_access';
+
 export function scopeList(value) {
   return String(value || '').split(/\s+/).filter(Boolean);
 }
@@ -23,15 +26,18 @@ export function requestedResourceScopes(value) {
 }
 
 /**
- * At least one read scope is required. openid may accompany those scopes.
- * Wildcards, write scopes, and any other scope are rejected.
+ * At least one read scope is required. openid and offline_access may accompany
+ * those scopes. offline_access is not a data permission. Wildcards, write
+ * scopes, and any other scope are rejected.
  */
 export function requestedScopesAllowed(value) {
   const scopes = scopeList(value);
   if (scopes.length === 0 || new Set(scopes).size !== scopes.length) return false;
   const resource = requestedResourceScopes(value);
   if (resource.length === 0) return false;
-  return scopes.every((scope) => scope === PROTOCOL_SCOPE || READ_SCOPES.has(scope));
+  return scopes.every((scope) => (
+    scope === PROTOCOL_SCOPE || scope === OFFLINE_ACCESS_SCOPE || READ_SCOPES.has(scope)
+  ));
 }
 
 /** A stored grant may contain only the read scopes, with no duplicates. */

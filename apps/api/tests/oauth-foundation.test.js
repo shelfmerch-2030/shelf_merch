@@ -71,7 +71,7 @@ describe('OAuth discovery and protected-resource metadata', () => {
     expect(discovery.body.client_id_metadata_document_supported).toBe(true);
     expect(discovery.body.registration_endpoint).toBeUndefined();
     expect(discovery.body.scopes_supported).toEqual(expect.arrayContaining(['catalog:read']));
-    expect(discovery.body.scopes_supported).not.toContain('offline_access');
+    expect(discovery.body.scopes_supported).toContain('offline_access');
 
     const metadata = await request(app).get('/.well-known/oauth-protected-resource/mcp');
     expect(metadata.status).toBe(200);
