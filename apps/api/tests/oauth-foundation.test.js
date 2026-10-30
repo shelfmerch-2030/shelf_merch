@@ -166,7 +166,9 @@ describe('MCP authentication challenge', () => {
     expect(res.body.error.code).toBe('UNAUTHORIZED');
     const challenge = res.headers['www-authenticate'];
     expect(challenge).toContain(`resource_metadata="${oauthIssuer()}/.well-known/oauth-protected-resource/mcp"`);
-    expect(challenge).toContain('scope="catalog:read"');
+    expect(challenge).toContain(
+      'scope="catalog:read orders:read campaigns:read wallets:read employees:read gifts:read offline_access"',
+    );
   });
 
   it('rejects a ShelfMerch application JWT when legacy access is disabled', async () => {
