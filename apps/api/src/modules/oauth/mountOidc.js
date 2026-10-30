@@ -3,7 +3,11 @@ import { globalHttpRateLimit } from '../../middleware/globalRateLimit.middleware
 import { UnauthorizedError } from '../../utils/errors.js';
 import { getOidcProvider } from './createOidcProvider.js';
 import { legacyMcpJwtAllowed, mcpResourceUrl, oauthIssuer } from './oauth.config.js';
+import { OFFLINE_ACCESS_SCOPE, RESOURCE_SCOPES } from './oauthScopes.js';
 import { verifyOauthAccessToken } from './verifyOauthAccessToken.js';
+
+/** Scopes a new MCP client should request. offline_access is not a data permission. */
+const MCP_INITIAL_SCOPE = [...RESOURCE_SCOPES, OFFLINE_ACCESS_SCOPE].join(' ');
 
 const OIDC_PATHS = new Set([
   '/.well-known/oauth-authorization-server',
@@ -27,7 +31,7 @@ export function mcpWwwAuthenticate(error) {
   const parts = [
     'Bearer realm="shelfmerch"',
     `resource_metadata="${metadata}"`,
-    'scope="catalog:read"',
+    `scope="${MCP_INITIAL_SCOPE}"`,
   ];
   if (error) parts.push(`error="${error}"`);
   return parts.join(', ');
@@ -76,7 +80,7 @@ function setMcpChallenge(res, error) {
   try {
     res.set('WWW-Authenticate', mcpWwwAuthenticate(error));
   } catch {
-    res.set('WWW-Authenticate', 'Bearer realm="shelfmerch", scope="catalog:read"');
+    res.set('WWW-Authenticate', `Bearer realm="shelfmerch", scope="${MCP_INITIAL_SCOPE}"`);
   }
 }
 export function mcpAuthenticate(req, res, next) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { AuthLayout } from "@/features/auth/views/AuthLayout";
 import { clearSession, getAccessToken, isAuthenticated } from "@/services/auth-store";
+import { permissionLines } from "./consentPermissions";
 import { isSafeResumeUrl } from "./safeOauthReturn";
 
 type ConsentSession = {
@@ -12,23 +13,6 @@ type ConsentSession = {
 };
 
 type ApiErrorBody = { error?: { code?: string; message?: string } };
-
-const SCOPE_LABELS: Record<string, string> = {
-  "catalog:read": "Read the product catalog (catalog:read)",
-  "orders:read": "Read orders (orders:read)",
-  "campaigns:read": "Read campaigns (campaigns:read)",
-  "wallets:read": "Read wallets (wallets:read)",
-  "employees:read": "Read employees (employees:read)",
-  "gifts:read": "Read gifts (gifts:read)",
-};
-
-function permissionLines(scope: string) {
-  const lines = String(scope || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((item) => SCOPE_LABELS[item] || item);
-  return lines.length ? lines : [SCOPE_LABELS["catalog:read"]];
-}
 
 async function consentRequest(path: string, body?: unknown): Promise<Response> {
   const headers = new Headers();
@@ -123,7 +107,7 @@ export function OauthConsentPage() {
               </dd>
             </div>
             <div>
-              <dt className="auth-simple-label">Permission</dt>
+              <dt className="auth-simple-label">Permissions</dt>
               <dd>
                 {permissionLines(session.scope).map((line) => (
                   <div key={line}>{line}</div>
