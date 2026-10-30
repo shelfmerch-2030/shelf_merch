@@ -13,6 +13,25 @@ afterEach(() => {
 });
 
 describe("consent banner", () => {
+  it("contains keyboard focus and restores the page when dismissed without saving", async () => {
+    const user = userEvent.setup();
+    const previousOverflow = document.body.style.overflow;
+    const { container } = render(<ConsentBanner />);
+    const dialog = screen.getByRole("dialog", { name: "Your privacy choices" });
+    expect(document.activeElement).toBe(dialog);
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(container.inert).toBe(true);
+    expect(document.body.style.overflow).toBe("hidden");
+    screen.getByRole("link", { name: "Privacy policy" }).focus();
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close cookie preferences" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(localStorage.getItem(CONSENT_STORAGE_KEY)).toBeNull();
+    expect(container.inert).not.toBe(true);
+    expect(document.body.style.overflow).toBe(previousOverflow);
+  });
+
   it("keeps optional measurement off until accept, reject, or a saved preference", async () => {
     const user = userEvent.setup();
     render(<ConsentBanner />);

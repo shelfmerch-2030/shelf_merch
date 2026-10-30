@@ -44,6 +44,29 @@
   font-family: var(--sm-cat-font);
 }
 
+/* Editorial heading pairing, limited to the catalog phrases selected for emphasis. */
+.sm-cat .sm-catalog-heading-accent {
+  display: block;
+  font-family: var(--font-family-public-serif);
+  font-style: italic;
+  font-weight: var(--font-weight-regular);
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+.sm-cat #sm-cat-style-title .sm-catalog-heading-accent {
+  display: inline;
+  color: #3155b4;
+}
+
+.sm-cat #sm-ref-experts-title {
+  white-space: normal;
+}
+
+.sm-cat #sm-ref-experts-title .sm-catalog-heading-accent {
+  display: inline;
+}
+
 .sm-cat-container {
   width: 100%;
   padding-left: var(--sm-cat-pad-x);
@@ -4438,3 +4461,27 @@ button.sm-ref-feature {
 .sm-cat-page--listing .sm-cat-page__crumbs > span:last-child { color: #111; font-weight: 700; }
 .sm-cat-page--listing .sm-cat-page__body { margin-top: 16px; }
 .sm-cat-page--listing .sm-catalog-shop__toolbar { margin-bottom: 16px; }
+
+/* One responsive scale for catalog landing section headings. Keep H1 and card titles distinct. */
+.sm-cat--landing {
+  --sm-cat-section-heading-size: clamp(32px, 3.4vw, 48px);
+  --sm-cat-section-heading-leading: 1.12;
+}
+
+.sm-cat.sm-cat--landing h2 {
+  font-family: var(--sm-cat-font);
+  font-size: var(--sm-cat-section-heading-size);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--sm-cat-section-heading-leading);
+  letter-spacing: -0.035em;
+}
+
+.sm-cat.sm-cat--landing h2 .sm-catalog-heading-accent {
+  line-height: inherit;
+}
+
+@media (max-width: 760px) {
+  .sm-cat--landing {
+    --sm-cat-section-heading-size: clamp(28px, 6vw, 34px);
+  }
+}

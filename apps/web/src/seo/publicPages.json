@@ -42,7 +42,7 @@
       "description": "How HR, sales, and events teams use Shelf Merch for onboarding, client gifting, and event merchandise."
     },
     {
-      "path": "/resources/hr",
+      "path": "/resources/human-resources",
       "title": "Shelf Merch for Human Resources",
       "description": "Bring onboarding, milestones, recognition and employee gifting into one HR-friendly platform—without adding another operational burden."
     },
@@ -124,7 +124,7 @@
       "canonicalPath": "/legal/privacy-policy"
     },
     {
-      "path": "/terms",
+      "path": "/terms-condition",
       "title": "Terms & Conditions | Shelf Merch",
       "description": "Terms and conditions for Shelf Merch websites, company stores, and merchandise fulfilment services.",
       "robots": "noindex, follow",

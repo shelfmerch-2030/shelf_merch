@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 
@@ -10,7 +10,7 @@ export type CategoryTile = {
 };
 
 type CategoryCarouselProps = {
-  title: string;
+  title: ReactNode;
   titleId?: string;
   viewAllLabel: string;
   items: readonly CategoryTile[];

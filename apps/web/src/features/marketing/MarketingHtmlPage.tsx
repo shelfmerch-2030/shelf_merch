@@ -1130,7 +1130,7 @@ function localizeMarkup(markup: string) {
     .replaceAll("https://shelf-merch-homepage.konetibaba.chatgpt.site", "")
     .replaceAll('href="/platform"', 'href="/platform"')
     .replaceAll('href="/about"', 'href="/about"')
-    .replaceAll('href="/terms"', 'href="/terms"')
+    .replaceAll('href="/terms-condition"', 'href="/terms-condition"')
     .replaceAll('href="/privacy"', 'href="/privacy"')
     .replaceAll('href="/careers"', 'href="/careers"')
     .replaceAll('href=""', 'href="/"');
