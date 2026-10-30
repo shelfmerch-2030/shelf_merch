@@ -6,7 +6,7 @@ import { RoleAssignment } from '../roles/roleAssignment.model.js';
 import { getOidcProvider } from './createOidcProvider.js';
 import { mcpResourceUrl, oauthIssuer, oidcJwks } from './oauth.config.js';
 import { OAUTH_GRANT_ROLES, OauthGrantBinding } from './oauthGrantBinding.model.js';
-import { requestedScopesAllowed } from './oauthScopes.js';
+import { grantScopesAllowed, requestedResourceScopes, requestedScopesAllowed } from './oauthScopes.js';
 
 const GENERIC_TOKEN = 'Invalid or expired access token';
 
@@ -34,15 +34,19 @@ function readHeader(token) {
 }
 
 function insufficientScope() {
-  return new ApiError(403, 'Catalog search is not available for this token', 'INSUFFICIENT_SCOPE');
+  return new ApiError(403, 'This token does not include a permitted read scope', 'INSUFFICIENT_SCOPE');
 }
 
 function invalidToken() {
   return new UnauthorizedError(GENERIC_TOKEN);
 }
 
-function requireCatalogScope(scope) {
+function requireGrantedReadScopes(scope, bindingScopes) {
   if (!requestedScopesAllowed(scope)) throw insufficientScope();
+  if (!grantScopesAllowed(bindingScopes)) throw insufficientScope();
+  const requested = requestedResourceScopes(scope);
+  if (!requested.every((item) => bindingScopes.includes(item))) throw insufficientScope();
+  return requested;
 }
 
 async function loadAuthorizedGrant({ grantId, accountId, clientId, scope }) {
@@ -51,10 +55,6 @@ async function loadAuthorizedGrant({ grantId, accountId, clientId, scope }) {
   const grant = await provider.Grant.find(grantId);
   if (!grant || grant.isExpired) throw invalidToken();
   if (grant.accountId !== String(accountId) || grant.clientId !== clientId) throw invalidToken();
-  if (typeof grant.getResourceScope === 'function') {
-    const granted = grant.getResourceScope(mcpResourceUrl()).split(/\s+/).filter(Boolean);
-    if (!granted.includes('catalog:read')) throw insufficientScope();
-  }
 
   let client;
   try {
@@ -69,8 +69,10 @@ async function loadAuthorizedGrant({ grantId, accountId, clientId, scope }) {
   if (String(binding.userId) !== String(accountId)) throw invalidToken();
   if (binding.clientId !== clientId) throw invalidToken();
   if (binding.resource !== mcpResourceUrl()) throw invalidToken();
-  if (!Array.isArray(binding.scopes) || binding.scopes.length !== 1 || binding.scopes[0] !== 'catalog:read') {
-    throw insufficientScope();
+  const tokenScopes = requireGrantedReadScopes(scope, binding.scopes);
+  if (typeof grant.getResourceScope === 'function') {
+    const granted = grant.getResourceScope(mcpResourceUrl()).split(/\s+/).filter(Boolean);
+    if (!tokenScopes.every((item) => granted.includes(item))) throw insufficientScope();
   }
 
   const user = await User.findById(accountId).select('status sessionVersion').lean();
@@ -86,11 +88,10 @@ async function loadAuthorizedGrant({ grantId, accountId, clientId, scope }) {
     role: { $in: OAUTH_GRANT_ROLES },
   }).lean();
   if (!assignment) throw insufficientScope();
-  requireCatalogScope(scope);
 
   return {
     clientId,
-    scopes: ['catalog:read'],
+    scopes: tokenScopes,
     user: {
       userId: String(user._id),
       tenantId: String(binding.tenantId),

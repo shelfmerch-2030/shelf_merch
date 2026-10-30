@@ -13,6 +13,23 @@ type ConsentSession = {
 
 type ApiErrorBody = { error?: { code?: string; message?: string } };
 
+const SCOPE_LABELS: Record<string, string> = {
+  "catalog:read": "Read the product catalog (catalog:read)",
+  "orders:read": "Read orders (orders:read)",
+  "campaigns:read": "Read campaigns (campaigns:read)",
+  "wallets:read": "Read wallets (wallets:read)",
+  "employees:read": "Read employees (employees:read)",
+  "gifts:read": "Read gifts (gifts:read)",
+};
+
+function permissionLines(scope: string) {
+  const lines = String(scope || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((item) => SCOPE_LABELS[item] || item);
+  return lines.length ? lines : [SCOPE_LABELS["catalog:read"]];
+}
+
 async function consentRequest(path: string, body?: unknown): Promise<Response> {
   const headers = new Headers();
   const token = getAccessToken();
@@ -90,7 +107,7 @@ export function OauthConsentPage() {
   const canAllow = Boolean(session && workspaceId && session.workspaces.some((workspace) => workspace.id === workspaceId));
 
   return (
-    <AuthLayout variant="compact" title="Allow catalog access" subtitle="An application is asking to read your catalog.">
+    <AuthLayout variant="compact" title="Allow access" subtitle="An application is asking to read ShelfMerch data you choose.">
       {!session && !error ? <p className="auth-simple-subtitle">Checking your ShelfMerch session…</p> : null}
       {session ? (
         <div className="auth-simple-form">
@@ -107,7 +124,11 @@ export function OauthConsentPage() {
             </div>
             <div>
               <dt className="auth-simple-label">Permission</dt>
-              <dd>Read the product catalog (catalog:read)</dd>
+              <dd>
+                {permissionLines(session.scope).map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </dd>
             </div>
           </dl>
           {session.workspaces.length ? (

@@ -5,7 +5,7 @@ import { RoleAssignment } from '../roles/roleAssignment.model.js';
 import { ApiError, ConflictError, UnauthorizedError } from '../../utils/errors.js';
 import { getOidcProvider } from './createOidcProvider.js';
 import { mcpResourceUrl, oauthIssuer } from './oauth.config.js';
-import { PROTOCOL_SCOPE, requestedScopesAllowed, scopeList } from './oauthScopes.js';
+import { PROTOCOL_SCOPE, requestedResourceScopes, requestedScopesAllowed, scopeList } from './oauthScopes.js';
 import {
   OAUTH_GRANT_ROLES,
   OauthConsentSubmission,
@@ -70,7 +70,7 @@ async function eligibleWorkspaces(userId) {
 function assertInteractionRequest(interaction) {
   const params = interaction?.params || {};
   if (!requestedScopesAllowed(params.scope)) {
-    throw new ApiError(400, 'Only catalog:read can be requested', 'INVALID_SCOPE');
+    throw new ApiError(400, 'Only catalog:read, orders:read, campaigns:read, wallets:read, employees:read, and gifts:read can be requested', 'INVALID_SCOPE');
   }
   const resource = Array.isArray(params.resource) ? params.resource[0] : params.resource;
   if (resource !== mcpResourceUrl() || (Array.isArray(params.resource) && params.resource.length !== 1)) {
@@ -115,7 +115,7 @@ export async function readConsent(req, res) {
     client: { name: client.clientName || client.client_name || client.clientId },
     account: { name: user.name, email: user.email },
     workspaces: await eligibleWorkspaces(user._id),
-    scope: 'catalog:read',
+    scope: requestedResourceScopes(params.scope).join(' '),
   };
 }
 
@@ -159,14 +159,14 @@ export async function submitDecision(req, res) {
     }
 
     const client = await provider.Client.find(params.client_id);
+    const resourceScopes = requestedResourceScopes(params.scope);
     grant = new provider.Grant({
       accountId: String(user._id),
       clientId: client.clientId,
     });
-    // The provider lists catalog:read as a scope, so consent also checks it there.
-    grant.addOIDCScope('catalog:read');
+    for (const scope of resourceScopes) grant.addOIDCScope(scope);
     if (scopeList(params.scope).includes(PROTOCOL_SCOPE)) grant.addOIDCScope(PROTOCOL_SCOPE);
-    grant.addResourceScope(mcpResourceUrl(), 'catalog:read');
+    grant.addResourceScope(mcpResourceUrl(), resourceScopes.join(' '));
     grantId = await grant.save();
     await OauthGrantBinding.create({
       grantId,
@@ -174,7 +174,7 @@ export async function submitDecision(req, res) {
       tenantId,
       clientId: client.clientId,
       resource: mcpResourceUrl(),
-      scopes: ['catalog:read'],
+      scopes: resourceScopes,
       sessionVersion: user.sessionVersion ?? 0,
     });
 

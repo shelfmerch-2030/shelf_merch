@@ -8,7 +8,7 @@ import { requestedScopesAllowed } from './oauthScopes.js';
  */
 function rejectUnsupportedOauthScope(ctx) {
   if (!requestedScopesAllowed(ctx.oidc?.params?.scope)) {
-    throw new errors.InvalidScope('Only catalog:read can be requested');
+    throw new errors.InvalidScope('Only catalog:read, orders:read, campaigns:read, wallets:read, employees:read, and gifts:read can be requested');
   }
   return false;
 }
@@ -19,7 +19,7 @@ export function shelfMerchInteractionPolicy() {
   login.checks.add(
     new interactionPolicy.Check(
       'catalog_read_only',
-      'Only catalog:read can be requested',
+      'Only catalog:read, orders:read, campaigns:read, wallets:read, employees:read, and gifts:read can be requested',
       rejectUnsupportedOauthScope,
     ),
     0,

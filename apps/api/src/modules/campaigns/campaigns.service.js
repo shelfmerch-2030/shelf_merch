@@ -18,6 +18,7 @@ import { notify } from '../notifications/notifications.service.js';
 import { enqueueScheduledCampaignDelivery } from '../../jobs/queues.js';
 import { recordUsage } from '../../services/usage.service.js';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
+import { getPagination, paginatedResponse } from '../../utils/pagination.js';
 import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { assertCampaignSpendPayment } from '../payments/payments.service.js';
 import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
@@ -128,6 +129,95 @@ export async function getCampaign({ tenantId, campaignId, user }) {
     if (!allowed.includes(String(campaign.entityId))) throw new ForbiddenError();
   }
   return withCampaignMeta(campaign);
+}
+
+export const HIDDEN_CAMPAIGN_NAME = '__storefront_self_serve__';
+const CAMPAIGN_READ_PAGE = { defaultLimit: 10, maxLimit: 25 };
+const CAMPAIGN_SUMMARY_FIELDS =
+  'name type status fulfillmentMode recipientCount creditsPerRecipient totalBudget createdAt updatedAt';
+const CAMPAIGN_DETAIL_FIELDS =
+  `${CAMPAIGN_SUMMARY_FIELDS} entityId catalogMode packaging pointsScope paymentMode isSample brandingEnabled message schedule`;
+
+function campaignStamp(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+function campaignSummary(campaign) {
+  return {
+    id: String(campaign._id),
+    name: String(campaign.name ?? ''),
+    type: String(campaign.type ?? ''),
+    status: String(campaign.status ?? ''),
+    fulfillmentMode: String(campaign.fulfillmentMode ?? 'redeem'),
+    recipientCount: Math.round(Number(campaign.recipientCount) || 0),
+    creditsPerRecipient: Math.round(Number(campaign.creditsPerRecipient) || 0),
+    totalBudget: Math.round(Number(campaign.totalBudget) || 0),
+    createdAt: campaignStamp(campaign.createdAt),
+    updatedAt: campaignStamp(campaign.updatedAt),
+  };
+}
+
+function campaignDetail(campaign) {
+  const message = campaign.message ?? {};
+  const schedule = campaign.schedule ?? {};
+  return {
+    ...campaignSummary(campaign),
+    entityId: campaign.entityId ? String(campaign.entityId) : '',
+    catalogMode: String(campaign.catalogMode ?? 'full_store'),
+    packaging: String(campaign.packaging ?? 'none'),
+    pointsScope: String(campaign.pointsScope ?? 'shop'),
+    paymentMode: String(campaign.paymentMode ?? 'wallet'),
+    isSample: Boolean(campaign.isSample),
+    brandingEnabled: Boolean(campaign.brandingEnabled),
+    message: {
+      from: String(message.from ?? ''),
+      body: String(message.body ?? ''),
+    },
+    schedule: {
+      mode: String(schedule.mode ?? 'now'),
+      sendAt: campaignStamp(schedule.sendAt),
+      timezone: String(schedule.timezone ?? ''),
+    },
+  };
+}
+
+/**
+ * Read-only campaign page. Same tenant, entity, and hidden-name rules as
+ * listCampaigns, with status and type filters applied in the query.
+ */
+export async function searchCampaignsRead({ tenantId, user, query }) {
+  const { page, limit, skip } = getPagination(query, CAMPAIGN_READ_PAGE);
+  const filter = {
+    tenantId,
+    name: { $ne: HIDDEN_CAMPAIGN_NAME },
+  };
+  if (query.status) filter.status = query.status;
+  if (query.type) filter.type = query.type;
+  if (user.scopeType === 'entity') {
+    const ids = user.assignedEntityIds ?? [];
+    if (!ids.length) return paginatedResponse([], 0, { page, limit });
+    filter.entityId = { $in: ids };
+  }
+  const [rows, total] = await Promise.all([
+    Campaign.find(filter).select(CAMPAIGN_SUMMARY_FIELDS).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Campaign.countDocuments(filter),
+  ]);
+  return paginatedResponse(rows.map(campaignSummary), total, { page, limit });
+}
+
+/** Read-only campaign detail. Same entity check as getCampaign, without draft or payment fields. */
+export async function getCampaignRead({ tenantId, user, campaignId }) {
+  const campaign = await Campaign.findOne({ _id: campaignId, tenantId }).select(CAMPAIGN_DETAIL_FIELDS).lean();
+  if (!campaign || campaign.name === HIDDEN_CAMPAIGN_NAME) throw new NotFoundError('Campaign not found');
+  if (user?.scopeType === 'entity') {
+    const allowed = (user.assignedEntityIds ?? []).map(String);
+    if (!allowed.includes(String(campaign.entityId))) {
+      throw new ForbiddenError('You do not have access to this campaign');
+    }
+  }
+  return campaignDetail(campaign);
 }
 
 export async function createCampaign({ tenantId, userId, user, data }) {

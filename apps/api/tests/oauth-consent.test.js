@@ -341,7 +341,7 @@ describe('OAuth consent and grants', () => {
     expect(discovery.body.scopes_supported).toContain('openid');
     expect(discovery.body.scopes_supported).not.toContain('offline_access');
 
-    for (const scope of ['openid', 'email', 'profile', 'offline_access', 'catalog:read email']) {
+    for (const scope of ['openid', 'email', 'profile', 'offline_access', 'catalog:read email', 'orders:write', 'campaigns:write', 'wallets:write', 'employees:write', 'gifts:write', '*', 'catalog:read orders:write']) {
       const agent = request.agent(app);
       const { res } = await begin(agent, { scope });
       expect([302, 303]).toContain(res.status);
@@ -354,6 +354,36 @@ describe('OAuth consent and grants', () => {
     expect([302, 303]).toContain(companionRes.status);
     expect(companionRes.headers.location).toContain('/oauth/consent');
     expect(String(companionRes.headers.location)).not.toContain('invalid_scope');
+
+    const ordersCompanion = request.agent(app);
+    const { res: ordersRes } = await begin(ordersCompanion, { scope: 'catalog:read orders:read' });
+    expect([302, 303]).toContain(ordersRes.status);
+    expect(String(ordersRes.headers.location)).toContain('/oauth/consent');
+    expect(String(ordersRes.headers.location)).not.toContain('invalid_scope');
+
+    const campaignsCompanion = request.agent(app);
+    const { res: campaignsRes } = await begin(campaignsCompanion, { scope: 'catalog:read campaigns:read' });
+    expect([302, 303]).toContain(campaignsRes.status);
+    expect(String(campaignsRes.headers.location)).toContain('/oauth/consent');
+    expect(String(campaignsRes.headers.location)).not.toContain('invalid_scope');
+
+    const walletsCompanion = request.agent(app);
+    const { res: walletsRes } = await begin(walletsCompanion, { scope: 'catalog:read wallets:read' });
+    expect([302, 303]).toContain(walletsRes.status);
+    expect(String(walletsRes.headers.location)).toContain('/oauth/consent');
+    expect(String(walletsRes.headers.location)).not.toContain('invalid_scope');
+
+    const employeesCompanion = request.agent(app);
+    const { res: employeesRes } = await begin(employeesCompanion, { scope: 'catalog:read employees:read' });
+    expect([302, 303]).toContain(employeesRes.status);
+    expect(String(employeesRes.headers.location)).toContain('/oauth/consent');
+    expect(String(employeesRes.headers.location)).not.toContain('invalid_scope');
+
+    const giftsCompanion = request.agent(app);
+    const { res: giftsRes } = await begin(giftsCompanion, { scope: 'catalog:read gifts:read' });
+    expect([302, 303]).toContain(giftsRes.status);
+    expect(String(giftsRes.headers.location)).toContain('/oauth/consent');
+    expect(String(giftsRes.headers.location)).not.toContain('invalid_scope');
 
     expect(await OauthGrantBinding.countDocuments()).toBe(0);
   });

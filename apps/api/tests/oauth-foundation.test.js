@@ -78,7 +78,7 @@ describe('OAuth discovery and protected-resource metadata', () => {
     expect(metadata.headers['access-control-allow-origin']).toBe('*');
     expect(metadata.body.resource).toBe(resource);
     expect(metadata.body.authorization_servers).toEqual([issuer]);
-    expect(metadata.body.scopes_supported).toEqual(['catalog:read']);
+    expect(metadata.body.scopes_supported).toEqual(['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read']);
     expect(metadata.body.bearer_methods_supported).toEqual(['header']);
 
     const jwks = await request(app).get('/jwks');

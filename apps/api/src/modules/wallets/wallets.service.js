@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Wallet } from './wallet.model.js';
 import { WalletTransaction } from './walletTransaction.model.js';
 import { Entity } from '../entities/entity.model.js';
@@ -374,10 +375,37 @@ export async function transfer({ tenantId, walletId, toWalletId, amount, userId 
   return { ...result, wallet: withMeta(await getWallet({ tenantId, walletId })) };
 }
 
-export async function listTransactions({ tenantId, walletId, query }) {
-  const wallet = await getWallet({ tenantId, walletId });
-  const { page, limit, skip } = getPagination(query);
-  const scope = { tenantId: wallet.tenantId, walletId: wallet._id };
+const WALLET_READ_PAGE = { defaultLimit: 10, maxLimit: 25 };
+
+function walletBalanceItem(wallet) {
+  const balance = Number(wallet.balance) || 0;
+  const allocatedAmount = Number(wallet.allocatedAmount) || 0;
+  return {
+    id: String(wallet._id),
+    name: String(wallet.name ?? ''),
+    currency: String(wallet.currency ?? 'INR'),
+    status: String(wallet.status ?? ''),
+    balance,
+    allocatedAmount,
+    unallocatedAmount: balance - allocatedAmount,
+  };
+}
+
+/** Tenant wallets without repairing cached balances. */
+export async function listWalletBalancesRead({ tenantId }) {
+  const rows = await Wallet.find({ tenantId })
+    .select('name currency status balance allocatedAmount')
+    .sort({ createdAt: -1 })
+    .lean();
+  return { items: rows.map(walletBalanceItem) };
+}
+
+async function queryWalletTransactions({ tenantId, walletId, query, pageOptions }) {
+  const { page, limit, skip } = getPagination(query, pageOptions);
+  const scope = {
+    tenantId: new mongoose.Types.ObjectId(String(tenantId)),
+    walletId: new mongoose.Types.ObjectId(String(walletId)),
+  };
   const filter = { ...scope, ...(query.type ? { type: query.type } : {}) };
   const [items, total] = await Promise.all([
     WalletTransaction.aggregate([
@@ -422,6 +450,43 @@ export async function listTransactions({ tenantId, walletId, query }) {
     WalletTransaction.countDocuments(filter),
   ]);
   return paginatedResponse(items, total, { page, limit });
+}
+
+export async function listTransactions({ tenantId, walletId, query }) {
+  const wallet = await getWallet({ tenantId, walletId });
+  return queryWalletTransactions({
+    tenantId: wallet.tenantId,
+    walletId: wallet._id,
+    query,
+  });
+}
+
+function walletTransactionStamp(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+/** Ledger page for one tenant wallet. Does not repair wallet caches. */
+export async function listWalletTransactionsRead({ tenantId, walletId, query }) {
+  const wallet = await Wallet.findOne({ _id: walletId, tenantId }).select('_id').lean();
+  if (!wallet) throw new NotFoundError('Wallet not found');
+  const page = await queryWalletTransactions({
+    tenantId,
+    walletId: wallet._id,
+    query,
+    pageOptions: WALLET_READ_PAGE,
+  });
+  return {
+    ...page,
+    items: page.items.map((row) => ({
+      type: String(row.type ?? ''),
+      amount: Number(row.amount),
+      balanceAfter: Number(row.balanceAfter),
+      availableAfter: Number(row.availableAfter),
+      createdAt: walletTransactionStamp(row.createdAt),
+    })),
+  };
 }
 
 /** §7.4 /activate — only allowed once every setup step is complete. */

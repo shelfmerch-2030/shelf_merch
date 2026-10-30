@@ -39,7 +39,7 @@ export function sendProtectedResourceMetadata(_req, res) {
   res.json({
     resource: mcpResourceUrl(),
     authorization_servers: [oauthIssuer()],
-    scopes_supported: ['catalog:read'],
+    scopes_supported: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read'],
     bearer_methods_supported: ['header'],
     resource_name: 'ShelfMerch catalog',
   });

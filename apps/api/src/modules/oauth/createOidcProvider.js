@@ -26,7 +26,7 @@ async function getResourceServerInfo(_ctx, resourceIndicator) {
     throw new errors.InvalidTarget('resource indicator is missing, or unknown');
   }
   return {
-    scope: 'catalog:read',
+    scope: 'catalog:read orders:read campaigns:read wallets:read employees:read gifts:read',
     audience: canonical,
     accessTokenTTL: 15 * 60,
     accessTokenFormat: 'jwt',
@@ -55,9 +55,10 @@ export function getOidcProvider() {
       long: { httpOnly: true, sameSite: 'lax', secure },
       short: { httpOnly: true, sameSite: 'lax', secure },
     },
-    // catalog:read is the only resource scope. oidc-provider 9.13.3 also adds
-    // openid in collectScopes because the OIDC claims set is always present.
-    scopes: ['catalog:read'],
+    // Read scopes only. oidc-provider 9.13.3 also adds openid in collectScopes
+    // because the OIDC claims set is always present. Consent grants the subset
+    // the client requested, so an existing catalog:read grant stays unchanged.
+    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read'],
     responseTypes: ['code'],
     clientAuthMethods: ['none', 'private_key_jwt'],
     pkce: {

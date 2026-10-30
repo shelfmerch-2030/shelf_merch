@@ -36,10 +36,12 @@ export function attachMcpAuth(req, _res, next) {
     scopes: req.oauthAccess?.scopes || ['catalog:read'],
     ...(expiresAt != null ? { expiresAt } : {}),
     extra: {
+      userId: req.user.userId ? String(req.user.userId) : null,
       tenantId: req.tenantId ? String(req.tenantId) : null,
       role: req.user.role,
       scopeType: req.user.scopeType ?? null,
       scopeId: req.user.scopeId ? String(req.user.scopeId) : null,
+      assignedEntityIds: (req.user.assignedEntityIds ?? []).map(String),
     },
   };
   next();
