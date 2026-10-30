@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { createBrowserRouter, redirect, type RouteObject } from "react-router";
 import { NotFound, RootLayout, RouteError } from "./RootLayout";
 import { getStoredUser, isAuthenticated, isPlatformUser } from "@/services/api-bridge";
+import { safeOauthReturnPath } from "@/features/oauth/safeOauthReturn";
 import { requireTenantArea } from "@/services/tenant-route-guards";
 import { getWorkspaceSlug, setWorkspaceSlug } from "@/lib/workspaceSlug";
 
@@ -11,8 +12,12 @@ function page(loader: () => Promise<Record<string, unknown>>, name = "default") 
 }
 
 /** Signed-in users never see landing/login — bounce them into their app. */
-function redirectIfAuthed() {
+function redirectIfAuthed(args?: { request?: Request }) {
+  const back = args?.request
+    ? safeOauthReturnPath(new URL(args.request.url).searchParams.get("return"))
+    : null;
   if (!isAuthenticated()) return null;
+  if (back) return redirect(back);
   if (isPlatformUser(getStoredUser())) return redirect("/platform/dashboard");
   const slug = getWorkspaceSlug();
   return redirect(slug ? `/${slug}` : "/dashboard");
@@ -311,6 +316,10 @@ export const appRouter = createBrowserRouter([
         ],
       },
       { path: "catalog", loader: () => redirect("/apps/catalog") },
+      {
+        path: "oauth/consent",
+        lazy: page(() => import("@/features/oauth/OauthConsentPage"), "OauthConsentPage"),
+      },
       {
         path: "login",
         loader: redirectIfAuthed,

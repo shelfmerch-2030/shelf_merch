@@ -12,6 +12,7 @@
     "/redeem",
     "/zoho",
     "/auth",
+    "/oauth",
     "/dashboard"
   ],
   "pages": [

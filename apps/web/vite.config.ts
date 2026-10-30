@@ -126,6 +126,12 @@ export default defineConfig({
           });
         },
       },
+      "/auth": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/token": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/jwks": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/.well-known": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/oauth/consent/session": { target: "http://127.0.0.1:3001", changeOrigin: true },
+      "/oauth/consent/decision": { target: "http://127.0.0.1:3001", changeOrigin: true },
       "/uploads": {
         target: "http://127.0.0.1:3001",
         changeOrigin: true,

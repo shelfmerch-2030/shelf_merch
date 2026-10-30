@@ -16,6 +16,11 @@ import { notFoundHandler, errorHandler } from './middleware/error.middleware.js'
 import { sanitizeMongoInput } from './middleware/sanitize.middleware.js';
 import { requestContextMiddleware } from './middleware/requestContext.middleware.js';
 import { globalHttpRateLimit } from './middleware/globalRateLimit.middleware.js';
+import { mcpAuthenticate, oidcMiddleware, sendProtectedResourceMetadata } from './modules/oauth/mountOidc.js';
+import { getOidcProvider } from './modules/oauth/createOidcProvider.js';
+import oauthConsentRoutes from './modules/oauth/oauthConsent.routes.js';
+import oauthGrantRoutes from './modules/oauth/oauthGrants.routes.js';
+import { resolveTenant } from './middleware/tenant.middleware.js';
 import { razorpayWebhook } from './modules/payments/payments.controller.js';
 import { mergeWebhook } from './modules/integrations/merge/merge.controller.js';
 
@@ -66,6 +71,9 @@ import { platformReportsRouter } from './modules/reports/reports.routes.js';
 import zohoIntegrationsRoutes from './modules/integrations/zoho/zoho.routes.js';
 import mergeIntegrationsRoutes from './modules/integrations/merge/merge.routes.js';
 import slackIntegrationsRoutes from './modules/integrations/slack/slack.routes.js';
+import { requireCatalogRead, attachMcpAuth } from './modules/mcp/mcpAuth.js';
+import { mcpRequestBoundary } from './modules/mcp/mcpBoundary.js';
+import { handleShelfMerchMcp } from './modules/mcp/createShelfMerchMcp.js';
 import {
   applyZohoPeopleEmbedHeaders,
   applyZohoPeopleCoopHeaders,
@@ -173,6 +181,7 @@ function helmetOptions() {
 }
 
 export function createApp() {
+  getOidcProvider();
   const app = express();
 
   app.set('trust proxy', env.TRUST_PROXY);
@@ -282,6 +291,7 @@ export function createApp() {
   api.use(globalHttpRateLimit);
 
   api.use('/auth', authRoutes);
+  api.use('/oauth/grants', oauthGrantRoutes);
   api.use('/media', mediaRoutes);
   api.use('/users', usersRoutes);
   api.use('/tenants', tenantsRouter);
@@ -347,6 +357,30 @@ export function createApp() {
    * https://shelfmerch.io/api/integrations/slack/callback.
    */
   app.use('/api/integrations/slack', globalHttpRateLimit, slackIntegrationsRoutes);
+
+  /**
+   * ShelfMerch MCP phase 1. One read-only catalog_search tool on the existing
+   * process. Stateless JSON so the three API replicas need no shared session.
+   * Access JWT, catalog-read roles, then the same tenant guardrails as the API.
+   */
+  app.get(
+    '/.well-known/oauth-protected-resource/mcp',
+    globalHttpRateLimit,
+    sendProtectedResourceMetadata,
+  );
+  app.use(oidcMiddleware);
+  app.use('/oauth/consent', oauthConsentRoutes);
+
+  app.all(
+    '/mcp',
+    globalHttpRateLimit,
+    mcpRequestBoundary,
+    mcpAuthenticate,
+    requireCatalogRead,
+    resolveTenant,
+    attachMcpAuth,
+    handleShelfMerchMcp,
+  );
 
   /**
    * Zoho People Connected App (externally hosted inside Zoho People / Sigma).
@@ -433,7 +467,24 @@ export function createApp() {
 
   const sendDocument = (req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/email-assets/')) return next();
+    if (
+      req.path.startsWith('/api/') ||
+      req.path.startsWith('/uploads/') ||
+      req.path.startsWith('/email-assets/') ||
+      req.path === '/mcp' ||
+      req.path.startsWith('/mcp/') ||
+      req.path.startsWith('/.well-known/') ||
+      req.path === '/auth' ||
+      req.path.startsWith('/auth/') ||
+      req.path === '/token' ||
+      req.path.startsWith('/token/') ||
+      req.path === '/jwks' ||
+      req.path.startsWith('/jwks/') ||
+      req.path === '/session/end' ||
+      req.path.startsWith('/session/end/')
+    ) {
+      return next();
+    }
     if (
       req.path === '/robots.txt' ||
       req.path === '/sitemap.xml' ||

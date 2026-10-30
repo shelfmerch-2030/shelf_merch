@@ -3,6 +3,8 @@ import { logger, logActiveLoggerConfig } from './config/logger.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { initObservability } from './config/observability.js';
 import { createApp } from './app.js';
+import { getOidcProvider } from './modules/oauth/createOidcProvider.js';
+import { mcpResourceUrl, oauthIssuer } from './modules/oauth/oauth.config.js';
 import { startScheduledCampaignWorker } from './jobs/scheduledCampaign.worker.js';
 import { startNotificationWorker } from './jobs/notification.worker.js';
 import { ensureRedisReady } from './config/redis.js';
@@ -27,6 +29,7 @@ async function main() {
   const scheduleWorker = await startScheduledCampaignWorker();
   const notificationWorker = (await ensureRedisReady()) ? startNotificationWorker() : null;
 
+  getOidcProvider();
   const app = createApp();
   const server = app.listen(env.PORT, env.HOST, () => {
     const addr = server.address();
@@ -41,6 +44,8 @@ async function main() {
         port: env.PORT,
         nodeEnv: env.NODE_ENV,
         appUrl: base,
+        oauthIssuer: oauthIssuer(),
+        mcpResource: mcpResourceUrl(),
       },
       `ShelfMerch listening on ${base}`,
     );

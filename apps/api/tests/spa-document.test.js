@@ -90,6 +90,7 @@ describe('SPA document SEO', () => {
   it('keeps app deep links on the shell and 404s unknown public urls', () => {
     expect(documentKind('/app/orders/42')).toBe('shell');
     expect(documentKind('/platform/dashboard')).toBe('shell');
+    expect(documentKind('/oauth/consent')).toBe('shell');
     expect(documentKind('/reset-password?token=reset-token')).toBe('shell');
     expect(resolveSpaSeo(catalog, '/reset-password?token=reset-token').mode).toBe('private');
     expect(renderSpaDocument(shell, '/reset-password?token=reset-token')).toContain('<div id="root"></div>');
