@@ -19,9 +19,9 @@ describe("Resources mega menu", () => {
     expect(screen.getByRole("navigation", { name: "Resource library" })).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Resources by team" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Case study" }).getAttribute("href")).toBe("/case-studies/zoho-people");
-    expect(screen.getByRole("link", { name: "HR" }).getAttribute("href")).toBe("/resources/hr");
+    expect(screen.getByRole("link", { name: "Human Resource" }).getAttribute("href")).toBe("/resources/human-resources");
     expect(screen.getByRole("link", { name: "Explore the catalog" }).getAttribute("href")).toBe("/app/catalog/browse");
-    fireEvent.click(screen.getByRole("link", { name: "HR" }));
+    fireEvent.click(screen.getByRole("link", { name: "Human Resource" }));
     expect(navigate).toHaveBeenCalledOnce();
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });

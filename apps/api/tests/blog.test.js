@@ -43,6 +43,34 @@ beforeEach(async () => {
 });
 
 describe('blog publishing', () => {
+  it('renders the public guides hub without exposing draft articles', async () => {
+    await BlogPost.create({ ...input, slug: 'private-draft', title: 'Private draft title', status: 'draft' });
+    const hub = await request(app).get('/blog');
+    expect(hub.status).toBe(200);
+    expect(hub.text).toContain('Blog &amp; Guides | Shelf Merch');
+    expect(hub.text).toContain('/images/logo/shelfmerch-wordmark.png');
+    expect(hub.text).toContain('id="guides"');
+    expect(hub.text).toContain('/case-studies/zoho-people');
+    expect(hub.text).toContain('/docs/zoho-people/admin-guide');
+    expect(hub.text).toContain('New articles are on their way.');
+    expect(hub.text).not.toContain('Private draft title');
+    expect(hub.text).not.toContain('/blog/private-draft');
+  });
+
+  it('paginates published articles and rejects invalid public page numbers', async () => {
+    await BlogPost.insertMany(Array.from({ length: 13 }, (_, index) => ({ ...input, slug: `article-${index}`, title: `Article ${index}`, status: 'published', publishedAt: new Date(2026, 0, index + 1) })));
+    const first = await request(app).get('/blog');
+    expect(first.text).toContain('/blog?page=2#articles');
+    expect(first.text).toContain('Article 12');
+    expect(first.text).not.toContain('href="/blog/article-0"');
+    const second = await request(app).get('/blog?page=2');
+    expect(second.status).toBe(200);
+    expect(second.text).toContain('Article 0');
+    expect(second.text).toContain('/blog#articles');
+    expect((await request(app).get('/blog?page=0')).status).toBe(404);
+    expect((await request(app).get('/blog?page=3')).status).toBe(404);
+  });
+
   it('keeps drafts private and updates public HTML and sitemap when published or unpublished', async () => {
     const created = await request(app).post('/api/v1/platform/blog-posts').set(auth(sales)).send(input);
     expect(created.status).toBe(201);

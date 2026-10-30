@@ -235,7 +235,7 @@ function ReferenceCatalogContent({
     <div className="sm-ref-catalog">
       <section className="sm-cat-section sm-ref-style-section" aria-labelledby="sm-cat-style-title">
         <CategoryCarousel
-          title="Choose your style. Make it yours."
+          title={<>Choose your style.{" "}<em className="sm-catalog-heading-accent">Make it yours.</em></>}
           titleId="sm-cat-style-title"
           viewAllLabel="View all categories"
           items={categories}
@@ -264,7 +264,7 @@ function ReferenceCatalogContent({
       </section>
 
       <section className="sm-ref-experts sm-ref-container" aria-labelledby="sm-ref-experts-title">
-        <h2 id="sm-ref-experts-title">Experts in corporate gifting</h2>
+        <h2 id="sm-ref-experts-title">Experts in{" "}<em className="sm-catalog-heading-accent">corporate gifting</em></h2>
         <div className="sm-ref-bento">
           <article className="sm-ref-global-card">
             <img className="sm-ref-map" src={worldDotsImg} alt="" />
@@ -328,7 +328,7 @@ function ReferenceCatalogContent({
           <img src={worldDotsImg} alt="" />
         </div>
         <div className="sm-ref-worldwide__intro sm-ref-container">
-          <h2 id="sm-ref-worldwide-title">Thoughtful gifting, delivered worldwide</h2>
+          <h2 id="sm-ref-worldwide-title">Thoughtful gifting,{" "}<em className="sm-catalog-heading-accent">delivered worldwide</em></h2>
           <p>
             Send curated merch and gift kits to teams around the world. ShelfMerch brings
             region-ready selections and fulfillment support together to simplify shipping,
@@ -366,7 +366,7 @@ function ReferenceCatalogContent({
         <div className="sm-ref-impact__blob sm-ref-impact__blob--right" aria-hidden="true" />
         <div className="sm-ref-impact__card sm-ref-container">
           <div className="sm-ref-impact__copy">
-            <h2 id="sm-ref-impact-title">Merch made for meaningful moments</h2>
+            <h2 id="sm-ref-impact-title">Merch made for{" "}<em className="sm-catalog-heading-accent">meaningful moments</em></h2>
             <p>From first-day welcomes to client thank-yous, ShelfMerch helps you create gifts people are excited to receive.</p>
           </div>
           {IMPACT_POINTS.map((point) => (
@@ -667,7 +667,7 @@ function LovedTeamsSection() {
         <div className="sm-cat-teams__inner">
           <div className="sm-cat-teams__copy">
             <p>Trusted by teams at</p>
-            <h2 id="sm-cat-teams-title">Built for teams everywhere</h2>
+            <h2 id="sm-cat-teams-title">Built for{" "}<em className="sm-catalog-heading-accent">teams everywhere</em></h2>
           </div>
           <div className="sm-cat-teams__logos" aria-label="Teams using Shelf Merch">
             {TRUST_LOGOS.map((logo) => (
@@ -707,13 +707,13 @@ export function CatalogView(vm: CatalogVm) {
   }
 
   return (
-    <div className={isPublic ? "sm-cat sm-cat--public" : "sm-cat"}>
+    <div className={isPublic ? "sm-cat sm-cat--landing sm-cat--public" : "sm-cat sm-cat--landing"}>
 
       <section className="sm-cat-hero-banner" aria-label="Catalog hero">
         <img className="sm-cat-hero-banner__image" src={catalogHeroImg} alt="A person holding a Make It Yours T-shirt" />
         <div className="sm-cat-hero-banner__content">
           <p className="sm-cat-hero-banner__eyebrow">Branded merch that builds connections</p>
-          <h1>Corporate Gifting &amp;<br />{" "}Branded Merch</h1>
+          <h1>Corporate Gifting &amp;{" "}<em className="sm-catalog-heading-accent">Branded Merch</em></h1>
           <p className="sm-cat-hero-banner__description">
             Curated gifts, company swag, and welcome kits for teams, clients, and events. Premium quality.
             Global fulfillment. Made to elevate your brand.

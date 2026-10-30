@@ -7,7 +7,8 @@ export function LoginView(vm: LoginVm) {
     <AuthLayout
       className="auth-simple--login"
       variant="welcome"
-      title="Welcome back"
+      title="Welcome back 👋"
+      subtitle="Sign in to manage your merch, gifting and orders."
       footerLink={{ hint: "Need an account?", label: "Create account", to: "/signup" }}
     >
       <form className="auth-simple-form" onSubmit={vm.onSubmit} aria-busy={vm.busy}>

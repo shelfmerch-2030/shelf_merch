@@ -115,6 +115,7 @@ export default defineConfig({
     // Node's default request/socket timeouts (~2–5 min) otherwise close the proxied
     // connection and the browser reports net::ERR_EMPTY_RESPONSE.
     proxy: {
+      "/blog": { target: "http://127.0.0.1:3001", changeOrigin: true },
       "/api": {
         target: "http://127.0.0.1:3001",
         changeOrigin: true,

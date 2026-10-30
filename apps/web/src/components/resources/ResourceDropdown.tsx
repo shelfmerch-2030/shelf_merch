@@ -52,11 +52,11 @@ export function ResourceDropdown({ onNavigate }: { onNavigate?: () => void }) {
           <p>Resources</p>
           <Link to="/resources" onClick={navigate}>All resources</Link>
           <Link to="/case-studies/zoho-people" onClick={navigate}>Case study<ArrowUpRight size={14} aria-hidden="true" /></Link>
-          <Link to="/blog" onClick={navigate}>Blog &amp; guides</Link>
+          <Link to="/blog" reloadDocument onClick={navigate}>Blog &amp; guides</Link>
         </nav>
         <nav className="resources-menu-column" aria-label="Resources by team">
           <p>By team</p>
-          {RESOURCE_NAV.map((item) => <Link key={item.slug} to={`/resources/${item.slug}`} onClick={navigate}>{item.label}</Link>)}
+          {RESOURCE_NAV.map((item) => <Link key={item.slug} to={`/resources/${item.slug === "hr" ? "human-resources" : item.slug}`} onClick={navigate}>{item.label}</Link>)}
         </nav>
         <div className="resources-menu-feature">
           <p>Made for every team</p>

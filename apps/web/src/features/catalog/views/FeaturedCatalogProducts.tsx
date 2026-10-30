@@ -52,8 +52,8 @@ export function FeaturedCatalogProducts({ products, loading = false, error = nul
   return (
     <section className="sm-featured-products" aria-labelledby="sm-featured-products-title">
       <div className="sm-ref-container">
-        <h2 id="sm-featured-products-title">Discover our products</h2>
-        <p className="sm-featured-products__intro">Explore apparel, drinkware and everyday essentials for home, work and travel.</p>
+        <h2 id="sm-featured-products-title">Discover our products,{" "}<em className="sm-catalog-heading-accent">made for your brand.</em></h2>
+        <p className="sm-featured-products__intro">Explore apparel, drinkware, bags and everyday essentials for home, work and travel. Find the right products for your team, clients and events, then make them your own.</p>
         {featured.length ? (
           <div className="sm-featured-products__grid">
             {featured.map((product) => <div className="sm-featured-products__item" key={product.id}>

@@ -74,6 +74,10 @@ describe("RequestDemoForm OpenAI lead measurement", () => {
     await user.click(document.querySelector("button[type='submit']") as HTMLButtonElement);
 
     expect(await document.body.textContent).toContain("Request received");
+    expect(document.querySelector(".demo-receipt__primary")?.textContent).toBe("Back to homepage");
+    expect(document.querySelector(".demo-receipt__primary")?.getAttribute("href")).toBe("/");
+    expect(document.querySelectorAll(".demo-receipt__next li")).toHaveLength(3);
+    expect(document.activeElement?.id).toBe("demo-form-title");
     expect(publicFetch).toHaveBeenCalledTimes(1);
     expect(trackOpenAiLeadCreated).toHaveBeenCalledTimes(1);
     expect(trackOpenAiLeadCreated).toHaveBeenCalledWith("lead-1");

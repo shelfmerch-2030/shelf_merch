@@ -120,7 +120,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
     links: (
       <>
         <a href="/blog">Blog</a>
-        <Link to="/resources/hr">HR</Link>
+        <Link to="/resources/human-resources">Human Resource</Link>
         <Link to="/resources/sales">Sales &amp; Marketing</Link>
         <Link to="/resources/events">Events</Link>
       </>
@@ -155,7 +155,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
     title: "Legal",
     links: (
       <>
-        <a href="/terms">Terms &amp; Conditions</a>
+        <a href="/terms-condition">Terms &amp; Conditions</a>
         <a href="/privacy">Privacy Policy</a>
         <a
           href="/privacy#cookie-preferences"
