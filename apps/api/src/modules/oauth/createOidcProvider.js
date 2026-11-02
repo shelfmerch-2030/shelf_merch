@@ -26,7 +26,7 @@ async function getResourceServerInfo(_ctx, resourceIndicator) {
     throw new errors.InvalidTarget('resource indicator is missing, or unknown');
   }
   return {
-    scope: 'catalog:read orders:read campaigns:read wallets:read employees:read gifts:read',
+    scope: 'catalog:read orders:read campaigns:read wallets:read employees:read gifts:read employees:write campaigns:draft shops:write shops:catalog wallets:allocate campaigns:send campaigns:merchandise shops:publish',
     audience: canonical,
     accessTokenTTL: 15 * 60,
     accessTokenFormat: 'jwt',
@@ -55,12 +55,12 @@ export function getOidcProvider() {
       long: { httpOnly: true, sameSite: 'lax', secure },
       short: { httpOnly: true, sameSite: 'lax', secure },
     },
-    // Read scopes, then offline_access. offline_access only asks for a refresh
-    // token. It is not a ShelfMerch data permission and is not on the MCP
-    // resource. oidc-provider 9.13.3 also adds openid in collectScopes.
-    // Consent grants the subset the client requested, so an existing
-    // catalog:read grant stays unchanged.
-    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read', 'offline_access'],
+    // Read scopes, then the optional write scopes, then offline_access.
+    // Those write scopes are accepted only when a client requests them. It is not
+    // part of the initial MCP challenge, and existing read grants are unchanged.
+    // offline_access only asks for a refresh token. oidc-provider 9.13.3 also
+    // adds openid in collectScopes.
+    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read', 'employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'offline_access'],
     responseTypes: ['code'],
     clientAuthMethods: ['none', 'private_key_jwt'],
     pkce: {

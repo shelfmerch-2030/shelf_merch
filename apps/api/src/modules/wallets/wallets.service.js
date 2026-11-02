@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Wallet } from './wallet.model.js';
 import { WalletTransaction } from './walletTransaction.model.js';
+import { BudgetAllocationNotice } from './budgetAllocationNotice.model.js';
 import { Entity } from '../entities/entity.model.js';
 import * as entitiesService from '../entities/entities.service.js';
 import * as ledger from '../../services/ledger.service.js';
@@ -275,27 +276,62 @@ export async function uploadFundingDocument({ tenantId, walletId, file }) {
   return { url, wallet: withMeta(wallet) };
 }
 
+let budgetNoticesReady;
+
+async function claimBudgetNotice(tenantId, transactionId) {
+  budgetNoticesReady ??= BudgetAllocationNotice.syncIndexes();
+  await budgetNoticesReady;
+  try {
+    await BudgetAllocationNotice.create({ tenantId, transactionId });
+    return true;
+  } catch (err) {
+    if (err?.code === 11000 || err?.cause?.code === 11000 || err?.errorResponse?.code === 11000) return false;
+    throw err;
+  }
+}
+
+export function allocationLedgerKey(walletId, entityId, requestKey) {
+  const key = String(requestKey || "").trim();
+  if (!key) return null;
+  return "allocation:" + String(walletId) + ":" + String(entityId) + ":" + key;
+}
+
 export async function allocate({ tenantId, walletId, userId, allocations }) {
   const wallet = await getWallet({ tenantId, walletId });
 
   // Apply deallocations before increases so freed budget is available in the same batch.
   const ordered = [...allocations].sort((a, b) => a.amount - b.amount);
-  const netIncrease = ordered.reduce((sum, a) => sum + Math.max(0, a.amount), 0);
+  const pending = [];
+  const replayed = [];
+  for (const line of ordered) {
+    if (line.idempotencyKey) {
+      const found = await WalletTransaction.findOne({ tenantId, idempotencyKey: line.idempotencyKey });
+      if (found) {
+        replayed.push(found);
+        continue;
+      }
+    }
+    pending.push(line);
+  }
+  const netIncrease = pending.reduce((sum, a) => sum + Math.max(0, a.amount), 0);
   const unallocated = wallet.balance - wallet.allocatedAmount;
   if (netIncrease > unallocated) {
     throw new ApiError(
       422,
-      `Allocations (₹${netIncrease}) exceed unallocated balance (₹${unallocated})`,
+      `Allocations exceed unallocated balance`,
       'ALLOCATION_EXCEEDS_BALANCE',
     );
   }
 
-  const txns = await ledger.allocateToEntities({
-    tenantId,
-    walletId,
-    allocations: ordered,
-    performedBy: userId,
-  });
+  const created = pending.length
+    ? await ledger.allocateToEntities({
+      tenantId,
+      walletId,
+      allocations: pending,
+      performedBy: userId,
+    })
+    : [];
+  const txns = [...replayed, ...created];
 
   const fresh = await getWallet({ tenantId, walletId });
   if (fresh.status === 'entities_added') {
@@ -331,6 +367,7 @@ export async function allocate({ tenantId, walletId, userId, allocations }) {
       tenantId,
       entity,
       amount: txn.amount,
+      transactionId: txn._id,
     }).catch((err) => {
       logger.warn({ err, entityId: entity._id }, 'Budget allocated email failed');
     });
@@ -339,8 +376,9 @@ export async function allocate({ tenantId, walletId, userId, allocations }) {
   return { transactions: txns, wallet: withMeta(fresh) };
 }
 
-async function notifyActiveManagerBudgetAllocated({ tenantId, entity, amount }) {
+async function notifyActiveManagerBudgetAllocated({ tenantId, entity, amount, transactionId }) {
   if (!entity?.managerUserId || !(Number(amount) > 0)) return;
+  if (transactionId && !(await claimBudgetNotice(tenantId, transactionId))) return;
   if (entity.managerInvitePending) return;
 
   const manager = await User.findOne({ _id: entity.managerUserId, tenantId })

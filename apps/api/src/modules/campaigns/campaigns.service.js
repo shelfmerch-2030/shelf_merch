@@ -11,6 +11,7 @@ import { customisedKitSendTotals, curatedKitSendTotals, kitSendTotals, sampleKit
 import { Order } from '../orders/order.model.js';
 import { resolveCuratedApproxValueInr, parseCuratedKitMeta, isCuratedKitMeta } from '../kits/curatedKitMeta.js';
 import { Wallet } from '../wallets/wallet.model.js';
+import { WalletTransaction } from '../wallets/walletTransaction.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
 import * as ledger from '../../services/ledger.service.js';
 import { transitionState, validNextStatuses, canTransition } from '../../services/stateMachine.service.js';
@@ -23,6 +24,7 @@ import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { assertCampaignSpendPayment } from '../payments/payments.service.js';
 import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
 import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
+import { withCampaignOperation } from './campaignOperation.js';
 
 function withCampaignMeta(campaign) {
   const obj = campaign.toObject ? campaign.toObject() : campaign;
@@ -35,7 +37,7 @@ function isExternalPay(paymentMode) {
 
 const INCOMPLETE_CAMPAIGN_STATUSES = ['draft', 'recipients_uploaded', 'credits_allocated', 'approved'];
 
-async function assertWalletCanSpend({ tenantId, entityId, amount, user }) {
+export async function assertWalletCanSpend({ tenantId, entityId, amount, user }) {
   const budget = Math.round(amount ?? 0);
   if (budget <= 0) return;
   const { entity, wallet } = await ledger.resolveSpendWalletForEntity({ tenantId, entityId });
@@ -396,7 +398,6 @@ async function upsertRecipientsFromList({ tenantId, campaign, rows }) {
           campaignId: campaign._id,
           redemptionToken: nanoid(32),
           redemptionStatus: 'invited',
-          invitedAt: new Date(),
         },
       },
       { upsert: true, new: true },
@@ -407,7 +408,7 @@ async function upsertRecipientsFromList({ tenantId, campaign, rows }) {
 }
 
 /** §7.8 — CSV or manual recipient list. */
-export async function importRecipients({
+async function applyImportRecipients({
   tenantId,
   campaignId,
   user,
@@ -550,7 +551,7 @@ export async function importRecipients({
   return { count: rows.length, campaign: withCampaignMeta(campaign) };
 }
 
-export async function allocateCredits({
+async function applyAllocateCredits({
   tenantId,
   campaignId,
   user,
@@ -675,34 +676,130 @@ async function buildInviteContext(campaign, tenantId) {
   };
 }
 
-/** Deliver invite emails (and mark recipients invited). Safe to call once per campaign. */
+const LAUNCH_LEASE_MS = 30 * 1000;
+
+async function acquireCampaignLaunch(campaign) {
+  const owner = crypto.randomBytes(16).toString('hex');
+  const now = new Date();
+  const claimed = await Campaign.findOneAndUpdate(
+    {
+      _id: campaign._id,
+      tenantId: campaign.tenantId,
+      $or: [
+        { 'launchLease.expiresAt': null },
+        { 'launchLease.expiresAt': { $lte: now } },
+      ],
+    },
+    {
+      $set: {
+        'launchLease.owner': owner,
+        'launchLease.expiresAt': new Date(now.getTime() + LAUNCH_LEASE_MS),
+      },
+      $inc: { 'launchLease.fence': 1 },
+    },
+    { returnDocument: 'after' },
+  );
+  if (!claimed) return null;
+  return { owner };
+}
+
+async function releaseCampaignLaunch(campaignId, tenantId, owner) {
+  await Campaign.updateOne(
+    { _id: campaignId, tenantId, 'launchLease.owner': owner },
+    { $set: { 'launchLease.expiresAt': new Date(0) } },
+  );
+}
+
+async function finishLaunchInvites({ campaign, tenantId }) {
+  const ctx = await sendCampaignInvites(campaign, tenantId);
+  if (!ctx.sent) return ctx;
+  const entity = await Entity.findOne({ _id: campaign.entityId, tenantId }).select('managerUserId');
+  if (entity?.managerUserId) {
+    await notify({
+      type: 'campaign_launched',
+      tenantId,
+      userId: entity.managerUserId,
+      title: `Campaign launched: ${campaign.name}`,
+      body: ctx.isSurprise
+        ? `${campaign.recipientCount} surprise gift orders created.`
+        : ctx.isSingle
+          ? `One delivery order created for ${campaign.recipientCount} recipients.`
+          : `${campaign.recipientCount} recipients invited.`,
+      link: `/campaigns/${campaign._id}`,
+    });
+  }
+  return ctx;
+}
+
+/** Deliver invite emails once per recipient. A claimed delivery is not sent again. */
 async function sendCampaignInvites(campaign, tenantId) {
   const ctx = await buildInviteContext(campaign, tenantId);
-  if (campaign.isSample) return ctx;
+  if (campaign.isSample) return { ...ctx, sent: false, unresolved: false };
+  if (campaign.schedule?.invitesSentAt && !campaign.schedule?.invitesUnresolved) {
+    return { ...ctx, sent: false, unresolved: false };
+  }
   if (ctx.isSingle) {
-    await notify({
-      type: 'single_location_gift',
-      tenantId,
-      email: campaign.singleLocation.email,
-      title: `${ctx.companyName} is sending gifts to ${campaign.singleLocation.name}`,
-      body: `${campaign.recipientCount} gift${campaign.recipientCount === 1 ? '' : 's'} will be shipped to the provided address.`,
-    });
-    return ctx;
+    if (campaign.schedule?.inviteClaimedAt && !campaign.schedule?.invitesSentAt) {
+      campaign.schedule.invitesUnresolved = true;
+      campaign.markModified('schedule');
+      await campaign.save();
+      return { ...ctx, sent: false, unresolved: true };
+    }
+    if (campaign.schedule?.invitesSentAt) return { ...ctx, sent: false, unresolved: false };
+    campaign.schedule = campaign.schedule || {};
+    campaign.schedule.inviteClaimedAt = new Date();
+    campaign.markModified('schedule');
+    await campaign.save();
+    try {
+      await notify({
+        type: 'single_location_gift',
+        tenantId,
+        email: campaign.singleLocation.email,
+        title: `${ctx.companyName} is sending gifts to ${campaign.singleLocation.name}`,
+        body: `${campaign.recipientCount} gift${campaign.recipientCount === 1 ? '' : 's'} will be shipped to the provided address.`,
+      });
+    } catch {
+      campaign.schedule.invitesUnresolved = true;
+      campaign.markModified('schedule');
+      await campaign.save();
+      return { ...ctx, sent: false, unresolved: true };
+    }
+    campaign.schedule.invitesSentAt = new Date();
+    campaign.schedule.invitesUnresolved = false;
+    campaign.markModified('schedule');
+    await campaign.save();
+    return { ...ctx, sent: true, unresolved: false };
   }
 
   const recipients = await Recipient.find({ tenantId, campaignId: campaign._id });
-  // Enqueue in parallel — notify() only waits on Redis push (or fire-and-forget), not SMTP.
-  await Promise.all(
-    recipients.map((r) =>
-      notify({
+  let unresolved = false;
+  let sent = false;
+  for (const recipient of recipients) {
+    if (recipient.invitedAt) continue;
+    if (recipient.inviteClaimedAt) {
+      unresolved = true;
+      continue;
+    }
+    const claimed = await Recipient.findOneAndUpdate(
+      { _id: recipient._id, tenantId, invitedAt: null, inviteClaimedAt: null },
+      { $set: { inviteClaimedAt: new Date() } },
+      { returnDocument: 'after' },
+    );
+    if (!claimed) {
+      const current = await Recipient.findOne({ _id: recipient._id, tenantId });
+      if (!current?.invitedAt) unresolved = true;
+      continue;
+    }
+    try {
+      await notify({
         type: ctx.isSurprise ? 'surprise_gift' : 'redemption_invite',
         tenantId,
-        email: r.email,
+        email: recipient.email,
         title: ctx.inviteTitle,
         body: ctx.inviteBody,
-        link: ctx.isSurprise ? '' : `/redeem/${r.redemptionToken}`,
+        link: ctx.isSurprise ? '' : `/redeem/${recipient.redemptionToken}`,
         meta: {
-          recipientName: r.name,
+          recipientName: recipient.name,
           senderName: ctx.fromLabel,
           message: ctx.customMessage,
           giftName: ctx.giftName,
@@ -716,11 +813,23 @@ async function sendCampaignInvites(campaign, tenantId) {
           shopBannerPreset: ctx.shop?.bannerConfig?.preset ?? '',
           shopCurrencyMode: ctx.shop?.currencyMode ?? 'points',
         },
-      }),
-    ),
-  );
-  await Recipient.updateMany({ tenantId, campaignId: campaign._id }, { invitedAt: new Date() });
-  return ctx;
+      });
+      await Recipient.updateOne({ _id: recipient._id, tenantId }, { $set: { invitedAt: new Date() } });
+      sent = true;
+    } catch {
+      unresolved = true;
+    }
+  }
+  const fresh = await Campaign.findOne({ _id: campaign._id, tenantId });
+  fresh.schedule = fresh.schedule || {};
+  fresh.schedule.invitesUnresolved = unresolved;
+  if (!unresolved) {
+    const pending = await Recipient.countDocuments({ tenantId, campaignId: campaign._id, invitedAt: null });
+    if (pending === 0) fresh.schedule.invitesSentAt = fresh.schedule.invitesSentAt || new Date();
+  }
+  fresh.markModified('schedule');
+  await fresh.save();
+  return { ...ctx, sent, unresolved };
 }
 
 async function createFulfillmentOrdersIfNeeded(campaign, tenantId) {
@@ -767,38 +876,39 @@ export async function deliverScheduledCampaign({ tenantId, campaignId, userId = 
 
   await createFulfillmentOrdersIfNeeded(campaign, tenantId);
   const ctx = await sendCampaignInvites(campaign, tenantId);
+  const fresh = await Campaign.findOne({ _id: campaign._id, tenantId });
+  if (ctx.unresolved) return withCampaignMeta(fresh);
 
-  if (campaign.status === 'launched') {
-    transitionState('campaign', campaign, 'redemption_open', { userId });
+  if (fresh.status === 'launched') {
+    transitionState('campaign', fresh, 'redemption_open', { userId });
   }
-  campaign.schedule = campaign.schedule || {};
-  campaign.schedule.invitesSentAt = new Date();
-  campaign.markModified('schedule');
-  await campaign.save();
+  fresh.schedule = fresh.schedule || {};
+  if (!fresh.schedule.invitesSentAt) fresh.schedule.invitesSentAt = new Date();
+  fresh.markModified('schedule');
+  await fresh.save();
 
-  if (campaign.kitId) {
-    await Kit.updateOne({ _id: campaign.kitId, tenantId }, { lastSentAt: new Date() });
+  if (fresh.kitId) {
+    await Kit.updateOne({ _id: fresh.kitId, tenantId }, { lastSentAt: new Date() });
   }
 
-  const entity = await Entity.findOne({ _id: campaign.entityId, tenantId }).select('managerUserId');
-  if (entity?.managerUserId) {
+  const entity = await Entity.findOne({ _id: fresh.entityId, tenantId }).select('managerUserId');
+  if (entity?.managerUserId && ctx.sent) {
     await notify({
       type: 'campaign_launched',
       tenantId,
       userId: entity.managerUserId,
-      title: `Scheduled send delivered: ${campaign.name}`,
+      title: `Scheduled send delivered: ${fresh.name}`,
       body: ctx.isSurprise
-        ? `${campaign.recipientCount} surprise gift orders created.`
+        ? `${fresh.recipientCount} surprise gift orders created.`
         : ctx.isSingle
-          ? `One delivery order created for ${campaign.recipientCount} recipients.`
-          : `${campaign.recipientCount} recipients invited.`,
-      link: `/campaigns/${campaign._id}`,
+          ? `One delivery order created for ${fresh.recipientCount} recipients.`
+          : `${fresh.recipientCount} recipients invited.`,
+      link: `/campaigns/${fresh._id}`,
     });
   }
 
-  return withCampaignMeta(campaign);
+  return withCampaignMeta(fresh);
 }
-
 /** Poll due scheduled campaigns and deliver invites + credits (including overdue). */
 export async function processDueScheduledCampaigns({ limit = 50 } = {}) {
   const now = new Date();
@@ -828,6 +938,115 @@ export async function processDueScheduledCampaigns({ limit = 50 } = {}) {
 }
 
 /** §7.8 /launch — idempotent wallet debit (or Razorpay-paid) + invite notifications. */
+
+function operationFingerprint(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+async function reconcileImport({ tenantId, campaignId, recipients = [] }) {
+  const campaign = await Campaign.findOne({ _id: campaignId, tenantId });
+  if (!campaign) return { outcome: 'uncertain' };
+  const emails = [...new Set(recipients.map((row) => String(row.email || '').trim().toLowerCase()))];
+  const found = await Recipient.find({ tenantId, campaignId, email: { $in: emails } });
+  if (emails.length && found.length === emails.length) {
+    return { outcome: 'completed', result: { count: found.length, campaign: withCampaignMeta(campaign) } };
+  }
+  if (!found.length && ['draft', 'recipients_uploaded'].includes(campaign.status)) return { outcome: 'absent' };
+  return { outcome: 'uncertain' };
+}
+
+async function reconcileAllocation({ tenantId, campaignId, creditsPerRecipient, totalBudget }) {
+  const campaign = await Campaign.findOne({ _id: campaignId, tenantId });
+  if (!campaign) return { outcome: 'uncertain' };
+  const count = await Recipient.countDocuments({ tenantId, campaignId });
+  const perRecipient = Math.round(Number(creditsPerRecipient) || 0);
+  const budget = Math.round(totalBudget ?? perRecipient * count);
+  const applied = campaign.creditsPerRecipient === perRecipient
+    && campaign.totalBudget === budget
+    && ['credits_allocated', 'approved', 'launched', 'redemption_open'].includes(campaign.status);
+  if (applied) return { outcome: 'completed', result: withCampaignMeta(campaign) };
+  if (campaign.status === 'recipients_uploaded') return { outcome: 'absent' };
+  return { outcome: 'uncertain' };
+}
+
+export async function importRecipients(input) {
+  if (!input?.idempotencyKey) return applyImportRecipients(input);
+  const recipients = input.recipients || [];
+  return withCampaignOperation({
+    tenantId: input.tenantId,
+    operation: 'import_recipients',
+    key: input.idempotencyKey,
+    fingerprint: operationFingerprint({
+      campaignId: String(input.campaignId),
+      recipients: recipients.map((row) => ({ name: row.name, email: String(row.email || '').trim().toLowerCase() })),
+    }),
+    reconcile: () => reconcileImport(input),
+    execute: () => applyImportRecipients(input),
+  });
+}
+
+export async function allocateCredits(input) {
+  if (!input?.idempotencyKey) return applyAllocateCredits(input);
+  return withCampaignOperation({
+    tenantId: input.tenantId,
+    operation: 'allocate_credits',
+    key: input.idempotencyKey,
+    fingerprint: operationFingerprint({
+      campaignId: String(input.campaignId),
+      creditsPerRecipient: input.creditsPerRecipient,
+      totalBudget: input.totalBudget ?? null,
+    }),
+    reconcile: () => reconcileAllocation(input),
+    execute: () => applyAllocateCredits(input),
+  });
+}
+
+async function notifyLaunchSlack({ tenantId, campaign, user }) {
+  if (!campaign) return;
+  const entity = await Entity.findOne({ _id: campaign.entityId, tenantId }).setOptions({ skipTenantGuard: true });
+  if (!entity) return;
+  const actorUserId = user?.userId || campaign.createdBy;
+  const remainingBudget = Math.max(0, (entity.allocatedAmount || 0) - (entity.spentAmount || 0));
+  if (campaign.type === 'points') {
+    scheduleSlackBusinessNotification({
+      tenantId,
+      type: SLACK_EVENT_TYPES.POINTS_DISTRIBUTED,
+      eventKey: `POINTS_DISTRIBUTED:${campaign._id}`,
+      resourceType: 'Campaign',
+      resourceId: campaign._id,
+      actorUserId,
+      payload: {
+        entityName: entity.name,
+        recipientCount: campaign.recipientCount,
+        totalPoints: campaign.totalBudget,
+        remainingBudget,
+      },
+    });
+  } else if (campaign.type === 'kit' || campaign.type === 'items') {
+    let kitName = 'Kit';
+    if (campaign.kitId) {
+      const kit = await Kit.findOne({ _id: campaign.kitId, tenantId }).select('name').lean();
+      if (kit?.name) kitName = kit.name;
+    }
+    scheduleSlackBusinessNotification({
+      tenantId,
+      type: SLACK_EVENT_TYPES.KITS_ASSIGNED,
+      eventKey: `KITS_ASSIGNED:${campaign._id}`,
+      resourceType: 'Campaign',
+      resourceId: campaign._id,
+      actorUserId,
+      payload: {
+        entityName: entity.name,
+        kitName,
+        recipientCount: campaign.recipientCount,
+      },
+    });
+  } else {
+    return;
+  }
+  evaluateEntityLowBudgetAlert({ tenantId, entityId: entity._id }).catch(() => {});
+}
+
 export async function launchCampaign({
   tenantId,
   campaignId,
@@ -842,8 +1061,34 @@ export async function launchCampaign({
     const allowed = (user.assignedEntityIds ?? []).map(String);
     if (!allowed.includes(String(campaign.entityId))) throw new ForbiddenError();
   }
+  const launchLease = await acquireCampaignLaunch(campaign);
+  if (!launchLease) {
+    const current = await Campaign.findOne({ _id: campaign._id, tenantId });
+    if (
+      current &&
+      ['launched', 'redemption_open'].includes(current.status) &&
+      current.schedule?.invitesSentAt &&
+      !current.schedule?.invitesUnresolved
+    ) {
+      return withCampaignMeta(current);
+    }
+    throw new ApiError(409, 'This campaign launch is already in progress', 'LAUNCH_IN_PROGRESS');
+  }
+
+  const launchHeartbeat = setInterval(() => {
+    Campaign.updateOne(
+      { _id: campaign._id, tenantId, 'launchLease.owner': launchLease.owner },
+      { $set: { 'launchLease.expiresAt': new Date(Date.now() + LAUNCH_LEASE_MS) } },
+    ).catch(() => {});
+  }, 10_000);
+  if (typeof launchHeartbeat.unref === 'function') launchHeartbeat.unref();
+  try {
   if (campaign.status === 'launched' || campaign.status === 'redemption_open') {
-    return withCampaignMeta(campaign);
+    const reloaded = await Campaign.findOne({ _id: campaign._id, tenantId });
+    await finishLaunchInvites({ campaign: reloaded, tenantId });
+    const finished = await Campaign.findOne({ _id: campaign._id, tenantId });
+    await notifyLaunchSlack({ tenantId, campaign: finished, user });
+    return withCampaignMeta(finished);
   }
   if (campaign.status !== 'approved') {
     throw new ApiError(422, 'Campaign must be approved before launch', 'CAMPAIGN_NOT_APPROVED');
@@ -896,7 +1141,11 @@ export async function launchCampaign({
     });
 
     // Re-validate funds immediately before debit so Send never proceeds on a stale balance.
-    if (campaign.totalBudget > 0) {
+    const spendKey = `campaign_spend:${campaign._id}`;
+    const existingSpend = campaign.totalBudget > 0
+      ? await WalletTransaction.findOne({ tenantId, idempotencyKey: spendKey })
+      : null;
+    if (campaign.totalBudget > 0 && !existingSpend) {
       await assertWalletCanSpend({
         tenantId,
         entityId: campaign.entityId,
@@ -915,6 +1164,7 @@ export async function launchCampaign({
         relatedEntityId: spendFromEntity ? entity._id : null,
         description: `Campaign launch: ${campaign.name}`,
         performedBy: user.userId,
+        idempotencyKey: spendKey,
       });
     }
     campaign.paymentMode = 'wallet';
@@ -941,12 +1191,8 @@ export async function launchCampaign({
   if (sendInvitesNow) {
     try {
       const ctx = await sendCampaignInvites(campaign, tenantId);
-      campaign.schedule = campaign.schedule || {};
-      campaign.schedule.invitesSentAt = new Date();
-      campaign.markModified('schedule');
-      await campaign.save();
 
-      if (entity.managerUserId) {
+      if (ctx.sent && entity.managerUserId) {
         await notify({
           type: 'campaign_launched',
           tenantId,
@@ -971,52 +1217,8 @@ export async function launchCampaign({
     await Kit.updateOne({ _id: campaign.kitId, tenantId }, { lastSentAt: new Date() });
   }
 
-  // Slack: one notification per successful launch (idempotent via campaignId eventKey).
-  const actorUserId = user?.userId || campaign.createdBy;
-  const entityFresh =
-    (await Entity.findOne({ _id: entity._id, tenantId }).setOptions({ skipTenantGuard: true })) ||
-    entity;
-  const remainingBudget = Math.max(
-    0,
-    (entityFresh.allocatedAmount || 0) - (entityFresh.spentAmount || 0),
-  );
-  if (campaign.type === 'points') {
-    scheduleSlackBusinessNotification({
-      tenantId,
-      type: SLACK_EVENT_TYPES.POINTS_DISTRIBUTED,
-      eventKey: `POINTS_DISTRIBUTED:${campaign._id}`,
-      resourceType: 'Campaign',
-      resourceId: campaign._id,
-      actorUserId,
-      payload: {
-        entityName: entityFresh.name || entity.name,
-        recipientCount: campaign.recipientCount,
-        totalPoints: campaign.totalBudget,
-        remainingBudget,
-      },
-    });
-  } else if (campaign.type === 'kit' || campaign.type === 'items') {
-    let kitName = 'Kit';
-    if (campaign.kitId) {
-      const kit = await Kit.findOne({ _id: campaign.kitId, tenantId }).select('name').lean();
-      if (kit?.name) kitName = kit.name;
-    }
-    scheduleSlackBusinessNotification({
-      tenantId,
-      type: SLACK_EVENT_TYPES.KITS_ASSIGNED,
-      eventKey: `KITS_ASSIGNED:${campaign._id}`,
-      resourceType: 'Campaign',
-      resourceId: campaign._id,
-      actorUserId,
-      payload: {
-        entityName: entityFresh.name || entity.name,
-        kitName,
-        recipientCount: campaign.recipientCount,
-      },
-    });
-  }
-
-  evaluateEntityLowBudgetAlert({ tenantId, entityId: entityFresh._id }).catch(() => {});
+  // Slack: one notification per successful launch. The receipt key stops a retry from posting twice.
+  await notifyLaunchSlack({ tenantId, campaign, user });
 
   const meta = withCampaignMeta(campaign);
   if (campaign.fulfillmentMode === 'single') {
@@ -1029,6 +1231,10 @@ export async function launchCampaign({
     }
   }
   return meta;
+  } finally {
+    clearInterval(launchHeartbeat);
+    await releaseCampaignLaunch(campaign._id, tenantId, launchLease.owner);
+  }
 }
 
 export async function closeCampaign({ tenantId, campaignId, user }) {

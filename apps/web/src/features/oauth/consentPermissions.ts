@@ -7,6 +7,14 @@ export const READ_PERMISSION_LABELS: Record<string, string> = {
   "wallets:read": "Read wallets (wallets:read)",
   "employees:read": "Read employees (employees:read)",
   "gifts:read": "Read gifts (gifts:read)",
+  "employees:write": "Manage employees (employees:write)",
+  "campaigns:draft": "Create campaign drafts (campaigns:draft)",
+  "shops:write": "Manage company stores (shops:write)",
+  "shops:catalog": "Choose store products (shops:catalog)",
+  "wallets:allocate": "Allocate department budgets (wallets:allocate)",
+  "campaigns:send": "Send campaign rewards (campaigns:send)",
+  "campaigns:merchandise": "Send kit campaigns (campaigns:merchandise)",
+  "shops:publish": "Publish store collections (shops:publish)",
 };
 
 /** Workspace permissions shown on the consent screen. Protocol scopes are omitted. */

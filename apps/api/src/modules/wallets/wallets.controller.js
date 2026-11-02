@@ -97,11 +97,18 @@ export async function uploadFundingDocument(req, res) {
 }
 
 export async function allocate(req, res) {
+  const requestKey = req.get("Idempotency-Key");
+  const allocations = (req.body.allocations || []).map((line) => {
+    const idempotencyKey = requestKey
+      ? walletsService.allocationLedgerKey(req.params.id, line.entityId, requestKey)
+      : null;
+    return idempotencyKey ? { ...line, idempotencyKey } : line;
+  });
   const result = await walletsService.allocate({
     tenantId: req.tenantId,
     walletId: req.params.id,
     userId: req.user.userId,
-    allocations: req.body.allocations,
+    allocations,
   });
   writeAudit({
     req,

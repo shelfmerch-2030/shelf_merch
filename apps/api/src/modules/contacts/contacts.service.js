@@ -308,3 +308,22 @@ export async function createOrRestoreContact({ tenantId, payload, source = 'manu
   }
   return Contact.create({ tenantId, ...payload, email, source });
 }
+
+/** Apply a contact patch with the same department and role rules as the REST route. */
+export async function updateContact({ tenantId, user, contactId, body }) {
+  const contact = await getContactOrThrow({ tenantId, contactId });
+  await assertContactAccess({ tenantId, user, contact });
+  const payload = await prepareContactPayloadForUser({
+    tenantId,
+    user,
+    body: {
+      department: contact.department,
+      ...body,
+    },
+    existingContact: contact,
+  });
+  const before = contact.toObject();
+  Object.assign(contact, payload);
+  await contact.save();
+  return { contact, before };
+}

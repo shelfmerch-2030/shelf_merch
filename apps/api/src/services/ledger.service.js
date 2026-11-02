@@ -47,15 +47,33 @@ async function withSession(session, fn) {
   }
 }
 
+function duplicateKey(err) {
+  return err?.code === 11000 || err?.cause?.code === 11000 || err?.errorResponse?.code === 11000;
+}
+
+let ledgerIndexesReady;
+
 export async function createTransaction(
-  { tenantId, walletId, type, amount, relatedEntityId = null, description = '', performedBy = null },
+  { tenantId, walletId, type, amount, relatedEntityId = null, description = '', performedBy = null, idempotencyKey = null },
   session = null,
 ) {
   if (!Number.isFinite(amount) || amount === 0) {
     throw new ApiError(422, 'Transaction amount must be a non-zero number', 'INVALID_AMOUNT');
   }
+  if (idempotencyKey != null && typeof idempotencyKey !== 'string') {
+    throw new ApiError(422, 'Ledger idempotency key must be a string', 'INVALID_IDEMPOTENCY_KEY');
+  }
+  if (idempotencyKey) {
+    ledgerIndexesReady ??= WalletTransaction.syncIndexes();
+    await ledgerIndexesReady;
+  }
 
-  return withSession(session, async (s) => {
+  try {
+    return await withSession(session, async (s) => {
+    if (idempotencyKey) {
+      const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey }).session(s);
+      if (existing) return existing;
+    }
     const wallet = await Wallet.findOne({ _id: walletId, tenantId })
       .setOptions({ includeDeleted: true })
       .session(s);
@@ -119,6 +137,7 @@ export async function createTransaction(
           relatedEntityId,
           description,
           performedBy,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
         },
       ],
       { session: s },
@@ -146,7 +165,14 @@ export async function createTransaction(
     }
 
     return txn;
-  });
+    });
+  } catch (err) {
+    if (idempotencyKey && duplicateKey(err)) {
+      const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey });
+      if (existing) return existing;
+    }
+    throw err;
+  }
 }
 
 /** Resolve which wallet backs an entity-tied spend (handles removed source wallets). */
@@ -164,6 +190,14 @@ export async function resolveSpendWalletForEntity({ tenantId, entityId }) {
   return { entity, wallet: fallback };
 }
 
+function sameAllocation(existing, { walletId, entityId, amount }) {
+  return existing
+    && existing.type === 'allocation_to_entity'
+    && String(existing.walletId) === String(walletId)
+    && String(existing.relatedEntityId) === String(entityId)
+    && Number(existing.amount) === Number(amount);
+}
+
 /** Allocate budget to multiple entities atomically (§7.4 /allocate). */
 export async function allocateToEntities({ tenantId, walletId, allocations, performedBy }) {
   const session = await mongoose.startSession();
@@ -171,9 +205,25 @@ export async function allocateToEntities({ tenantId, walletId, allocations, perf
     let txns;
     await session.withTransaction(async () => {
       txns = [];
-      for (const { entityId, amount } of allocations) {
+      for (const { entityId, amount, idempotencyKey = null } of allocations) {
         const entity = await Entity.findOne({ _id: entityId, tenantId }).session(session);
         if (!entity) throw new NotFoundError(`Entity ${entityId} not found`);
+        if (idempotencyKey) {
+          const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey }).session(session);
+          if (existing) {
+            if (!sameAllocation(existing, { walletId, entityId, amount })) {
+              throw new ApiError(409, 'This allocation key was used for a different movement', 'ALLOCATION_KEY_CONFLICT');
+            }
+            txns.push(existing);
+            continue;
+          }
+        }
+        if (amount < 0) {
+          const remaining = Number(entity.allocatedAmount || 0) - Number(entity.spentAmount || 0);
+          if (Math.abs(amount) > remaining) {
+            throw new ApiError(422, 'Cannot withdraw budget that has already been spent', 'ALLOCATION_EXCEEDS_UNSPENT');
+          }
+        }
         const txn = await createTransaction(
           {
             tenantId,
@@ -186,6 +236,7 @@ export async function allocateToEntities({ tenantId, walletId, allocations, perf
                 ? `Budget allocation to ${entity.name}`
                 : `Budget returned from ${entity.name}`,
             performedBy,
+            idempotencyKey,
           },
           session,
         );
