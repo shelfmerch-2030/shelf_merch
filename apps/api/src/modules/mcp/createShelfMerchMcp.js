@@ -149,6 +149,35 @@ import {
   prepareBudgetAllocationForCaller,
 } from './budgetsWrite.js';
 import {
+  ENTITIES_LIST_DESCRIPTION,
+  entitiesListInputSchema,
+  entitiesListOutputSchema,
+  entitiesListText,
+  entitiesReadError,
+  listEntitiesForCaller,
+} from './entitiesRead.js';
+import {
+  ENTITIES_EXECUTE_ASSIGN_DESCRIPTION,
+  ENTITIES_EXECUTE_SETUP_DESCRIPTION,
+  ENTITIES_PREPARE_ASSIGN_DESCRIPTION,
+  ENTITIES_PREPARE_SETUP_DESCRIPTION,
+  entitiesAssignText,
+  entitiesExecuteAssignInputSchema,
+  entitiesExecuteAssignOutputSchema,
+  entitiesExecuteSetupInputSchema,
+  entitiesExecuteSetupOutputSchema,
+  entitiesPrepareAssignInputSchema,
+  entitiesPrepareAssignOutputSchema,
+  entitiesPrepareSetupInputSchema,
+  entitiesPrepareSetupOutputSchema,
+  entitiesSetupError,
+  entitiesSetupText,
+  executeAssignManagerForCaller,
+  executeEntitySetupForCaller,
+  prepareAssignManagerForCaller,
+  prepareEntitySetupForCaller,
+} from './entitiesWrite.js';
+import {
   CREDIT_EXECUTE_DESCRIPTION,
   CREDIT_PREPARE_DESCRIPTION,
   LAUNCH_EXECUTE_DESCRIPTION,
@@ -878,6 +907,82 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: budgetError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    server.registerTool(
+      'entities_list',
+      {
+        title: 'List departments',
+        description: ENTITIES_LIST_DESCRIPTION,
+        inputSchema: entitiesListInputSchema,
+        outputSchema: entitiesListOutputSchema,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+        scopeChallenge: requireScopes('entities:read'),
+        _meta: {
+          securitySchemes: [{ type: 'oauth2', scopes: ['entities:read'] }],
+        },
+      },
+      async (args, ctx) => {
+        try {
+          const output = await listEntitiesForCaller(ctx, args);
+          return {
+            content: [{ type: 'text', text: entitiesListText(output) }],
+            structuredContent: output,
+          };
+        } catch (err) {
+          logger.error({ errName: err?.name, errCode: err?.code }, 'MCP entities_list failed');
+          return {
+            isError: true,
+            content: [{ type: 'text', text: entitiesReadError(err, 'Department list failed.') }],
+          };
+        }
+      },
+    );
+    const entityTools = [
+      ['entities_prepare_setup', 'Prepare department setup', ENTITIES_PREPARE_SETUP_DESCRIPTION, entitiesPrepareSetupInputSchema, entitiesPrepareSetupOutputSchema, false, prepareEntitySetupForCaller, 'Department preview failed.', entitiesSetupText],
+      ['entities_execute_setup', 'Set up departments', ENTITIES_EXECUTE_SETUP_DESCRIPTION, entitiesExecuteSetupInputSchema, entitiesExecuteSetupOutputSchema, true, executeEntitySetupForCaller, 'Department setup failed.', entitiesSetupText],
+      ['entities_prepare_assign_manager', 'Prepare department manager', ENTITIES_PREPARE_ASSIGN_DESCRIPTION, entitiesPrepareAssignInputSchema, entitiesPrepareAssignOutputSchema, false, prepareAssignManagerForCaller, 'Manager preview failed.', entitiesAssignText],
+      ['entities_execute_assign_manager', 'Assign department manager', ENTITIES_EXECUTE_ASSIGN_DESCRIPTION, entitiesExecuteAssignInputSchema, entitiesExecuteAssignOutputSchema, true, executeAssignManagerForCaller, 'Manager assignment failed.', entitiesAssignText],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, textFor] of entityTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('entities:write'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['entities:write'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: textFor(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: entitiesSetupError(err, fallback) }],
             };
           }
         },

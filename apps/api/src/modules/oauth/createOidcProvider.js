@@ -26,7 +26,7 @@ async function getResourceServerInfo(_ctx, resourceIndicator) {
     throw new errors.InvalidTarget('resource indicator is missing, or unknown');
   }
   return {
-    scope: 'catalog:read orders:read campaigns:read wallets:read employees:read gifts:read employees:write campaigns:draft shops:write shops:catalog wallets:allocate campaigns:send campaigns:merchandise shops:publish',
+    scope: 'catalog:read orders:read campaigns:read wallets:read employees:read gifts:read entities:read employees:write campaigns:draft shops:write shops:catalog wallets:allocate campaigns:send campaigns:merchandise shops:publish entities:write',
     audience: canonical,
     accessTokenTTL: 15 * 60,
     accessTokenFormat: 'jwt',
@@ -60,7 +60,7 @@ export function getOidcProvider() {
     // part of the initial MCP challenge, and existing read grants are unchanged.
     // offline_access only asks for a refresh token. oidc-provider 9.13.3 also
     // adds openid in collectScopes.
-    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read', 'employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'offline_access'],
+    scopes: ['catalog:read', 'orders:read', 'campaigns:read', 'wallets:read', 'employees:read', 'gifts:read', 'entities:read', 'employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'entities:write', 'offline_access'],
     responseTypes: ['code'],
     clientAuthMethods: ['none', 'private_key_jwt'],
     pkce: {

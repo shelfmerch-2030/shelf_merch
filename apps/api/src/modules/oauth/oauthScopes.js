@@ -17,16 +17,18 @@ export function scopeList(value) {
   return String(value || '').split(/\s+/).filter(Boolean);
 }
 
-export const OPTIONAL_WRITE_SCOPES = ['employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish'];
+export const OPTIONAL_READ_SCOPES = ['entities:read'];
+
+export const OPTIONAL_WRITE_SCOPES = ['employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'entities:write'];
 
 const READ_SCOPES = new Set(RESOURCE_SCOPES);
 const WRITE_SCOPES = new Set(OPTIONAL_WRITE_SCOPES);
-const DATA_SCOPES = new Set([...READ_SCOPES, ...WRITE_SCOPES]);
+const DATA_SCOPES = new Set([...READ_SCOPES, ...OPTIONAL_READ_SCOPES, ...WRITE_SCOPES]);
 
 /** catalog:read, orders:read, campaigns:read, wallets:read, employees:read, and gifts:read, in the allowlist order, from a scope string. */
 export function requestedResourceScopes(value) {
   const present = new Set(scopeList(value));
-  return [...RESOURCE_SCOPES, ...OPTIONAL_WRITE_SCOPES].filter((scope) => present.has(scope));
+  return [...RESOURCE_SCOPES, ...OPTIONAL_READ_SCOPES, ...OPTIONAL_WRITE_SCOPES].filter((scope) => present.has(scope));
 }
 
 /**

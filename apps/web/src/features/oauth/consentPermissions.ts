@@ -15,6 +15,8 @@ export const READ_PERMISSION_LABELS: Record<string, string> = {
   "campaigns:send": "Send campaign rewards (campaigns:send)",
   "campaigns:merchandise": "Send kit campaigns (campaigns:merchandise)",
   "shops:publish": "Publish store collections (shops:publish)",
+  "entities:read": "Read departments (entities:read)",
+  "entities:write": "Set up departments (entities:write)",
 };
 
 /** Workspace permissions shown on the consent screen. Protocol scopes are omitted. */
