@@ -6,6 +6,7 @@ import { createApp } from '../src/app.js';
 import { Wallet } from '../src/modules/wallets/wallet.model.js';
 import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
+import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
 import { User } from '../src/modules/users/user.model.js';
 import { OauthGrantBinding } from '../src/modules/oauth/oauthGrantBinding.model.js';
 import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
@@ -318,6 +319,64 @@ describe('department setup', () => {
     fetchMock.mockRestore();
   });
 });
+
+
+  it('saves an optional role and mobile number without returning the number', async () => {
+    const mobile = '9876543210';
+    const input = {
+      walletId: String(wallet._id),
+      departments: [{
+        name: 'Facilities',
+        budget: 200,
+        manager: { name: 'Rita Das', email: 'rita.facilities@example.com', role: 'Operations Manager', mobile },
+      }],
+    };
+    const prepared = await prepareEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview.departments[0]).toMatchObject({
+      managerName: 'Rita Das',
+      managerTitle: 'Operations Manager',
+      mobileProvided: true,
+    });
+    expect(JSON.stringify(prepared)).not.toContain(mobile);
+
+    const result = await executeEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'setup-facilities',
+    });
+    expect(JSON.stringify(result)).not.toContain(mobile);
+    const entity = await Entity.findOne({ tenantId: tenant._id, name: 'Facilities' });
+    expect(entity.managerTitle).toBe('Operations Manager');
+    const manager = await User.findOne({ email: 'rita.facilities@example.com' });
+    expect(manager.phone).toBe(mobile);
+    const listed = await listDepartments({
+      tenantId: tenant._id,
+      user: { userId: admin.user._id, role: 'company_admin', scopeType: 'tenant', assignedEntityIds: [] },
+    });
+    expect(listed.departments.find((row) => row.name === 'Facilities').manager.title).toBe('Operations Manager');
+    expect(JSON.stringify(listed)).not.toContain(mobile);
+    expect(JSON.stringify(await AuditLog.find({ tenantId: tenant._id }).lean())).not.toContain(mobile);
+
+    await expect(prepareEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        walletId: String(wallet._id),
+        departments: [{
+          name: 'Facilities Two',
+          budget: 100,
+          manager: { name: 'Rita Das', email: 'rita.two@example.com', role: '', mobile: '123' },
+        }],
+      },
+    })).rejects.toMatchObject({ code: 'VALIDATION' });
+    expect(await Entity.countDocuments({ tenantId: tenant._id, name: 'Facilities Two' })).toBe(0);
+  });
 
 describe('department manager assignment', () => {
   it('assigns the first manager and does not replace or elevate anyone', async () => {

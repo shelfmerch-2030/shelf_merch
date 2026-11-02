@@ -17,15 +17,14 @@ const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 const MONEY = z.number().int().positive().max(100_000_000);
 const OBJECT_ID = z.string().trim().regex(/^[a-f0-9]{24}$/i);
 const managerSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  email: z.string().trim().email().max(254),
-  role: z.string().trim().max(100).optional().default(''),
+  name: z.string().trim().min(1).max(100).describe('Manager full name. Required, same as the dashboard.'),
+  email: z.string().trim().email().max(254).describe('Manager work email. Required.'),
+  role: z.string().trim().max(100).optional().default('').describe('Role or designation, such as Marketing Manager. Optional. Saved as the department manager title.'),
   mobile: z.string().trim().refine(
     (value) => !value || /^(?:\+?91)?\d{10}$/.test(value.replace(/[\s()-]/g, '')),
     'Enter a valid 10-digit mobile number',
-  ).optional().default(''),
+  ).optional().default('').describe('Optional Indian mobile number. 10 digits, with or without +91. Saved on the manager account and not repeated in the preview.'),
 });
-
 const departmentSchema = z.object({
   name: z.string().trim().min(1).max(120),
   budget: MONEY,
@@ -45,7 +44,9 @@ const assignSchema = z.object({
 export const ENTITIES_PREPARE_SETUP_DESCRIPTION = [
   'Preview creating departments, assigning their first managers, and allocating the initial budget from a company wallet.',
   'Company admins only. Nothing is saved.',
-  'The preview shows each department, the manager name and title, the budget, the total, and the wallet balance before and after.',
+  'Ask for each manager full name and work email. Also ask for the role or designation and mobile number. Role and mobile may be left blank, matching the dashboard.',
+  'The preview shows each department, the manager name and title, whether a mobile number was provided, the budget, the total, and the wallet balance before and after.',
+  'The mobile number itself is not returned.',
   'An invitation email is sent only when the manager does not already have an active account.',
   'A Slack budget notice is sent once, and only after the wallet movement succeeds, when Slack is already connected.',
   'Applying it requires entities_execute_setup.',
@@ -107,6 +108,7 @@ export const entitiesPrepareSetupOutputSchema = z.object({
       action: z.string(),
       managerName: z.string(),
       managerTitle: z.string(),
+      mobileProvided: z.boolean(),
       invitation: z.string(),
     })),
     notices: z.array(z.object({
@@ -142,6 +144,7 @@ export const entitiesPrepareAssignOutputSchema = z.object({
     departmentName: z.string(),
     managerName: z.string(),
     managerTitle: z.string(),
+    mobileProvided: z.boolean(),
     invitation: z.string(),
   }),
 });
@@ -407,6 +410,7 @@ function previewFrom(state) {
           : 'finish_budget',
       managerName: department.manager.name,
       managerTitle: department.manager.role || '',
+      mobileProvided: Boolean(String(department.manager.mobile || '').trim()),
       invitation: department.invitation,
     })),
     notices: noticesFor(state.departments, state.pending),
@@ -639,6 +643,7 @@ export async function prepareAssignManager({ tenantId, actorUserId, input, now }
       departmentName: state.entity.name,
       managerName: requested.data.manager.name,
       managerTitle: requested.data.manager.role || '',
+      mobileProvided: Boolean(String(requested.data.manager.mobile || '').trim()),
       invitation: state.invitation,
     },
   };
@@ -746,7 +751,7 @@ export async function executeAssignManagerForCaller(ctx, args) {
 export function entitiesSetupText(output) {
   const preview = output?.preview;
   if (preview?.departments) {
-    const names = preview.departments.map((department) => `${department.name} ${department.budget} INR`).join(', ');
+    const names = preview.departments.map((department) => `${department.name} (${department.managerTitle || 'no title'}) ${department.budget} INR`).join(', ');
     return `Total ${preview.totalAllocation} INR. ${names}. Confirm this preview before it expires.`;
   }
   const names = (output?.departments || []).map((department) => department.name).join(', ');

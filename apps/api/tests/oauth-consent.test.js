@@ -341,14 +341,20 @@ describe('OAuth consent and grants', () => {
     expect(discovery.body.scopes_supported).toContain('openid');
     expect(discovery.body.scopes_supported).toContain('offline_access');
 
-    for (const scope of ['openid', 'email', 'profile', 'offline_access', 'catalog:read email', 'orders:write', 'campaigns:write', 'wallets:write', 'employees:write', 'gifts:write', '*', 'catalog:read orders:write']) {
+    for (const scope of ['openid', 'email', 'profile', 'offline_access', 'catalog:read email', 'orders:write', 'campaigns:write', 'wallets:write', 'gifts:write', '*', 'catalog:read orders:write']) {
       const agent = request.agent(app);
       const { res } = await begin(agent, { scope });
       expect([302, 303]).toContain(res.status);
-      const location = new URL(res.headers.location);
+      const location = redirectTarget(res.headers.location);
       expect(location.searchParams.get('error')).toBe('invalid_scope');
       expect(location.searchParams.get('code')).toBeNull();
     }
+
+    const writeOnly = request.agent(app);
+    const { res: writeOnlyRes } = await begin(writeOnly, { scope: 'employees:write' });
+    expect([302, 303]).toContain(writeOnlyRes.status);
+    expect(String(writeOnlyRes.headers.location)).toContain('/oauth/consent');
+    expect(String(writeOnlyRes.headers.location)).not.toContain('invalid_scope');
     const companion = request.agent(app);
     const { res: companionRes } = await begin(companion, { scope: 'catalog:read openid' });
     expect([302, 303]).toContain(companionRes.status);
