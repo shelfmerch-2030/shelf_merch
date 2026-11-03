@@ -155,6 +155,47 @@ describe('store collection draft and publish', () => {
     expect(finalShop.activeListingKeys.filter((key) => key.startsWith(`${saved.id}:`))).toHaveLength(1);
   });
 
+
+  it('prepares MCP publish after saving artwork through the collection APIs', async () => {
+    const prepared = await prepareCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput(),
+    });
+    const saved = await executeCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput(),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'collection-design-save-1',
+    });
+    await expect(prepareCollectionPublish({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { collectionId: saved.id, shopId: String(shop._id) },
+    })).rejects.toMatchObject({ code: 'DESIGN_REQUIRED' });
+
+    const collection = await Collection.findOne({ _id: saved.id, tenantId: tenant._id });
+    collection.artworkUrl = 'https://cdn.test/saved-from-editor.png';
+    collection.productRefs[0].mockupUrl = 'https://cdn.test/mug-mockup.png';
+    collection.productRefs[0].placement = { xPct: 12, yPct: 18, wPct: 40, rot: 0 };
+    collection.status = 'ready';
+    await collection.save();
+
+    const beforeKeys = [...((await Shop.findOne({ _id: shop._id, tenantId: tenant._id })).activeListingKeys || [])];
+    const publishPreview = await prepareCollectionPublish({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { collectionId: saved.id, shopId: String(shop._id) },
+    });
+    expect(publishPreview.preview.becomingVisible).toEqual([
+      expect.objectContaining({ catalogProductId: String(product._id), name: 'Desk Mug' }),
+    ]);
+    const afterKeys = (await Shop.findOne({ _id: shop._id, tenantId: tenant._id })).activeListingKeys || [];
+    expect(afterKeys).toEqual(beforeKeys);
+    expect(collection.shopIds || []).toEqual([]);
+  });
+
   it('rejects the wrong role, another tenant, an unknown product, and a stale publish', async () => {
     const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [] });
     await expect(prepareCollectionDraft({

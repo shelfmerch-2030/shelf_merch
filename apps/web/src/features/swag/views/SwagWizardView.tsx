@@ -141,10 +141,18 @@ export function SwagWizardView(vm: SwagWizardVm) {
               {backLink("Back to products", 1)}
               <button
                 type="button"
+                className="btn btn-ghost"
+                disabled={vm.isWorking || !vm.pickedProducts.length}
+                onClick={vm.onSaveDesign}
+              >
+                Save design
+              </button>
+              <button
+                type="button"
                 className="btn btn-brand"
                 onClick={() => vm.onStep(3)}
               >
-                Add Artwork
+                Next
               </button>
             </div>
           </>
@@ -193,6 +201,14 @@ export function SwagWizardView(vm: SwagWizardVm) {
             </div>
             <div className="row" style={{ gap: 12, alignItems: "center" }}>
               {backLink("Back to artwork", 2)}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={vm.isWorking || !vm.pickedProducts.length}
+                onClick={vm.onSaveDesign}
+              >
+                Save design
+              </button>
               <button
                 type="button"
                 className="btn btn-brand"
