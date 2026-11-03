@@ -165,6 +165,18 @@ import {
   shopsPrepareCategoriesOutputSchema,
 } from './shopsCategoriesWrite.js';
 import {
+  SHOPS_GET_DESCRIPTION,
+  SHOPS_LIST_DESCRIPTION,
+  getShopForCaller,
+  listShopsForCaller,
+  shopsGetInputSchema,
+  shopsGetOutputSchema,
+  shopsListInputSchema,
+  shopsListOutputSchema,
+  shopsReadError,
+  shopsReadText,
+} from './shopsRead.js';
+import {
   BUDGET_EXECUTE_DESCRIPTION,
   BUDGET_PREPARE_DESCRIPTION,
   budgetError,
@@ -813,6 +825,46 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: pointsDraftError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const shopReadTools = [
+      ['shops_list', 'List stores', SHOPS_LIST_DESCRIPTION, shopsListInputSchema, shopsListOutputSchema, listShopsForCaller, 'Store list failed.'],
+      ['shops_get', 'Get store', SHOPS_GET_DESCRIPTION, shopsGetInputSchema, shopsGetOutputSchema, getShopForCaller, 'Store lookup failed.'],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, call, fallback] of shopReadTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('shops:write'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['shops:write'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: shopsReadText(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: shopsReadError(err, fallback) }],
             };
           }
         },

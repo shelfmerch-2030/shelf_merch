@@ -14,6 +14,9 @@ export const STORE_BUILDER_CATEGORY_LABELS = [
   'Luxury',
 ];
 
+/** Matches web DEFAULT_BUILDER_CATEGORIES used when creating a shop in the dashboard. */
+export const DEFAULT_STORE_BUILDER_CATEGORIES = ['Food & Beverages', 'Work Essentials', 'Merch'];
+
 export function normalizeCategoryLabel(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }

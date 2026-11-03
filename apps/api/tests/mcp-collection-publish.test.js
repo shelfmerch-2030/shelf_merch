@@ -61,6 +61,72 @@ function draftInput(extra = {}) {
 }
 
 describe('store collection draft and publish', () => {
+  it('resolves destination store by exact name', async () => {
+    const prepared = await prepareCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        shopName: 'HQ Store',
+        name: 'Named destination',
+        catalogProductIds: [String(product._id)],
+      },
+    });
+    expect(prepared.preview.shopId).toBe(String(shop._id));
+    const saved = await executeCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        shopName: 'HQ Store',
+        name: 'Named destination',
+        catalogProductIds: [String(product._id)],
+      },
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'collection-by-name-1',
+    });
+    expect(saved.shopId).toBe(String(shop._id));
+  });
+
+  it('does not mutate a different destination store', async () => {
+    const otherShop = await Shop.create({
+      tenantId: tenant._id,
+      name: 'Other Store',
+      slug: `other-col-${Date.now()}`,
+      status: 'draft',
+      activeListingKeys: ['keep:other'],
+    });
+    const prepared = await prepareCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput({ shopName: 'HQ Store', name: 'Only HQ' }),
+    });
+    const saved = await executeCollectionDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput({ shopName: 'HQ Store', name: 'Only HQ' }),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'collection-dest-1',
+    });
+    const stored = await Collection.findOne({ _id: saved.id, tenantId: tenant._id });
+    stored.artworkUrl = 'https://cdn.test/dest-art.png';
+    await stored.save();
+    const publishPreview = await prepareCollectionPublish({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { collectionId: saved.id, shopName: 'HQ Store' },
+    });
+    await executeCollectionPublish({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { collectionId: saved.id, shopName: 'HQ Store' },
+      confirmationId: publishPreview.confirmationId,
+      idempotencyKey: 'collection-dest-publish-1',
+    });
+    const untouched = await Shop.findOne({ _id: otherShop._id, tenantId: tenant._id });
+    expect(untouched.activeListingKeys).toEqual(['keep:other']);
+    const target = await Shop.findOne({ _id: shop._id, tenantId: tenant._id });
+    expect(target.activeListingKeys.some((key) => String(key).startsWith(`${saved.id}:`))).toBe(true);
+  });
+
   it('saves a draft without publishing, then publishes only its products', async () => {
     const prepared = await prepareCollectionDraft({
       tenantId: tenant._id,

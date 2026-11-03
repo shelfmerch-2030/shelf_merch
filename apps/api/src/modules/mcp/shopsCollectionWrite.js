@@ -16,21 +16,34 @@ import { McpCollectionClaim } from './mcpCollectionClaim.model.js';
 
 const ROLES = new Set(rolesForTenantArea('shops', 'write'));
 
+const shopSelectFields = {
+  shopId: objectId.optional(),
+  shopName: z.string().trim().min(1).max(80).optional(),
+};
+
+function hasShopSelector(value) {
+  return Boolean(value.shopId || value.shopName);
+}
+
 const draftSchema = z.object({
-  shopId: objectId,
+  ...shopSelectFields,
   name: z.string().trim().min(1).max(160),
   catalogProductIds: z.array(objectId).min(1).max(50),
   artworkCollectionId: objectId.optional(),
-}).strict();
+}).strict().refine(hasShopSelector, {
+  message: 'Provide a store id or an exact store name',
+});
 
 const publishSchema = z.object({
   collectionId: objectId,
-  shopId: objectId,
-}).strict();
+  ...shopSelectFields,
+}).strict().refine(hasShopSelector, {
+  message: 'Provide a store id or an exact store name',
+});
 
 export const COLLECTION_PREPARE_DRAFT_DESCRIPTION = [
   'Preview a draft product collection for a company store without publishing it.',
-  'Company admins only. Checks that the store and catalog products belong to this workspace.',
+  'Company admins only. Resolve the destination store by id or exact name. Checks that the store and catalog products belong to this workspace.',
   'Does not change the master catalog, generate artwork, or add store listings.',
   'Design files are added in the ShelfMerch swag editor.',
 ].join(' ');
@@ -137,10 +150,43 @@ function ensureClaims() {
   return claimsReady;
 }
 
+function normalizeShopName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function resolveShop(tenantId, selector) {
+  if (selector.shopId) {
+    const shop = await Shop.findOne({ _id: selector.shopId, tenantId });
+    if (!shop) throw new NotFoundError('Store not found');
+    if (selector.shopName && normalizeShopName(shop.name) !== normalizeShopName(selector.shopName)) {
+      throw new ApiError(400, 'Store id and name do not match', 'VALIDATION');
+    }
+    return shop;
+  }
+  const wanted = normalizeShopName(selector.shopName);
+  const rows = await Shop.find({ tenantId }).sort({ createdAt: 1 });
+  const matches = rows.filter((row) => normalizeShopName(row.name) === wanted);
+  if (!matches.length) throw new NotFoundError('Store not found');
+  if (matches.length > 1) {
+    const choices = matches.map((row) => `${row.name} (${row._id})`).join(', ');
+    throw new ApiError(
+      409,
+      `Multiple stores match "${selector.shopName}". Choose one store id: ${choices}`,
+      'SHOP_AMBIGUOUS',
+    );
+  }
+  return matches[0];
+}
+
 async function loadShop(tenantId, shopId) {
-  const shop = await Shop.findOne({ _id: shopId, tenantId });
-  if (!shop) throw new NotFoundError('Store not found');
-  return shop;
+  return resolveShop(tenantId, { shopId });
+}
+
+function shopSelector(input) {
+  return {
+    ...(input.shopId ? { shopId: input.shopId } : {}),
+    ...(input.shopName ? { shopName: String(input.shopName).trim() } : {}),
+  };
 }
 
 async function loadProducts(ids) {
@@ -220,7 +266,7 @@ async function saveDraft(actor, input) {
   await ensureClaims();
   const tenantId = actor.tenant._id;
   assertAdmin(actor);
-  const shop = await loadShop(tenantId, input.shopId);
+  const shop = await resolveShop(tenantId, shopSelector(input));
   const products = await loadProducts(input.catalogProductIds);
   const artwork = await artworkFromReference(tenantId, input.artworkCollectionId, products);
   const existing = await matchingDraft(tenantId, input, products);
@@ -270,7 +316,7 @@ async function saveDraft(actor, input) {
 
 async function draftSnapshot(tenantId, input) {
   const products = await loadProducts(input.catalogProductIds);
-  const shop = await loadShop(tenantId, input.shopId);
+  const shop = await resolveShop(tenantId, shopSelector(input));
   const existing = await matchingDraft(tenantId, input, products);
   return {
     shopId: String(shop._id),
@@ -294,7 +340,7 @@ export async function prepareCollectionDraft({ tenantId, actorUserId, input, now
     authorize: async (actor) => {
       assertAdmin(actor);
       planned.products = await loadProducts(requested.data.catalogProductIds);
-      planned.shop = await loadShop(tenantId, requested.data.shopId);
+      planned.shop = await resolveShop(tenantId, shopSelector(requested.data));
       planned.artwork = await artworkFromReference(tenantId, requested.data.artworkCollectionId, planned.products);
       planned.existing = await matchingDraft(tenantId, requested.data, planned.products);
     },
@@ -340,21 +386,22 @@ export async function executeCollectionDraft({
     now,
     authorize: async (actor) => {
       assertAdmin(actor);
-      await loadShop(tenantId, requested.data.shopId);
+      await resolveShop(tenantId, shopSelector(requested.data));
     },
     validate: async () => requested.data,
     resourceState: async () => draftSnapshot(tenantId, requested.data),
     reconcile: async () => {
       const products = await loadProducts(requested.data.catalogProductIds);
+      const shop = await resolveShop(tenantId, shopSelector(requested.data));
       const existing = await matchingDraft(tenantId, requested.data, products);
-      if (existing) return { outcome: 'completed', result: presentDraft(existing, requested.data.shopId) };
+      if (existing) return { outcome: 'completed', result: presentDraft(existing, shop._id) };
       const claim = await McpCollectionClaim.findOne({ tenantId, logicalKey: nameKey(requested.data.name) });
       if (claim?.collectionId) {
         const linked = await Collection.findOne({ _id: claim.collectionId, tenantId });
         if (linked?.status === 'draft') {
           const wanted = products.map((product) => String(product._id)).join(',');
           const ids = (linked.productRefs || []).map((ref) => String(ref.catalogProductId)).join(',');
-          if (ids === wanted) return { outcome: 'completed', result: presentDraft(linked, requested.data.shopId) };
+          if (ids === wanted) return { outcome: 'completed', result: presentDraft(linked, shop._id) };
         }
         if (linked) return { outcome: 'uncertain' };
       }
@@ -409,7 +456,7 @@ async function assertNoDuplicateListing(tenantId, shop, collection) {
 
 async function publishSnapshot(tenantId, input) {
   const collection = await loadOwnedCollection(tenantId, input.collectionId);
-  const shop = await loadShop(tenantId, input.shopId);
+  const shop = await resolveShop(tenantId, shopSelector(input));
   return {
     collectionId: String(collection._id),
     status: collection.status,
@@ -454,7 +501,7 @@ export async function prepareCollectionPublish({ tenantId, actorUserId, input, n
     authorize: async (actor) => {
       assertAdmin(actor);
       planned.collection = await loadOwnedCollection(tenantId, requested.data.collectionId);
-      planned.shop = await loadShop(tenantId, requested.data.shopId);
+      planned.shop = await resolveShop(tenantId, shopSelector(requested.data));
       assertCanPublish(planned.collection);
       if (!isCollectionLinkedToShop(planned.collection, planned.shop._id)) {
         await assertNoDuplicateListing(tenantId, planned.shop, planned.collection);
@@ -465,7 +512,7 @@ export async function prepareCollectionPublish({ tenantId, actorUserId, input, n
     summary: async () => ({
       action: 'preview',
       collectionId: requested.data.collectionId,
-      shopId: requested.data.shopId,
+      shopId: String(planned.shop._id),
     }),
   });
   const lists = visibleLists(planned.collection, planned.shop);
@@ -503,7 +550,7 @@ export async function executeCollectionPublish({
     resourceState: async () => publishSnapshot(tenantId, requested.data),
     reconcile: async () => {
       const collection = await Collection.findOne({ _id: requested.data.collectionId, tenantId });
-      const shop = await Shop.findOne({ _id: requested.data.shopId, tenantId });
+      const shop = await resolveShop(tenantId, shopSelector(requested.data)).catch(() => null);
       if (!collection || !shop) return { outcome: 'uncertain' };
       const keys = listingKeysFromCollection(collection);
       const active = new Set((shop.activeListingKeys || []).map(String));
@@ -515,7 +562,7 @@ export async function executeCollectionPublish({
     },
     execute: async (actor) => {
       const collection = await loadOwnedCollection(tenantId, requested.data.collectionId);
-      const shop = await loadShop(tenantId, requested.data.shopId);
+      const shop = await resolveShop(tenantId, shopSelector(requested.data));
       assertCanPublish(collection);
       const before = new Set((shop.activeListingKeys || []).map(String));
       if (!isCollectionLinkedToShop(collection, shop._id)) {
@@ -595,6 +642,7 @@ const WRITE_ERRORS = {
   VALIDATION: 'Collection details are not valid.',
   PRODUCT_UNAVAILABLE: 'A catalog product is not available.',
   DESIGN_REQUIRED: 'Add the design in the ShelfMerch swag editor before publishing.',
+  SHOP_AMBIGUOUS: 'Several stores match that name. Ask the user to choose one store id.',
   COLLECTION_EXISTS: 'A collection with this name already exists.',
   COLLECTION_ARCHIVED: 'This collection is archived.',
   PRODUCT_ALREADY_IN_SHOP: 'A selected product is already published in this store.',

@@ -4,6 +4,7 @@ import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js'
 import { writeAudit } from '../../services/audit.service.js';
 import { slugifyShopName } from '../../utils/shopSlug.js';
 import { Shop } from '../shops/shop.model.js';
+import { DEFAULT_STORE_BUILDER_CATEGORIES } from '../shops/storeBuilderCategories.js';
 import { createShop, updateShop } from '../shops/shops.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
@@ -66,7 +67,8 @@ const updateSchema = updateFieldsSchema.refine(hasStoreUpdate, {
 export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
   'Preview a new ShelfMerch company store without saving it.',
   'Checks the name, slug, currency mode, company email domain, and text settings.',
-  'Company admins only. The store stays a draft until someone publishes it in ShelfMerch.',
+  'When categories are omitted, applies the same default builder categories as the dashboard (Food & Beverages, Work Essentials, Merch).',
+  'Company admins only. The store stays a draft until published with shops_execute_publish or the dashboard.',
   'Logo files, banners, catalog products, and design placement are not accepted.',
   'Returns a one-use confirmation. Saving requires shops_execute_create.',
 ].join(' ');
@@ -191,7 +193,7 @@ function canonicalCreate(data) {
     currencyMode: data.currencyMode || 'points',
     pointsConversionEnabled: data.pointsConversionEnabled ?? false,
     companyEmailDomain: data.companyEmailDomain || '',
-    categories: data.categories || [],
+    categories: data.categories === undefined ? [...DEFAULT_STORE_BUILDER_CATEGORIES] : data.categories,
     logoUrl: data.logoUrl || '',
   };
 }
