@@ -149,6 +149,22 @@ import {
   shopsPreparePublishOutputSchema,
 } from './shopsPublishWrite.js';
 import {
+  SHOPS_EXECUTE_CATEGORIES_DESCRIPTION,
+  SHOPS_GET_CATEGORIES_DESCRIPTION,
+  SHOPS_PREPARE_CATEGORIES_DESCRIPTION,
+  executeShopCategoriesUpdateForCaller,
+  getShopCategoriesForCaller,
+  prepareShopCategoriesUpdateForCaller,
+  shopCategoriesError,
+  shopCategoriesText,
+  shopsExecuteCategoriesInputSchema,
+  shopsExecuteCategoriesOutputSchema,
+  shopsGetCategoriesInputSchema,
+  shopsGetCategoriesOutputSchema,
+  shopsPrepareCategoriesInputSchema,
+  shopsPrepareCategoriesOutputSchema,
+} from './shopsCategoriesWrite.js';
+import {
   BUDGET_EXECUTE_DESCRIPTION,
   BUDGET_PREPARE_DESCRIPTION,
   budgetError,
@@ -879,6 +895,47 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: shopPublishError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const shopCategoryTools = [
+      ['shops_get_categories', 'Get store categories', SHOPS_GET_CATEGORIES_DESCRIPTION, shopsGetCategoriesInputSchema, shopsGetCategoriesOutputSchema, true, getShopCategoriesForCaller, 'Store categories lookup failed.', true],
+      ['shops_prepare_categories_update', 'Prepare store categories', SHOPS_PREPARE_CATEGORIES_DESCRIPTION, shopsPrepareCategoriesInputSchema, shopsPrepareCategoriesOutputSchema, false, prepareShopCategoriesUpdateForCaller, 'Store category preview failed.', false],
+      ['shops_execute_categories_update', 'Update store categories', SHOPS_EXECUTE_CATEGORIES_DESCRIPTION, shopsExecuteCategoriesInputSchema, shopsExecuteCategoriesOutputSchema, true, executeShopCategoriesUpdateForCaller, 'Store category update failed.', false],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, isRead] of shopCategoryTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: Boolean(isRead),
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('shops:write'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['shops:write'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: shopCategoriesText(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: shopCategoriesError(err, fallback) }],
             };
           }
         },

@@ -561,6 +561,9 @@ describe('kit campaign MCP tools', () => {
       'shops_execute_collection_publish',
       'shops_prepare_publish',
       'shops_execute_publish',
+      'shops_get_categories',
+      'shops_prepare_categories_update',
+      'shops_execute_categories_update',
     ]));
   });
 });
