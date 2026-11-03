@@ -137,6 +137,18 @@ import {
   shopsPrepareCatalogOutputSchema,
 } from './shopsCatalogWrite.js';
 import {
+  SHOPS_EXECUTE_PUBLISH_DESCRIPTION,
+  SHOPS_PREPARE_PUBLISH_DESCRIPTION,
+  executeShopPublishForCaller,
+  prepareShopPublishForCaller,
+  shopPublishError,
+  shopPublishText,
+  shopsExecutePublishInputSchema,
+  shopsExecutePublishOutputSchema,
+  shopsPreparePublishInputSchema,
+  shopsPreparePublishOutputSchema,
+} from './shopsPublishWrite.js';
+import {
   BUDGET_EXECUTE_DESCRIPTION,
   BUDGET_PREPARE_DESCRIPTION,
   budgetError,
@@ -827,6 +839,46 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: shopWriteError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const shopPublishTools = [
+      ['shops_prepare_publish', 'Prepare store publish', SHOPS_PREPARE_PUBLISH_DESCRIPTION, shopsPreparePublishInputSchema, shopsPreparePublishOutputSchema, false, prepareShopPublishForCaller, 'Store publish preview failed.'],
+      ['shops_execute_publish', 'Publish store', SHOPS_EXECUTE_PUBLISH_DESCRIPTION, shopsExecutePublishInputSchema, shopsExecutePublishOutputSchema, true, executeShopPublishForCaller, 'Store publish failed.'],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback] of shopPublishTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('shops:publish'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['shops:publish'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: shopPublishText(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: shopPublishError(err, fallback) }],
             };
           }
         },

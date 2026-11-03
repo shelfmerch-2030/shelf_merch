@@ -62,6 +62,8 @@ const PERMANENT_FAILURE = new Set([
   'BUDGET_TOO_LOW',
   'ALLOCATION_EXCEEDS_BALANCE',
   'ALLOCATION_EXCEEDS_UNSPENT',
+  'SHOP_NO_CATEGORIES',
+  'SHOP_AMBIGUOUS',
 ]);
 
 function redactFor(context, value) {
