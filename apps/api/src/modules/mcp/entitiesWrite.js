@@ -12,6 +12,11 @@ import { allocate, activate, allocationLedgerKey } from '../wallets/wallets.serv
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { McpEntityClaim } from './mcpEntityClaim.model.js';
+import {
+  DEFAULT_EXPECTED_USERS,
+  defaultDescriptionFor,
+  departmentPaletteColor,
+} from './departmentSuggestions.js';
 
 const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 const MONEY = z.number().int().positive().max(100_000_000);
@@ -24,10 +29,21 @@ const managerSchema = z.object({
     (value) => !value || /^(?:\+?91)?\d{10}$/.test(value.replace(/[\s()-]/g, '')),
     'Enter a valid 10-digit mobile number',
   ).optional().default('').describe('Optional Indian mobile number. 10 digits, with or without +91. Saved on the manager account and not repeated in the preview.'),
+  sendInvite: z.boolean().optional().default(true).describe(
+    'When true (default), send the ShelfMerch manager invitation email if the account is not already active. When false, assign the manager without sending email — same as the dashboard invitation toggle.',
+  ),
 });
 const departmentSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  budget: MONEY,
+  name: z.string().trim().min(1).max(120).describe(
+    'Department name. Prefer a dashboard suggestion from entities_list.suggestedDepartments, or a custom name.',
+  ),
+  description: z.string().trim().max(2000).optional().default('').describe(
+    'Optional department description. When omitted for a suggested name, the dashboard quick-add description is used.',
+  ),
+  expectedUsers: z.number().int().nonnegative().max(1_000_000).optional().default(DEFAULT_EXPECTED_USERS).describe(
+    'Optional expected headcount. Defaults to 10, matching the dashboard Department modal.',
+  ),
+  budget: MONEY.describe('Absolute initial budget target in INR for this department (not a delta).'),
   manager: managerSchema,
 });
 
@@ -43,11 +59,17 @@ const assignSchema = z.object({
 
 export const ENTITIES_PREPARE_SETUP_DESCRIPTION = [
   'Preview creating departments, assigning their first managers, and allocating the initial budget from a company wallet.',
+  'This is the MCP equivalent of the dashboard Allocate Budget finish step for new or unfinished departments.',
   'Company admins only. Nothing is saved.',
-  'Ask for each manager full name and work email. Also ask for the role or designation and mobile number. Role and mobile may be left blank, matching the dashboard.',
-  'The preview shows each department, the manager name and title, whether a mobile number was provided, the budget, the total, and the wallet balance before and after.',
+  'Call entities_list first. Offer suggestedDepartments where alreadyExists is false; also allow custom department names.',
+  'Optional description and expectedUsers match the dashboard Department modal (defaults applied when omitted).',
+  'Ask for each manager full name and work email. Also ask for the role or designation, mobile number, and whether to send the invitation email (sendInvite, default true).',
+  'Role and mobile may be left blank. sendInvite false assigns without email, matching the dashboard toggle.',
+  'budget is the absolute initial amount for that department. Sum of new budgets cannot exceed wallet unallocatedAmount (use wallet_list_balances).',
+  'For equal split across N departments, divide unallocatedAmount by N (floor to whole INR) the same way the dashboard Split evenly control does.',
+  'The preview shows each department, description, expected users, manager name and title, invite preference, the budget, the total, and the wallet balance before and after.',
   'The mobile number itself is not returned.',
-  'An invitation email is sent only when the manager does not already have an active account.',
+  'An invitation email is sent only when sendInvite is true and the manager does not already have an active account.',
   'A Slack budget notice is sent once, and only after the wallet movement succeeds, when Slack is already connected.',
   'Applying it requires entities_execute_setup.',
 ].join(' ');
@@ -64,6 +86,7 @@ export const ENTITIES_PREPARE_ASSIGN_DESCRIPTION = [
   'Preview assigning the first manager of an existing department.',
   'Company admins only. Nothing is saved.',
   'Use this when the department already exists and does not have a manager yet.',
+  'Ask for manager name, email, optional role, optional mobile, and sendInvite (default true) matching the dashboard Assign Managers step.',
   'An existing company admin is not turned into a department manager.',
   'Applying it requires entities_execute_assign_manager.',
 ].join(' ');
@@ -104,11 +127,14 @@ export const entitiesPrepareSetupOutputSchema = z.object({
     fundingPending: z.boolean(),
     departments: z.array(z.object({
       name: z.string(),
+      description: z.string(),
+      expectedUsers: z.number(),
       budget: z.number(),
       action: z.string(),
       managerName: z.string(),
       managerTitle: z.string(),
       mobileProvided: z.boolean(),
+      sendInvite: z.boolean(),
       invitation: z.string(),
     })),
     notices: z.array(z.object({
@@ -145,6 +171,7 @@ export const entitiesPrepareAssignOutputSchema = z.object({
     managerName: z.string(),
     managerTitle: z.string(),
     mobileProvided: z.boolean(),
+    sendInvite: z.boolean(),
     invitation: z.string(),
   }),
 });
@@ -208,7 +235,7 @@ async function loadWallet(tenantId, walletId) {
 
 async function findDepartment(tenantId, walletId, name) {
   const entities = await Entity.find({ tenantId, walletId }).select(
-    'name allocatedAmount spentAmount managerUserId managerEmail managerName managerTitle managerInvitePending walletId updatedAt',
+    'name description expectedUsers allocatedAmount spentAmount managerUserId managerEmail managerName managerTitle managerInvitePending walletId updatedAt',
   );
   return entities.find((entity) => normalizeName(entity.name) === normalizeName(name)) || null;
 }
@@ -234,6 +261,31 @@ async function assertLinkable(tenantId, manager) {
   return 'link_existing';
 }
 
+function wantsInvite(manager) {
+  return manager?.sendInvite !== false;
+}
+
+/** Align invitation preview codes with dashboard sendInvite toggle. */
+function invitationOutcome(baseInvitation, manager) {
+  if (baseInvitation === 'already_assigned' || baseInvitation === 'link_existing') {
+    return baseInvitation;
+  }
+  if (!wantsInvite(manager)) return 'assign_without_invite';
+  return baseInvitation;
+}
+
+function resolveCreateMeta(department, colorIndex = 0) {
+  const name = String(department?.name || '').trim();
+  const providedDescription = String(department?.description || '').trim();
+  return {
+    description: providedDescription || defaultDescriptionFor(name),
+    expectedUsers: Number.isFinite(department?.expectedUsers)
+      ? Number(department.expectedUsers)
+      : DEFAULT_EXPECTED_USERS,
+    colorHex: departmentPaletteColor(colorIndex),
+  };
+}
+
 function sameManager(entity, manager) {
   return normalizeName(entity?.managerEmail) === normalizeName(manager.email);
 }
@@ -244,7 +296,8 @@ function assertManagerAvailable(entity, manager) {
   throw new ApiError(409, `${entity.name} already has a manager. This tool does not replace one.`, 'MANAGER_ALREADY_ASSIGNED');
 }
 
-async function claimDepartment(tenantId, wallet, name) {
+async function claimDepartment(tenantId, wallet, department) {
+  const name = typeof department === 'string' ? department : department.name;
   const logicalKey = `${wallet._id}:${normalizeName(name)}`;
   const existing = await findDepartment(tenantId, wallet._id, name);
   if (existing) {
@@ -270,15 +323,17 @@ async function claimDepartment(tenantId, wallet, name) {
   }
   let entity;
   try {
+    const colorIndex = await Entity.countDocuments({ tenantId, walletId: wallet._id });
+    const meta = resolveCreateMeta(department, colorIndex);
     entity = await createEntity({
       tenantId,
       userId: null,
       data: {
         walletId: wallet._id,
-        name: name.trim(),
-        description: '',
-        colorHex: '#2563EB',
-        expectedUsers: 0,
+        name: String(name).trim(),
+        description: meta.description,
+        colorHex: meta.colorHex,
+        expectedUsers: meta.expectedUsers,
       },
     });
   } catch (err) {
@@ -288,6 +343,7 @@ async function claimDepartment(tenantId, wallet, name) {
   await McpEntityClaim.updateOne({ tenantId, logicalKey }, { entityId: entity._id });
   return entity;
 }
+
 async function ensureManager({ tenantId, entity, manager, userId }) {
   const current = await Entity.findOne({ _id: entity._id, tenantId });
   if (!current) throw new NotFoundError('Department not found');
@@ -303,7 +359,7 @@ async function ensureManager({ tenantId, entity, manager, userId }) {
       email: manager.email,
       role: manager.role || '',
       mobile: manager.mobile || '',
-      sendInvite: true,
+      sendInvite: wantsInvite(manager),
     },
   });
   return assigned.entity;
@@ -330,9 +386,10 @@ async function setupState(tenantId, requested) {
     const entity = await findDepartment(tenantId, wallet._id, department.name);
     if (entity) assertUnfundedOrMatching(entity, department.budget);
     if (entity) assertManagerAvailable(entity, department.manager);
-    const invitation = entity && sameManager(entity, department.manager)
+    const baseInvitation = entity && sameManager(entity, department.manager)
       ? 'already_assigned'
       : await assertLinkable(tenantId, department.manager);
+    const invitation = invitationOutcome(baseInvitation, department.manager);
     departments.push({ ...department, entity, invitation });
   }
   const total = requested.departments.reduce((sum, department) => sum + department.budget, 0);
@@ -371,7 +428,9 @@ function noticesFor(departments, pending) {
       ? 'This manager is already assigned. No new invitation is sent.'
       : department.invitation === 'link_existing'
         ? 'The existing department manager account will be linked. No new invitation is sent.'
-        : 'An invitation email will be sent to the manager you entered.';
+        : department.invitation === 'assign_without_invite'
+          ? 'The manager will be assigned without sending an invitation email.'
+          : 'An invitation email will be sent to the manager you entered.';
     notices.push({ kind: 'manager_invitation', departmentName: department.name, detail: invitation });
     notices.push({
       kind: pending ? 'planned_budget' : 'slack_budget',
@@ -400,19 +459,27 @@ function previewFrom(state) {
       unallocatedAmount: before.unallocatedAmount - needed,
     },
     fundingPending: state.pending,
-    departments: state.departments.map((department) => ({
-      name: department.name,
-      budget: department.budget,
-      action: !department.entity
-        ? 'create'
-        : (Number(department.entity.allocatedAmount) || 0) === department.budget
-          ? 'already_saved'
-          : 'finish_budget',
-      managerName: department.manager.name,
-      managerTitle: department.manager.role || '',
-      mobileProvided: Boolean(String(department.manager.mobile || '').trim()),
-      invitation: department.invitation,
-    })),
+    departments: state.departments.map((department) => {
+      const meta = resolveCreateMeta(department);
+      return {
+        name: department.name,
+        description: department.entity?.description || meta.description,
+        expectedUsers: department.entity
+          ? (Number(department.entity.expectedUsers) || 0)
+          : meta.expectedUsers,
+        budget: department.budget,
+        action: !department.entity
+          ? 'create'
+          : (Number(department.entity.allocatedAmount) || 0) === department.budget
+            ? 'already_saved'
+            : 'finish_budget',
+        managerName: department.manager.name,
+        managerTitle: department.manager.role || '',
+        mobileProvided: Boolean(String(department.manager.mobile || '').trim()),
+        sendInvite: wantsInvite(department.manager),
+        invitation: department.invitation,
+      };
+    }),
     notices: noticesFor(state.departments, state.pending),
   };
 }
@@ -433,7 +500,7 @@ async function applySetup({ tenantId, actor, requested }) {
   const pending = fundingPending(wallet);
   const finished = [];
   for (const department of requested.departments) {
-    const entity = await claimDepartment(tenantId, wallet, department.name);
+    const entity = await claimDepartment(tenantId, wallet, department);
     assertUnfundedOrMatching(entity, department.budget);
     const managed = await ensureManager({
       tenantId,
@@ -600,9 +667,10 @@ async function assignState(tenantId, requested) {
   const entity = await Entity.findOne({ _id: requested.entityId, tenantId });
   if (!entity) throw new NotFoundError('Department not found');
   assertManagerAvailable(entity, requested.manager);
-  const invitation = sameManager(entity, requested.manager)
+  const baseInvitation = sameManager(entity, requested.manager)
     ? 'already_assigned'
     : await assertLinkable(tenantId, requested.manager);
+  const invitation = invitationOutcome(baseInvitation, requested.manager);
   return { entity, invitation };
 }
 
@@ -644,6 +712,7 @@ export async function prepareAssignManager({ tenantId, actorUserId, input, now }
       managerName: requested.data.manager.name,
       managerTitle: requested.data.manager.role || '',
       mobileProvided: Boolean(String(requested.data.manager.mobile || '').trim()),
+      sendInvite: wantsInvite(requested.data.manager),
       invitation: state.invitation,
     },
   };

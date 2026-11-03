@@ -21,6 +21,7 @@ import * as envModule from '../src/config/env.js';
 import * as ledger from '../src/services/ledger.service.js';
 import { authHeader, makeEntity, makeFundedWallet, makeTenant, makeUser } from './helpers.js';
 import { listDepartments } from '../src/modules/mcp/entitiesRead.js';
+import { SUGGESTED_DEPARTMENT_NAMES } from '../src/modules/mcp/departmentSuggestions.js';
 import {
   executeAssignManager,
   executeEntitySetup,
@@ -29,6 +30,7 @@ import {
 } from '../src/modules/mcp/entitiesWrite.js';
 
 const allocateControl = vi.hoisted(() => ({ fail: false }));
+const inviteEmails = vi.hoisted(() => []);
 vi.mock('../src/modules/wallets/wallets.service.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -41,6 +43,16 @@ vi.mock('../src/modules/wallets/wallets.service.js', async (importOriginal) => {
         throw error;
       }
       return actual.allocate(args);
+    }),
+  };
+});
+vi.mock('../src/services/email.service.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    sendInviteEmail: vi.fn(async (to) => {
+      inviteEmails.push(to);
+      return { success: true };
     }),
   };
 });
@@ -78,6 +90,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await clearTestDb();
   allocateControl.fail = false;
+  inviteEmails.length = 0;
   tenant = await makeTenant({ slug: 'entity-setup' });
   admin = await makeUser(tenant, 'company_admin', 'tenant');
   wallet = await makeFundedWallet(tenant, { name: 'Operating', amount: 1_000 });
@@ -85,7 +98,13 @@ beforeEach(async () => {
 
 describe('department listing', () => {
   it('keeps departments inside the tenant and the manager assignment', async () => {
-    const managed = await makeEntity(tenant, wallet, 'People', { managerUserId: admin.user._id, allocatedAmount: 100, spentAmount: 25 });
+    const managed = await makeEntity(tenant, wallet, 'People', {
+      managerUserId: admin.user._id,
+      allocatedAmount: 100,
+      spentAmount: 25,
+      description: 'People ops',
+      expectedUsers: 12,
+    });
     await makeEntity(tenant, wallet, 'Hidden');
     const other = await makeTenant({ slug: 'other-entities' });
     const otherWallet = await makeFundedWallet(other, { amount: 500 });
@@ -99,11 +118,15 @@ describe('department listing', () => {
     expect(adminRows.departments.map((row) => row.name).sort()).toEqual(['Hidden', 'People']);
     expect(adminRows.departments.find((row) => row.name === 'People')).toMatchObject({
       entityId: String(managed._id),
+      description: 'People ops',
+      expectedUsers: 12,
       allocatedAmount: 100,
       remainingAmount: 75,
       walletId: String(wallet._id),
       walletName: 'Operating',
     });
+    expect(adminRows.suggestedDepartments.map((row) => row.name)).toEqual([...SUGGESTED_DEPARTMENT_NAMES]);
+    expect(adminRows.suggestedDepartments.every((row) => row.alreadyExists === false)).toBe(true);
     expect(JSON.stringify(adminRows)).not.toContain('@');
 
     const managerRows = await listDepartments({
@@ -115,6 +138,22 @@ describe('department listing', () => {
       tenantId: tenant._id,
       user: { role: 'entity_manager', scopeType: 'entity', userId: manager.user._id, assignedEntityIds: [] },
     })).resolves.toBeTruthy();
+  });
+
+  it('marks suggested departments that already exist', async () => {
+    await makeEntity(tenant, wallet, 'Marketing', { description: 'Existing marketing', expectedUsers: 8 });
+    const rows = await listDepartments({
+      tenantId: tenant._id,
+      user: { userId: admin.user._id, role: 'company_admin', scopeType: 'tenant', assignedEntityIds: [] },
+    });
+    const marketing = rows.suggestedDepartments.find((row) => row.name === 'Marketing');
+    const sales = rows.suggestedDepartments.find((row) => row.name === 'Sales');
+    expect(marketing).toMatchObject({ alreadyExists: true, suggestedManagerRole: 'Marketing Manager' });
+    expect(sales).toMatchObject({ alreadyExists: false });
+    expect(rows.departments.find((row) => row.name === 'Marketing')).toMatchObject({
+      description: 'Existing marketing',
+      expectedUsers: 8,
+    });
   });
 });
 
@@ -414,6 +453,171 @@ describe('department manager assignment', () => {
         manager: { name: 'Other Person', email: 'other.manager@example.com', role: '', mobile: '' },
       },
     })).rejects.toMatchObject({ code: 'MANAGER_ALREADY_ASSIGNED' });
+  });
+});
+
+describe('allocate budget parity gaps', () => {
+  it('creates custom departments with description and expectedUsers and defaults suggested copy', async () => {
+    const input = {
+      walletId: String(wallet._id),
+      departments: [
+        {
+          name: 'Marketing',
+          budget: 200,
+          manager: {
+            name: 'Maya Market',
+            email: 'maya.market@example.com',
+            role: 'Marketing Manager',
+            mobile: '',
+            sendInvite: true,
+          },
+        },
+        {
+          name: 'Special Projects',
+          description: 'One-off campaign kits',
+          expectedUsers: 4,
+          budget: 150,
+          manager: {
+            name: 'Sam Special',
+            email: 'sam.special@example.com',
+            role: 'Project Lead',
+            mobile: '9876543210',
+            sendInvite: true,
+          },
+        },
+      ],
+    };
+    const prepared = await prepareEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview.totalAllocation).toBe(350);
+    expect(prepared.preview.departments).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'Marketing',
+        description: 'Department merchandise and campaigns.',
+        expectedUsers: 10,
+        sendInvite: true,
+        invitation: 'new_invitation',
+      }),
+      expect.objectContaining({
+        name: 'Special Projects',
+        description: 'One-off campaign kits',
+        expectedUsers: 4,
+        mobileProvided: true,
+      }),
+    ]));
+    expect(await Entity.countDocuments({ tenantId: tenant._id })).toBe(0);
+
+    const result = await executeEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'setup-parity-meta',
+    });
+    expect(result.totalAllocation).toBe(350);
+    const marketing = await Entity.findOne({ tenantId: tenant._id, name: 'Marketing' }).lean();
+    const special = await Entity.findOne({ tenantId: tenant._id, name: 'Special Projects' }).lean();
+    expect(marketing).toMatchObject({
+      description: 'Department merchandise and campaigns.',
+      expectedUsers: 10,
+      allocatedAmount: 200,
+    });
+    expect(special).toMatchObject({
+      description: 'One-off campaign kits',
+      expectedUsers: 4,
+      allocatedAmount: 150,
+    });
+    expect(inviteEmails).toEqual(expect.arrayContaining([
+      'maya.market@example.com',
+      'sam.special@example.com',
+    ]));
+  });
+
+  it('honors sendInvite false without emailing and still assigns the manager', async () => {
+    const entity = await makeEntity(tenant, wallet, 'Quiet');
+    const input = {
+      entityId: String(entity._id),
+      manager: {
+        name: 'Quiet Manager',
+        email: 'quiet.manager@example.com',
+        role: 'Ops Lead',
+        mobile: '',
+        sendInvite: false,
+      },
+    };
+    const prepared = await prepareAssignManager({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview).toMatchObject({
+      sendInvite: false,
+      invitation: 'assign_without_invite',
+    });
+    const result = await executeAssignManager({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'assign-no-invite',
+    });
+    expect(result).toMatchObject({
+      departmentName: 'Quiet',
+      managerName: 'Quiet Manager',
+      invitePending: true,
+    });
+    const user = await User.findOne({ email: 'quiet.manager@example.com' });
+    expect(user.status).toBe('invited');
+    expect(inviteEmails).toEqual([]);
+  });
+
+  it('rejects duplicate department names and over-budget multi-department totals on prepare', async () => {
+    await expect(prepareEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        walletId: String(wallet._id),
+        departments: [
+          { name: 'Twin', budget: 100, manager: { name: 'A', email: 'a.twin@example.com' } },
+          { name: 'twin', budget: 100, manager: { name: 'B', email: 'b.twin@example.com' } },
+        ],
+      },
+    })).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    await expect(prepareEntitySetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        walletId: String(wallet._id),
+        departments: [
+          { name: 'Marketing', budget: 700, manager: { name: 'A', email: 'm1@example.com' } },
+          { name: 'Sales', budget: 400, manager: { name: 'B', email: 'm2@example.com' } },
+        ],
+      },
+    })).rejects.toMatchObject({ code: 'ALLOCATION_EXCEEDS_BALANCE' });
+    expect(await Entity.countDocuments({ tenantId: tenant._id })).toBe(0);
+  });
+
+  it('rejects cross-tenant assign and leaves prepare without mutations', async () => {
+    const other = await makeTenant({ slug: 'other-assign' });
+    const otherAdmin = await makeUser(other, 'company_admin', 'tenant');
+    const entity = await makeEntity(tenant, wallet, 'Local');
+    await expect(prepareAssignManager({
+      tenantId: other._id,
+      actorUserId: otherAdmin.user._id,
+      input: {
+        entityId: String(entity._id),
+        manager: { name: 'X', email: 'x@example.com', sendInvite: true },
+      },
+    })).rejects.toBeTruthy();
+    expect(await Entity.findOne({ _id: entity._id, tenantId: tenant._id })).toMatchObject({
+      managerEmail: '',
+      managerUserId: null,
+    });
+    expect(inviteEmails).toEqual([]);
   });
 });
 

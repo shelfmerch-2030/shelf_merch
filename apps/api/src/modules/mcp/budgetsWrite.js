@@ -18,9 +18,11 @@ const requestSchema = z.object({
 }).strict();
 
 export const BUDGET_PREPARE_DESCRIPTION = [
-  'Preview a company wallet allocation to one or more departments.',
-  'Company admins only. Amounts are signed INR: positive assigns unallocated cash, negative returns unspent department budget.',
-  'Spent budget cannot be withdrawn. The preview shows balances, department allocations, the net change, and who would be notified.',
+  'Preview a company wallet allocation to one or more existing departments (dashboard Allocate Budget edit / top-up flow).',
+  'Company admins only. Amounts are signed INR deltas: positive assigns unallocated cash, negative returns unspent department budget.',
+  'Use wallet_list_balances for unallocatedAmount and entities_list for entityId and current allocatedAmount.',
+  'For Split evenly across N selected departments: floor(unallocatedAmount / N) per department, put any remainder on the last department, matching the dashboard.',
+  'Spent budget cannot be withdrawn. The preview shows balances, department allocations before and after, the net change, remaining unallocated, and who would be notified.',
   'Nothing is saved. Applying it requires budget_execute_allocation.',
 ].join(' ');
 
