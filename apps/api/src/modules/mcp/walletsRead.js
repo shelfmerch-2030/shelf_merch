@@ -6,7 +6,7 @@ import { listWalletBalancesRead, listWalletTransactionsRead } from '../wallets/w
 export const WALLET_BALANCES_DESCRIPTION = [
   'List ShelfMerch wallet balances for the signed-in workspace.',
   'Company admins and entity managers both see every wallet in the workspace.',
-  'unallocatedAmount is balance minus allocatedAmount, in the wallet currency.',
+  'unallocatedAmount is balance minus allocatedAmount, in the wallet currency. fundingPending is true while a purchase-order funding request awaits finance approval.',
   'Funding documents, tax ids, contact details, and owner ids are not returned.',
 ].join(' ');
 
@@ -24,6 +24,7 @@ const walletBalanceSchema = z.object({
   balance: z.number(),
   allocatedAmount: z.number(),
   unallocatedAmount: z.number(),
+  fundingPending: z.boolean(),
 });
 
 export const walletBalancesInputSchema = z.object({});
@@ -91,7 +92,7 @@ export function walletBalancesText(output) {
   if (!output.items.length) return 'Wallets.\nNo wallets.';
   const lines = output.items.map(
     (wallet) =>
-      `${wallet.name} [${wallet.currency}] ${wallet.status} balance ${wallet.balance} allocated ${wallet.allocatedAmount} unallocated ${wallet.unallocatedAmount}`,
+      `${wallet.name} [${wallet.currency}] ${wallet.status} balance ${wallet.balance} allocated ${wallet.allocatedAmount} unallocated ${wallet.unallocatedAmount}${wallet.fundingPending ? ' funding pending' : ''}`,
   );
   return ['Wallets.', ...lines].join('\n');
 }

@@ -15,6 +15,7 @@ import { User } from '../users/user.model.js';
 import { Tenant } from '../tenants/tenant.model.js';
 import { sendBudgetAllocatedEmail } from '../../services/email.service.js';
 import { logger } from '../../config/logger.js';
+import { env } from '../../config/env.js';
 
 function withMeta(wallet) {
   const obj = wallet.toObject ? wallet.toObject() : wallet;
@@ -47,6 +48,71 @@ function walletContactPayload(data) {
   if (data.mobileNumber != null) payload.mobileNumber = String(data.mobileNumber).trim();
   if (data.gstin != null) payload.gstin = String(data.gstin).trim().toUpperCase();
   return payload;
+}
+
+function remoteDocumentHosts() {
+  const hosts = new Set();
+  const add = (raw) => {
+    if (!raw) return;
+    try {
+      hosts.add(new URL(raw).hostname.toLowerCase());
+    } catch {
+      // ignore malformed config
+    }
+  };
+  add(env.S3_PUBLIC_BASE_URL);
+  add(env.R2_ENDPOINT);
+  if (env.S3_BUCKET_NAME && env.AWS_REGION) {
+    add(`https://s3.${env.AWS_REGION}.amazonaws.com`);
+    add(`https://${env.S3_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`);
+  }
+  return hosts;
+}
+
+/**
+ * Tenant-scoped document URL from local uploads or configured S3/R2 hosts.
+ * Used by MCP when the PO was already uploaded via the secure handoff (no multipart).
+ */
+export function assertTenantDocumentUrl(tenantId, url) {
+  const value = String(url || '').trim();
+  if (!value) {
+    throw new ApiError(400, 'Document reference is required', 'INVALID_DOCUMENT_URL');
+  }
+  if (value.includes('..') || value.includes('\\') || value.includes('\0')) {
+    throw new ApiError(400, 'Document reference is not valid for this workspace', 'INVALID_DOCUMENT_URL');
+  }
+  const tid = String(tenantId);
+  const marker = `/${tid}/document/`;
+  const localPrefix = `/uploads${marker}`;
+  if (value.startsWith(localPrefix) && value.length > localPrefix.length && !value.includes('?')) {
+    return value;
+  }
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    try {
+      const parsed = new URL(value);
+      const idx = parsed.pathname.indexOf(marker);
+      const hostOk = remoteDocumentHosts().has(parsed.hostname.toLowerCase());
+      if (hostOk && idx >= 0 && parsed.pathname.length > idx + marker.length) {
+        return value;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  throw new ApiError(400, 'Document reference is not valid for this workspace', 'INVALID_DOCUMENT_URL');
+}
+
+async function attachFundingDocument({ tenantId, wallet, file, documentUrl }) {
+  if (file) {
+    const { url } = await uploadFile({ tenantId, kind: 'document', file });
+    wallet.fundingDocument.fileUrl = url;
+    await wallet.save();
+    return;
+  }
+  if (documentUrl) {
+    wallet.fundingDocument.fileUrl = assertTenantDocumentUrl(tenantId, documentUrl);
+    await wallet.save();
+  }
 }
 
 export async function createWallet({ tenantId, userId, data }) {
@@ -114,11 +180,12 @@ export async function setupWallet({ tenantId, userId, data, file }) {
     ],
   });
   if (orphanDraft && fundingMethod === 'po_upload' && data.amount > 0) {
-    if (file) {
-      const { url } = await uploadFile({ tenantId, kind: 'document', file });
-      orphanDraft.fundingDocument.fileUrl = url;
-      await orphanDraft.save();
-    }
+    await attachFundingDocument({
+      tenantId,
+      wallet: orphanDraft,
+      file,
+      documentUrl: data.documentUrl,
+    });
     await fundWallet({
       tenantId,
       walletId: orphanDraft._id,
@@ -153,10 +220,13 @@ export async function setupWallet({ tenantId, userId, data, file }) {
     const walletId = wallet._id;
     const setupFundingMethod = data.fundingMethod ?? 'po_upload';
 
-    if (setupFundingMethod === 'po_upload' && file) {
-      const { url } = await uploadFile({ tenantId, kind: 'document', file });
-      wallet.fundingDocument.fileUrl = url;
-      await wallet.save();
+    if (setupFundingMethod === 'po_upload') {
+      await attachFundingDocument({
+        tenantId,
+        wallet,
+        file,
+        documentUrl: data.documentUrl,
+      });
     }
 
     if (data.amount > 0 && setupFundingMethod === 'po_upload') {
@@ -418,6 +488,7 @@ const WALLET_READ_PAGE = { defaultLimit: 10, maxLimit: 25 };
 function walletBalanceItem(wallet) {
   const balance = Number(wallet.balance) || 0;
   const allocatedAmount = Number(wallet.allocatedAmount) || 0;
+  const fundingApproval = String(wallet.fundingDocument?.approvalStatus || '');
   return {
     id: String(wallet._id),
     name: String(wallet.name ?? ''),
@@ -426,13 +497,14 @@ function walletBalanceItem(wallet) {
     balance,
     allocatedAmount,
     unallocatedAmount: balance - allocatedAmount,
+    fundingPending: fundingApproval === 'pending',
   };
 }
 
 /** Tenant wallets without repairing cached balances. */
 export async function listWalletBalancesRead({ tenantId }) {
   const rows = await Wallet.find({ tenantId })
-    .select('name currency status balance allocatedAmount')
+    .select('name currency status balance allocatedAmount fundingDocument.approvalStatus')
     .sort({ createdAt: -1 })
     .lean();
   return { items: rows.map(walletBalanceItem) };

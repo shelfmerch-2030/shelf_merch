@@ -19,7 +19,7 @@ export function scopeList(value) {
 
 export const OPTIONAL_READ_SCOPES = ['entities:read'];
 
-export const OPTIONAL_WRITE_SCOPES = ['employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'entities:write'];
+export const OPTIONAL_WRITE_SCOPES = ['employees:write', 'campaigns:draft', 'shops:write', 'shops:catalog', 'wallets:allocate', 'wallets:setup', 'campaigns:send', 'campaigns:merchandise', 'shops:publish', 'entities:write'];
 
 const READ_SCOPES = new Set(RESOURCE_SCOPES);
 const WRITE_SCOPES = new Set(OPTIONAL_WRITE_SCOPES);
@@ -33,7 +33,7 @@ export function requestedResourceScopes(value) {
 
 /**
  * At least one ShelfMerch data scope is required. openid and offline_access may
- * accompany it. employees:write, campaigns:draft, shops:write, shops:catalog, wallets:allocate, campaigns:send, campaigns:merchandise, and shops:publish are optional and are stored only when the client
+ * accompany it. employees:write, campaigns:draft, shops:write, shops:catalog, wallets:allocate, wallets:setup, campaigns:send, campaigns:merchandise, and shops:publish are optional and are stored only when the client
  * requested them. Wildcards and unknown scopes are rejected.
  */
 export function requestedScopesAllowed(value) {

@@ -12,6 +12,7 @@ export const READ_PERMISSION_LABELS: Record<string, string> = {
   "shops:write": "Manage company stores (shops:write)",
   "shops:catalog": "Choose store products (shops:catalog)",
   "wallets:allocate": "Allocate department budgets (wallets:allocate)",
+  "wallets:setup": "Set up organization budget wallets (wallets:setup)",
   "campaigns:send": "Send campaign rewards (campaigns:send)",
   "campaigns:merchandise": "Send kit campaigns (campaigns:merchandise)",
   "shops:publish": "Publish store collections (shops:publish)",

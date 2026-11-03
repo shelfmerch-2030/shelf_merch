@@ -64,12 +64,31 @@ const PERMANENT_FAILURE = new Set([
   'ALLOCATION_EXCEEDS_UNSPENT',
   'SHOP_NO_CATEGORIES',
   'SHOP_AMBIGUOUS',
+  'WALLET_AMBIGUOUS',
+  'WALLET_EXISTS',
+  'DOCUMENT_REQUIRED',
+  'INVALID_DOCUMENT_URL',
+  'FUNDING_PENDING',
+  'USE_RAZORPAY',
+  'PAYMENT_FAILED',
+  'PAYMENT_NOT_CAPTURED',
+  'PAYMENT_ORDER_MISMATCH',
+  'PAYMENT_AMOUNT_MISMATCH',
+  'INVALID_PAYMENT_SIGNATURE',
+  'INVALID_AMOUNT',
   'CATEGORY_REQUIRED',
   'CATEGORY_DUPLICATE',
 ]);
 
 function redactFor(context, value) {
-  const preserveKeys = String(context.operation || '').startsWith('employees.') ? ['email'] : [];
+  const operation = String(context.operation || '');
+  const preserveKeys = [];
+  if (operation.startsWith('employees.')) preserveKeys.push('email');
+  // Wallet setup/payment tools need public checkout identifiers after execute.
+  // Keep secrets (uploadToken, razorpaySignature) redacted via SENSITIVE_KEY.
+  if (operation.startsWith('wallets.')) {
+    preserveKeys.push('paymentId', 'orderId', 'keyId', 'walletId', 'ticketId', 'uploadUrl', 'documentUrl');
+  }
   return redactSensitive(value, { preserveKeys });
 }
 
@@ -79,6 +98,10 @@ async function ensureIndexes() {
     McpWriteIdempotency.syncIndexes(),
   ]);
   return indexesReady;
+}
+
+export async function loadMcpActor({ tenantId, actorUserId }) {
+  return loadActor({ tenantId, actorUserId });
 }
 
 async function loadActor({ tenantId, actorUserId }) {

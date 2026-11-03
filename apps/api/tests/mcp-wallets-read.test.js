@@ -231,6 +231,7 @@ describe('wallet read tools', () => {
       balance: 100_000,
       allocatedAmount: 40_000,
       unallocatedAmount: 60_000,
+      fundingPending: false,
     });
     const reserve = balances.structuredContent.items.find((item) => item.name === 'Reserve');
     expect(reserve.unallocatedAmount).toBe(300);

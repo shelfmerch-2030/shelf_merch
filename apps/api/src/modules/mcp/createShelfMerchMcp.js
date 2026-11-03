@@ -60,6 +60,46 @@ import {
   walletTransactionsText,
 } from './walletsRead.js';
 import {
+  WALLETS_EXECUTE_PAYMENT_ORDER_DESCRIPTION,
+  WALLETS_EXECUTE_PAYMENT_VERIFY_DESCRIPTION,
+  WALLETS_EXECUTE_SETUP_DESCRIPTION,
+  WALLETS_PREPARE_PAYMENT_ORDER_DESCRIPTION,
+  WALLETS_PREPARE_PAYMENT_VERIFY_DESCRIPTION,
+  WALLETS_PREPARE_SETUP_DESCRIPTION,
+  executeWalletPaymentOrderForCaller,
+  executeWalletPaymentVerifyForCaller,
+  executeWalletSetupForCaller,
+  prepareWalletPaymentOrderForCaller,
+  prepareWalletPaymentVerifyForCaller,
+  prepareWalletSetupForCaller,
+  walletsExecutePaymentOrderInputSchema,
+  walletsExecutePaymentOrderOutputSchema,
+  walletsExecutePaymentVerifyInputSchema,
+  walletsExecutePaymentVerifyOutputSchema,
+  walletsExecuteSetupInputSchema,
+  walletsExecuteSetupOutputSchema,
+  walletsPreparePaymentOrderInputSchema,
+  walletsPreparePaymentOrderOutputSchema,
+  walletsPreparePaymentVerifyInputSchema,
+  walletsPreparePaymentVerifyOutputSchema,
+  walletsPrepareSetupInputSchema,
+  walletsPrepareSetupOutputSchema,
+  walletsSetupError,
+  walletsSetupText,
+} from './walletsSetupWrite.js';
+import {
+  WALLETS_GET_DOCUMENT_UPLOAD_DESCRIPTION,
+  WALLETS_PREPARE_DOCUMENT_UPLOAD_DESCRIPTION,
+  getWalletDocumentUploadForCaller,
+  prepareWalletDocumentUploadForCaller,
+  walletsDocumentUploadError,
+  walletsDocumentUploadText,
+  walletsGetDocumentUploadInputSchema,
+  walletsGetDocumentUploadOutputSchema,
+  walletsPrepareDocumentUploadInputSchema,
+  walletsPrepareDocumentUploadOutputSchema,
+} from './walletsDocumentUpload.js';
+import {
   EMPLOYEES_GET_DESCRIPTION,
   EMPLOYEES_SEARCH_DESCRIPTION,
   employeeDetailText,
@@ -1068,6 +1108,90 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: budgetError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const walletSetupDocTools = [
+      ['wallets_prepare_document_upload', 'Prepare wallet document upload', WALLETS_PREPARE_DOCUMENT_UPLOAD_DESCRIPTION, walletsPrepareDocumentUploadInputSchema, walletsPrepareDocumentUploadOutputSchema, false, prepareWalletDocumentUploadForCaller, 'Document upload ticket failed.', walletsDocumentUploadText, walletsDocumentUploadError],
+      ['wallets_get_document_upload', 'Get wallet document upload', WALLETS_GET_DOCUMENT_UPLOAD_DESCRIPTION, walletsGetDocumentUploadInputSchema, walletsGetDocumentUploadOutputSchema, true, getWalletDocumentUploadForCaller, 'Document upload status failed.', walletsDocumentUploadText, walletsDocumentUploadError],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, textFor, errorFor] of walletSetupDocTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: name === 'wallets_get_document_upload',
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('wallets:setup'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['wallets:setup'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: textFor(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: errorFor(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const walletSetupTools = [
+      ['wallets_prepare_setup', 'Prepare organization wallet setup', WALLETS_PREPARE_SETUP_DESCRIPTION, walletsPrepareSetupInputSchema, walletsPrepareSetupOutputSchema, false, prepareWalletSetupForCaller, 'Wallet setup preview failed.'],
+      ['wallets_execute_setup', 'Create organization wallet', WALLETS_EXECUTE_SETUP_DESCRIPTION, walletsExecuteSetupInputSchema, walletsExecuteSetupOutputSchema, true, executeWalletSetupForCaller, 'Wallet setup failed.'],
+      ['wallets_prepare_payment_order', 'Prepare wallet Razorpay order', WALLETS_PREPARE_PAYMENT_ORDER_DESCRIPTION, walletsPreparePaymentOrderInputSchema, walletsPreparePaymentOrderOutputSchema, false, prepareWalletPaymentOrderForCaller, 'Payment order preview failed.'],
+      ['wallets_execute_payment_order', 'Create wallet Razorpay order', WALLETS_EXECUTE_PAYMENT_ORDER_DESCRIPTION, walletsExecutePaymentOrderInputSchema, walletsExecutePaymentOrderOutputSchema, true, executeWalletPaymentOrderForCaller, 'Payment order failed.'],
+      ['wallets_prepare_payment_verify', 'Prepare wallet payment verify', WALLETS_PREPARE_PAYMENT_VERIFY_DESCRIPTION, walletsPreparePaymentVerifyInputSchema, walletsPreparePaymentVerifyOutputSchema, false, prepareWalletPaymentVerifyForCaller, 'Payment verify preview failed.'],
+      ['wallets_execute_payment_verify', 'Verify wallet Razorpay payment', WALLETS_EXECUTE_PAYMENT_VERIFY_DESCRIPTION, walletsExecutePaymentVerifyInputSchema, walletsExecutePaymentVerifyOutputSchema, true, executeWalletPaymentVerifyForCaller, 'Payment verification failed.'],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback] of walletSetupTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('wallets:setup'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['wallets:setup'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: walletsSetupText(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: walletsSetupError(err, fallback) }],
             };
           }
         },
