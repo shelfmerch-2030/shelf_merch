@@ -109,7 +109,12 @@ export function ZohoPeopleUserGuidePage() {
 
       <DocsHeading id="disconnecting">8. Disconnecting Zoho People</DocsHeading>
       <ul>
-        <li>Disconnect stops future syncing and clears stored Zoho OAuth tokens for your organisation.</li>
+        <li>
+          Disconnect asks Zoho to revoke authorization and stops future syncing. If Zoho confirms
+          revocation, stored tokens are removed. If Zoho cannot confirm, ShelfMerch keeps the
+          authorization encrypted and unused until revocation succeeds. You can also revoke
+          ShelfMerch under Zoho Accounts → Sessions → Connected Apps.
+        </li>
         <li>Previously imported contacts are not automatically deleted.</li>
         <li>
           You may remove applicable contacts in ShelfMerch, or request deletion via{" "}
