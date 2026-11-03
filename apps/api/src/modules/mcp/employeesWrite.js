@@ -94,16 +94,21 @@ export const employeesPrepareCreateOutputSchema = z.object({
 });
 export const employeesExecuteCreateOutputSchema = employeeResultSchema;
 
-export const employeesPrepareUpdateInputSchema = updateSchema.refine(
-  (value) => ['name', 'email', 'department', 'role'].some((field) => value[field] !== undefined),
-  { message: 'Employee details are not valid' },
-);
-export const employeesExecuteUpdateInputSchema = employeesPrepareUpdateInputSchema.and(
-  z.object({
-    confirmationId: z.string().trim().min(20).max(200),
-    idempotencyKey: z.string().trim().min(8).max(200),
-  }),
-);
+function hasEmployeeUpdate(value) {
+  return ['name', 'email', 'department', 'role'].some((field) => value[field] !== undefined);
+}
+
+export const employeesPrepareUpdateInputSchema = updateSchema.refine(hasEmployeeUpdate, {
+  message: 'Employee details are not valid',
+});
+// Use extend, not and: Zod and() becomes JSON Schema allOf with
+// additionalProperties:false on each half, so ChatGPT rejects confirmationId.
+export const employeesExecuteUpdateInputSchema = updateSchema.extend({
+  confirmationId: z.string().trim().min(20).max(200),
+  idempotencyKey: z.string().trim().min(8).max(200),
+}).refine(hasEmployeeUpdate, {
+  message: 'Employee details are not valid',
+});
 export const employeesPrepareUpdateOutputSchema = z.object({
   confirmationId: z.string(),
   expiresAt: z.string(),

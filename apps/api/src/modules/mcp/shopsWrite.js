@@ -48,15 +48,20 @@ const createSchema = z.object({
   currencyMode: z.enum(['points', 'inr']).optional(),
 }).strict();
 
-const updateSchema = z.object({
+const updateFieldsSchema = z.object({
   shopId: z.string().trim().regex(/^[a-fA-F0-9]{24}$/),
   ...textFields,
   name: textFields.name.optional(),
-}).strict().refine(
-  (value) => ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl']
-    .some((field) => value[field] !== undefined),
-  { message: 'Store details are not valid' },
-);
+}).strict();
+
+function hasStoreUpdate(value) {
+  return ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl']
+    .some((field) => value[field] !== undefined);
+}
+
+const updateSchema = updateFieldsSchema.refine(hasStoreUpdate, {
+  message: 'Store details are not valid',
+});
 
 export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
   'Preview a new ShelfMerch company store without saving it.',
@@ -117,10 +122,14 @@ export const shopsExecuteCreateOutputSchema = z.object({
   categories: z.array(z.string()),
 });
 export const shopsPrepareUpdateInputSchema = updateSchema;
-export const shopsExecuteUpdateInputSchema = updateSchema.and(z.object({
+// Use extend, not and: Zod and() becomes JSON Schema allOf with
+// additionalProperties:false on each half, so ChatGPT rejects confirmationId.
+export const shopsExecuteUpdateInputSchema = updateFieldsSchema.extend({
   confirmationId: z.string().trim().min(20).max(200),
   idempotencyKey: z.string().trim().min(8).max(200),
-}));
+}).refine(hasStoreUpdate, {
+  message: 'Store details are not valid',
+});
 export const shopsPrepareUpdateOutputSchema = z.object({
   confirmationId: z.string(),
   expiresAt: z.string(),

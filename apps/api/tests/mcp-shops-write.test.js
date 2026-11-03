@@ -14,7 +14,9 @@ import {
   executeShopUpdate,
   prepareShopCreate,
   prepareShopUpdate,
+  shopsExecuteUpdateInputSchema,
 } from '../src/modules/mcp/shopsWrite.js';
+import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
 
 const PROTOCOL = '2026-07-28';
 const READ_TOOLS = [
@@ -316,7 +318,66 @@ describe('company store write service', () => {
     expect((await Shop.findOne({ _id: shop._id, tenantId: tenant._id })).status).toBe('draft');
   });
 
-  it('rejects stale, cross-tenant, and concurrent store writes', async () => {
+    it('rejects an expired store-update confirmation', async () => {
+    const shop = await Shop.create({
+      tenantId: tenant._id,
+      name: 'Expire Store',
+      slug: 'expire-store',
+      status: 'draft',
+    });
+    const input = { shopId: String(shop._id), name: 'Expire Store Renamed' };
+    const prepared = await prepareShopUpdate({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    await McpWriteConfirmation.updateOne(
+      { confirmationId: prepared.confirmationId, tenantId: tenant._id },
+      { expiresAt: new Date(Date.now() - 60_000) },
+    );
+    await expect(executeShopUpdate({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'expired-shop-update',
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
+    expect((await Shop.findOne({ _id: shop._id, tenantId: tenant._id })).name).toBe('Expire Store');
+  });
+
+    it('publishes shops_execute_update with confirmation fields in tools/list', async () => {
+    const password = 'correct-horse';
+    const email = `admin-${tenant.slug}@test.io`;
+    admin = await makeUser(tenant, 'company_admin', 'tenant', { email, password });
+    admin.token = await login(email, password);
+    const writeToken = await issueOauth(admin, 'catalog:read shops:write');
+    const listed = await mcpRequest(writeToken, 'tools/list', {});
+    expect(listed.status).toBe(200);
+    const tool = rpcBody(listed).result.tools.find((entry) => entry.name === 'shops_execute_update');
+    expect(tool).toBeTruthy();
+    const schema = tool.inputSchema;
+    expect(schema.allOf).toBeUndefined();
+    expect(schema.properties.confirmationId).toBeTruthy();
+    expect(schema.properties.idempotencyKey).toBeTruthy();
+    expect(schema.properties.shopId).toBeTruthy();
+    expect(schema.properties.name).toBeTruthy();
+  });
+
+  it('publishes a flat execute-update schema that accepts confirmation fields', () => {
+    const parsed = shopsExecuteUpdateInputSchema.safeParse({
+      shopId: '6ae8883aa39e25f324f9883c',
+      name: 'MCP QA Store Updated',
+      confirmationId: 'c'.repeat(32),
+      idempotencyKey: 'idem-key-1',
+    });
+    expect(parsed.success).toBe(true);
+    expect(shopsExecuteUpdateInputSchema.safeParse({
+      shopId: '6ae8883aa39e25f324f9883c',
+      name: 'MCP QA Store Updated',
+    }).success).toBe(false);
+  });
+
+it('rejects stale, cross-tenant, and concurrent store writes', async () => {
     const shop = await Shop.create({
       tenantId: tenant._id,
       name: 'North Store',
@@ -388,7 +449,88 @@ describe('company store write service', () => {
 });
 
 describe('company store MCP tools', () => {
-  it('keeps shops:write off the initial challenge and creates a draft through the tools', async () => {
+    it('accepts confirmationId through MCP shops_execute_update', async () => {
+    const password = 'correct-horse';
+    const email = `admin-${tenant.slug}@test.io`;
+    admin = await makeUser(tenant, 'company_admin', 'tenant', { email, password });
+    admin.token = await login(email, password);
+    const shop = await Shop.create({
+      tenantId: tenant._id,
+      name: 'MCP QA Store',
+      slug: 'mcp-qa-store',
+      currencyMode: 'points',
+      companyEmailDomain: 'acme.com',
+      categories: ['Welcome'],
+      status: 'draft',
+    });
+    const writeToken = await issueOauth(admin, 'catalog:read shops:write');
+    const prepared = await mcpRequest(writeToken, 'tools/call', {
+      name: 'shops_prepare_update',
+      arguments: { shopId: String(shop._id), name: 'MCP QA Store Updated' },
+    });
+    expect(prepared.status).toBe(200);
+    const preview = rpcBody(prepared).result;
+    expect(preview.isError).not.toBe(true);
+    expect(preview.structuredContent.preview.changes).toEqual([
+      { field: 'name', from: 'MCP QA Store', to: 'MCP QA Store Updated' },
+    ]);
+    expect((await Shop.findOne({ _id: shop._id, tenantId: tenant._id })).name).toBe('MCP QA Store');
+
+    const updated = await mcpRequest(writeToken, 'tools/call', {
+      name: 'shops_execute_update',
+      arguments: {
+        shopId: String(shop._id),
+        name: 'MCP QA Store Updated',
+        confirmationId: preview.structuredContent.confirmationId,
+        idempotencyKey: 'mcp-shop-update-1',
+      },
+    });
+    expect(updated.status).toBe(200);
+    const body = rpcBody(updated).result;
+    expect(body.isError).not.toBe(true);
+    expect(body.structuredContent).toMatchObject({
+      id: String(shop._id),
+      name: 'MCP QA Store Updated',
+      slug: 'mcp-qa-store',
+      status: 'draft',
+      currencyMode: 'points',
+      companyEmailDomain: 'acme.com',
+      categories: ['Welcome'],
+    });
+
+    const replay = await mcpRequest(writeToken, 'tools/call', {
+      name: 'shops_execute_update',
+      arguments: {
+        shopId: String(shop._id),
+        name: 'MCP QA Store Updated',
+        confirmationId: preview.structuredContent.confirmationId,
+        idempotencyKey: 'mcp-shop-update-1',
+      },
+    });
+    expect(rpcBody(replay).result.isError).not.toBe(true);
+    expect(rpcBody(replay).result.structuredContent.name).toBe('MCP QA Store Updated');
+    expect(await Shop.countDocuments({ tenantId: tenant._id, _id: shop._id })).toBe(1);
+
+    const mismatched = await mcpRequest(writeToken, 'tools/call', {
+      name: 'shops_execute_update',
+      arguments: {
+        shopId: String(shop._id),
+        name: 'Different Name',
+        confirmationId: preview.structuredContent.confirmationId,
+        idempotencyKey: 'mcp-shop-update-mismatch',
+      },
+    });
+    const mismatchBody = rpcBody(mismatched).result;
+    expect(mismatchBody.isError).toBe(true);
+    expect(JSON.stringify(mismatchBody)).toMatch(/confirmation|payload|invalid|stale|mismatch/i);
+    const stored = await Shop.findOne({ _id: shop._id, tenantId: tenant._id }).lean();
+    expect(stored.name).toBe('MCP QA Store Updated');
+    expect(stored.status).toBe('draft');
+    expect(stored.slug).toBe('mcp-qa-store');
+    expect(stored.currencyMode).toBe('points');
+  });
+
+it('keeps shops:write off the initial challenge and creates a draft through the tools', async () => {
     const password = 'correct-horse';
     const email = `admin-${tenant.slug}@test.io`;
     admin = await makeUser(tenant, 'company_admin', 'tenant', { email, password });
