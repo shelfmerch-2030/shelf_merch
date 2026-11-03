@@ -24,16 +24,48 @@ const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 const objectId = z.string().trim().regex(/^[a-fA-F0-9]{24}$/);
 
 const setupRequestSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  currency: z.literal('INR').optional().default('INR'),
-  validFrom: z.string().trim().min(4).max(40).optional().nullable().default(null),
-  validTo: z.string().trim().min(4).max(40).optional().nullable().default(null),
-  fundingMethod: z.enum(['po_upload', 'online']).optional().default('po_upload'),
-  amount: z.coerce.number().nonnegative().optional().default(0),
-  docType: z.string().trim().max(120).optional().default(''),
-  docNumber: z.string().trim().max(120).optional().default(''),
-  documentUrl: z.string().trim().min(1).max(2000).optional(),
-  documentTicketId: z.string().trim().min(8).max(80).optional(),
+  name: z.string().trim().min(1).max(120).describe('Budget name (dashboard Budget name).'),
+  currency: z.literal('INR').optional().default('INR').describe('Wallet currency. Dashboard is INR-only.'),
+  validFrom: z
+    .string()
+    .trim()
+    .min(4)
+    .max(40)
+    .optional()
+    .nullable()
+    .default(null)
+    .describe('Period start — dashboard Period start / API validFrom. Prefer YYYY-MM-DD (HTML date input). Optional/nullable like POST /wallets/setup.'),
+  validTo: z
+    .string()
+    .trim()
+    .min(4)
+    .max(40)
+    .optional()
+    .nullable()
+    .default(null)
+    .describe('Period end — dashboard Period end / API validTo. Prefer YYYY-MM-DD. Must be on/after validFrom when both set.'),
+  fundingMethod: z
+    .enum(['po_upload', 'online'])
+    .optional()
+    .default('po_upload')
+    .describe('po_upload = Upload Agreement / PO; online = Pay Online (Razorpay hosted checkout).'),
+  amount: z.coerce.number().nonnegative().optional().default(0).describe('Budget amount in INR.'),
+  docType: z.string().trim().max(120).optional().default('').describe('Document type when po_upload (Agreement, Purchase Order, Work Order).'),
+  docNumber: z.string().trim().max(120).optional().default('').describe('Document number when po_upload.'),
+  documentUrl: z
+    .string()
+    .trim()
+    .min(1)
+    .max(2000)
+    .optional()
+    .describe('Tenant document URL after upload. Prefer documentTicketId from wallets_prepare_document_upload.'),
+  documentTicketId: z
+    .string()
+    .trim()
+    .min(8)
+    .max(80)
+    .optional()
+    .describe('ticketId from wallets_prepare_document_upload after the user uploads via uploadPageUrl.'),
   ...walletContactFieldsRequired,
 }).strict();
 
@@ -50,17 +82,20 @@ const paymentVerifySchema = z.object({
 }).strict();
 
 export const WALLETS_PREPARE_SETUP_DESCRIPTION = [
-  'Preview organization budget (wallet) setup — the dashboard EmptyBudgetState → Step1Wallet flow.',
-  'Company admins only. Covers budget name, amount, validity, address, PIN, mobile, GSTIN, funding method, and PO document reference.',
-  'For po_upload: obtain documentUrl via wallets_prepare_document_upload (or an existing tenant document URL). Finance approval is still required; balance is not credited.',
-  'For online: creates the wallet only; complete payment with wallets_prepare_payment_order after execute.',
-  'Nothing is saved. Applying it requires wallets_execute_setup.',
+  'Preview organization budget (wallet) setup — dashboard EmptyBudgetState → Step1Wallet.',
+  'Collect every required field before calling: budget name, amount (INR), Period start (validFrom), Period end (validTo), billing address, PIN, mobile, GSTIN, and funding method.',
+  'Period start/end match the dashboard date inputs: use YYYY-MM-DD (example 2026-04-01). Same optional/nullable rules as POST /wallets/setup — still ask for them so the preview matches the dashboard Budget summary.',
+  'Funding methods: po_upload (Upload Agreement / PO) or online (Pay Online / Razorpay).',
+  'If po_upload and amount > 0: FIRST call wallets_prepare_document_upload, have the user open uploadPageUrl in a browser to upload the PDF, poll wallets_get_document_upload, THEN call this tool with documentTicketId.',
+  'Do not claim a file pasted into chat was uploaded to ShelfMerch.',
+  'Company admins only. Nothing is saved. Applying requires wallets_execute_setup after explicit user confirmation.',
 ].join(' ');
 
 export const WALLETS_EXECUTE_SETUP_DESCRIPTION = [
   'Create the organization wallet from wallets_prepare_setup using the same backend as POST /wallets/setup.',
-  'Requires confirmation id and idempotency key. PO funding stays pending finance approval.',
-  'Online funding returns nextStep payment_required — never collects card details.',
+  'Requires confirmation id and idempotency key. Call only after the user explicitly confirms the preview.',
+  'PO funding stays pending finance approval; balance is not credited.',
+  'Online funding returns nextStep payment_required — never collect card details.',
   'A repeated key returns the original result and does not create a duplicate wallet.',
 ].join(' ');
 
@@ -930,13 +965,21 @@ export function walletsSetupText(output, heading) {
   if (output.preview) {
     const p = output.preview;
     if (p.fundingMethod) {
-      return [
-        heading,
-        `${p.name} · ${p.amount} ${p.currency} · ${p.fundingMethod}`,
-        p.financeApprovalRequired ? 'Finance approval required after setup.' : '',
-        'Confirm this preview before it expires.',
-      ].filter(Boolean).join('\n');
-    }
+        const validity =
+          p.validFrom || p.validTo
+            ? `Period ${p.validFrom || '—'} → ${p.validTo || '—'}`
+            : 'Period dates not set (optional on dashboard)';
+        return [
+          heading,
+          `${p.name} · ${p.amount} ${p.currency} · ${p.fundingMethod}`,
+          validity,
+          p.documentReady === false
+            ? 'PO document missing — use wallets_prepare_document_upload / uploadPageUrl first.'
+            : '',
+          p.financeApprovalRequired ? 'Finance approval required after setup.' : '',
+          'Confirm this preview before it expires.',
+        ].filter(Boolean).join('\n');
+      }
     if (p.checkoutHosted) {
       return [heading, `Hosted checkout ${p.amount} ${p.currency}`, 'Confirm to create the Razorpay order.'].join('\n');
     }
@@ -965,7 +1008,7 @@ const WRITE_ERRORS = {
   FORBIDDEN: 'You cannot set up the organization wallet.',
   NOT_FOUND: 'That wallet or payment was not found.',
   VALIDATION: 'Wallet setup details are not valid.',
-  DOCUMENT_REQUIRED: 'Upload the purchase order document before continuing.',
+  DOCUMENT_REQUIRED: 'Upload the purchase order first: call wallets_prepare_document_upload, open uploadPageUrl in a browser, then pass documentTicketId here.',
   INVALID_DOCUMENT_URL: 'That document reference is not valid for this workspace.',
   WALLET_EXISTS: 'A wallet with this name is already being created.',
   FUNDING_PENDING: 'A funding request is already pending finance approval.',

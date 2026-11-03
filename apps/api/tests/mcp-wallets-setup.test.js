@@ -851,4 +851,247 @@ describe('MCP organization wallet setup', () => {
     expect(result.fundingApprovalStatus).toBe('pending');
   });
 
+
+  it('accepts optional period dates as YYYY-MM-DD and rejects inverted ranges', async () => {
+    const { documentUrl, ticketId } = await uploadPo(admin.user._id);
+    const prepared = await prepareWalletSetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        name: 'Dated Budget',
+        amount: 12_000,
+        fundingMethod: 'po_upload',
+        validFrom: '2026-04-01',
+        validTo: '2027-03-31',
+        documentUrl,
+        documentTicketId: ticketId,
+        ...CONTACT,
+      },
+    });
+    expect(prepared.preview.validFrom).toContain('2026-04-01');
+    expect(prepared.preview.validTo).toContain('2027-03-31');
+    expect(prepared.preview.documentReady).toBe(true);
+    const walletsBefore = await Wallet.countDocuments({ tenantId: tenant._id });
+
+    await expect(
+      prepareWalletSetup({
+        tenantId: tenant._id,
+        actorUserId: admin.user._id,
+        input: {
+          name: 'Bad Range',
+          amount: 12_000,
+          fundingMethod: 'po_upload',
+          validFrom: '2027-04-01',
+          validTo: '2027-03-31',
+          documentUrl,
+          documentTicketId: ticketId,
+          ...CONTACT,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    const { documentUrl: doc2, ticketId: ticket2 } = await uploadPo(admin.user._id);
+    const noDates = await prepareWalletSetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        name: 'No Dates Budget',
+        amount: 8_000,
+        fundingMethod: 'po_upload',
+        documentUrl: doc2,
+        documentTicketId: ticket2,
+        ...CONTACT,
+      },
+    });
+    expect(noDates.preview.validFrom).toBeNull();
+    expect(noDates.preview.validTo).toBeNull();
+    expect(await Wallet.countDocuments({ tenantId: tenant._id })).toBe(walletsBefore);
+  });
+
+  it('exposes a browser upload page and completes the PO handoff without creating a wallet', async () => {
+    const ticket = await prepareWalletDocumentUpload({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+    });
+    expect(ticket.uploadPageUrl).toContain(ticket.ticketId);
+    expect(ticket.uploadPageUrl).toContain('#uploadToken=');
+    expect(ticket.uploadPageUrl).not.toMatch(/\?[^#]*uploadToken=/);
+    expect(ticket.instructions).toMatch(/uploadPageUrl|browser/i);
+
+    const page = await request(app).get(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`);
+    expect(page.status).toBe(200);
+    expect(page.headers['content-type']).toMatch(/html/);
+    expect(page.headers['cache-control']).toMatch(/no-store/i);
+    expect(page.text).toContain('Upload purchase order');
+    expect(page.text).toContain('name="document"');
+    expect(page.text).toContain('location.hash');
+
+    const walletsBefore = await Wallet.countDocuments({ tenantId: tenant._id });
+    const uploaded = await request(app)
+      .post(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .field('uploadToken', ticket.uploadToken)
+      .attach('document', Buffer.from('%PDF-1.4 mock po'), {
+        filename: 'agreement.pdf',
+        contentType: 'application/pdf',
+      });
+    expect(uploaded.status).toBe(200);
+    expect(uploaded.headers['content-type']).toMatch(/html/);
+    expect(uploaded.text).toMatch(/Document uploaded/i);
+
+    const status = await getWalletDocumentUpload({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      ticketId: ticket.ticketId,
+    });
+    expect(status.status).toBe('ready');
+    expect(status.documentUrl).toMatch(/document/);
+
+    const preview = await prepareWalletSetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        name: 'Browser Handoff Budget',
+        amount: 9_500,
+        fundingMethod: 'po_upload',
+        validFrom: '2026-01-01',
+        validTo: '2026-12-31',
+        documentTicketId: ticket.ticketId,
+        ...CONTACT,
+      },
+    });
+    expect(preview.preview.documentReady).toBe(true);
+    expect(preview.preview.validFrom).toContain('2026-01-01');
+    expect(await Wallet.countDocuments({ tenantId: tenant._id })).toBe(walletsBefore);
+  });
+
+  it('rejects expired and unauthorized browser upload page access', async () => {
+    const ticket = await prepareWalletDocumentUpload({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+    });
+
+    const unauthorized = await request(app)
+      .get(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .query({ uploadToken: 'not-the-real-token' });
+    expect(unauthorized.status).toBe(401);
+    expect(unauthorized.text).toMatch(/invalid|expired|token/i);
+
+    await McpWalletDocumentTicket.updateOne(
+      { tenantId: tenant._id, ticketId: ticket.ticketId },
+      { $set: { expiresAt: new Date(Date.now() - 1_000) } },
+    );
+    const expired = await request(app)
+      .get(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .query({ uploadToken: ticket.uploadToken });
+    expect(expired.status).toBe(410);
+
+    await expect(
+      completeWalletDocumentUpload({
+        ticketId: ticket.ticketId,
+        uploadToken: ticket.uploadToken,
+        file: {
+          originalname: 'late.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('%PDF-1.4'),
+          size: 8,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
+  });
+
+
+
+  it('rejects non-PDF uploads on the MCP wallet document route', async () => {
+    const ticket = await prepareWalletDocumentUpload({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+    });
+    const rejected = await request(app)
+      .post(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .set('X-Mcp-Upload-Token', ticket.uploadToken)
+      .attach('document', Buffer.from('\x89PNG'), {
+        filename: 'fake.png',
+        contentType: 'image/png',
+      });
+    expect(rejected.status).toBe(415);
+  });
+
+  it('invalidates the upload token after success and keeps ready tickets usable past mint expiry', async () => {
+    const ticket = await prepareWalletDocumentUpload({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+    });
+    expect(ticket.uploadPageUrl).toContain('#uploadToken=');
+    expect(ticket.uploadPageUrl).not.toMatch(/\?uploadToken=/);
+
+    const page = await request(app).get(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`);
+    expect(page.status).toBe(200);
+    expect(page.headers['cache-control']).toMatch(/no-store/i);
+    expect(page.headers['referrer-policy']).toBe('no-referrer');
+    expect(page.headers['content-security-policy']).toMatch(/default-src 'none'/);
+    expect(page.text).toContain('location.hash');
+
+    const uploaded = await request(app)
+      .post(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .set('X-Mcp-Upload-Token', ticket.uploadToken)
+      .attach('document', Buffer.from('%PDF-1.4 mock po'), {
+        filename: 'po.pdf',
+        contentType: 'application/pdf',
+      });
+    expect(uploaded.status).toBe(201);
+    expect(uploaded.body.status).toBe('ready');
+
+    const replay = await request(app)
+      .post(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`)
+      .set('X-Mcp-Upload-Token', ticket.uploadToken)
+      .attach('document', Buffer.from('%PDF-1.4 other'), {
+        filename: 'other.pdf',
+        contentType: 'application/pdf',
+      });
+    expect(replay.status).toBe(401);
+
+    await McpWalletDocumentTicket.updateOne(
+      { tenantId: tenant._id, ticketId: ticket.ticketId },
+      { $set: { expiresAt: new Date(Date.now() - 1_000) } },
+    );
+
+    // Late POST must not demote ready -> expired (setup still needs the ticket).
+    await expect(
+      completeWalletDocumentUpload({
+        ticketId: ticket.ticketId,
+        uploadToken: ticket.uploadToken,
+        file: {
+          originalname: 'late.pdf',
+          mimetype: 'application/pdf',
+          buffer: Buffer.from('%PDF-1.4'),
+          size: 8,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+
+    const row = await McpWalletDocumentTicket.findOne({
+      tenantId: tenant._id,
+      ticketId: ticket.ticketId,
+    });
+    expect(row.status).toBe('ready');
+    expect(row.documentUrl).toMatch(/document/);
+
+    const successPage = await request(app).get(`/api/v1/mcp/wallet-documents/${ticket.ticketId}`);
+    expect(successPage.status).toBe(200);
+    expect(successPage.text).toMatch(/Document uploaded/i);
+
+    const preview = await prepareWalletSetup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        name: 'Post Expiry Ticket Budget',
+        amount: 4_000,
+        fundingMethod: 'po_upload',
+        documentTicketId: ticket.ticketId,
+        ...CONTACT,
+      },
+    });
+    expect(preview.preview.documentReady).toBe(true);
+  });
+
 });

@@ -87,7 +87,7 @@ function redactFor(context, value) {
   // Wallet setup/payment tools need public checkout identifiers after execute.
   // Keep secrets (uploadToken, razorpaySignature) redacted via SENSITIVE_KEY.
   if (operation.startsWith('wallets.')) {
-    preserveKeys.push('paymentId', 'orderId', 'keyId', 'walletId', 'ticketId', 'uploadUrl', 'documentUrl');
+    preserveKeys.push('paymentId', 'orderId', 'keyId', 'walletId', 'ticketId', 'uploadUrl', 'uploadPageUrl', 'documentUrl');
   }
   return redactSensitive(value, { preserveKeys });
 }

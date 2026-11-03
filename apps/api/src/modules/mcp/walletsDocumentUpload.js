@@ -10,6 +10,7 @@ import { loadMcpActor } from './mcpWriteSafety.js';
 
 const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 const TICKET_TTL_MS = 15 * 60 * 1000;
+const READY_GRACE_MS = 24 * 60 * 60 * 1000;
 
 let indexesReady;
 
@@ -30,8 +31,32 @@ function tokenMatches(storedHash, uploadToken) {
 }
 
 function apiBase() {
-  return (env.BASE_URL || env.APP_URL || 'http://localhost:8080').replace(/\/$/, '');
+  const base = (env.BASE_URL || env.APP_URL || 'http://localhost:8080').replace(/\/$/, '');
+  if (env.NODE_ENV === 'production' && !/^https:\/\//i.test(base)) {
+    throw new ApiError(500, 'Upload handoff requires HTTPS BASE_URL in production', 'INVALID_CONFIG');
+  }
+  return base;
 }
+
+/** PDF-only allowlist for MCP wallet PO uploads (stricter than shared DOCUMENT_TYPES). */
+export const WALLET_PO_UPLOAD_TYPES = {
+  mimes: new Set(['application/pdf']),
+  exts: new Set(['.pdf']),
+};
+
+export function applyUploadSecurityHeaders(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; script-src 'unsafe-inline'",
+  );
+}
+
+export { tokenMatches, sha256 };
 
 function assertWriter(actor) {
   if (!WRITE_ROLES.has(actor?.user?.role)) {
@@ -48,15 +73,18 @@ function requireCaller(ctx) {
 }
 
 export const WALLETS_PREPARE_DOCUMENT_UPLOAD_DESCRIPTION = [
-  'Create a short-lived authenticated upload ticket for a purchase-order or agreement PDF.',
-  'MCP clients cannot attach binary files to tools. POST the file to uploadUrl with header X-Mcp-Upload-Token.',
-  'Then call wallets_get_document_upload and pass documentUrl into wallets_prepare_setup.',
+  'Start the PO/Agreement upload handoff for organization budget setup (dashboard Step1Wallet Upload Agreement / PO).',
+  'ChatGPT and other MCP clients cannot attach binary files to tool calls — do not ask the user to paste a PDF into chat.',
+  'Call this tool first when fundingMethod is po_upload and amount > 0.',
+  'Then show the user uploadPageUrl as a clickable browser link so they can select and upload the PDF themselves.',
+  'After they confirm upload, call wallets_get_document_upload with ticketId until status is ready, then pass documentTicketId into wallets_prepare_setup.',
   'Company admins only. Does not create or fund a wallet.',
 ].join(' ');
 
 export const WALLETS_GET_DOCUMENT_UPLOAD_DESCRIPTION = [
-  'Poll a wallets_prepare_document_upload ticket until the PO/agreement is stored.',
-  'Returns documentUrl for wallets_prepare_setup when status is ready.',
+  'Check whether the user finished uploading a PO/Agreement via uploadPageUrl.',
+  'Poll with ticketId until status is ready, then pass documentTicketId (preferred) or documentUrl into wallets_prepare_setup.',
+  'If status is still pending, ask the user to open uploadPageUrl and upload the PDF in their browser.',
 ].join(' ');
 
 export const walletsPrepareDocumentUploadInputSchema = z.object({
@@ -66,6 +94,7 @@ export const walletsPrepareDocumentUploadInputSchema = z.object({
 export const walletsPrepareDocumentUploadOutputSchema = z.object({
   ticketId: z.string(),
   uploadUrl: z.string(),
+  uploadPageUrl: z.string(),
   uploadToken: z.string(),
   expiresAt: z.string(),
   instructions: z.string(),
@@ -101,16 +130,20 @@ export async function prepareWalletDocumentUpload({ tenantId, actorUserId, input
     expiresAt,
   });
   const uploadUrl = `${apiBase()}/api/v1/mcp/wallet-documents/${ticketId}`;
+  const uploadPageUrl = `${uploadUrl}#uploadToken=${encodeURIComponent(uploadToken)}`;
   return {
     ticketId,
     uploadUrl,
+    uploadPageUrl,
     uploadToken,
     expiresAt: expiresAt.toISOString(),
     instructions: [
-      `POST multipart field "document" to ${uploadUrl}`,
-      'Include header X-Mcp-Upload-Token with the uploadToken from this response.',
-      'Allowed types: PDF (application/pdf). Max 25 MB.',
-      'Then call wallets_get_document_upload with this ticketId.',
+      'Open uploadPageUrl in a browser (clickable link). The secure token is in the URL fragment (after #), not the query string.',
+      'Do not paste the file into chat — ChatGPT cannot forward binaries to ShelfMerch.',
+      'Allowed type: PDF (application/pdf). Max 25 MB.',
+      'When the browser page shows success, call wallets_get_document_upload with this ticketId.',
+      'Then pass documentTicketId into wallets_prepare_setup.',
+      `Programmatic clients may POST multipart field "document" to ${uploadUrl} with header X-Mcp-Upload-Token.`,
     ].join(' '),
   };
 }
@@ -144,14 +177,8 @@ export async function completeWalletDocumentUpload({ ticketId, uploadToken, file
   if (!tokenMatches(ticket.tokenHash, uploadToken)) {
     throw new ApiError(401, 'Upload token is invalid', 'UNAUTHORIZED');
   }
-  if (ticket.expiresAt <= new Date()) {
-    ticket.status = 'expired';
-    await ticket.save();
-    throw new ApiError(410, 'Upload ticket has expired', 'CONFIRMATION_EXPIRED');
-  }
-  if (ticket.status === 'consumed') {
-    throw new ApiError(409, 'Upload ticket was already used', 'CONFIRMATION_REUSED');
-  }
+
+  // Already uploaded: never demote ready/consumed to expired on late retries.
   if (ticket.status === 'ready' && ticket.documentUrl) {
     return {
       ticketId: ticket.ticketId,
@@ -162,19 +189,58 @@ export async function completeWalletDocumentUpload({ ticketId, uploadToken, file
       expiresAt: new Date(ticket.expiresAt).toISOString(),
     };
   }
+  if (ticket.status === 'consumed') {
+    throw new ApiError(409, 'Upload ticket was already used', 'CONFIRMATION_REUSED');
+  }
+  if (ticket.status === 'expired' || ticket.expiresAt <= new Date()) {
+    if (ticket.status !== 'expired') {
+      ticket.status = 'expired';
+      await ticket.save();
+    }
+    throw new ApiError(410, 'Upload ticket has expired', 'CONFIRMATION_EXPIRED');
+  }
+  if (ticket.status !== 'pending') {
+    throw new ApiError(409, 'Upload ticket was already used', 'CONFIRMATION_REUSED');
+  }
+
   const { url } = await uploadFile({ tenantId: ticket.tenantId, kind: 'document', file });
-  ticket.status = 'ready';
-  ticket.documentUrl = url;
-  ticket.mimeType = file.mimetype || '';
-  ticket.originalName = file.originalname || ticket.originalName || '';
-  await ticket.save();
+  // Invalidate bearer token after first successful store (replay prevention).
+  const deadHash = sha256(`used:${randomBytes(16).toString('hex')}`);
+  const updated = await McpWalletDocumentTicket.findOneAndUpdate(
+    { _id: ticket._id, status: 'pending', tokenHash: ticket.tokenHash },
+    {
+      $set: {
+        status: 'ready',
+        documentUrl: url,
+        mimeType: file.mimetype || '',
+        originalName: file.originalname || ticket.originalName || '',
+        tokenHash: deadHash,
+        expiresAt: new Date(Date.now() + READY_GRACE_MS),
+      },
+    },
+    { new: true },
+  ).setOptions({ skipTenantGuard: true });
+  if (!updated) {
+    const again = await McpWalletDocumentTicket.findOne({ ticketId }).setOptions({ skipTenantGuard: true });
+    if (again?.status === 'ready' && again.documentUrl) {
+      return {
+        ticketId: again.ticketId,
+        status: again.status,
+        documentUrl: again.documentUrl,
+        mimeType: again.mimeType,
+        originalName: again.originalName,
+        expiresAt: new Date(again.expiresAt).toISOString(),
+      };
+    }
+    throw new ApiError(409, 'Upload ticket was already used', 'CONFIRMATION_REUSED');
+  }
   return {
-    ticketId: ticket.ticketId,
-    status: ticket.status,
-    documentUrl: ticket.documentUrl,
-    mimeType: ticket.mimeType,
-    originalName: ticket.originalName,
-    expiresAt: new Date(ticket.expiresAt).toISOString(),
+    ticketId: updated.ticketId,
+    status: updated.status,
+    documentUrl: updated.documentUrl,
+    mimeType: updated.mimeType,
+    originalName: updated.originalName,
+    expiresAt: new Date(updated.expiresAt).toISOString(),
   };
 }
 
@@ -240,6 +306,15 @@ export async function getWalletDocumentUploadForCaller(ctx, args) {
 }
 
 export function walletsDocumentUploadText(output, heading) {
+  if (output.uploadPageUrl) {
+    return [
+      heading,
+      'Open this link in your browser to upload the PO/Agreement PDF:',
+      output.uploadPageUrl,
+      `Expires ${output.expiresAt}`,
+      'After upload succeeds, continue with wallets_get_document_upload.',
+    ].join('\n');
+  }
   if (output.uploadUrl) {
     return [heading, `Upload to ${output.uploadUrl}`, `Expires ${output.expiresAt}`].join('\n');
   }
