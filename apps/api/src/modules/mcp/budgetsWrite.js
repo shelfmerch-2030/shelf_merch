@@ -7,6 +7,10 @@ import { Entity } from '../entities/entity.model.js';
 import { Wallet } from '../wallets/wallet.model.js';
 import { allocateSchema } from '../wallets/wallets.validation.js';
 import { allocate } from '../wallets/wallets.service.js';
+import {
+  readEntityLedgerTotals,
+  readWalletLedgerView,
+} from '../../services/ledger.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 
@@ -28,9 +32,11 @@ export const BUDGET_PREPARE_DESCRIPTION = [
 
 export const BUDGET_EXECUTE_DESCRIPTION = [
   'Apply the department budget allocation from budget_prepare_allocation.',
-  'Requires the confirmation id and an idempotency key.',
+  'Pass the same walletId and the same signed allocation deltas as the prepare call, plus confirmationId and a unique idempotencyKey (at least 8 characters).',
+  'Do not convert preview afterAllocated totals into amount — amount stays the delta (for example +2000, not 7000).',
   'Rechecks the caller, wallet, departments, and balances. Each line is stored once.',
   'A repeated key returns the original result and does not move the budget again.',
+  'If the confirmation expired or balances changed, prepare again before execute.',
 ].join(' ');
 
 const moneySchema = z.object({
@@ -129,7 +135,9 @@ function unspent(entity) {
 }
 
 async function loadWallet(tenantId, walletId) {
-  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
+  // Ledger-backed read-only view (same figures allocate/getWallet would repair to).
+  // Must not call repairWalletCaches here — PREPARE must not persist business writes.
+  const wallet = await readWalletLedgerView({ tenantId, walletId });
   if (!wallet) throw new NotFoundError('Wallet not found');
   return wallet;
 }
@@ -138,9 +146,18 @@ async function loadDepartments(tenantId, walletId, allocations) {
   const departments = [];
   for (const line of allocations) {
     const entity = await Entity.findOne({ _id: line.entityId, tenantId, walletId })
-      .select('name allocatedAmount spentAmount managerUserId managerInvitePending walletId updatedAt');
+      .select('name managerUserId managerInvitePending walletId');
     if (!entity) throw new NotFoundError('Department not found');
-    departments.push(entity);
+    const totals = await readEntityLedgerTotals({ tenantId, entityId: entity._id });
+    departments.push({
+      _id: entity._id,
+      name: entity.name,
+      managerUserId: entity.managerUserId,
+      managerInvitePending: entity.managerInvitePending,
+      walletId: entity.walletId,
+      allocatedAmount: totals.allocatedAmount,
+      spentAmount: totals.spentAmount,
+    });
   }
   return departments;
 }
@@ -176,18 +193,21 @@ async function notificationPlan(tenantId, departments, allocations) {
   return notices;
 }
 
+/**
+ * Fingerprint financially material state only (wallet cash/earmarks + dept alloc/spent).
+ * Omits updatedAt/name/status so metadata-only saves do not false-stale confirmations.
+ * Material fund/allocate/spend changes still invalidate via these fields.
+ */
 function resourceVersion(wallet, departments) {
   return {
     walletId: String(wallet._id),
     balance: Number(wallet.balance) || 0,
     allocatedAmount: Number(wallet.allocatedAmount) || 0,
-    updatedAt: new Date(wallet.updatedAt).toISOString(),
     departments: departments
       .map((entity) => ({
         entityId: String(entity._id),
         allocatedAmount: Number(entity.allocatedAmount) || 0,
         spentAmount: Number(entity.spentAmount) || 0,
-        updatedAt: new Date(entity.updatedAt).toISOString(),
       }))
       .sort((left, right) => left.entityId.localeCompare(right.entityId)),
   };
@@ -195,20 +215,16 @@ function resourceVersion(wallet, departments) {
 
 async function allocationResult(tenantId, requested) {
   const wallet = await loadWallet(tenantId, requested.walletId);
-  const departments = await Entity.find({
-    tenantId,
-    walletId: wallet._id,
-    _id: { $in: requested.allocations.map((line) => line.entityId) },
-  }).select('name allocatedAmount spentAmount');
+  const departments = await loadDepartments(tenantId, wallet._id, requested.allocations);
   const byId = new Map(departments.map((entity) => [String(entity._id), entity]));
   return {
     walletId: String(wallet._id),
     ...money(wallet.balance, wallet.allocatedAmount),
     netChange: requested.allocations.reduce((sum, line) => sum + line.amount, 0),
     departments: requested.allocations.map((line) => {
-      const entity = byId.get(line.entityId);
+      const entity = byId.get(String(line.entityId));
       return {
-        entityId: line.entityId,
+        entityId: String(line.entityId),
         name: entity?.name || '',
         allocatedAmount: Number(entity?.allocatedAmount) || 0,
         unspentAmount: entity ? unspent(entity) : 0,
@@ -386,11 +402,14 @@ const WRITE_ERRORS = {
   CONFIRMATION_REUSED: 'This confirmation was already used.',
   CONFIRMATION_INVALID: 'This confirmation is not valid.',
   CONFIRMATION_MISMATCH: 'This confirmation does not match the requested allocation.',
+  IDEMPOTENCY_KEY_REQUIRED: 'An idempotency key of at least 8 characters is required.',
   IDEMPOTENCY_PAYLOAD_MISMATCH: 'This idempotency key was used for a different allocation.',
   IDEMPOTENT_REPLAY_IN_FLIGHT: 'This allocation is already in progress.',
   IDEMPOTENCY_RECONCILIATION_REQUIRED: 'This allocation needs to be checked before it can be retried.',
   ACTOR_INACTIVE: 'This account cannot allocate budget.',
   TENANT_INACTIVE: 'This workspace cannot allocate budget.',
+  MCP_WRITE_FAILED: 'Budget allocation failed. Prepare again and retry with the same payload.',
+  MCP_WRITE_REJECTED: 'Budget allocation was rejected by a write safety check. Prepare again.',
 };
 
 export function budgetError(error, fallback) {

@@ -337,16 +337,16 @@ export async function recomputeAllocatedAmount({ tenantId, walletId }) {
   return Math.max(0, (allocRows[0]?.allocated ?? 0) - (spendRows[0]?.spent ?? 0));
 }
 
-export async function repairEntityCache({ tenantId, entityId }) {
-  const entity = await Entity.findOne({ _id: entityId, tenantId });
-  if (!entity) return null;
-
+/** Ledger totals for one entity. Read-only — does not persist cache repairs. */
+export async function readEntityLedgerTotals({ tenantId, entityId }) {
+  const tid = new mongoose.Types.ObjectId(String(tenantId));
+  const eid = new mongoose.Types.ObjectId(String(entityId));
   const [allocRows, spentRows] = await Promise.all([
     WalletTransaction.aggregate([
       {
         $match: {
-          tenantId: new mongoose.Types.ObjectId(String(tenantId)),
-          relatedEntityId: entity._id,
+          tenantId: tid,
+          relatedEntityId: eid,
           type: 'allocation_to_entity',
         },
       },
@@ -355,17 +355,46 @@ export async function repairEntityCache({ tenantId, entityId }) {
     WalletTransaction.aggregate([
       {
         $match: {
-          tenantId: new mongoose.Types.ObjectId(String(tenantId)),
-          relatedEntityId: entity._id,
+          tenantId: tid,
+          relatedEntityId: eid,
           type: { $in: ['campaign_spend', 'order_payment'] },
         },
       },
       { $group: { _id: null, spent: { $sum: { $abs: '$amount' } } } },
     ]),
   ]);
+  return {
+    allocatedAmount: allocRows[0]?.allocated ?? 0,
+    spentAmount: spentRows[0]?.spent ?? 0,
+  };
+}
 
-  const allocatedAmount = allocRows[0]?.allocated ?? 0;
-  const spentAmount = spentRows[0]?.spent ?? 0;
+/**
+ * Wallet cash + earmarked totals from the ledger.
+ * Read-only view for MCP PREPARE (no cache writes).
+ */
+export async function readWalletLedgerView({ tenantId, walletId }) {
+  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
+  if (!wallet) return null;
+  const [balance, allocatedAmount] = await Promise.all([
+    recomputeBalance({ tenantId, walletId }),
+    recomputeAllocatedAmount({ tenantId, walletId }),
+  ]);
+  return {
+    _id: wallet._id,
+    name: wallet.name,
+    currency: wallet.currency,
+    status: wallet.status,
+    balance,
+    allocatedAmount,
+  };
+}
+
+export async function repairEntityCache({ tenantId, entityId }) {
+  const entity = await Entity.findOne({ _id: entityId, tenantId });
+  if (!entity) return null;
+
+  const { allocatedAmount, spentAmount } = await readEntityLedgerTotals({ tenantId, entityId });
   let dirty = false;
   if (entity.allocatedAmount !== allocatedAmount) {
     entity.allocatedAmount = allocatedAmount;

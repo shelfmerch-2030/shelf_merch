@@ -9,6 +9,7 @@ import { Entity } from '../src/modules/entities/entity.model.js';
 import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
 import { OauthGrantBinding } from '../src/modules/oauth/oauthGrantBinding.model.js';
 import { McpWriteIdempotency } from '../src/modules/mcp/mcpWriteIdempotency.model.js';
+import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
 import { LOCAL_OAUTH_CLIENT_ID, LOCAL_OAUTH_REDIRECT_URI, mcpResourceUrl } from '../src/modules/oauth/oauth.config.js';
 import { clearTenantLimitCache } from '../src/services/tenantGuardrails.service.js';
 import * as ledger from '../src/services/ledger.service.js';
@@ -282,6 +283,171 @@ describe('department budget allocation', () => {
       input: input([{ entityId: marketing._id, amount: -360 }]),
     })).rejects.toMatchObject({ code: 'ALLOCATION_EXCEEDS_UNSPENT' });
     expect((await Entity.findOne({ _id: marketing._id, tenantId: tenant._id })).allocatedAmount).toBe(400);
+  });
+
+  it('prepares against ledger truth without repairing dirty wallet caches', async () => {
+    await ledger.allocateToEntities({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      allocations: [{ entityId: marketing._id, amount: 100 }],
+    });
+    await Wallet.updateOne(
+      { _id: wallet._id, tenantId: tenant._id },
+      { $set: { balance: 999_999, allocatedAmount: 0 } },
+    );
+    await Entity.updateOne(
+      { _id: marketing._id, tenantId: tenant._id },
+      { $set: { allocatedAmount: 0, spentAmount: 0 } },
+    );
+    const dirtyWallet = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id }).lean();
+    const dirtyEntity = await Entity.findOne({ _id: marketing._id, tenantId: tenant._id }).lean();
+
+    const prepared = await prepareBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 50 }]),
+    });
+    expect(prepared.preview.before).toMatchObject({
+      balance: 1_000,
+      allocatedAmount: 100,
+      unallocatedAmount: 900,
+    });
+    expect(prepared.preview.departments[0]).toMatchObject({
+      beforeAllocated: 100,
+      afterAllocated: 150,
+    });
+
+    const afterPrepare = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id }).lean();
+    expect(afterPrepare.balance).toBe(999_999);
+    expect(afterPrepare.allocatedAmount).toBe(0);
+    expect(new Date(afterPrepare.updatedAt).toISOString()).toBe(new Date(dirtyWallet.updatedAt).toISOString());
+    const entityAfter = await Entity.findOne({ _id: marketing._id, tenantId: tenant._id }).lean();
+    expect(entityAfter).toMatchObject({ allocatedAmount: 0, spentAmount: 0 });
+    expect(new Date(entityAfter.updatedAt).toISOString()).toBe(new Date(dirtyEntity.updatedAt).toISOString());
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'allocation_to_entity' })).toBe(1);
+  });
+
+  it('applies a Marketing ₹5,000→₹7,000 top-up, ignores metadata churn, and rejects bad execute args', async () => {
+    wallet = await makeFundedWallet(tenant, { name: 'OrgTopup', amount: 500_000 });
+    marketing = await makeEntity(tenant, wallet, 'Marketing', {
+      managerUserId: (await makeUser(tenant, 'entity_manager', 'entity', {
+        email: 'topup-manager@test.io',
+        name: 'Topup Manager',
+      })).user._id,
+    });
+    sales = await makeEntity(tenant, wallet, 'Sales');
+    await ledger.allocateToEntities({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      allocations: [{ entityId: marketing._id, amount: 5_000 }],
+    });
+
+    const prepared = await prepareBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 2_000 }]),
+    });
+    expect(prepared.preview.departments[0]).toMatchObject({
+      beforeAllocated: 5_000,
+      afterAllocated: 7_000,
+      amount: 2_000,
+    });
+    expect(prepared.preview.before.unallocatedAmount).toBe(495_000);
+    expect(prepared.preview.after.unallocatedAmount).toBe(493_000);
+
+    const touched = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
+    touched.name = 'OrgTopup Renamed';
+    await touched.save();
+
+    const executed = await executeBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 2_000 }]),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'marketing-topup-2000',
+    });
+    expect(executed).toMatchObject({
+      allocatedAmount: 7_000,
+      unallocatedAmount: 493_000,
+      netChange: 2_000,
+    });
+    expect(executed.departments[0]).toMatchObject({
+      entityId: String(marketing._id),
+      name: 'Marketing',
+      allocatedAmount: 7_000,
+    });
+
+    const replay = await executeBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 2_000 }]),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'marketing-topup-2000',
+    });
+    expect(replay.allocatedAmount).toBe(7_000);
+    expect(await WalletTransaction.countDocuments({
+      tenantId: tenant._id,
+      type: 'allocation_to_entity',
+      relatedEntityId: marketing._id,
+    })).toBe(2);
+
+    const mismatched = await prepareBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 1_000 }]),
+    });
+    await expect(executeBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 8_000 }]),
+      confirmationId: mismatched.confirmationId,
+      idempotencyKey: 'marketing-absolute-mistake',
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_MISMATCH' });
+
+    const expiredPrep = await prepareBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 500 }]),
+    });
+    await McpWriteConfirmation.updateOne(
+      { tenantId: tenant._id, confirmationId: expiredPrep.confirmationId },
+      { $set: { expiresAt: new Date(0) } },
+    );
+    await expect(executeBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: 500 }]),
+      confirmationId: expiredPrep.confirmationId,
+      idempotencyKey: 'marketing-expired',
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
+    expect((await Entity.findOne({ _id: marketing._id, tenantId: tenant._id })).allocatedAmount).toBe(7_000);
+  });
+
+  it('invalidates confirmation when spending changes department unspent budget', async () => {
+    await ledger.allocateToEntities({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      allocations: [{ entityId: marketing._id, amount: 400 }],
+    });
+    const prepared = await prepareBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: -100 }]),
+    });
+    await ledger.createTransaction({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      type: 'campaign_spend',
+      amount: -50,
+      relatedEntityId: marketing._id,
+    });
+    await expect(executeBudgetAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: input([{ entityId: marketing._id, amount: -100 }]),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'spend-stale',
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_STALE' });
   });
 
   it('rejects overspending, other roles, other tenants, stale state, and concurrent doubles', async () => {
