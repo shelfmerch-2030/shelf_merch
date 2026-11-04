@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router";
-import { Check, CheckCircle2, Gift, Heart, PackageCheck, ShoppingBag, Truck } from "lucide-react";
+import { ArrowRight, Box, CalendarCheck, Check, CheckCircle2, Gift, Heart, Leaf, PackageCheck, Plug, Shirt, ShoppingBag, Sparkles, Store, Truck } from "lucide-react";
 import { Header } from "./landing/Header";
 import { Footer } from "./landing/Footer";
 import { HomeDemoBanner } from "./landing/HomeDemoBanner";
 import { Testimonials } from "./landing/Testimonials";
+import { Quote } from "./landing/Quote";
 import { TRUST_LOGOS } from "./landing/TrustBar";
 import { CATALOG_ITEMS } from "./landing/catalog-data";
 import { SOLUTIONS } from "./landing/solutions-data";
@@ -44,6 +45,8 @@ const offerings = [
     alt: "A premium corporate merchandise collection with coordinated packaging",
   },
 ];
+const catalogIcons = [Shirt, Gift, Plug, Box, Sparkles, CalendarCheck, Gift, Store];
+const offeringPills = ["Shops", "Kits", "Wallet", "Milestones", "Recognition", "Bulk Orders", "Custom Merch"];
 const plan = [
   {
     icon: CheckCircle2,
@@ -339,21 +342,25 @@ export default function LandingPage() {
           <div className="lh-wrap lh-section">
             <div className="lh-catalog-heading">
               <span className="lh-label">SOMETHING FOR EVERYONE</span>
-              <Link className="lh-button lh-button-outline" to="/apps/catalog">
-                View the full catalog
-              </Link>
               <h2 id="lh-catalog-title">
-                Products they'll use. <em>A brand they'll remember.</em>
+                One catalog <em>for every occasion</em>
               </h2>
+              <Link className="lh-catalog-link" to="/apps/catalog">
+                View full catalog <ArrowRight size={18} aria-hidden="true" />
+              </Link>
             </div>
             <div className="lh-catalog-grid">
-              {CATALOG_ITEMS.map((item) => (
+              {CATALOG_ITEMS.map((item, index) => {
+                const Icon = catalogIcons[index];
+                return (
                 <Link
                   to={item.to.replace(/^\/app\/catalog/, "/apps/catalog")}
-                  className="lh-category"
+                  className={`lh-category${[0, 1, 6].includes(index) ? " lh-category-light" : ""}`}
                   key={item.count}
                 >
                   <div>
+                    <span className="lh-category-number" aria-hidden="true">{item.count}</span>
+                    <Icon className="lh-category-icon" size={22} aria-hidden="true" />
                     <img
                       src={item.image}
                       alt={item.imageAlt ?? item.title}
@@ -361,10 +368,12 @@ export default function LandingPage() {
                       width="400"
                       height="400"
                     />
+                    <span className="lh-category-name">{item.title}</span>
+                    <span className="lh-category-arrow" aria-hidden="true"><ArrowRight size={14} /></span>
                   </div>
-                  <span>{item.title}</span>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
@@ -409,8 +418,33 @@ export default function LandingPage() {
         <div className="lh-team-band">
           <HomeTeams />
         </div>
+        <section className="lh-offerings-intro" aria-labelledby="lh-offerings-intro-title">
+          <div className="lh-wrap lh-heading">
+            <span className="lh-label">OUR OFFERINGS</span>
+            <h2 id="lh-offerings-intro-title">
+              Everything your brand touches,<em>in one place.</em>
+            </h2>
+            <p>
+              From your first employee's welcome kit to your thousandth client gift, keep every
+              branded item consistent, on-budget and on time.
+            </p>
+          </div>
+          <div className="lh-offerings-marquee">
+            <div className="lh-offerings-track">
+              {[0, 1, 2, 3].map((group) => (
+                <div className="lh-offerings-group" key={group} aria-hidden={group !== 0}>
+                  {offeringPills.map((label, index) => (
+                    <span className={`lh-offering-pill lh-offering-pill-${index}`} key={label}>
+                      {label}<ArrowRight size={18} aria-hidden="true" />
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
         <section
-          className="lh-wrap lh-section lh-feature lh-production"
+          className="lh-production"
           id="production"
           aria-labelledby="lh-production-title"
         >
@@ -422,25 +456,27 @@ export default function LandingPage() {
               height="1168"
               loading="lazy"
             />
-            <span>THE CRAFT BEHIND YOUR BRAND</span>
+            <span><Sparkles size={14} aria-hidden="true" /> MADE BY US</span>
           </div>
-          <div>
-            <span className="lh-label">MADE WITH CARE, BY OUR TEAM</span>
+          <div className="lh-production-copy">
+            <span className="lh-label">THE ONLY MERCH PARTNER YOU NEED</span>
             <h2 id="lh-production-title">
-              From the design file<em>to the finished detail.</em>
+              From design file<br />to doorstep<em>we make it ourselves.</em>
             </h2>
             <p>
-              Printing, embroidery, personalisation and packing stay close to the people responsible
-              for the outcome. We connect the platform with the work that makes every item real.
+              Most platforms resell someone else's catalog. We print, embroider and pack in-house,
+              so quality, timelines and pricing stay in our control.
             </p>
             <div className="lh-capabilities">
-              <span>Print and embroidery</span>
-              <span>Personalisation</span>
-              <span>Quality checks</span>
-              <span>Branded packaging</span>
+              <span><Shirt aria-hidden="true" /> In-house DTF printing</span>
+              <span><Sparkles aria-hidden="true" /> Tajima embroidery</span>
+              <span><PackageCheck aria-hidden="true" /> ANT blank apparel</span>
+              <span><Truck aria-hidden="true" /> Pan-India fulfilment</span>
+              <span><Leaf aria-hidden="true" /> Sustainable materials</span>
+              <span><Store aria-hidden="true" /> 500+ catalog items</span>
             </div>
-            <Link className="lh-button lh-button-outline" to="/about#our-model">
-              Meet the people and process
+            <Link className="lh-button lh-button-white" to="/about#our-model">
+              Meet your merch partner
             </Link>
           </div>
         </section>
@@ -547,6 +583,7 @@ export default function LandingPage() {
             </article>
           </div>
         </section>
+        <Quote />
         <section className="lh-plan" id="contact" aria-labelledby="lh-plan-title">
           <div className="lh-wrap lh-section">
             <div className="lh-heading">

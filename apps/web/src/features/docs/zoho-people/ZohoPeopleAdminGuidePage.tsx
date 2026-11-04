@@ -1,6 +1,24 @@
 import { Link } from "react-router";
 import { DocsHeading, DocsShell } from "../DocsShell";
 import { useDocsMeta } from "../useDocsMeta";
+import { BookOpen, ShieldCheck } from "lucide-react";
+import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import zohoPeopleLogo from "../../../../assets/integrations/zoho-people.png";
+import "./zoho-admin-guide.css";
+
+const guideSections = [
+  ["responsibilities", "Administrator responsibilities"],
+  ["installation", "Installation"],
+  ["permissions", "Required permissions"],
+  ["oauth-security", "OAuth and security"],
+  ["connecting-org", "Connecting an organisation"],
+  ["mapping", "Employee mapping"],
+  ["running-sync", "Running synchronization"],
+  ["tenant-isolation", "Tenant isolation"],
+  ["retention", "Data retention and deletion"],
+  ["admin-troubleshooting", "Troubleshooting"],
+  ["support-checklist", "Support checklist"],
+] as const;
 
 export function ZohoPeopleAdminGuidePage() {
   useDocsMeta({
@@ -15,6 +33,7 @@ export function ZohoPeopleAdminGuidePage() {
 
   return (
     <DocsShell
+      className="zoho-admin-guide"
       activePath="/docs/zoho-people/admin-guide"
       breadcrumbs={[
         { label: "Home", to: "/" },
@@ -22,10 +41,34 @@ export function ZohoPeopleAdminGuidePage() {
         { label: "Administrator Guide" },
       ]}
     >
-      <h1>ShelfMerch for Zoho People — Administrator Guide</h1>
+      <header className="zag-hero">
+      <div className="zag-hero-copy">
+      <span className="zag-eyebrow"><BookOpen size={18} aria-hidden="true" /> ZOHO PEOPLE DOCUMENTATION</span>
+      <h1>Administrator <em>guide.</em></h1>
       <p className="docs-sub">
         Security, permissions, mapping, and operational guidance for company administrators.
       </p>
+      <span className="zag-hero-note"><ShieldCheck size={18} aria-hidden="true" /> ShelfMerch for Zoho People</span>
+      </div>
+      <div className="zag-hero-visual">
+        <div className="zag-partner-logos">
+          <img src={zohoPeopleLogo} alt="Zoho People" />
+          <span aria-hidden="true">+</span>
+          <ShelfMerchLogo height={26} theme="dark" />
+        </div>
+        <img className="zag-welcome-art" src="/images/resources/zoho/zoho-onboarding-hero.webp"
+          alt="An HR colleague welcoming a new employee with a branded merchandise kit"
+          width="1536" height="1024" />
+      </div>
+      </header>
+      <details className="zag-contents" open>
+        <summary>On this page <span>11 sections</span></summary>
+        <nav aria-label="Administrator guide sections">
+          {guideSections.map(([id, label], index) => (
+            <a href={`#${id}`} key={id}><span>{String(index + 1).padStart(2, "0")}</span>{label}</a>
+          ))}
+        </nav>
+      </details>
 
       <DocsHeading id="responsibilities">1. Administrator responsibilities</DocsHeading>
       <p>

@@ -4,6 +4,8 @@ import { AuthLayout } from "@/features/auth/views/AuthLayout";
 import { clearSession, getAccessToken, isAuthenticated } from "@/services/auth-store";
 import { permissionLines } from "./consentPermissions";
 import { isSafeResumeUrl } from "./safeOauthReturn";
+import { ShieldCheck } from "lucide-react";
+import "./oauth-consent.css";
 
 type ConsentSession = {
   client: { name: string };
@@ -91,11 +93,12 @@ export function OauthConsentPage() {
   const canAllow = Boolean(session && workspaceId && session.workspaces.some((workspace) => workspace.id === workspaceId));
 
   return (
-    <AuthLayout variant="compact" title="Allow access" subtitle="An application is asking to read ShelfMerch data you choose.">
+    <AuthLayout variant="welcome" className="oauth-consent" showDivider={false} title="Allow access" subtitle="Review the application, permissions and workspace before you connect.">
       {!session && !error ? <p className="auth-simple-subtitle">Checking your ShelfMerch session…</p> : null}
       {session ? (
-        <div className="auth-simple-form">
-          <dl className="auth-simple-field">
+        <div className="oauth-consent-form">
+          <div className="oauth-consent-badge"><ShieldCheck size={17} aria-hidden="true" /> APPLICATION ACCESS REQUEST</div>
+          <dl className="oauth-consent-details">
             <div>
               <dt className="auth-simple-label">Application</dt>
               <dd>{session.client.name}</dd>
@@ -107,19 +110,21 @@ export function OauthConsentPage() {
               </dd>
             </div>
             <div>
-              <dt className="auth-simple-label">Permissions</dt>
+              <dt className="auth-simple-label">Requested permissions</dt>
               <dd>
+                <ul className="oauth-consent-permissions">
                 {permissionLines(session.scope).map((line) => (
-                  <div key={line}>{line}</div>
+                  <li key={line}>{line}</li>
                 ))}
+                </ul>
               </dd>
             </div>
           </dl>
           {session.workspaces.length ? (
-            <fieldset className="auth-simple-fieldset">
-              <legend className="auth-simple-label">Workspace</legend>
+            <fieldset className="oauth-consent-workspaces">
+              <legend className="auth-simple-label">Choose a workspace</legend>
               {session.workspaces.map((workspace) => (
-                <label key={workspace.id} className="auth-simple-field">
+                <label key={workspace.id} className="oauth-consent-workspace">
                   <input
                     type="radio"
                     name="workspace"
@@ -141,12 +146,14 @@ export function OauthConsentPage() {
               {error}
             </p>
           ) : null}
+          <div className="oauth-consent-actions" aria-busy={busy}>
           <button type="button" className="auth-simple-submit" disabled={!canAllow || busy} onClick={() => decide("allow")}>
-            Allow
+            {busy ? "Processing…" : "Allow access"}
           </button>
-          <button type="button" className="auth-simple-submit" disabled={busy || !session} onClick={() => decide("deny")}>
+          <button type="button" className="auth-simple-submit oauth-consent-deny" disabled={busy || !session} onClick={() => decide("deny")}>
             Deny
           </button>
+          </div>
         </div>
       ) : null}
       {!session && error ? (
