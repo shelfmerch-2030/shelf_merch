@@ -43,7 +43,7 @@ body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0
 .ok{color:#0a7a32;font-weight:600}
 </style></head><body>
 <div class="card"><p class="ok">Document uploaded</p>
-<p>Return to your assistant and continue wallet setup. It should call wallets_get_document_upload next.</p>
+<p>Return to your assistant and continue. It should call wallets_get_document_upload next (then wallets_prepare_setup or wallets_prepare_topup).</p>
 </div></body></html>`;
   }
   return `<!doctype html>
