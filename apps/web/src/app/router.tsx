@@ -257,6 +257,10 @@ const platformChildren: RouteObject[] = [
       },
     ],
   },
+  {
+    path: "seo",
+    lazy: page(() => import("@/components/platform/SeoGrowthPage")),
+  },
   { path: "support", lazy: page(platformPages, "SupportPage") },
   { path: "team", lazy: page(platformPages, "TeamPage") },
   { path: "audit", lazy: page(platformPages, "AuditPage") },
