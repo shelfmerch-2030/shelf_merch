@@ -6,11 +6,45 @@ import { slugifyShopName } from '../../utils/shopSlug.js';
 import { Shop } from '../shops/shop.model.js';
 import { DEFAULT_STORE_BUILDER_CATEGORIES } from '../shops/storeBuilderCategories.js';
 import { createShop, updateShop } from '../shops/shops.service.js';
+import {
+  consumeShopAsset,
+  resolveShopAssetUrl,
+} from './shopsAssetUpload.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { McpShopClaim } from './mcpShopClaim.model.js';
 
 const WRITE_ROLES = new Set(rolesForTenantArea('shops', 'write'));
+
+/** Matches web INITIAL_SHOP_DRAFT banner (ShopBuilder default black merchandise pattern). */
+export const DEFAULT_STORE_BANNER_CONFIG = Object.freeze({
+  theme: 'dark',
+  preset: 'solid-pattern',
+});
+
+const BANNER_THEMES = new Set(['light', 'brand', 'dark', 'blue', 'purple']);
+const BANNER_PRESETS = new Set([
+  'solid-pattern',
+  'dia-de-los-muertos',
+  'happy-passover',
+  'thats-a-wrap',
+  'out-of-this-world',
+  'happy-summer',
+  'snack-break',
+  'pizza-party',
+  'happy-pride',
+  'mothers-day',
+  'handcrafted-haven',
+  'exceptional-leader',
+  'stellar-performance',
+  'standing-ovation',
+  'surprise',
+  'welcome',
+  'happy-birthday',
+  'happy-holi',
+  'merry-christmas',
+  'we-did-it',
+]);
 
 const domainSchema = z
   .string()
@@ -29,11 +63,31 @@ const slugSchema = z
   .max(48)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers, and hyphens');
 
-const logoSchema = z
+const mediaUrlSchema = z
   .string()
   .trim()
   .max(2048)
-  .refine((value) => value === '' || /^https:\/\/\S+$/.test(value), 'Use an https logo URL');
+  .refine(
+    (value) => value === ''
+      || /^https:\/\/\S+$/.test(value)
+      || /^\/uploads\/\S+$/.test(value),
+    'Use an https or /uploads/ media URL',
+  );
+
+const bannerConfigSchema = z.object({
+  theme: z.enum(['light', 'brand', 'dark', 'blue', 'purple']).optional(),
+  preset: z.string().trim().min(1).max(64).optional(),
+  imageUrl: mediaUrlSchema.optional(),
+}).strict().superRefine((value, ctx) => {
+  if (value.preset && !BANNER_PRESETS.has(value.preset)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unknown banner preset', path: ['preset'] });
+  }
+  if (value.theme && !BANNER_THEMES.has(value.theme)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Unknown banner theme', path: ['theme'] });
+  }
+});
+
+const ticketIdSchema = z.string().trim().min(8).max(80);
 
 const textFields = {
   name: z.string().trim().min(1).max(80),
@@ -41,7 +95,10 @@ const textFields = {
   pointsConversionEnabled: z.boolean().optional(),
   companyEmailDomain: domainSchema.optional(),
   categories: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
-  logoUrl: logoSchema.optional(),
+  logoUrl: mediaUrlSchema.optional(),
+  bannerConfig: bannerConfigSchema.optional(),
+  logoTicketId: ticketIdSchema.optional(),
+  bannerTicketId: ticketIdSchema.optional(),
 };
 
 const createSchema = z.object({
@@ -56,7 +113,7 @@ const updateFieldsSchema = z.object({
 }).strict();
 
 function hasStoreUpdate(value) {
-  return ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl']
+  return ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl', 'bannerConfig', 'logoTicketId', 'bannerTicketId']
     .some((field) => value[field] !== undefined);
 }
 
@@ -66,23 +123,29 @@ const updateSchema = updateFieldsSchema.refine(hasStoreUpdate, {
 
 export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
   'Preview a new ShelfMerch company store without saving it.',
-  'Checks the name, slug, currency mode, company email domain, and text settings.',
+  'Ask the company admin for the store name and currency (points or inr).',
+  'Currency cannot be changed after creation — say that clearly before confirming.',
+  'Points conversion is ₹1 = 2 Points; INR mode is ₹1 = 1 Credit.',
   'When categories are omitted, applies the same default builder categories as the dashboard (Food & Beverages, Work Essentials, Merch).',
-  'Company admins only. The store stays a draft until published with shops_execute_publish or the dashboard.',
-  'Logo files, banners, catalog products, and design placement are not accepted.',
-  'Returns a one-use confirmation. Saving requires shops_execute_create.',
+  'When bannerConfig is omitted, seeds the same default black merchandise-pattern banner as the dashboard (theme dark, preset solid-pattern).',
+  'Logo and custom banner images are optional. To upload, use shops_prepare_asset_upload then pass logoTicketId / bannerTicketId; otherwise skip branding.',
+  'Creating a store only saves a draft — it does not publish. After the draft exists, ask for explicit confirmation before shops_prepare_publish / shops_execute_publish.',
+  'Company admins only. Returns a one-use confirmation. Saving requires shops_execute_create.',
 ].join(' ');
 
 export const SHOPS_EXECUTE_CREATE_DESCRIPTION = [
   'Create the draft store from shops_prepare_create.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the caller and the store settings before writing.',
+  'Seeds default categories and the default banner when those were omitted in prepare.',
   'A repeated key returns the original draft. The same store name is not created twice.',
+  'Does not publish the store — publish requires a separate confirmed shops_execute_publish call.',
 ].join(' ');
 
 export const SHOPS_PREPARE_UPDATE_DESCRIPTION = [
-  'Preview a company store name, slug, domain, categories, or logo URL change without saving it.',
-  'Company admins only. Status, currency mode, banners, products, and design files are rejected.',
+  'Preview a company store name, slug, domain, categories, logo, or banner change without saving it.',
+  'Company admins only. Status and currency mode are rejected (currency is permanent after create).',
+  'Optional logoTicketId / bannerTicketId from shops_prepare_asset_upload are accepted; confirmation hashing uses resolved media URLs.',
   'The confirmation is bound to the current store record and expires.',
 ].join(' ');
 
@@ -98,6 +161,20 @@ export const shopsExecuteCreateInputSchema = createSchema.extend({
   confirmationId: z.string().trim().min(20).max(200),
   idempotencyKey: z.string().trim().min(8).max(200),
 });
+
+const shopPresentationSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  slug: z.string(),
+  status: z.string(),
+  currencyMode: z.string(),
+  pointsConversionEnabled: z.boolean(),
+  companyEmailDomain: z.string(),
+  categories: z.array(z.string()),
+  logoUrl: z.string(),
+  bannerConfig: z.record(z.string()),
+});
+
 export const shopsPrepareCreateOutputSchema = z.object({
   confirmationId: z.string(),
   expiresAt: z.string(),
@@ -110,6 +187,8 @@ export const shopsPrepareCreateOutputSchema = z.object({
     pointsConversionEnabled: z.boolean(),
     companyEmailDomain: z.string(),
     categories: z.array(z.string()),
+    logoUrl: z.string(),
+    bannerConfig: z.record(z.string()),
     shopId: z.string().optional(),
   }),
 });
@@ -122,6 +201,8 @@ export const shopsExecuteCreateOutputSchema = z.object({
   pointsConversionEnabled: z.boolean(),
   companyEmailDomain: z.string(),
   categories: z.array(z.string()),
+  logoUrl: z.string(),
+  bannerConfig: z.record(z.string()),
 });
 export const shopsPrepareUpdateInputSchema = updateSchema;
 // Use extend, not and: Zod and() becomes JSON Schema allOf with
@@ -139,7 +220,7 @@ export const shopsPrepareUpdateOutputSchema = z.object({
     shopId: z.string(),
     version: z.string(),
     changes: z.array(z.object({ field: z.string(), from: z.string(), to: z.string() })),
-    shop: shopsExecuteCreateOutputSchema,
+    shop: shopPresentationSchema.extend({ id: z.string() }),
   }),
 });
 export const shopsExecuteUpdateOutputSchema = shopsExecuteCreateOutputSchema;
@@ -174,28 +255,169 @@ function businessInput(input) {
   return rest;
 }
 
-function parseCreate(input) {
+function canonicalizeBannerConfig(raw, { seedDefault }) {
+  if (raw === undefined) {
+    return seedDefault ? { ...DEFAULT_STORE_BANNER_CONFIG } : undefined;
+  }
+  const theme = raw.theme || (seedDefault ? 'dark' : 'light');
+  const imageUrl = raw.imageUrl || '';
+  if (imageUrl) return { imageUrl, theme };
+  const preset = raw.preset || '';
+  if (preset) return { preset, theme };
+  return theme === 'light' ? {} : { theme };
+}
+
+function bannerKey(config) {
+  return JSON.stringify(config || {});
+}
+
+async function materializeCreate(tenantId, actorUserId, input) {
   const parsed = createSchema.safeParse(businessInput(input));
   if (!parsed.success) throw invalidDetails();
-  return canonicalCreate(parsed.data);
+  const data = parsed.data;
+  let logoUrl = data.logoUrl || '';
+  let bannerConfig = data.bannerConfig;
+
+  if (data.logoTicketId) {
+    const resolved = await resolveShopAssetUrl({
+      tenantId,
+      actorUserId,
+      ticketId: data.logoTicketId,
+      expectedKind: 'logo',
+      assetUrl: logoUrl || undefined,
+      consume: false,
+    });
+    if (logoUrl && logoUrl !== resolved) {
+      throw new ApiError(400, 'Asset reference does not match the upload ticket', 'INVALID_ASSET_URL');
+    }
+    logoUrl = resolved;
+  }
+
+  if (data.bannerTicketId) {
+    const imageUrl = await resolveShopAssetUrl({
+      tenantId,
+      actorUserId,
+      ticketId: data.bannerTicketId,
+      expectedKind: 'banner',
+      assetUrl: bannerConfig?.imageUrl || undefined,
+      consume: false,
+    });
+    bannerConfig = {
+      imageUrl,
+      theme: bannerConfig?.theme || DEFAULT_STORE_BANNER_CONFIG.theme,
+    };
+  }
+
+  // Ticket ids are transport-only; confirmation hash uses resolved media URLs.
+  return {
+    payload: {
+      name: data.name.trim(),
+      slug: data.slug || '',
+      currencyMode: data.currencyMode || 'points',
+      pointsConversionEnabled: data.pointsConversionEnabled ?? false,
+      companyEmailDomain: data.companyEmailDomain || '',
+      categories: data.categories === undefined ? [...DEFAULT_STORE_BUILDER_CATEGORIES] : data.categories,
+      logoUrl,
+      bannerConfig: canonicalizeBannerConfig(bannerConfig, { seedDefault: true }),
+    },
+    tickets: {
+      logoTicketId: data.logoTicketId,
+      bannerTicketId: data.bannerTicketId,
+    },
+  };
 }
 
-function parseUpdate(input) {
+async function materializeUpdate(tenantId, actorUserId, input) {
   const parsed = updateSchema.safeParse(businessInput(input));
   if (!parsed.success) throw invalidDetails();
-  return parsed.data;
+  const data = parsed.data;
+  const payload = { shopId: data.shopId };
+  for (const field of ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories']) {
+    if (data[field] !== undefined) payload[field] = data[field];
+  }
+
+  let logoUrl = data.logoUrl;
+  if (data.logoTicketId) {
+    const resolved = await resolveShopAssetUrl({
+      tenantId,
+      actorUserId,
+      ticketId: data.logoTicketId,
+      expectedKind: 'logo',
+      assetUrl: typeof logoUrl === 'string' && logoUrl ? logoUrl : undefined,
+      consume: false,
+    });
+    if (typeof logoUrl === 'string' && logoUrl && logoUrl !== resolved) {
+      throw new ApiError(400, 'Asset reference does not match the upload ticket', 'INVALID_ASSET_URL');
+    }
+    logoUrl = resolved;
+  }
+  if (logoUrl !== undefined) payload.logoUrl = logoUrl;
+
+  let bannerConfig = data.bannerConfig;
+  if (data.bannerTicketId) {
+    const imageUrl = await resolveShopAssetUrl({
+      tenantId,
+      actorUserId,
+      ticketId: data.bannerTicketId,
+      expectedKind: 'banner',
+      assetUrl: bannerConfig?.imageUrl || undefined,
+      consume: false,
+    });
+    bannerConfig = {
+      imageUrl,
+      theme: bannerConfig?.theme || 'dark',
+    };
+  }
+  if (bannerConfig !== undefined) {
+    payload.bannerConfig = canonicalizeBannerConfig(bannerConfig, { seedDefault: false });
+  }
+
+  return {
+    payload,
+    tickets: {
+      logoTicketId: data.logoTicketId,
+      bannerTicketId: data.bannerTicketId,
+    },
+  };
 }
 
-function canonicalCreate(data) {
-  return {
-    name: data.name.trim(),
-    slug: data.slug || '',
-    currencyMode: data.currencyMode || 'points',
-    pointsConversionEnabled: data.pointsConversionEnabled ?? false,
-    companyEmailDomain: data.companyEmailDomain || '',
-    categories: data.categories === undefined ? [...DEFAULT_STORE_BUILDER_CATEGORIES] : data.categories,
-    logoUrl: data.logoUrl || '',
-  };
+async function consumeCreateTickets(tenantId, actorUserId, payload, tickets) {
+  // Only consume tickets presented on this confirmed write.
+  if (tickets?.logoTicketId) {
+    await consumeShopAsset({
+      tenantId,
+      actorUserId,
+      ticketId: tickets.logoTicketId,
+      assetUrl: payload.logoUrl,
+    });
+  }
+  if (tickets?.bannerTicketId) {
+    await consumeShopAsset({
+      tenantId,
+      actorUserId,
+      ticketId: tickets.bannerTicketId,
+      assetUrl: payload.bannerConfig?.imageUrl,
+    });
+  }
+}
+
+async function consumeUpdateTickets(tenantId, actorUserId, payload, tickets) {
+  if (tickets?.logoTicketId) {
+    await consumeShopAsset({
+      tenantId,
+      actorUserId,
+      ticketId: tickets.logoTicketId,
+      assetUrl: payload.logoUrl,
+    });
+  }
+  if (tickets?.bannerTicketId) {
+    await consumeShopAsset({
+      tenantId,
+      actorUserId,
+      ticketId: tickets.bannerTicketId,
+      assetUrl: payload.bannerConfig?.imageUrl,
+    });
+  }
 }
 
 function createData(input) {
@@ -207,6 +429,7 @@ function createData(input) {
     companyEmailDomain: input.companyEmailDomain,
     categories: input.categories,
     logoUrl: input.logoUrl,
+    bannerConfig: input.bannerConfig,
   };
 }
 
@@ -220,6 +443,8 @@ function safeShop(shop) {
     pointsConversionEnabled: Boolean(shop.pointsConversionEnabled),
     companyEmailDomain: shop.companyEmailDomain || '',
     categories: [...(shop.categories || [])],
+    logoUrl: shop.logoUrl || '',
+    bannerConfig: { ...(shop.bannerConfig || {}) },
   };
 }
 
@@ -248,7 +473,8 @@ function sameConfig(shop, input) {
     && Boolean(shop.pointsConversionEnabled) === input.pointsConversionEnabled
     && (shop.companyEmailDomain || '') === input.companyEmailDomain
     && JSON.stringify(shop.categories || []) === JSON.stringify(input.categories)
-    && (shop.logoUrl || '') === input.logoUrl;
+    && (shop.logoUrl || '') === input.logoUrl
+    && bannerKey(shop.bannerConfig) === bannerKey(input.bannerConfig);
 }
 
 async function loadShop(tenantId, shopId) {
@@ -268,6 +494,7 @@ function shopVersion(shop) {
     companyEmailDomain: shop.companyEmailDomain || '',
     categories: [...(shop.categories || [])],
     logoUrl: shop.logoUrl || '',
+    bannerConfig: { ...(shop.bannerConfig || {}) },
     updatedAt: new Date(shop.updatedAt).toISOString(),
   };
 }
@@ -275,6 +502,7 @@ function shopVersion(shop) {
 function displayValue(value) {
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value && typeof value === 'object') return JSON.stringify(value);
   return String(value ?? '');
 }
 
@@ -286,8 +514,9 @@ function shopChanges(shop, input) {
     companyEmailDomain: shop.companyEmailDomain || '',
     categories: [...(shop.categories || [])],
     logoUrl: shop.logoUrl || '',
+    bannerConfig: { ...(shop.bannerConfig || {}) },
   };
-  return ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl']
+  return ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl', 'bannerConfig']
     .filter((field) => input[field] !== undefined)
     .filter((field) => displayValue(current[field]) !== displayValue(input[field]))
     .map((field) => ({
@@ -331,6 +560,9 @@ async function applyDraftConfig(actor, shop, input) {
     patch.categories = input.categories;
   }
   if ((shop.logoUrl || '') !== input.logoUrl) patch.logoUrl = input.logoUrl;
+  if (bannerKey(shop.bannerConfig) !== bannerKey(input.bannerConfig)) {
+    patch.bannerConfig = input.bannerConfig;
+  }
   if (!Object.keys(patch).length) return safeShop(shop);
   const { shop: saved } = await updateShop({
     tenantId: actor.tenant._id,
@@ -419,7 +651,7 @@ async function createResourceState(tenantId, input) {
 }
 
 export async function prepareShopCreate({ tenantId, actorUserId, input, now }) {
-  const requested = parseCreate(input);
+  const { payload: requested } = await materializeCreate(tenantId, actorUserId, input);
   const prepared = await prepareMcpWrite({
     tenantId,
     actorUserId,
@@ -450,6 +682,8 @@ export async function prepareShopCreate({ tenantId, actorUserId, input, now }) {
       pointsConversionEnabled: requested.pointsConversionEnabled,
       companyEmailDomain: requested.companyEmailDomain,
       categories: requested.categories,
+      logoUrl: requested.logoUrl,
+      bannerConfig: requested.bannerConfig,
       ...(shop ? { shopId: String(shop._id) } : {}),
     },
   };
@@ -463,7 +697,7 @@ export async function executeShopCreate({
   idempotencyKey,
   now,
 }) {
-  const requested = parseCreate(input);
+  const { payload: requested, tickets } = await materializeCreate(tenantId, actorUserId, input);
   const saved = await executeMcpWrite({
     tenantId,
     actorUserId,
@@ -484,13 +718,17 @@ export async function executeShopCreate({
       if ((claim && !claim.shopId) || shop) return { outcome: 'uncertain' };
       return { outcome: 'absent' };
     },
-    execute: async (actor) => saveLinkedShop(actor, requested),
+    execute: async (actor) => {
+      const shop = await saveLinkedShop(actor, requested);
+      await consumeCreateTickets(tenantId, actorUserId, requested, tickets);
+      return shop;
+    },
   });
   return presentShop(tenantId, saved);
 }
 
 export async function prepareShopUpdate({ tenantId, actorUserId, input, now }) {
-  const requested = parseUpdate(input);
+  const { payload: requested } = await materializeUpdate(tenantId, actorUserId, input);
   const planned = {};
   const prepared = await prepareMcpWrite({
     tenantId,
@@ -535,7 +773,7 @@ export async function executeShopUpdate({
   idempotencyKey,
   now,
 }) {
-  const requested = parseUpdate(input);
+  const { payload: requested, tickets } = await materializeUpdate(tenantId, actorUserId, input);
   const saved = await executeMcpWrite({
     tenantId,
     actorUserId,
@@ -559,11 +797,12 @@ export async function executeShopUpdate({
     },
     execute: async (actor) => {
       const patch = {};
-      for (const field of ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl']) {
+      for (const field of ['name', 'slug', 'pointsConversionEnabled', 'companyEmailDomain', 'categories', 'logoUrl', 'bannerConfig']) {
         if (requested[field] !== undefined) patch[field] = requested[field];
       }
       const { shop } = await updateShop({ tenantId, shopId: requested.shopId, patch });
       await auditShop(actor, 'shop.update', shop);
+      await consumeUpdateTickets(tenantId, actorUserId, requested, tickets);
       return safeShop(shop);
     },
   });
@@ -576,6 +815,8 @@ async function presentShop(tenantId, result) {
   return {
     ...result,
     companyEmailDomain: shop?.companyEmailDomain || '',
+    logoUrl: shop?.logoUrl || result.logoUrl || '',
+    bannerConfig: { ...(shop?.bannerConfig || result.bannerConfig || {}) },
   };
 }
 function requireCaller(ctx) {
@@ -624,10 +865,17 @@ export function shopWriteText(output, heading) {
     heading,
     `${shop.name} (${shop.slug}) ${shop.status} ${shop.currencyMode}`,
   ];
+  if (shop.bannerConfig) {
+    lines.push(`Banner: ${JSON.stringify(shop.bannerConfig)}`);
+  }
+  if (shop.logoUrl) lines.push(`Logo: ${shop.logoUrl}`);
   if (output.preview?.changes?.length) {
     lines.push(...output.preview.changes.map((change) => `${change.field}: ${change.from} -> ${change.to}`));
   }
   if (output.confirmationId) lines.push('Confirm this preview before it expires.');
+  if (shop.status === 'draft') {
+    lines.push('Store is still a draft. Publishing requires a separate confirmed publish step.');
+  }
   return lines.join('\n');
 }
 
@@ -646,6 +894,8 @@ const WRITE_ERRORS = {
   ACTOR_INACTIVE: 'This account cannot change stores.',
   TENANT_INACTIVE: 'This workspace cannot change stores.',
   SHOP_CREATE_IN_PROGRESS: 'This store is already being created.',
+  ASSET_REQUIRED: 'Upload the store image before continuing.',
+  INVALID_ASSET_URL: 'That asset reference is not valid.',
 };
 
 export function shopWriteError(error, fallback) {

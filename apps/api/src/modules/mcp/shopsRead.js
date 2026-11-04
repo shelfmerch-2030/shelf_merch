@@ -11,12 +11,14 @@ const READ_ROLES = new Set(rolesForTenantArea('shops', 'read'));
 export const SHOPS_LIST_DESCRIPTION = [
   'List company stores in this workspace.',
   'Company admins and department managers can read stores.',
-  'Returns id, name, slug, status, currency, categories, and active product count for destination selection and publish readiness.',
+  'Returns id, name, slug, status (draft or live), currency, categories, branding flags, and active product count.',
+  'Use this to resume an unfinished draft store before publishing.',
 ].join(' ');
 
 export const SHOPS_GET_DESCRIPTION = [
   'Get one company store by id or exact name.',
   'When several stores share a name, ask the user to choose a store id.',
+  'Returns draft/live status, currency, categories, logo/banner readiness, and whether the store can be published.',
   'Company admins and department managers can read stores.',
 ].join(' ');
 
@@ -31,6 +33,17 @@ export const shopsGetInputSchema = z.object({
   message: 'Provide a store id or an exact store name',
 });
 
+function hasBanner(shop) {
+  const config = shop.bannerConfig;
+  if (!config || typeof config !== 'object') return false;
+  return Object.keys(config).some((key) => {
+    const value = config[key];
+    if (value == null || value === '') return false;
+    if (typeof value === 'object') return Object.keys(value).length > 0;
+    return true;
+  });
+}
+
 const shopRowSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -38,6 +51,10 @@ const shopRowSchema = z.object({
   status: z.string(),
   currencyMode: z.string(),
   categories: z.array(z.string()),
+  logoUrl: z.string(),
+  hasLogo: z.boolean(),
+  hasBanner: z.boolean(),
+  bannerConfig: z.record(z.string()),
   activeProductCount: z.number().int().nonnegative(),
   publishReady: z.boolean(),
 });
@@ -64,6 +81,8 @@ function activeProductCount(shop) {
 
 function presentShop(shop) {
   const categories = [...(shop.categories || [])];
+  const logoUrl = shop.logoUrl || '';
+  const bannerConfig = { ...(shop.bannerConfig || {}) };
   return {
     id: String(shop._id),
     name: shop.name,
@@ -71,6 +90,10 @@ function presentShop(shop) {
     status: shop.status,
     currencyMode: shop.currencyMode,
     categories,
+    logoUrl,
+    hasLogo: Boolean(logoUrl),
+    hasBanner: hasBanner(shop),
+    bannerConfig,
     activeProductCount: activeProductCount(shop),
     publishReady: categories.length > 0,
   };

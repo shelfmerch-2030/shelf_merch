@@ -26,17 +26,21 @@ const publishFieldsSchema = z.object(selectFields).strict().refine(hasStoreSelec
 
 export const SHOPS_PREPARE_PUBLISH_DESCRIPTION = [
   'Preview publishing one company store from draft to live without changing it.',
+  'This is the MCP equivalent of the dashboard Save & Publish step after a draft store already exists.',
   'Resolve the store by id or exact name. When several stores share a name, ask the user to choose.',
   'Company admins only. Requires at least one category — the same rule as the ShelfMerch dashboard.',
+  'Logo and banner are optional for publish readiness; categories are required.',
   'Collections, catalog listings, and currency stay unchanged.',
+  'Ask for explicit user confirmation before shops_execute_publish. Never auto-publish after create.',
   'Returns readiness, publishing effects, and a one-use confirmation.',
 ].join(' ');
 
 export const SHOPS_EXECUTE_PUBLISH_DESCRIPTION = [
-  'Publish the selected store from shops_prepare_publish.',
+  'Publish the selected store from shops_prepare_publish after the user explicitly confirmed.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the caller, tenant, and store before going live.',
   'Publishes only that store. A repeated key returns the original result.',
+  'If publish fails after draft creation, the draft remains and can be retried with a new prepare/execute.',
 ].join(' ');
 
 export const shopsPreparePublishInputSchema = publishFieldsSchema;
