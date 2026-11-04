@@ -81,9 +81,7 @@ export function ZohoPeopleAdminGuidePage() {
 
       <DocsHeading id="installation">2. Installation</DocsHeading>
       <p>
-        Install ShelfMerch for Zoho People through Zoho Marketplace or your organisation’s approved
-        extension installation process. After installation, open the ShelfMerch Web Tab in Zoho People to
-        sign in and connect.
+        On Zoho People Marketplace, choose Visit website to open the ShelfMerch integration documentation. Create a ShelfMerch company account or log in to an existing account, then navigate to Integrations → Zoho People → Connect. This API-built integration does not require a Zoho Web Tab.
       </p>
 
       <DocsHeading id="permissions">3. Required permissions</DocsHeading>
@@ -113,10 +111,10 @@ export function ZohoPeopleAdminGuidePage() {
       <DocsHeading id="connecting-org">5. Connecting an organisation</DocsHeading>
       <ol>
         <li>Sign in to ShelfMerch as a company administrator.</li>
-        <li>Open Connect Zoho People from the Web Tab or integrations experience.</li>
+        <li>Open Integrations → Zoho People → Connect in ShelfMerch.</li>
         <li>Complete Zoho OAuth consent for the scopes above.</li>
         <li>
-          Confirm Connected status, organisation name or ID, and that Sync Employees is available.
+          Confirm Connected status, organisation name or ID, and that Sync now is available.
         </li>
       </ol>
 
@@ -190,7 +188,7 @@ export function ZohoPeopleAdminGuidePage() {
       </ul>
 
       <DocsHeading id="running-sync">7. Running synchronization</DocsHeading>
-      <p>Manual sync returns a summary such as:</p>
+      <p>Click Sync now after connecting to import or update employees manually. Employees are not synced automatically. Run Sync now again when you need a refresh. Each manual sync returns a summary such as:</p>
       <ul>
         <li>
           <strong>totalFetched</strong> — employee records retrieved from Zoho

@@ -29,9 +29,7 @@ export function ZohoPeopleUserGuidePage() {
 
       <DocsHeading id="introduction">1. Introduction</DocsHeading>
       <p>
-        This guide is for company administrators who use the ShelfMerch Web Tab inside Zoho People (or
-        ShelfMerch directly) to connect Zoho People and import employees. Synced contacts can be used as
-        recipients for onboarding kits, rewards, and corporate gifts.
+        This guide is for company administrators who connect Zoho People from ShelfMerch Integrations and manually import employees. A Zoho Web Tab is not required. Synced contacts can be used as recipients for onboarding kits, rewards, and corporate gifts.
       </p>
 
       <DocsHeading id="requirements">2. Requirements</DocsHeading>
@@ -44,17 +42,15 @@ export function ZohoPeopleUserGuidePage() {
 
       <DocsHeading id="signing-in">3. Signing in to ShelfMerch</DocsHeading>
       <p>
-        When you open ShelfMerch from Zoho People and you are not signed in, ShelfMerch opens a secure
-        popup for ShelfMerch sign-in. Complete sign-in in the popup, then return to the Web Tab. If the
-        popup is blocked, allow popups for ShelfMerch and try again.
+        Open ShelfMerch and sign in at /login. New customers can create a company account at /signup and complete email verification first. After signing in, navigate to Integrations → Zoho People → Connect. Use a company administrator account.
       </p>
 
       <DocsHeading id="connecting">4. Connecting Zoho People</DocsHeading>
       <ol>
-        <li>Open ShelfMerch from the Zoho People Web Tab.</li>
+        <li>Open ShelfMerch Integrations and select Zoho People.</li>
         <li>Sign in to ShelfMerch if prompted.</li>
         <li>
-          Click <strong>Connect Zoho People</strong>.
+          Click <strong>Connect</strong>.
         </li>
         <li>Review the requested Zoho permissions (employee forms read and organisation read).</li>
         <li>Select the approval checkbox in Zoho’s consent screen.</li>
@@ -68,13 +64,14 @@ export function ZohoPeopleUserGuidePage() {
       </ol>
 
       <DocsHeading id="syncing">5. Syncing employees</DocsHeading>
+      <p>Employee sync is manual. Connecting authorizes access; it does not start automatic synchronization. Click Sync now whenever you want to import or refresh employee records.</p>
       <ol>
-        <li>Open the ShelfMerch Web Tab.</li>
+        <li>Open Integrations → Zoho People in ShelfMerch.</li>
         <li>
           Confirm the status shows <strong>Connected</strong>.
         </li>
         <li>
-          Click <strong>Sync Employees</strong>.
+          Click <strong>Sync now</strong>.
         </li>
         <li>
           Wait for the success message summarising fetched, created, updated, skipped, and failed counts.

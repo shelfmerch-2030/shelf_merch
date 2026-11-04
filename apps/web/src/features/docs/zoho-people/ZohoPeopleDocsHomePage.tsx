@@ -44,6 +44,21 @@ export function ZohoPeopleDocsHomePage() {
             alt="An HR colleague welcoming an employee with a merchandise kit" width="1536" height="1024" />
         </div>
       </header>
+      <section className="zoho-onboarding" aria-labelledby="zoho-start-title">
+        <span className="zag-eyebrow">START USING THE INTEGRATION</span>
+        <h2 id="zoho-start-title">Your people. <em>Connected to ShelfMerch.</em></h2>
+        <p>Coming from Zoho People Marketplace? Choose your starting point below. You will connect your Zoho People account from ShelfMerch; a Zoho Web Tab is not required.</p>
+        <div className="zoho-onboarding__paths">
+          <div><h3>New customer</h3><p>Create your company account and complete email verification.</p><Link className="docs-cta" to="/signup">Create ShelfMerch Account</Link></div>
+          <div><h3>Existing customer</h3><p>Sign in to your company workspace as a company administrator.</p><Link className="docs-cta docs-cta--ghost" to="/login">Log In to ShelfMerch</Link></div>
+        </div>
+        <h3>After you sign in</h3>
+        <ol className="zoho-onboarding__steps">
+          <li><strong>Open Integrations → Zoho People → Connect.</strong> Use your company administrator account. If you cannot access Integrations, ask your company administrator for help.</li>
+          <li><strong>Authorize with Zoho OAuth.</strong> Sign in to Zoho, review the employee and organisation read permissions, and approve access. Return to ShelfMerch and confirm the Connected status.</li>
+          <li><strong>Click Sync now.</strong> This manually imports or updates employee records. Review the sync result, and click Sync now again whenever you want to refresh them. Employees are not synced automatically.</li>
+        </ol>
+      </section>
       <p>
         <strong>ShelfMerch for Zoho People</strong> allows authorised company administrators to import
         and update employee records from Zoho People. Synced employees can be managed as recipients for
@@ -62,7 +77,7 @@ export function ZohoPeopleDocsHomePage() {
         </Link>
         <Link className="docs-card" to="/docs/zoho-people/user-guide#connecting">
           <strong>Installation and Connection</strong>
-          <span>Connect Zoho People through OAuth from the Web Tab.</span>
+          <span>Connect Zoho People through OAuth from ShelfMerch Integrations.</span>
         </Link>
         <Link className="docs-card" to="/docs/zoho-people/user-guide#syncing">
           <strong>Employee Synchronisation</strong>

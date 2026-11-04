@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+const zohoOnboardingStyles = readFileSync(new URL('../../static/zoho-onboarding.css', import.meta.url), 'utf8');
+
 /** Shared CSS for ShelfMerch public documentation HTML pages. */
 export const DOCS_SHARED_STYLES = `
 :root {
@@ -178,10 +181,10 @@ export function docsHtmlShell({
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" />
-  <style>${DOCS_SHARED_STYLES}</style>
+  <style>${DOCS_SHARED_STYLES}${activePath === '/docs/zoho-people' ? zohoOnboardingStyles : ''}</style>
 </head>
 <body>
-  <div class="docs-shell">
+  <div class="docs-shell${activePath === '/docs/zoho-people' ? ' zoho-docs-overview' : ''}">
     <header class="docs-top">
       <div class="docs-top-inner">
         <a class="docs-logo" href="/">ShelfMerch</a>
