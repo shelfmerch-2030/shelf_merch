@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { Wallet } from '../src/modules/wallets/wallet.model.js';
 import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
 import { McpWriteIdempotency } from '../src/modules/mcp/mcpWriteIdempotency.model.js';
+import { McpWalletDocumentTicket } from '../src/modules/mcp/mcpWalletDocumentTicket.model.js';
 import { clearTenantLimitCache } from '../src/services/tenantGuardrails.service.js';
 import { authHeader, makeFundedWallet, makeTenant, makeUser } from './helpers.js';
 import {
@@ -178,6 +179,178 @@ beforeEach(async () => {
 });
 
 describe('MCP organization wallet top-up', () => {
+  it('accepts ticket-only prepare then url-only execute without CONFIRMATION_MISMATCH', async () => {
+    const { documentUrl, ticketId } = await uploadPo(admin.user._id);
+    const prepared = await prepareWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        walletId: String(wallet._id),
+        amount: 10_000,
+        fundingMethod: 'po_upload',
+        docType: 'Purchase Order',
+        docNumber: 'PO-MISMATCH-1',
+        documentTicketId: ticketId,
+        // no documentUrl, no description — mirrors ChatGPT prepare after upload poll
+      },
+    });
+
+    const result = await executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-ticket-then-url',
+      input: {
+        walletId: String(wallet._id),
+        amount: 10_000,
+        fundingMethod: 'po_upload',
+        docType: 'Purchase Order',
+        docNumber: 'PO-MISMATCH-1',
+        documentUrl,
+        // no documentTicketId — mirrors ChatGPT execute using resolved URL
+      },
+    });
+    expect(result).toMatchObject({
+      fundingPending: true,
+      requestedAmount: 10_000,
+      balance: 50_000,
+      documentAttached: true,
+    });
+    const ticket = await McpWalletDocumentTicket.findOne({ ticketId, tenantId: tenant._id });
+    expect(ticket.status).toBe('consumed');
+  });
+
+  it('treats omitted and empty optional description as the same confirmation payload', async () => {
+    const { documentUrl, ticketId } = await uploadPo(admin.user._id);
+    const prepared = await prepareWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: {
+        walletId: String(wallet._id),
+        amount: 4_000,
+        docNumber: 'PO-DESC-1',
+        documentTicketId: ticketId,
+      },
+    });
+    const result = await executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-desc-normalize',
+      input: {
+        walletId: String(wallet._id),
+        amount: 4_000,
+        docNumber: 'PO-DESC-1',
+        description: '',
+        documentUrl,
+        documentTicketId: ticketId,
+      },
+    });
+    expect(result.fundingPending).toBe(true);
+    expect(result.balance).toBe(50_000);
+  });
+
+  it('rejects true payload drift with CONFIRMATION_MISMATCH without funding or ticket consume', async () => {
+    const { documentUrl, ticketId } = await uploadPo(admin.user._id);
+    const prepared = await prepareWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: topupInput({
+        amount: 10_000,
+        description: 'Q3 note',
+        documentUrl,
+        documentTicketId: ticketId,
+      }),
+    });
+
+    await expect(executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-true-mismatch',
+      input: topupInput({
+        amount: 12_000,
+        description: 'Q3 note',
+        documentUrl,
+        documentTicketId: ticketId,
+      }),
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_MISMATCH' });
+
+    const after = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
+    expect(after.fundingDocument.approvalStatus).not.toBe('pending');
+    expect(Number(after.balance)).toBe(50_000);
+    expect(after.fundingDocument.fileUrl || '').toBeFalsy();
+    const ticket = await McpWalletDocumentTicket.findOne({ ticketId, tenantId: tenant._id });
+    expect(ticket.status).toBe('ready');
+    expect(await WalletTransaction.countDocuments({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      type: 'fund_in',
+    })).toBe(1);
+  });
+
+  it('rejects document, PO number, or wallet drift and blocks ticket/document swap', async () => {
+    const { documentUrl, ticketId } = await uploadPo(admin.user._id);
+    const prepared = await prepareWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: topupInput({
+        amount: 10_000,
+        docNumber: 'PO-SAFE-1',
+        documentUrl,
+        documentTicketId: ticketId,
+      }),
+    });
+
+    await expect(executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-docnum-mismatch',
+      input: topupInput({
+        amount: 10_000,
+        docNumber: 'PO-SAFE-2',
+        documentUrl,
+        documentTicketId: ticketId,
+      }),
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_MISMATCH' });
+
+    const otherWallet = await makeFundedWallet(tenant, { name: 'Other Wallet', amount: 20_000 });
+    await expect(executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-wallet-mismatch',
+      input: topupInput({
+        walletId: String(otherWallet._id),
+        amount: 10_000,
+        docNumber: 'PO-SAFE-1',
+        documentUrl,
+        documentTicketId: ticketId,
+      }),
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_MISMATCH' });
+
+    const swapped = await uploadPo(admin.user._id);
+    await expect(executeWalletTopup({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'topup-doc-swap',
+      input: topupInput({
+        amount: 10_000,
+        docNumber: 'PO-SAFE-1',
+        documentUrl: swapped.documentUrl,
+        documentTicketId: ticketId,
+      }),
+    })).rejects.toMatchObject({ code: expect.stringMatching(/INVALID_DOCUMENT_URL|CONFIRMATION_MISMATCH/) });
+
+    const after = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
+    expect(after.fundingDocument.approvalStatus).not.toBe('pending');
+    expect(Number(after.balance)).toBe(50_000);
+    const ticket = await McpWalletDocumentTicket.findOne({ ticketId, tenantId: tenant._id });
+    expect(ticket.status).toBe('ready');
+  });
+
   it('exposes prepare/execute top-up tools over MCP', async () => {
     const token = await issueOauth(admin, 'openid offline_access wallets:setup wallets:read');
     const listed = await mcpRequest(token, 'tools/list');

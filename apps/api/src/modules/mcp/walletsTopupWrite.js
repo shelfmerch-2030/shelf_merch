@@ -11,6 +11,7 @@ import {
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { resolveSetupDocumentUrl } from './walletsDocumentUpload.js';
+import { McpWalletDocumentTicket } from './mcpWalletDocumentTicket.model.js';
 
 const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 
@@ -76,6 +77,7 @@ export const WALLETS_PREPARE_TOPUP_DESCRIPTION = [
 export const WALLETS_EXECUTE_TOPUP_DESCRIPTION = [
   'Submit the organization wallet top-up from wallets_prepare_topup using the same backend as POST /wallets/:id/fund (+ funding-document attach).',
   'Requires confirmationId and idempotencyKey. Call only after the user explicitly confirms the preview.',
+  'Pass the same walletId, amount, fundingMethod, docType, docNumber, and optional description as prepare. documentTicketId and documentUrl are interchangeable once the PO is uploaded — confirmation matches the resolved document, not which handle you pass.',
   'PO funding stays pending finance approval; balance is not credited on submit.',
   'Online funding must use Razorpay payment tools, not this tool.',
   'A repeated key returns the original result and does not create a duplicate funding request.',
@@ -198,6 +200,44 @@ function topupResourceState(wallet, documentUrl) {
   };
 }
 
+async function consumeTopupDocument({ tenantId, actorUserId, documentTicketId, documentUrl }) {
+  if (documentTicketId) {
+    await resolveSetupDocumentUrl({
+      tenantId,
+      actorUserId,
+      documentUrl,
+      documentTicketId,
+      consume: true,
+    });
+    return;
+  }
+  if (!documentUrl) return;
+  const ticket = await McpWalletDocumentTicket.findOne({
+    tenantId,
+    userId: actorUserId,
+    documentUrl,
+    status: 'ready',
+  });
+  if (!ticket) return;
+  ticket.status = 'consumed';
+  await ticket.save();
+}
+
+function topupConfirmationPayload(requested, documentUrl) {
+  // Hash the business identity of the top-up, not the transport handle used to resolve the PO.
+  // ChatGPT often prepares with documentTicketId and executes with documentUrl (or vice versa);
+  // both must confirm the same resolved document.
+  return {
+    walletId: String(requested.walletId),
+    amount: Number(requested.amount),
+    fundingMethod: requested.fundingMethod || 'po_upload',
+    description: String(requested.description || '').trim(),
+    docType: String(requested.docType || 'Purchase Order').trim(),
+    docNumber: String(requested.docNumber || '').trim(),
+    documentUrl: String(documentUrl || ''),
+  };
+}
+
 function buildDescription(requested, walletName) {
   const note = String(requested.description || '').trim();
   const joined = [note || undefined, walletName].filter(Boolean).join(' · ');
@@ -285,10 +325,7 @@ export async function prepareWalletTopup({ tenantId, actorUserId, input, now }) 
       });
       assertTenantDocumentUrl(tenantId, planned.documentUrl);
     },
-    validate: async () => ({
-      ...requested,
-      documentUrl: planned.documentUrl || requested.documentUrl || '',
-    }),
+    validate: async () => topupConfirmationPayload(requested, planned.documentUrl || requested.documentUrl || ''),
     resourceState: async () => topupResourceState(planned.wallet, planned.documentUrl),
     summary: async () => ({
       action: 'preview',
@@ -340,10 +377,7 @@ export async function executeWalletTopup({
   });
   assertTenantDocumentUrl(tenantId, resolvedDocumentUrl);
 
-  const payload = {
-    ...requested,
-    documentUrl: resolvedDocumentUrl,
-  };
+  const payload = topupConfirmationPayload(requested, resolvedDocumentUrl);
 
   return executeMcpWrite({
     tenantId,
@@ -391,15 +425,12 @@ export async function executeWalletTopup({
         consume: false,
       });
       const result = await runTopup(actor, requested, documentUrl);
-      if (requested.documentTicketId) {
-        await resolveSetupDocumentUrl({
-          tenantId,
-          actorUserId,
-          documentUrl,
-          documentTicketId: requested.documentTicketId,
-          consume: true,
-        });
-      }
+      await consumeTopupDocument({
+        tenantId,
+        actorUserId,
+        documentTicketId: requested.documentTicketId,
+        documentUrl,
+      });
       return result;
     },
   });
