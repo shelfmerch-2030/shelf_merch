@@ -77,13 +77,13 @@ export const WALLETS_PREPARE_DOCUMENT_UPLOAD_DESCRIPTION = [
   'ChatGPT and other MCP clients cannot attach binary files to tool calls — do not ask the user to paste a PDF into chat.',
   'Call this tool first when fundingMethod is po_upload and amount > 0.',
   'Then show the user uploadPageUrl as a clickable browser link so they can select and upload the PDF themselves.',
-  'After they confirm upload, call wallets_get_document_upload with ticketId until status is ready, then pass documentTicketId into wallets_prepare_setup.',
+  'After they confirm upload, call wallets_get_document_upload with ticketId until status is ready, then pass documentTicketId into wallets_prepare_setup (new wallet) or wallets_prepare_topup (existing wallet Request top-up).',
   'Company admins only. Does not create or fund a wallet.',
 ].join(' ');
 
 export const WALLETS_GET_DOCUMENT_UPLOAD_DESCRIPTION = [
   'Check whether the user finished uploading a PO/Agreement via uploadPageUrl.',
-  'Poll with ticketId until status is ready, then pass documentTicketId (preferred) or documentUrl into wallets_prepare_setup.',
+  'Poll with ticketId until status is ready, then pass documentTicketId (preferred) or documentUrl into wallets_prepare_setup or wallets_prepare_topup.',
   'If status is still pending, ask the user to open uploadPageUrl and upload the PDF in their browser.',
 ].join(' ');
 
@@ -142,7 +142,7 @@ export async function prepareWalletDocumentUpload({ tenantId, actorUserId, input
       'Do not paste the file into chat — ChatGPT cannot forward binaries to ShelfMerch.',
       'Allowed type: PDF (application/pdf). Max 25 MB.',
       'When the browser page shows success, call wallets_get_document_upload with this ticketId.',
-      'Then pass documentTicketId into wallets_prepare_setup.',
+      'Then pass documentTicketId into wallets_prepare_setup or wallets_prepare_topup.',
       `Programmatic clients may POST multipart field "document" to ${uploadUrl} with header X-Mcp-Upload-Token.`,
     ].join(' '),
   };

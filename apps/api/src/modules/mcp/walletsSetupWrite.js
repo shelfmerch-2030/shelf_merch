@@ -82,7 +82,8 @@ const paymentVerifySchema = z.object({
 }).strict();
 
 export const WALLETS_PREPARE_SETUP_DESCRIPTION = [
-  'Preview organization budget (wallet) setup — dashboard EmptyBudgetState → Step1Wallet.',
+
+  'Do NOT use this for Request top-up on an existing funded wallet — use wallets_prepare_topup (PO) or wallets_prepare_payment_order (online).',  'Preview organization budget (wallet) setup — dashboard EmptyBudgetState → Step1Wallet.',
   'Collect every required field before calling: budget name, amount (INR), Period start (validFrom), Period end (validTo), billing address, PIN, mobile, GSTIN, and funding method.',
   'Period start/end match the dashboard date inputs: use YYYY-MM-DD (example 2026-04-01). Same optional/nullable rules as POST /wallets/setup — still ask for them so the preview matches the dashboard Budget summary.',
   'Funding methods: po_upload (Upload Agreement / PO) or online (Pay Online / Razorpay).',
@@ -100,23 +101,25 @@ export const WALLETS_EXECUTE_SETUP_DESCRIPTION = [
 ].join(' ');
 
 export const WALLETS_PREPARE_PAYMENT_ORDER_DESCRIPTION = [
-  'Preview a Razorpay hosted-checkout order for an online-funded organization wallet.',
+  'Preview a Razorpay hosted-checkout order for organization wallet funding.',
+  'Works for first-time online wallet setup AND existing-wallet Request top-up (dashboard Add Funds / Pay Online).',
   'Does not collect card details. Applying creates the order via the existing payments service.',
 ].join(' ');
 
 export const WALLETS_EXECUTE_PAYMENT_ORDER_DESCRIPTION = [
-  'Create the Razorpay order from wallets_prepare_payment_order.',
+  'Create the Razorpay order from wallets_prepare_payment_order for wallet setup or existing-wallet top-up.',
   'Returns keyId, orderId, and amount for hosted checkout. Card data must never be sent to MCP.',
   'A repeated idempotency key returns the original order and does not charge again.',
 ].join(' ');
 
 export const WALLETS_PREPARE_PAYMENT_VERIFY_DESCRIPTION = [
-  'Preview verification of a completed Razorpay checkout for wallet funding.',
+  'Preview verification of a completed Razorpay checkout for wallet funding (setup or Request top-up).',
   'Backend HMAC + Razorpay capture checks still run on execute. Finance approval remains pending.',
 ].join(' ');
 
 export const WALLETS_EXECUTE_PAYMENT_VERIFY_DESCRIPTION = [
   'Verify Razorpay payment from wallets_prepare_payment_verify using the existing verifyWalletPayment service.',
+  'Use after hosted checkout for online wallet setup or existing-wallet top-up.',
   'Never marks funding successful without signature verification. Wallet funding stays pending finance approval.',
 ].join(' ');
 
