@@ -2,11 +2,13 @@ import { Link } from "react-router";
 import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
 import { MeasurementConsentChoice } from "@/features/privacy/MeasurementConsentChoice";
 import "./legal.css";
+import { LegalArticle } from "./LegalArticle";
+import { ShieldCheck } from "lucide-react";
 
 /** Public Privacy Policy — also served as static HTML at GET /legal/privacy-policy. */
 export function PrivacyPolicyPage() {
   return (
-    <div className="legal-shell">
+    <div className="legal-shell legal-shell--privacy">
       <header className="legal-header">
         <div className="legal-header-inner">
           <Link to="/" className="legal-logo-link" aria-label="ShelfMerch home">
@@ -21,9 +23,12 @@ export function PrivacyPolicyPage() {
       </header>
 
       <main className="legal-main">
-        <article className="legal-article">
-          <h1>Privacy Policy</h1>
+        <header className="legal-hero">
+          <span className="legal-eyebrow"><ShieldCheck size={20} aria-hidden="true" /> YOUR DATA, EXPLAINED CLEARLY</span>
+          <h1>Privacy <em>Policy</em></h1>
           <p className="legal-updated">Last updated: 26 October 2026</p>
+        </header>
+        <LegalArticle>
 
           <p className="legal-intro">
             This Privacy Policy describes how <strong>Chitlu Innovations Private Limited</strong> (“
@@ -325,7 +330,7 @@ export function PrivacyPolicyPage() {
             Statements marked for legal review, and the policy as a whole, should be reviewed by
             qualified counsel before reliance in regulated procurement or contractual disclosures.
           </p>
-        </article>
+        </LegalArticle>
       </main>
 
       <footer className="legal-footer">

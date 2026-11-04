@@ -1,6 +1,11 @@
 import { Link } from "react-router";
 import { DocsHeading, DocsShell } from "../DocsShell";
 import { useDocsMeta } from "../useDocsMeta";
+import { BookOpen, ShieldCheck } from "lucide-react";
+import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import zohoPeopleLogo from "../../../../assets/integrations/zoho-people.png";
+import "./zoho-admin-guide.css";
+import "./zoho-docs-overview.css";
 
 export function ZohoPeopleDocsHomePage() {
   useDocsMeta({
@@ -15,14 +20,30 @@ export function ZohoPeopleDocsHomePage() {
 
   return (
     <DocsShell
+      className="zoho-admin-guide zoho-docs-overview"
       activePath="/docs/zoho-people"
       breadcrumbs={[
         { label: "Home", to: "/" },
         { label: "Zoho People docs" },
       ]}
     >
-      <h1>ShelfMerch for Zoho People</h1>
+      <header className="zag-hero">
+        <div className="zag-hero-copy">
+          <span className="zag-eyebrow"><BookOpen size={18} aria-hidden="true" /> INTEGRATION DOCUMENTATION</span>
+      <h1>ShelfMerch for <em>Zoho People</em></h1>
       <p className="docs-sub">Sync employees and streamline onboarding and corporate gifting.</p>
+          <span className="zag-hero-note"><ShieldCheck size={18} aria-hidden="true" /> Connect. Sync. Get started.</span>
+        </div>
+        <div className="zag-hero-visual">
+          <div className="zag-partner-logos">
+            <img src={zohoPeopleLogo} alt="Zoho People" />
+            <span aria-hidden="true">+</span>
+            <ShelfMerchLogo height={26} theme="dark" />
+          </div>
+          <img className="zag-welcome-art" src="/images/resources/zoho/zoho-onboarding-hero.webp"
+            alt="An HR colleague welcoming an employee with a merchandise kit" width="1536" height="1024" />
+        </div>
+      </header>
       <p>
         <strong>ShelfMerch for Zoho People</strong> allows authorised company administrators to import
         and update employee records from Zoho People. Synced employees can be managed as recipients for
