@@ -162,8 +162,9 @@ export function ZohoPeopleExampleWorkflowPage() {
               <ShieldCheck size={25} aria-hidden="true" />
               <strong>HR stays in control</strong>
               <p>
-                Employee sync is initiated by an administrator. HR then selects recipients and
-                prepares gifts.
+                Employee sync is started manually by an administrator. ShelfMerch does not sync Zoho
+                People on a schedule. HR then selects recipients and prepares gifts. This example is
+                illustrative, not a measured customer result.
               </p>
             </div>
           </aside>

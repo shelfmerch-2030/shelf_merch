@@ -209,7 +209,12 @@ export function PrivacyPolicyPage() {
           <h2 id="disconnecting-zoho-people">9. Disconnecting Zoho People</h2>
           <p>A company administrator can disconnect Zoho People from ShelfMerch. Disconnecting:</p>
           <ul>
-            <li>Clears stored Zoho OAuth tokens for that tenant</li>
+            <li>
+              Asks Zoho to revoke the refresh token. The access token is cleared immediately. The
+              encrypted refresh token is deleted when Zoho confirms revocation or reports that token
+              invalid. If Zoho cannot confirm revocation, the ciphertext stays unused and marked
+              unresolved so it can be revoked later without storing the token in plaintext
+            </li>
             <li>Stops further Zoho People syncing for that connection</li>
             <li>
               Does not automatically delete previously imported employee contacts or related ShelfMerch

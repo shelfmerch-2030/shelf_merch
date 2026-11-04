@@ -177,7 +177,13 @@ export function ZohoPeopleAdminGuidePage() {
 
       <DocsHeading id="retention">9. Data retention and deletion</DocsHeading>
       <ul>
-        <li>Disconnecting stops future synchronisation and clears Zoho tokens for that tenant.</li>
+        <li>
+          Disconnecting requests Zoho token revocation and stops synchronisation immediately. The
+          access token is deleted. The refresh token is deleted only after Zoho confirms revocation
+          or reports it invalid. If Zoho does not confirm, the token stays encrypted, unused, and
+          marked unresolved so revocation can be retried. Other ShelfMerch integrations and
+          workspaces are not changed.
+        </li>
         <li>
           Imported records may remain until deleted per your instructions and ShelfMerch retention
           practices.
