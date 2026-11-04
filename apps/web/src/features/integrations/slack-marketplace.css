@@ -590,6 +590,17 @@
   line-height:1.45;
   white-space:nowrap;
 }
+.integ-overview__auto--wrap{
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+.integ-overview__auto--wrap p{
+  min-width:0;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:break-word;
+}
 .integ-overview.is-open{position:relative;z-index:40}
 .integ-overview__steps{
   position:relative;

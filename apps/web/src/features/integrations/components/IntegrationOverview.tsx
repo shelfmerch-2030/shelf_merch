@@ -36,7 +36,7 @@ export function IntegrationOverview({
           onClick={() => setOpen(null)}
         />
       ) : null}
-      <div className="integ-overview__auto">
+      <div className={`integ-overview__auto${providerId === "zoho-people" ? " integ-overview__auto--wrap" : ""}`}>
         <p>
           {providerId === "zoho-people"
             ? "Zoho People employee sync is manual. Click Sync now to import or update employees from Zoho People. Employees are not synced automatically."

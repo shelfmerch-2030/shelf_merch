@@ -14,6 +14,7 @@ describe("integration overview banner", () => {
     render(<IntegrationOverview providerId="zoho-people" providerName="Zoho People" />);
     expect(screen.getByText(MANUAL)).toBeTruthy();
     expect(screen.queryByText(AUTOMATIC)).toBeNull();
+    expect(document.querySelector(".integ-overview__auto--wrap")).toBeTruthy();
   });
 
   it("keeps background sync copy for other HRIS providers", () => {
@@ -30,6 +31,7 @@ describe("integration overview banner", () => {
       render(<IntegrationOverview providerId={providerId} providerName={providerName} />);
       expect(screen.getByText(AUTOMATIC)).toBeTruthy();
       expect(screen.queryByText(MANUAL)).toBeNull();
+      expect(document.querySelector(".integ-overview__auto--wrap")).toBeNull();
     }
   });
 });
