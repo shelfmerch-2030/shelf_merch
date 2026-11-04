@@ -57,6 +57,9 @@ describe('shops_list / shops_get', () => {
       status: 'draft',
       publishReady: true,
       activeProductCount: 1,
+      hasLogo: false,
+      hasBanner: false,
+      logoUrl: '',
     });
 
     const liveOnly = await listShops({

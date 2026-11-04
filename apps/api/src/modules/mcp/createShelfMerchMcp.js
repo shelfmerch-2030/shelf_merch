@@ -177,6 +177,18 @@ import {
   shopsPrepareUpdateOutputSchema,
 } from './shopsWrite.js';
 import {
+  SHOPS_GET_ASSET_UPLOAD_DESCRIPTION,
+  SHOPS_PREPARE_ASSET_UPLOAD_DESCRIPTION,
+  getShopAssetUploadForCaller,
+  prepareShopAssetUploadForCaller,
+  shopAssetUploadError,
+  shopAssetUploadText,
+  shopsGetAssetUploadInputSchema,
+  shopsGetAssetUploadOutputSchema,
+  shopsPrepareAssetUploadInputSchema,
+  shopsPrepareAssetUploadOutputSchema,
+} from './shopsAssetUpload.js';
+import {
   SHOPS_EXECUTE_CATALOG_DESCRIPTION,
   SHOPS_PREPARE_CATALOG_DESCRIPTION,
   executeShopCatalogUpdateForCaller,
@@ -917,6 +929,46 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: shopsReadError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const shopAssetUploadTools = [
+      ['shops_prepare_asset_upload', 'Prepare store asset upload', SHOPS_PREPARE_ASSET_UPLOAD_DESCRIPTION, shopsPrepareAssetUploadInputSchema, shopsPrepareAssetUploadOutputSchema, false, prepareShopAssetUploadForCaller, 'Store asset upload ticket failed.', shopAssetUploadText, shopAssetUploadError],
+      ['shops_get_asset_upload', 'Get store asset upload', SHOPS_GET_ASSET_UPLOAD_DESCRIPTION, shopsGetAssetUploadInputSchema, shopsGetAssetUploadOutputSchema, true, getShopAssetUploadForCaller, 'Store asset upload status failed.', shopAssetUploadText, shopAssetUploadError],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, textFor, errorFor] of shopAssetUploadTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: name === 'shops_get_asset_upload',
+            destructiveHint: false,
+            idempotentHint: idempotent,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes('shops:write'),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: ['shops:write'] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: textFor(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: errorFor(err, fallback) }],
             };
           }
         },

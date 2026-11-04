@@ -169,8 +169,9 @@ describe('company store write service', () => {
       currencyMode: 'points',
       companyEmailDomain: 'acme.com',
       categories: ['Welcome'],
+      logoUrl: '',
+      bannerConfig: { theme: 'dark', preset: 'solid-pattern' },
     });
-    expect(prepared.preview.bannerConfig).toBeUndefined();
 
     const created = await executeShopCreate({
       tenantId: tenant._id,
@@ -185,7 +186,11 @@ describe('company store write service', () => {
       status: 'draft',
       currencyMode: 'points',
       companyEmailDomain: 'acme.com',
+      logoUrl: '',
+      bannerConfig: { theme: 'dark', preset: 'solid-pattern' },
     });
+    expect((await Shop.findOne({ tenantId: tenant._id, name: 'North Store' })).bannerConfig)
+      .toEqual({ theme: 'dark', preset: 'solid-pattern' });
     expect(await shopCount()).toBe(1);
     const replay = await executeShopCreate({
       tenantId: tenant._id,
@@ -258,7 +263,7 @@ describe('company store write service', () => {
     expect(await shopCount()).toBe(1);
   });
 
-  it('previews text changes and rejects status, currency, and banner edits', async () => {
+  it('previews text changes and rejects status, currency, and invalid banner edits', async () => {
     const shop = await Shop.create({
       tenantId: tenant._id,
       name: 'North Store',
@@ -267,6 +272,7 @@ describe('company store write service', () => {
       companyEmailDomain: 'acme.com',
       categories: ['Welcome'],
       status: 'draft',
+      bannerConfig: { theme: 'dark', preset: 'solid-pattern' },
     });
     const before = await shopCount();
     await expect(prepareShopUpdate({
@@ -284,6 +290,14 @@ describe('company store write service', () => {
       actorUserId: admin.user._id,
       input: { shopId: String(shop._id), bannerConfig: { html: '<script>' } },
     })).rejects.toMatchObject({ code: 'VALIDATION' });
+    const bannerPrepared = await prepareShopUpdate({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { shopId: String(shop._id), bannerConfig: { theme: 'brand', preset: 'welcome' } },
+    });
+    expect(bannerPrepared.preview.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: 'bannerConfig' }),
+    ]));
 
     const input = { shopId: String(shop._id), name: 'North Outlet', companyEmailDomain: 'north.acme.com' };
     const prepared = await prepareShopUpdate({

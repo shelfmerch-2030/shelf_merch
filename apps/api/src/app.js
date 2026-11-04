@@ -32,6 +32,7 @@ import {
 } from './modules/tenants/tenants.routes.js';
 import walletsRoutes from './modules/wallets/wallets.routes.js';
 import mcpWalletDocumentRoutes from './modules/mcp/walletsDocumentUpload.routes.js';
+import mcpShopAssetRoutes from './modules/mcp/shopsAssetUpload.routes.js';
 import entitiesRoutes from './modules/entities/entities.routes.js';
 import shopsRoutes from './modules/shops/shops.routes.js';
 import catalogRoutes from './modules/catalog/catalog.routes.js';
@@ -300,6 +301,8 @@ export function createApp() {
   api.use('/wallets', walletsRoutes);
   // MCP wallet PO upload handoff — ticket token auth (no session required).
   api.use('/mcp/wallet-documents', mcpWalletDocumentRoutes);
+  // MCP shop logo/banner upload handoff — ticket token auth (no session required).
+  api.use('/mcp/shop-assets', mcpShopAssetRoutes);
   api.use('/entities', entitiesRoutes);
   api.use('/shops', shopsRoutes);
   api.use('/catalog', catalogRoutes);
