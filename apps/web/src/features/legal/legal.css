@@ -9,8 +9,11 @@
   flex-direction: column;
   background: #fff;
   color: var(--ink);
-  font-family: var(--font-family-public-sans);
+  font-family: var(--font-family-public-sans), Arial, Helvetica, sans-serif;
 }
+.legal-shell, .legal-shell * { box-sizing: border-box; }
+.legal-logo-link img { display: block; max-width: 100%; width: auto; }
+.legal-shell a { text-underline-offset: 4px; }
 
 .legal-header {
   border-bottom: 1px solid var(--line);
@@ -59,6 +62,11 @@
   background: #e8f1ff;
 }
 .legal-shell--terms .legal-hero { background: #ffe4d4; text-align: center; }
+.legal-shell--terms .legal-reading-layout { grid-template-columns: minmax(0, 1fr); max-width: 1100px; gap: 32px; }
+.legal-shell--terms .legal-contents { position: static; max-height: none; padding: 22px 24px; border: 1px solid #eed9cc; border-radius: 8px; background: #fff7f2; }
+.legal-shell--terms .legal-contents nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.legal-shell--terms .legal-contents details:not([open]) summary { margin-bottom: 0; }
+.legal-shell--terms .legal-article { width: 100%; margin-inline: auto; }
 .legal-eyebrow { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: .1em; }
 .legal-shell--terms .legal-eyebrow { justify-content: center; }
 .legal-hero h1 { font-family: var(--font-family-public-sans), Arial, sans-serif; font-size: clamp(42px, 5.5vw, 76px); line-height: 1.12; letter-spacing: -.045em; font-weight: 700; margin: 24px 0 18px; }
@@ -177,12 +185,12 @@
 @media (max-width: 900px) {
   .legal-reading-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; margin-top: 28px; }
   .legal-contents { position: static; max-height: none; border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
-  .legal-contents nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .legal-contents nav, .legal-shell--terms .legal-contents nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .legal-header-inner { flex-wrap: wrap; }
 }
 @media (max-width: 640px) {
   .legal-reading-layout { padding-inline: 20px; }
-  .legal-contents nav { grid-template-columns: minmax(0, 1fr); }
+  .legal-contents nav, .legal-shell--terms .legal-contents nav { grid-template-columns: minmax(0, 1fr); }
   .legal-article {
     padding: 0;
     font-size: 16px;

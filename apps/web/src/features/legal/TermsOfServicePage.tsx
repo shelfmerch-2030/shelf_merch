@@ -27,7 +27,7 @@ export function TermsOfServicePage() {
           <h1>Terms of <em>Service</em></h1>
           <p className="legal-updated">Last updated: 30 July 2026</p>
         </header>
-        <LegalArticle>
+        <LegalArticle collapsedContents>
 
           <p className="legal-intro">
             These Terms of Service (“<strong>Terms</strong>”) govern access to and use of{" "}
