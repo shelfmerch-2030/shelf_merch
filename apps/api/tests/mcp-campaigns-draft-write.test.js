@@ -5,6 +5,7 @@ import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
 import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
+import { Contact } from '../src/modules/contacts/contact.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
 import { OauthGrantBinding } from '../src/modules/oauth/oauthGrantBinding.model.js';
@@ -352,6 +353,98 @@ describe('points campaign draft service', () => {
       fundingSource: 'department_budget',
       departmentBudgetCharged: true,
     });
+  });
+
+  it('resolves employees_search contact ids into recipients without returning emails', async () => {
+    const ada = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Ada Admin',
+      email: 'ada.hidden@points-draft.test',
+      department: 'Marketing',
+      role: 'Member',
+    });
+    const bea = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Bea Admin',
+      email: 'bea.hidden@points-draft.test',
+      department: 'Marketing',
+      role: 'Member',
+    });
+    const contactsBefore = await Contact.countDocuments({ tenantId: tenant._id });
+    const input = draftInput({
+      name: 'Directory recipients',
+      recipients: [{ contactId: String(ada._id) }, { contactId: String(bea._id) }, { contactId: String(ada._id) }],
+    });
+    const prepared = await preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview.recipientCount).toBe(2);
+    expect(JSON.stringify(prepared)).not.toContain('ada.hidden@points-draft.test');
+    expect(JSON.stringify(prepared)).not.toContain('bea.hidden@points-draft.test');
+    expect(await counts()).toEqual({ campaigns: 0, recipients: 0 });
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(contactsBefore);
+    const saved = await executePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'directory-recipients',
+    });
+    expect(saved.recipientCount).toBe(2);
+    expect(JSON.stringify(saved)).not.toContain('ada.hidden@points-draft.test');
+    const stored = await Recipient.find({ tenantId: tenant._id, campaignId: saved.id }).sort({ email: 1 });
+    expect(stored.map((row) => row.email)).toEqual([
+      'ada.hidden@points-draft.test',
+      'bea.hidden@points-draft.test',
+    ]);
+    expect(stored.map((row) => String(row.contactId))).toEqual([String(ada._id), String(bea._id)]);
+    expect(await Contact.countDocuments({ tenantId: tenant._id })).toBe(contactsBefore);
+
+    const other = await makeTenant({ slug: 'other-directory' });
+    const foreign = await Contact.create({
+      tenantId: other._id,
+      name: 'Foreign Person',
+      email: 'foreign.hidden@points-draft.test',
+      department: 'Marketing',
+      role: 'Member',
+    });
+    await expect(preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput({ name: 'Foreign recipient', recipients: [{ contactId: String(foreign._id) }] }),
+    })).rejects.toMatchObject({ code: 'RECIPIENT_NOT_FOUND' });
+
+    const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [entity._id] });
+    const sales = await Contact.create({
+      tenantId: tenant._id,
+      name: 'Sam Sales',
+      email: 'sam.hidden@points-draft.test',
+      department: 'Sales',
+      role: 'Member',
+    });
+    await expect(preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: draftInput({ name: 'Outside department', recipients: [{ contactId: String(sales._id) }] }),
+    })).rejects.toMatchObject({ code: 'RECIPIENT_NOT_FOUND' });
+    const allowed = await preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: draftInput({ name: 'Inside department', recipients: [{ contactId: String(ada._id) }] }),
+    });
+    expect(allowed.preview.recipientCount).toBe(1);
+    expect(JSON.stringify(allowed)).not.toContain('ada.hidden@points-draft.test');
+
+    await expect(preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: draftInput({
+        name: 'Mismatched email',
+        recipients: [{ contactId: String(ada._id), name: 'Ada Admin', email: 'someone-else@points-draft.test' }],
+      }),
+    })).rejects.toMatchObject({ code: 'RECIPIENT_MISMATCH' });
   });
 });
 

@@ -10,6 +10,7 @@ import { Shop } from '../shops/shop.model.js';
 import { Wallet } from '../wallets/wallet.model.js';
 import { Campaign } from '../campaigns/campaign.model.js';
 import { savePointsDraft } from '../campaigns/campaigns.service.js';
+import { getContactRead } from '../contacts/contacts.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { McpPointsDraftClaim } from './mcpPointsDraftClaim.model.js';
@@ -18,10 +19,17 @@ const INCOMPLETE_CAMPAIGN_STATUSES = ['draft', 'recipients_uploaded', 'credits_a
 const WRITE_ROLES = new Set(rolesForTenantArea('campaigns', 'write'));
 
 const recipientSchema = z.object({
-  name: z.string().trim().min(1).max(160),
-  email: z.string().trim().email().max(200),
+  name: z.string().trim().min(1).max(160).optional(),
+  email: z.string().trim().email().max(200).optional(),
   phone: z.string().trim().max(40).optional(),
-  contactId: objectId.optional(),
+  contactId: objectId.optional().describe('Contact id from employees_search. The server resolves the work email. Do not look up the email separately.'),
+}).superRefine((row, ctx) => {
+  if (!row.email && !row.contactId) {
+    ctx.addIssue({ code: 'custom', message: 'Recipient email or contactId is required', path: ['contactId'] });
+  }
+  if (!row.contactId && row.email && !row.name) {
+    ctx.addIssue({ code: 'custom', message: 'Recipient name is required', path: ['name'] });
+  }
 });
 
 const draftSchema = z.object({
@@ -55,7 +63,7 @@ export const CAMPAIGNS_PREPARE_POINTS_DRAFT_DESCRIPTION = [
   'Company admins paying from their side pass walletId and omit entityId. The debit is the organization wallet unallocated balance. It does not reduce any department allocated budget. The campaign is still stored on the wallet spend entity the dashboard already uses (the oldest department on that wallet, or a default department created only when the draft is saved). Never pick Marketing, Sales, or another department to satisfy entityId.',
   'Department managers pass entityId for their own department. Their remaining department budget is what gets spent. walletId alone is not organization funding for a manager.',
   'creditsPerRecipient is INR per person. Points stores show ₹1 = 2 Points; INR stores show ₹1 = 1 Credit. Minimum ₹250 whole rupees is enforced when allocating credits, not while saving an unfinished draft.',
-  'Pass existing contacts as contactId plus email, or new emails directly. This matches the dashboard: new emails become campaign recipients and are not written to Contacts during prepare or draft save.',
+  'Pass people from employees_search as contactId only. The server resolves the work email for that contact in this workspace and does not return the email. Do not invent an email and do not call employees_get only to copy one. A new person the user typed still needs their email and name. This does not create Contacts.',
   'CSV import in the dashboard is parsed in the browser into the same recipient list. Pass those rows here; do not ask the user to paste a binary file.',
   'Schedule mode now, scheduled, or self (manual invite link, no email). For scheduled, sendAt must be the UTC instant for that timezone wall clock. The worker delivers from sendAt and does not reinterpret timezone.',
   'Company admins can draft against the organization wallet. Department managers can draft only for their departments.',
@@ -127,15 +135,12 @@ function assertDraftWriter(actor) {
 function parseDraft(input) {
   const parsed = draftSchema.safeParse(input ?? {});
   if (!parsed.success) throw invalidDetails();
-  const recipients = new Map();
-  for (const row of parsed.data.recipients ?? []) {
-    recipients.set(row.email.trim().toLowerCase(), {
-      name: row.name.trim(),
-      email: row.email.trim().toLowerCase(),
-      ...(row.phone ? { phone: row.phone.trim() } : {}),
-      ...(row.contactId ? { contactId: row.contactId } : {}),
-    });
-  }
+  const recipients = (parsed.data.recipients ?? []).map((row) => ({
+    ...(row.contactId ? { contactId: row.contactId } : {}),
+    ...(row.email ? { email: row.email.trim().toLowerCase() } : {}),
+    ...(row.name ? { name: row.name.trim() } : {}),
+    ...(row.phone ? { phone: row.phone.trim() } : {}),
+  }));
   return {
     ...(parsed.data.campaignId ? { campaignId: parsed.data.campaignId } : {}),
     ...(parsed.data.entityId ? { entityId: parsed.data.entityId } : {}),
@@ -147,8 +152,45 @@ function parseDraft(input) {
     creditsPerRecipient: parsed.data.creditsPerRecipient ?? 0,
     ...(parsed.data.message ? { message: parsed.data.message } : {}),
     ...(parsed.data.schedule ? { schedule: { ...parsed.data.schedule, ...(parsed.data.schedule.sendAt ? { sendAt: new Date(parsed.data.schedule.sendAt) } : {}) } } : {}),
-    recipients: [...recipients.values()],
+    recipients,
   };
+}
+
+async function resolveRecipients(tenantId, user, input) {
+  const byEmail = new Map();
+  for (const row of input.recipients) {
+    let email = row.email;
+    let name = row.name;
+    let contactId = row.contactId;
+    if (contactId) {
+      let contact;
+      try {
+        contact = await getContactRead({ tenantId, user, contactId });
+      } catch (error) {
+        if (error instanceof NotFoundError) {
+          throw new ApiError(404, 'Employee not found', 'RECIPIENT_NOT_FOUND');
+        }
+        throw error;
+      }
+      const resolved = String(contact.email || '').trim().toLowerCase();
+      if (!resolved) {
+        throw new ApiError(422, 'This employee has no email address', 'RECIPIENT_EMAIL_MISSING');
+      }
+      if (email && email !== resolved) {
+        throw new ApiError(422, 'That contact does not use this email address', 'RECIPIENT_MISMATCH');
+      }
+      email = resolved;
+      name = name || contact.name;
+    }
+    if (!email || !name) throw invalidDetails();
+    byEmail.set(email, {
+      ...(contactId ? { contactId } : {}),
+      email,
+      name,
+      ...(row.phone ? { phone: row.phone } : {}),
+    });
+  }
+  input.resolvedRecipients = [...byEmail.values()];
 }
 
 function nameKey(input) {
@@ -164,6 +206,7 @@ function hashDraft(input) {
   const copy = { ...input };
   delete copy.anchor;
   delete copy.resolvedEntityId;
+  delete copy.resolvedRecipients;
   delete copy.entityName;
   delete copy.fundingSource;
   delete copy.departmentBudgetCharged;
@@ -202,6 +245,7 @@ async function linkedDraft(tenantId, input) {
 }
 
 async function assertDraftTarget(tenantId, user, input) {
+  await resolveRecipients(tenantId, user, input);
   const manager = isDepartmentManager(user);
   let entity = null;
   if (input.entityId) {
@@ -230,27 +274,37 @@ async function assertDraftTarget(tenantId, user, input) {
   return campaign;
 }
 
+function recipientBinding(input) {
+  return (input.resolvedRecipients || []).map((row) => ({
+    contactId: row.contactId || '',
+    email: row.email,
+  }));
+}
+
 async function resourceVersion(tenantId, input) {
+  const recipients = recipientBinding(input);
   if (input.campaignId) {
     const campaign = await Campaign.findOne({ _id: input.campaignId, tenantId });
-    if (!campaign) return { campaignId: input.campaignId, missing: true };
+    if (!campaign) return { campaignId: input.campaignId, missing: true, recipients };
     return {
       campaignId: String(campaign._id),
       status: campaign.status,
       name: campaign.name,
       updatedAt: new Date(campaign.updatedAt).toISOString(),
       recipientCount: campaign.recipientCount ?? 0,
+      recipients,
     };
   }
   const claim = await McpPointsDraftClaim.findOne({ tenantId, logicalKey: nameKey(input) });
   const campaign = await incompleteCampaign(tenantId, claim?.campaignId);
-  if (!campaign) return { logicalKey: nameKey(input), campaignId: null };
+  if (!campaign) return { logicalKey: nameKey(input), campaignId: null, recipients };
   return {
     logicalKey: nameKey(input),
     campaignId: String(campaign._id),
     status: campaign.status,
     updatedAt: new Date(campaign.updatedAt).toISOString(),
     recipientCount: campaign.recipientCount ?? 0,
+    recipients,
   };
 }
 
@@ -265,7 +319,7 @@ function previewFrom(input, campaign) {
     fundingSource: input.fundingSource,
     departmentBudgetCharged: input.departmentBudgetCharged,
     shopId: String(input.shopId),
-    recipientCount: input.recipients.length,
+    recipientCount: (input.resolvedRecipients || input.recipients).length,
     creditsPerRecipient: input.creditsPerRecipient,
   };
 }
@@ -343,6 +397,7 @@ async function spendEntityId(tenantId, actor, input) {
 
 async function saveLinkedDraft({ tenantId, actor, input }) {
   const entityId = await spendEntityId(tenantId, actor, input);
+  const recipients = input.resolvedRecipients || input.recipients;
   let campaignId = input.campaignId;
   let ownsClaim = false;
   const logicalKey = nameKey(input);
@@ -375,7 +430,7 @@ async function saveLinkedDraft({ tenantId, actor, input }) {
       creditsPerRecipient: input.creditsPerRecipient,
       ...(input.message ? { message: input.message } : {}),
       ...(input.schedule ? { schedule: input.schedule } : {}),
-      ...(input.recipients.length ? { recipients: input.recipients } : {}),
+      ...(recipients.length ? { recipients } : {}),
       ...(campaignId ? { campaignId } : {}),
     },
   });
@@ -439,7 +494,7 @@ export async function preparePointsDraft({ tenantId, actorUserId, input, now }) 
     summary: async () => ({
       action: planned.campaign ? 'update' : 'create',
       name: requested.name,
-      recipientCount: requested.recipients.length,
+      recipientCount: (requested.resolvedRecipients || requested.recipients).length,
     }),
   });
   return {
@@ -533,6 +588,9 @@ export function pointsDraftText(output, heading) {
 const DRAFT_ERRORS = {
   FORBIDDEN: 'You cannot save this campaign draft.',
   NOT_FOUND: 'Campaign draft details were not found.',
+  RECIPIENT_NOT_FOUND: 'Employee not found.',
+  RECIPIENT_EMAIL_MISSING: 'This employee has no email address.',
+  RECIPIENT_MISMATCH: 'That contact does not use this email address.',
   VALIDATION: 'Campaign draft details are not valid.',
   CAMPAIGN_LOCKED: 'Only an incomplete campaign can be saved as a draft.',
   INVALID_CAMPAIGN_TYPE: 'Only points campaigns can be saved as a draft.',
