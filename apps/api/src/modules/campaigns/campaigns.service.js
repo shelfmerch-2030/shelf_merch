@@ -1085,9 +1085,16 @@ export async function launchCampaign({
   try {
   if (campaign.status === 'launched' || campaign.status === 'redemption_open') {
     const reloaded = await Campaign.findOne({ _id: campaign._id, tenantId });
-    await finishLaunchInvites({ campaign: reloaded, tenantId });
+    const mode = reloaded.schedule?.mode ?? 'now';
+    // Scheduled delivery stays with the existing worker. Self-share never emails.
+    // Only an immediate send may finish invites that a previous attempt left pending.
+    if (mode === 'now') {
+      await finishLaunchInvites({ campaign: reloaded, tenantId });
+    }
     const finished = await Campaign.findOne({ _id: campaign._id, tenantId });
-    await notifyLaunchSlack({ tenantId, campaign: finished, user });
+    if (mode === 'now') {
+      await notifyLaunchSlack({ tenantId, campaign: finished, user });
+    }
     return withCampaignMeta(finished);
   }
   if (campaign.status !== 'approved') {

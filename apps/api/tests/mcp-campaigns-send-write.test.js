@@ -475,4 +475,151 @@ describe('campaign send MCP tools', () => {
     expect(JSON.stringify(preview)).not.toContain('super-secret-token');
     expect((await Campaign.findOne({ _id: campaign._id, tenantId: tenant._id })).status).toBe('recipients_uploaded');
   });
+
+  it('rejects fractional INR and launches a scheduled campaign without sending invites yet', async () => {
+    await expect(prepareCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(250.5),
+    })).rejects.toMatchObject({ code: 'VALIDATION' });
+
+    campaign.schedule = { mode: 'scheduled', sendAt: new Date(Date.now() + 86_400_000), timezone: 'Asia/Kolkata' };
+    await campaign.save();
+    const credited = await prepareCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(500),
+    });
+    await executeCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(500),
+      confirmationId: credited.confirmationId,
+      idempotencyKey: 'sched-credits',
+    });
+    const preview = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    expect(preview.preview).toMatchObject({ status: 'launched', deliveryMode: 'scheduled', invitations: 0 });
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(0);
+    const launched = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'sched-launch',
+    });
+    expect(launched.status).toBe('launched');
+    expect(launched.invitationsSent).toBe(0);
+    expect(launched.balance).toBe(9_000);
+    const replay = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'sched-launch',
+    });
+    expect(replay.balance).toBe(9_000);
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(1);
+    expect((await Recipient.findOne({ campaignId: campaign._id, tenantId: tenant._id })).creditAmount).toBe(0);
+    expect(vi.mocked(notify).mock.calls.length).toBe(0);
+
+    await McpWriteIdempotency.updateOne(
+      { key: 'sched-launch', tenantId: tenant._id },
+      { $set: { status: 'pending', result: null, leaseOwner: 'crashed', leaseExpiresAt: new Date(0) } },
+    );
+    const recovered = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'sched-launch',
+    });
+    expect(recovered.status).toBe('launched');
+    expect(recovered.invitationsSent).toBe(0);
+    expect(vi.mocked(notify).mock.calls.length).toBe(0);
+    expect((await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id })).balance).toBe(9_000);
+
+    await expect(executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'sched-launch-other',
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_REUSED' });
+
+    const again = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    const second = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: again.confirmationId,
+      idempotencyKey: 'sched-launch-again',
+    });
+    expect(second.status).toBe('launched');
+    expect(second.invitationsSent).toBe(0);
+    expect(vi.mocked(notify).mock.calls.length).toBe(0);
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(1);
+  });
+
+  it('opens a self-share campaign without emailing invite links or exposing tokens', async () => {
+    campaign.schedule = { mode: 'self' };
+    await campaign.save();
+    const credited = await prepareCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(250),
+    });
+    await executeCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(250),
+      confirmationId: credited.confirmationId,
+      idempotencyKey: 'self-credits',
+    });
+    expect((await Recipient.findOne({ campaignId: campaign._id, tenantId: tenant._id })).creditAmount).toBe(250);
+    const preview = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    expect(preview.preview).toMatchObject({ status: 'redemption_open', deliveryMode: 'self', invitations: 0 });
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(0);
+    const launched = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'self-launch',
+    });
+    expect(launched.status).toBe('redemption_open');
+    expect(launched.invitationsSent).toBe(0);
+    expect(launched.balance).toBe(9_500);
+    expect(JSON.stringify(launched)).not.toContain('super-secret-token');
+    expect(vi.mocked(notify).mock.calls.length).toBe(0);
+
+    const again = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    const second = await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: again.confirmationId,
+      idempotencyKey: 'self-launch-again',
+    });
+    expect(second.invitationsSent).toBe(0);
+    expect(second.balance).toBe(9_500);
+    expect(vi.mocked(notify).mock.calls.length).toBe(0);
+    expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(1);
+    expect((await Recipient.findOne({ campaignId: campaign._id, tenantId: tenant._id })).creditAmount).toBe(250);
+  });
 });

@@ -28,10 +28,11 @@ const launchSchema = z.object({
 }).strict();
 
 export const CREDIT_PREPARE_DESCRIPTION = [
-  'Preview reward credits for an existing points campaign.',
+  'Preview reward credits for an existing Send Points campaign.',
   'Company admins and the campaign department manager only.',
-  'Each recipient needs at least 250 INR. The preview shows the recipient count, the per-recipient amount, the total, and the wallet balance.',
-  'This step does not debit the wallet or send invitations.',
+  'Amount is INR per recipient: whole number, minimum ₹250. Wallet debit is recipient count times that INR amount (shipping is included; no extra fee is charged).',
+  'Points stores convert at ₹1 = 2 Points. INR stores convert at ₹1 = 1 Credit. Points stay on the selected store.',
+  'This step does not debit the wallet, create Contacts, or send invitations.',
 ].join(' ');
 
 export const CREDIT_EXECUTE_DESCRIPTION = [
@@ -42,16 +43,16 @@ export const CREDIT_EXECUTE_DESCRIPTION = [
 ].join(' ');
 
 export const LAUNCH_PREPARE_DESCRIPTION = [
-  'Preview launching an approved points campaign.',
-  'Shows the recipient count, the total budget, the wallet debit, and the status after launch.',
-  'Invitations are delivered by the existing campaign service when the launch is confirmed.',
-  'Nothing is debited or sent by this preview.',
+  'Preview launching an approved Send Points campaign from the organization or department wallet.',
+  'Delivery follows the draft schedule: immediately, at sendAt, or manual invite links (self).',
+  'UPI and card checkout stay on the ShelfMerch hosted payment page. This tool only launches wallet-funded campaigns.',
+  'Nothing is debited or sent by this preview. Ask for explicit confirmation before campaigns_execute_launch.',
 ].join(' ');
 
 export const LAUNCH_EXECUTE_DESCRIPTION = [
-  'Launch the approved points campaign from campaigns_prepare_launch.',
+  'Launch the approved Send Points campaign from campaigns_prepare_launch after explicit confirmation.',
   'Requires the confirmation id and an idempotency key.',
-  'Rechecks the wallet immediately before the debit. The debit and each invitation are recorded once.',
+  'Rechecks the wallet immediately before the debit. Immediate mode sends invitations once. Scheduled mode waits until sendAt. Self mode opens redemption without emailing invites.',
   'A repeated key does not debit the wallet or send those invitations again.',
 ].join(' ');
 
@@ -108,6 +109,7 @@ export const launchPrepareOutputSchema = z.object({
     creditsPerRecipient: z.number(),
     totalBudget: z.number(),
     invitations: z.number(),
+    deliveryMode: z.enum(['now', 'scheduled', 'self']).optional(),
     walletImpact: walletImpactSchema,
   }),
 });
@@ -134,8 +136,13 @@ function businessInput(input) {
 
 function parseCredit(input) {
   const raw = businessInput(input);
-  if (typeof raw?.creditsPerRecipient === 'number' && raw.creditsPerRecipient < 250) {
-    throw new ApiError(422, 'Minimum of ₹250 must be allocated', 'BUDGET_TOO_LOW');
+  if (typeof raw?.creditsPerRecipient === 'number') {
+    if (!Number.isInteger(raw.creditsPerRecipient)) {
+      throw new ApiError(400, 'Enter a whole number', 'VALIDATION');
+    }
+    if (raw.creditsPerRecipient < 250) {
+      throw new ApiError(422, 'Minimum of ₹250 must be allocated', 'BUDGET_TOO_LOW');
+    }
   }
   const parsed = creditSchema.safeParse(raw);
   if (!parsed.success) throw invalidDetails();
@@ -162,6 +169,10 @@ async function loadCampaign(tenantId, campaignId) {
   return campaign;
 }
 
+function deliveryMode(campaign) {
+  return campaign.schedule?.mode || 'now';
+}
+
 function assertPointsWalletCampaign(campaign) {
   if (campaign.type !== 'points') {
     throw new ApiError(422, 'Only points campaigns can be sent from this tool', 'CAMPAIGN_NOT_POINTS');
@@ -172,10 +183,17 @@ function assertPointsWalletCampaign(campaign) {
   if (campaign.paymentMode && campaign.paymentMode !== 'wallet') {
     throw new ApiError(422, 'This campaign is not paid from the wallet', 'EXTERNAL_PAY_UNSUPPORTED');
   }
-  const mode = campaign.schedule?.mode || 'now';
-  if (mode !== 'now') {
-    throw new ApiError(422, 'Only campaigns that send now are supported', 'SCHEDULE_UNSUPPORTED');
+  const mode = deliveryMode(campaign);
+  if (!['now', 'scheduled', 'self'].includes(mode)) {
+    throw new ApiError(422, 'This delivery schedule is not supported', 'SCHEDULE_UNSUPPORTED');
   }
+  if (mode === 'scheduled' && !campaign.schedule?.sendAt) {
+    throw new ApiError(422, 'Scheduled campaigns require a send time', 'SCHEDULE_MISSING');
+  }
+}
+
+function statusAfterLaunch(campaign) {
+  return deliveryMode(campaign) === 'scheduled' ? 'launched' : 'redemption_open';
 }
 
 async function walletView(tenantId, entityId) {
@@ -458,11 +476,12 @@ export async function prepareLaunch({ tenantId, actorUserId, input, now }) {
     expiresAt: prepared.expiresAt,
     preview: {
       campaignId: String(state.campaign._id),
-      status: state.launched ? state.campaign.status : 'redemption_open',
+      status: state.launched ? state.campaign.status : statusAfterLaunch(state.campaign),
       recipientCount: state.campaign.recipientCount,
       creditsPerRecipient: state.campaign.creditsPerRecipient,
       totalBudget: state.campaign.totalBudget,
-      invitations: state.campaign.recipientCount,
+      deliveryMode: deliveryMode(state.campaign),
+      invitations: deliveryMode(state.campaign) === 'now' ? state.campaign.recipientCount : 0,
       walletImpact: impact,
     },
   };
@@ -498,6 +517,10 @@ export async function executeLaunch({
       const debit = await existingDebit(tenantId, campaign._id);
       const launched = ['launched', 'redemption_open'].includes(campaign.status);
       if (launched && (campaign.totalBudget === 0 || debit)) {
+        const mode = campaign.schedule?.mode || 'now';
+        if (mode !== 'now') {
+          return { outcome: 'completed', result: await presentLaunch(tenantId, campaign._id) };
+        }
         const pending = await Recipient.countDocuments({
           tenantId,
           campaignId: campaign._id,

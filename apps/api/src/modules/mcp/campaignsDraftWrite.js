@@ -42,11 +42,15 @@ const draftSchema = z.object({
 });
 
 export const CAMPAIGNS_PREPARE_POINTS_DRAFT_DESCRIPTION = [
-  'Prepare a points campaign draft without saving the campaign or its recipients.',
-  'Requires a department, a shop, and a campaign name. Recipients are optional.',
+  'Prepare a Send Points campaign draft without saving the campaign or its recipients.',
+  'Use this for both dashboard entry points: a store already chosen, or a store the user picks from shops_list.',
+  'Requires a department, a shop, and a campaign name. Recipients are optional until send.',
+  'creditsPerRecipient is INR per person. Points stores show ₹1 = 2 Points; INR stores show ₹1 = 1 Credit. Minimum ₹250 whole rupees is enforced when allocating credits, not while saving an unfinished draft.',
+  'Pass existing contacts as contactId plus email, or new emails directly. This matches the dashboard: new emails become campaign recipients and are not written to Contacts during prepare or draft save.',
+  'CSV import in the dashboard is parsed in the browser into the same recipient list. Pass those rows here; do not ask the user to paste a binary file.',
+  'Schedule mode now, scheduled, or self (manual invite link, no email). For scheduled, sendAt must be the UTC instant for that timezone wall clock. The worker delivers from sendAt and does not reinterpret timezone.',
   'Company admins can draft for any department. Department managers can draft only for their departments.',
-  'An existing incomplete points draft with the same department, shop, and name is updated instead of copied.',
-  'Does not launch the campaign, debit a wallet, or send invitations.',
+  'Does not launch the campaign, debit a wallet, create Contacts, or send invitations.',
   'Returns a one-use confirmation. Saving requires campaigns_execute_points_draft.',
 ].join(' ');
 
