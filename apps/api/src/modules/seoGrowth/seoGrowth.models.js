@@ -12,10 +12,12 @@ const settingSchema = new mongoose.Schema(
     enabled: { type: Boolean, default: false },
     timezone: { type: String, default: "Asia/Kolkata" },
     researchTime: { type: String, default: "03:00" },
-    dailyDraftLimit: { type: Number, default: 1 },
+    dailyDraftLimit: { type: Number, default: 5 },
     model: { type: String, default: "" },
-    dailyUsdLimit: { type: Number, default: 2 },
-    dailyTokenLimit: { type: Number, default: 30000 },
+    // Opus brief+generate+quality for one article can reserve ~25–40k tokens;
+    // keep room for retries without blocking mid-pipeline.
+    dailyUsdLimit: { type: Number, default: 10 },
+    dailyTokenLimit: { type: Number, default: 200000 },
     dailySemrushUnitLimit: { type: Number, default: 1000 },
     inputUsdPerMillion: { type: Number, default: null },
     outputUsdPerMillion: { type: Number, default: null },
@@ -49,6 +51,9 @@ const settingSchema = new mongoose.Schema(
     ga4Account: { type: String, default: "" },
     ga4OrganicFilter: { type: String, default: "Organic Search" },
     qualifiedDemoEvent: { type: String, default: "" },
+    // Future tightening: off by default for a simple generate → approve → publish path.
+    runLanguageReview: { type: Boolean, default: false },
+    strictContentGuards: { type: Boolean, default: false },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   opts,

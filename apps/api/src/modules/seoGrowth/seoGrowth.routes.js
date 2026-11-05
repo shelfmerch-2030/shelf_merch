@@ -236,7 +236,9 @@ router.post(
   ...write,
   validate({
     params,
-    body: z.object({ feedback: z.string().trim().min(5).max(2000) }).strict(),
+    body: z
+      .object({ feedback: z.string().trim().max(2000).optional() })
+      .strict(),
   }),
   asyncHandler(async (req, res) => {
     const content = await SeoContent.findOne({
@@ -250,10 +252,16 @@ router.post(
         409,
         "Published articles need a separate refresh review; regeneration is limited to never-published drafts.",
       );
+    const feedback =
+      req.body.feedback?.trim() ||
+      "Improve clarity and fix issues from the previous draft.";
     const job = await SeoJob.findOneAndUpdate(
       {
         _id: content.jobId,
         scope: SCOPE,
+        // Deletion clears this link so a regeneration request that read the
+        // draft just before deletion cannot queue it again afterward.
+        articleId: content.articleId,
         status: { $in: ["completed", "failed", "skipped"] },
       },
       {
@@ -263,7 +271,7 @@ router.post(
           nextAttemptAt: new Date(),
           generated: null,
           languageReview: null,
-          generationFeedback: req.body.feedback,
+          generationFeedback: feedback,
           "stages.generation": { status: "pending" },
           "stages.quality": { status: "pending" },
           "stages.persistence": { status: "pending" },
@@ -272,7 +280,7 @@ router.post(
       },
       { new: true },
     );
-    if (!job) throw new ApiError(409, "This draft already has an active job.");
+    if (!job) throw new ApiError(409, "This draft was deleted or already has an active job.");
     audit(req, "regenerate", content._id);
     res.status(202).json(job);
   }),

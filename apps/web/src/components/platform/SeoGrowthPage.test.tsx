@@ -5,13 +5,14 @@ import { MemoryRouter } from "react-router";
 import SeoGrowthPage from "./SeoGrowthPage";
 import { getSeoOverview, seoAction } from "@/services/seo-growth-api";
 import { getStoredUser } from "@/services/api-bridge";
+import { deleteBlogDraft } from "@/services/blog-api";
 
 vi.mock("@/services/seo-growth-api", () => ({
   getSeoOverview: vi.fn(),
   seoAction: vi.fn(async () => ({})),
 }));
 vi.mock("@/services/api-bridge", () => ({ getStoredUser: vi.fn() }));
-vi.mock("@/services/blog-api", () => ({ publishBlogPost: vi.fn(async () => ({})) }));
+vi.mock("@/services/blog-api", () => ({ publishBlogPost: vi.fn(async () => ({})), deleteBlogDraft: vi.fn(async () => ({ deleted: true, id: "article1" })) }));
 const settings = {
   _id: "platform",
   enabled: false,
@@ -32,6 +33,8 @@ const settings = {
   minimumScore: 60,
   weights: { relevance: 45, conversion: 25, difficulty: 20, volume: 10 },
   searchConsoleAccount: "sc-domain:shelfmerch.io",
+  runLanguageReview: false,
+  strictContentGuards: false,
 };
 const fixture = () => ({
   settings,
@@ -51,6 +54,7 @@ const fixture = () => ({
   },
 });
 beforeEach(() => {
+  Object.defineProperty(window, "confirm", { configurable: true, writable: true, value: vi.fn(() => true) });
   vi.mocked(getStoredUser).mockReturnValue({ role: "platform_sales_manager" } as ReturnType<
     typeof getStoredUser
   >);
@@ -59,7 +63,7 @@ beforeEach(() => {
   );
   vi.mocked(seoAction).mockClear();
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const mount = () =>
   render(
     <MemoryRouter>
@@ -68,6 +72,41 @@ const mount = () =>
   );
 
 describe("SEO control plane", () => {
+  it("deletes an SEO draft after confirmation and refreshes the displayed drafts", async () => {
+    const data = { ...fixture(), contents: [{
+      _id: "content1", articleId: "article1", status: "review",
+      article: { title: "Welcome kit guide", status: "draft", publishedAt: null },
+      revisionHash: "a".repeat(64), approvalCurrent: false, plainText: "Guide content.",
+      brief: { facts: [] }, findings: [], feedback: "", languageReview: {},
+    }] } as unknown as Awaited<ReturnType<typeof getSeoOverview>>;
+    vi.mocked(getSeoOverview).mockResolvedValueOnce(data).mockResolvedValue(fixture() as Awaited<ReturnType<typeof getSeoOverview>>);
+    const confirm = vi.mocked(window.confirm).mockReturnValueOnce(false).mockReturnValue(true);
+    vi.mocked(deleteBlogDraft).mockClear();
+    mount();
+    await screen.findByText("Daily scheduling");
+    fireEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete draft" }));
+    expect(deleteBlogDraft).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Delete draft" }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Welcome kit guide"));
+    await waitFor(() => expect(deleteBlogDraft).toHaveBeenCalledWith("article1"));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Welcome kit guide" })).toBeNull());
+  });
+
+  it.each(["published", "readonly"])("hides draft deletion for %s articles or users", async (mode) => {
+    if (mode === "readonly") vi.mocked(getStoredUser).mockReturnValue({ role: "platform_readonly_auditor" } as ReturnType<typeof getStoredUser>);
+    vi.mocked(getSeoOverview).mockResolvedValue({ ...fixture(), contents: [{
+      _id: "content1", articleId: "article1", status: "review",
+      article: { title: "Welcome kit guide", status: mode === "published" ? "published" : "draft" },
+      revisionHash: "a".repeat(64), approvalCurrent: false, plainText: "Guide content.",
+      brief: { facts: [] }, findings: [], feedback: "", languageReview: {},
+    }] } as unknown as Awaited<ReturnType<typeof getSeoOverview>>);
+    mount();
+    await screen.findByText("Daily scheduling");
+    fireEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    expect(screen.queryByRole("button", { name: "Delete draft" })).toBeNull();
+  });
+
   it("separates competitor research from approved ShelfMerch facts", async () => {
     vi.mocked(getSeoOverview).mockResolvedValue({
       ...fixture(),

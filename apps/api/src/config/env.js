@@ -202,6 +202,13 @@ const envSchema = z.object({
    * access JWT so local MCP Inspector keeps working. Ignored in production.
    */
   MCP_ALLOW_LEGACY_JWT: z.enum(['true', 'false']).optional().default('false'),
+
+  /** SEO growth engine — server-only; never expose via VITE_ or client bundles. */
+  ANTHROPIC_API_KEY: z.string().optional().default(''),
+  ANTHROPIC_MODEL: z.string().optional().default(''),
+  ANTHROPIC_API_VERSION: z.string().optional().default('2023-06-01'),
+  WINDSOR_API_KEY: z.string().optional().default(''),
+  SEMRUSH_API_KEY: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(processEnv);

@@ -36,6 +36,7 @@ import {
   generatedSchema,
   opportunityDecisionSchema,
   validateGenerated,
+  looksLikeUnsupportedClaim,
   articleHash,
 } from "../src/modules/seoGrowth/seoGrowth.domain.js";
 import {
@@ -290,6 +291,10 @@ describe("competitor knowledge isolation", () => {
   });
   it("preserves legacy business evidence and excludes competitor notes at approval and publication", async () => {
     const fact = await setupOpportunity();
+    await SeoSetting.updateOne(
+      { _id: "platform" },
+      { $set: { strictContentGuards: true } },
+    );
     await SeoKnowledge.collection.updateOne(
       { _id: fact._id },
       { $unset: { kind: "" } },
@@ -532,6 +537,106 @@ describe("grounded generation and recoverable persistence", () => {
       checked.findings.some((finding) => finding.code === "evidence"),
     ).toBe(true);
   });
+  it("allows planning ordinals in advice but blocks commercial claim patterns", () => {
+    expect(
+      looksLikeUnsupportedClaim(
+        "List three occasions and map recipients before setting tiers.",
+      ),
+    ).toBe(false);
+    expect(looksLikeUnsupportedClaim("Start with step 1: define goals.")).toBe(
+      false,
+    );
+    expect(
+      looksLikeUnsupportedClaim(
+        "ShelfMerch helps organizations manage employee gifting workflows.",
+      ),
+    ).toBe(true);
+    expect(looksLikeUnsupportedClaim("Budget about $50 per employee.")).toBe(
+      true,
+    );
+    expect(
+      looksLikeUnsupportedClaim("Integrations with HRIS systems are available."),
+    ).toBe(true);
+    const factId = "507f1f77bcf86cd799439011";
+    const brief = {
+      keyword,
+      facts: [
+        {
+          id: factId,
+          text: "ShelfMerch is a corporate gifting platform.",
+        },
+      ],
+      allowedLinks: ["/request-demo"],
+    };
+    const base = {
+      title: "How to plan a corporate gifting budget",
+      slug: "how-to-plan-a-corporate-gifting-budget",
+      metaTitle: "How to plan a corporate gifting budget",
+      metaDescription:
+        "A practical planning guide for enterprise owners building an annual corporate gifting budget.",
+      primaryKeyword: keyword,
+      supportingKeywords: [],
+      intent: "informational",
+      summary:
+        "A practical planning guide for enterprise owners building an annual corporate gifting budget.",
+      sections: [
+        {
+          heading: "Map your programs",
+          level: 2,
+          paragraphs: [
+            {
+              kind: "advice",
+              text: "List three occasions and map recipients before setting tiers.",
+              evidenceIds: [],
+            },
+          ],
+        },
+        {
+          heading: "Where ShelfMerch fits",
+          level: 2,
+          paragraphs: [
+            {
+              kind: "fact",
+              text: "ShelfMerch is a corporate gifting platform.",
+              evidenceIds: [factId],
+            },
+          ],
+        },
+      ],
+      internalLinks: [],
+      faqs: [],
+      cta: { text: "Book a ShelfMerch demo", href: "/request-demo" },
+      schemaType: "BlogPosting",
+      qualityNotes: [],
+    };
+    expect(
+      validateGenerated(base, brief).findings.some(
+        (finding) => finding.code === "unsupported_advice_claim",
+      ),
+    ).toBe(false);
+    const withBrandAdvice = structuredClone(base);
+    withBrandAdvice.sections[0].paragraphs[0] = {
+      kind: "advice",
+      text: "Use ShelfMerch to automate approvals across regions.",
+      evidenceIds: [],
+    };
+    const relaxed = validateGenerated(withBrandAdvice, brief);
+    expect(
+      relaxed.findings.some(
+        (finding) =>
+          finding.code === "unsupported_advice_claim" &&
+          finding.severity === "warning",
+      ),
+    ).toBe(true);
+    const strict = validateGenerated(withBrandAdvice, brief, { strict: true });
+    expect(
+      strict.findings.some(
+        (finding) =>
+          finding.code === "unsupported_advice_claim" &&
+          finding.severity === "error",
+      ),
+    ).toBe(true);
+  });
   it("resumes persisted generation after a crash without generating the article again", async () => {
     const fact = await setupOpportunity();
     await enqueueDailySeo({ manual: true });
@@ -694,6 +799,10 @@ describe("approval, authorization and native SEO publication", () => {
   });
   it("blocks retired evidence and unsupported claims even when a reviewer asks to approve", async () => {
     const fact = await setupOpportunity();
+    await SeoSetting.updateOne(
+      { _id: "platform" },
+      { $set: { strictContentGuards: true } },
+    );
     const job = await generateDraft(fact);
     const { user } = await tokenFor("platform_sales_manager");
     await SeoKnowledge.updateOne(

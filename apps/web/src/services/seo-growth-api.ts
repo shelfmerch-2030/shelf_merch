@@ -20,6 +20,8 @@ export type SeoSettings = {
   minimumScore: number;
   weights: { relevance: number; conversion: number; difficulty: number; volume: number };
   searchConsoleAccount: string;
+  runLanguageReview: boolean;
+  strictContentGuards: boolean;
 };
 export type SeoFact = {
   _id: string;

@@ -103,6 +103,8 @@ export const settingsInput = z
         (value) => !value || validProperty(value),
         "Only the ShelfMerch property is supported",
       ),
+    runLanguageReview: z.boolean(),
+    strictContentGuards: z.boolean(),
   })
   .strict()
   .partial();
@@ -352,11 +354,20 @@ async function stage(job, name, fn) {
 }
 function safeError(error) {
   // Provider adapters deliberately never propagate response bodies, request URLs, or headers.
-  return error instanceof ApiError
-    ? error.message
-    : error instanceof z.ZodError
-      ? "Provider or import output failed structured validation."
-      : "SEO stage failed; inspect the failure code and retry after correction.";
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof z.ZodError) {
+    const paths = [
+      ...new Set(
+        error.issues
+          .map((issue) => issue.path.filter(Boolean).join("."))
+          .filter(Boolean),
+      ),
+    ].slice(0, 6);
+    return paths.length
+      ? `Provider or import output failed structured validation (${paths.join(", ")}).`
+      : "Provider or import output failed structured validation.";
+  }
+  return "SEO stage failed; inspect the failure code and retry after correction.";
 }
 
 export async function runSeoJob(claimed, dependencies = {}) {
@@ -542,7 +553,7 @@ export async function runSeoJob(claimed, dependencies = {}) {
           await generate(
             opportunityDecisionSchema,
             {
-              task: "Check semantic overlap with all existing drafts and published content, business relevance, and the correct target page type before article generation. If a refresh or commercial page is more suitable, say so. Do not invent keyword metrics.",
+              task: "Check semantic overlap with all existing drafts and published content, business relevance, and the correct target page type before article generation. If a refresh or commercial page is more suitable, say so. Do not invent keyword metrics. Keep explanation and contentAngle each under 900 characters.",
               brief: job.brief,
             },
             reviewConfiguration,
@@ -622,7 +633,7 @@ export async function runSeoJob(claimed, dependencies = {}) {
       const generated = await generate(
         generatedSchema,
         {
-          task: "Generate an educational blog article using this verified brief",
+          task: "Generate an educational blog article using this verified brief. Prefer clear planning advice; use approved brief facts when stating product claims.",
           brief: job.brief,
           reviewerFeedback: job.generationFeedback,
         },
@@ -633,8 +644,23 @@ export async function runSeoJob(claimed, dependencies = {}) {
       await updateOwnedJob(job, { $set: { generated } });
     });
     job = await SeoJob.findById(job._id);
-    const checked = validateGenerated(job.generated, job.brief);
+    const checked = validateGenerated(job.generated, job.brief, {
+      strict: Boolean(settings.strictContentGuards),
+    });
     await stage(job, "quality", async () => {
+      if (!settings.runLanguageReview) {
+        await updateOwnedJob(job, {
+          $set: {
+            languageReview: {
+              findings: [],
+              intentMatch: true,
+              repetitive: false,
+              skipped: true,
+            },
+          },
+        });
+        return;
+      }
       const review = await generate(
         languageReviewSchema,
         {
@@ -681,12 +707,26 @@ export async function runSeoJob(claimed, dependencies = {}) {
           message,
         })),
       ];
-      if (!job.languageReview?.intentMatch || job.languageReview?.repetitive)
+      if (
+        settings.strictContentGuards &&
+        settings.runLanguageReview &&
+        (!job.languageReview?.intentMatch || job.languageReview?.repetitive)
+      )
         findings.push({
           severity: "error",
           code: "language_quality",
           message:
             "Language review flagged intent mismatch or repetitive content; revise before approval.",
+        });
+      else if (
+        settings.runLanguageReview &&
+        (!job.languageReview?.intentMatch || job.languageReview?.repetitive)
+      )
+        findings.push({
+          severity: "warning",
+          code: "language_quality",
+          message:
+            "Language review flagged intent mismatch or repetitive content.",
         });
       const persistenceDay = currentBudgetDay();
       await singleton(SeoDay, { scope: SCOPE, day: persistenceDay });
@@ -867,9 +907,12 @@ export async function reviewSeoContent(id, input, reviewer) {
     const facts = await SeoKnowledge.find(approvedBusinessKnowledge())
       .session(session)
       .lean();
-    const findings = reviewEditedArticle(article, content, facts);
+    const settings = await getSeoSettings();
+    const strict = Boolean(settings.strictContentGuards);
+    const findings = reviewEditedArticle(article, content, facts, { strict });
     if (
       input.action === "approve" &&
+      strict &&
       findings.some((item) => item.severity === "error")
     )
       throw new ApiError(
@@ -878,7 +921,11 @@ export async function reviewSeoContent(id, input, reviewer) {
         "SEO_QA_BLOCKED",
         findings,
       );
-    if (input.action === "approve" && !input.factsAndLinksChecked)
+    if (
+      input.action === "approve" &&
+      strict &&
+      !input.factsAndLinksChecked
+    )
       throw new ApiError(
         422,
         "Explicit factual and link review is required.",
@@ -953,6 +1000,7 @@ export async function overview() {
             article,
             content,
             knowledge.filter(isApprovedBusinessFact),
+            { strict: Boolean(settings.strictContentGuards) },
           )
         : content.findings,
       article,

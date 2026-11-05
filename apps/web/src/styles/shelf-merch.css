@@ -5804,6 +5804,10 @@ button.thumb{font:inherit;color:inherit}
 }
 
 .send-gift-modal .modal-pad{padding:26px 28px}
+.send-gift-modal--kit{
+  max-height:calc(100dvh - 32px);
+  overflow-y:auto;
+}
 .send-gift-modal.send-gift-modal--choose{
   max-width:440px!important;
   padding:0!important;
@@ -5940,6 +5944,9 @@ button.thumb{font:inherit;color:inherit}
   max-height:min(48vh,320px);
   overflow:auto;
   padding-right:2px;
+}
+.send-gift-curated-kits > .grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))!important;
 }
 .send-gift-kit-list{
   display:flex;

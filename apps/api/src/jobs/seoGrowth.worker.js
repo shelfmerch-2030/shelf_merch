@@ -22,8 +22,18 @@ export async function startSeoGrowthWorker() {
     SeoKnowledge,
     SeoDay,
     SeoSnapshot,
-  ])
-    await Model.createIndexes();
+  ]) {
+    try {
+      await Model.createIndexes();
+    } catch (err) {
+      // Existing duplicate rows can block a unique index build; keep the worker up so
+      // queued jobs still process, and surface the conflict for an operator cleanup.
+      logger.error(
+        { err, model: Model.modelName },
+        "SEO index create failed; continuing without new indexes for this model",
+      );
+    }
+  }
   let active = null;
   const tick = () => {
     if (active) return active;

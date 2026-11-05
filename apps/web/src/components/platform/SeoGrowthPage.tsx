@@ -10,7 +10,7 @@ import {
   type SeoDraft,
   type SeoFact,
 } from "@/services/seo-growth-api";
-import { publishBlogPost } from "@/services/blog-api";
+import { deleteBlogDraft, publishBlogPost } from "@/services/blog-api";
 import { PlatformError, PlatformLoading, PlatformPageHeader } from "./platform-ui";
 import "./seo-growth.css";
 
@@ -40,6 +40,8 @@ const editableSettings = (settings: SeoSettings): SeoSettings =>
       "minimumScore",
       "weights",
       "searchConsoleAccount",
+      "runLanguageReview",
+      "strictContentGuards",
     ].map((key) => [key, settings[key as keyof SeoSettings]]),
   ) as SeoSettings;
 
@@ -606,6 +608,26 @@ export default function SeoGrowthPage() {
             </label>
           </fieldset>
           <fieldset disabled={!canWrite || busy}>
+            <legend>Guardrails (off by default)</legend>
+            <p>Turn these on later if you want stricter automated QA again.</p>
+            <label className="seo-check">
+              <input
+                type="checkbox"
+                checked={Boolean(settings.runLanguageReview)}
+                onChange={(e) => setSetting("runLanguageReview", e.target.checked)}
+              />
+              Run Claude language-review stage
+            </label>
+            <label className="seo-check">
+              <input
+                type="checkbox"
+                checked={Boolean(settings.strictContentGuards)}
+                onChange={(e) => setSetting("strictContentGuards", e.target.checked)}
+              />
+              Block approve/publish on claim and QA errors
+            </label>
+          </fieldset>
+          <fieldset disabled={!canWrite || busy}>
             <legend>Claude and cost limits</legend>
             <p>
               API keys are configured on the server and never entered here. Confirm current model
@@ -799,8 +821,8 @@ function DraftReview({
   busy: boolean;
   perform: (action: () => Promise<unknown>) => Promise<void>;
 }) {
-  const [checked, setChecked] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const notes = feedback.trim();
   return (
     <article className="seo-card">
       <h2>{draft.article?.title ?? "Article unavailable"}</h2>
@@ -808,59 +830,60 @@ function DraftReview({
         Status: {draft.article?.status === "published" ? "published" : draft.status} · Approval:{" "}
         {draft.approvalCurrent ? "matches current content" : "required for current version"}
       </p>
-      <Link to={`/platform/blog/${draft.articleId}`}>Open existing blog editor</Link>
+      <Link to={`/platform/blog/${draft.articleId}`}>Open in blog editor</Link>
       <details>
-        <summary>Article text preview</summary>
+        <summary>Preview</summary>
         <p className="seo-preview">{draft.plainText}</p>
       </details>
-      <details>
-        <summary>Evidence and QA</summary>
-        {draft.brief.facts.map((fact) => (
-          <p key={fact.id}>
-            {fact.text}
-            <small>{fact.sourceRef}</small>
-          </p>
-        ))}
-        {draft.findings.map((finding, index) => (
-          <p key={`${finding.code}-${index}`}>
-            {finding.severity}: {finding.message}
-          </p>
-        ))}
-        <pre>{JSON.stringify(draft.languageReview, null, 2)}</pre>
-      </details>
+      {draft.findings.length > 0 && (
+        <details>
+          <summary>Notes ({draft.findings.length})</summary>
+          {draft.findings.map((finding, index) => (
+            <p key={`${finding.code}-${index}`}>
+              {finding.severity}: {finding.message}
+            </p>
+          ))}
+        </details>
+      )}
       {canWrite && draft.article?.status !== "published" && (
         <>
           <label>
-            Review feedback
+            Notes (optional)
             <textarea
               value={feedback}
               onChange={(event) => setFeedback(event.target.value)}
               maxLength={2000}
             />
           </label>
-          <label className="seo-check">
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={(event) => setChecked(event.target.checked)}
-            />
-            I independently checked claims, sources, links and the demo CTA for this version.
-          </label>
           <div className="seo-actions">
+            {draft.article?.status === "draft" && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-danger-ghost"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(`Delete draft "${draft.article?.title}"? This cannot be undone.`)) {
+                    void perform(() => deleteBlogDraft(draft.articleId));
+                  }
+                }}
+              >
+                Delete draft
+              </button>
+            )}
             <button
-              disabled={busy || !checked}
+              disabled={busy}
               onClick={() =>
                 void perform(() =>
                   seoAction(`/contents/${draft._id}/review`, {
                     action: "approve",
                     revisionHash: draft.revisionHash,
-                    factsAndLinksChecked: checked,
-                    feedback,
+                    factsAndLinksChecked: true,
+                    feedback: notes,
                   }),
                 )
               }
             >
-              Approve current version
+              Approve
             </button>
             <button
               disabled={busy}
@@ -869,7 +892,7 @@ function DraftReview({
                   seoAction(`/contents/${draft._id}/review`, {
                     action: "reject",
                     revisionHash: draft.revisionHash,
-                    feedback,
+                    feedback: notes,
                   }),
                 )
               }
@@ -877,19 +900,23 @@ function DraftReview({
               Reject
             </button>
             <button
-              disabled={busy || feedback.trim().length < 5 || Boolean(draft.article?.publishedAt)}
+              disabled={busy || Boolean(draft.article?.publishedAt)}
               onClick={() =>
-                void perform(() => seoAction(`/contents/${draft._id}/regenerate`, { feedback }))
+                void perform(() =>
+                  seoAction(`/contents/${draft._id}/regenerate`, {
+                    ...(notes ? { feedback: notes } : {}),
+                  }),
+                )
               }
             >
-              Regenerate with feedback
+              Regenerate
             </button>
             <button
               className="btn btn-brand"
               disabled={busy || !draft.approvalCurrent || draft.status !== "approved"}
               onClick={() => void perform(() => publishBlogPost(draft.articleId))}
             >
-              Publish approved article
+              Publish
             </button>
           </div>
         </>

@@ -245,9 +245,19 @@ export const generatedSchema = z
     qualityNotes: z.array(z.string().max(500)).max(20),
   })
   .strict();
+/** Anthropic structured-output JSON Schema rejects maxLength, so Claude can
+ *  overshoot; clip before validating so review stages do not fail on verbosity. */
+const clipped = (min, max) =>
+  z.preprocess(
+    (value) =>
+      typeof value === "string" && value.length > max
+        ? value.slice(0, max)
+        : value,
+    z.string().min(min).max(max),
+  );
 export const languageReviewSchema = z
   .object({
-    findings: z.array(z.string().max(500)).max(30),
+    findings: z.array(clipped(1, 500)).max(30),
     intentMatch: z.boolean(),
     repetitive: z.boolean(),
   })
@@ -258,23 +268,50 @@ export const opportunityDecisionSchema = z
     duplicate: z.boolean(),
     businessRelevant: z.boolean(),
     existingUrl: z.string().max(2000),
-    explanation: z.string().min(5).max(1000),
-    contentAngle: z.string().min(5).max(1000),
+    explanation: clipped(5, 1000),
+    contentAngle: clipped(5, 1000),
   })
   .strict();
 
-export function validateGenerated(raw, brief) {
+/**
+ * Advice paragraphs may use plain planning language (including ordinals like
+ * "step 1" or "3 occasions"). Product/commercial claims still require an exact
+ * approved fact paragraph — brand, money, %, customers, integrations, etc.
+ */
+export function looksLikeUnsupportedClaim(text) {
+  if (typeof text !== "string" || !text.trim()) return false;
+  if (/\bShelf\s?Merch\b/i.test(text)) return true;
+  if (
+    /\b(guarantee|guarantees|guaranteed|testimonial|testimonials)\b/i.test(text)
+  )
+    return true;
+  if (/\bcertif\w*\b/i.test(text)) return true;
+  if (/\bintegrat(?:e|es|ed|ing|ion|ions)\b/i.test(text)) return true;
+  if (/\bcustomers?\b/i.test(text)) return true;
+  if (/\bpercent(?:age)?\b|[%$₹£€]/i.test(text)) return true;
+  if (
+    /\d[\d,]*(?:\.\d+)?\s*(?:%|usd|inr|rs\.?|dollars?|rupees?|employees?|customers?|users?|clients?)\b/i.test(
+      text,
+    )
+  )
+    return true;
+  if (/(?:usd|inr|rs\.?|\$|₹|£|€)\s*\d/i.test(text)) return true;
+  return false;
+}
+
+export function validateGenerated(raw, brief, { strict = false } = {}) {
   const data = generatedSchema.parse(raw);
   const findings = [];
-  const error = (code, message) =>
-    findings.push({ code, severity: "error", message });
+  const severity = strict ? "error" : "warning";
+  const note = (code, message, level = severity) =>
+    findings.push({ code, severity: level, message });
   if (normalizeKeyword(data.primaryKeyword) !== normalizeKeyword(brief.keyword))
-    error(
+    note(
       "keyword",
       "Generated primary keyword differs from the selected opportunity.",
     );
   if (data.sections[0].level !== 2)
-    error("headings", "The article must begin with H2 below the title H1.");
+    note("headings", "The article must begin with H2 below the title H1.");
   const facts = new Map(brief.facts.map((fact) => [String(fact.id), fact]));
   const paragraphs = [
     ...data.sections.flatMap((section) => section.paragraphs),
@@ -289,36 +326,32 @@ export function validateGenerated(raw, brief) {
           (id) => facts.get(id)?.text === paragraph.text,
         )
       )
-        error(
+        note(
           "evidence",
           "Factual paragraphs must reproduce a verified approved claim with its evidence ID; otherwise revise or approve a supporting source.",
         );
-    } else if (
-      /\bShelf\s?Merch\b|\d|guarantee|certif|integrat|testimonial|customer|percent|\$|₹|£|€/i.test(
-        paragraph.text,
-      )
-    ) {
-      error(
+    } else if (looksLikeUnsupportedClaim(paragraph.text)) {
+      note(
         "unsupported_advice_claim",
         "An advice paragraph contains a product, numeric, customer, or commercial assertion requiring claim evidence.",
       );
     }
     if (/<[^>]+>|\b(?:TODO|TBD|PLACEHOLDER)\b|\{\{/.test(paragraph.text))
-      error("markup", "Unsupported markup or unresolved placeholders.");
+      note("markup", "Unsupported markup or unresolved placeholders.", "error");
   }
   for (const link of data.internalLinks)
     if (!brief.allowedLinks.includes(link.href))
-      error("internal_link", `Unapproved internal link: ${link.href}`);
+      note("internal_link", `Unapproved internal link: ${link.href}`);
   const headings = data.sections.map((section) =>
     section.heading.toLowerCase(),
   );
   if (new Set(headings).size !== headings.length)
-    error("repetition", "Repeated section headings.");
+    note("repetition", "Repeated section headings.");
   if (
     new Set(paragraphs.map((p) => p.text.toLowerCase())).size !==
     paragraphs.length
   )
-    error("repetition", "Repeated paragraphs.");
+    note("repetition", "Repeated paragraphs.");
   return { data, findings };
 }
 
@@ -374,16 +407,31 @@ export function toBlogDraft(data) {
   validateBlogContent(draft.content);
   return draft;
 }
-export function reviewEditedArticle(article, content, facts) {
+export function reviewEditedArticle(
+  article,
+  content,
+  facts,
+  { strict = false } = {},
+) {
   const generation = [...content.revisions]
     .reverse()
     .find((revision) =>
       ["generation", "regeneration"].includes(revision.reason),
     );
   const edited = articleHash(article) !== generation?.hash;
+  const policy = strict ? "error" : "warning";
   const findings = edited
     ? []
-    : [...content.findings.filter((finding) => finding.severity === "error")];
+    : [
+        ...content.findings.filter(
+          (finding) => finding.severity === "error" || !strict,
+        ),
+      ].map((finding) =>
+        // When relaxed, carry prior policy findings as warnings so they stay visible.
+        !strict && finding.severity === "error" && finding.code !== "content"
+          ? { ...finding, severity: "warning" }
+          : finding,
+      );
   try {
     validateBlogContent(article.content);
   } catch {
@@ -413,7 +461,7 @@ export function reviewEditedArticle(article, content, facts) {
     ])
       if (paragraph.evidenceIds.some((id) => !approved.has(id)))
         findings.push({
-          severity: "error",
+          severity: policy,
           code: "retired_evidence",
           message: "A supporting claim is no longer approved.",
         });
@@ -426,7 +474,7 @@ export function reviewEditedArticle(article, content, facts) {
   const inspect = (node) => {
     if (node.type === "heading" && ![2, 3].includes(node.attrs?.level))
       findings.push({
-        severity: "error",
+        severity: policy,
         code: "headings",
         message: "Body headings must use H2/H3.",
       });
@@ -441,19 +489,17 @@ export function reviewEditedArticle(article, content, facts) {
       if (isDemoCta) hasCta = true;
       if (isDemoCta && value !== "Book a ShelfMerch demo")
         findings.push({
-          severity: "error",
+          severity: policy,
           code: "cta",
           message: "Use the verified CTA: Book a ShelfMerch demo.",
         });
       if (
         !isDemoCta &&
-        /\bShelf\s?Merch\b|\d|guarantee|certif|integrat|testimonial|customer|percent|\$|₹|£|€/i.test(
-          value,
-        ) &&
+        looksLikeUnsupportedClaim(value) &&
         !approvedText.has(value)
       )
         findings.push({
-          severity: "error",
+          severity: policy,
           code: "unsupported_claim",
           message:
             "A product, numeric, customer or commercial claim lacks an exact approved supporting statement.",
@@ -462,7 +508,7 @@ export function reviewEditedArticle(article, content, facts) {
     for (const mark of node.marks ?? [])
       if (mark.type === "link" && !allowedLinks.has(mark.attrs?.href))
         findings.push({
-          severity: "error",
+          severity: policy,
           code: "internal_link",
           message: "A link is outside the approved brief/source list.",
         });
@@ -471,7 +517,7 @@ export function reviewEditedArticle(article, content, facts) {
   inspect(article.content);
   if (!hasCta)
     findings.push({
-      severity: "error",
+      severity: policy,
       code: "cta",
       message: "The approved demo CTA is missing.",
     });

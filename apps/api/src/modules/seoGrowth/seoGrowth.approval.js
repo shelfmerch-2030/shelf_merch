@@ -1,5 +1,5 @@
 import { ApiError } from "../../utils/errors.js";
-import { SeoContent, SeoKnowledge, SCOPE } from "./seoGrowth.models.js";
+import { SeoContent, SeoKnowledge, SeoSetting, SCOPE } from "./seoGrowth.models.js";
 import { approvedBusinessKnowledge } from "./seoGrowth.knowledge.js";
 import { articleHash, reviewEditedArticle } from "./seoGrowth.domain.js";
 
@@ -23,9 +23,11 @@ export async function assertSeoPublication(article) {
       "SEO_APPROVAL_REQUIRED",
     );
   }
+  const settings = await SeoSetting.findById(SCOPE).lean();
+  if (!settings?.strictContentGuards) return;
   const facts = await SeoKnowledge.find(approvedBusinessKnowledge()).lean();
   if (
-    reviewEditedArticle(article, content, facts).some(
+    reviewEditedArticle(article, content, facts, { strict: true }).some(
       (finding) => finding.severity === "error",
     )
   )
