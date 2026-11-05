@@ -306,6 +306,9 @@ describe('POST /mcp catalog_search', () => {
       const listed = rpcBody(await mcpRequest(token, 'tools/list'));
       expect(listed.result.tools.map((tool) => tool.name)).toContain('catalog_search');
       const tool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
+      expect(tool.description).toContain('primaryImageUrl');
+      expect(tool.description).toContain('web search');
+      expect(tool.description).toContain('inspiration');
       expect(tool.annotations.readOnlyHint).toBe(true);
       expect(tool.annotations.destructiveHint).toBe(false);
       expect(tool.annotations.openWorldHint).toBe(false);
@@ -360,7 +363,60 @@ describe('POST /mcp catalog_search', () => {
     }
     expect(payload).not.toContain('CAP-1-S');
     expect(result.content[0].text).toContain('GST-inclusive');
+    expect(result.content[0].text).toContain('ShelfMerch catalog');
+    expect(result.content[0].text).toContain('do not replace');
+    expect(result.content[0].text).toContain('inspiration');
     expect(result.isError).not.toBe(true);
+  });
+
+  it('returns the stored catalog image and keeps external ideas out of inventory', async () => {
+    const image = 'https://cdn.shopify.com/s/files/1/example/Blue_Travel_Laptop_Backpack.jpg?v=1';
+    const backpack = await CatalogProduct.create({
+      sku: 'BAG-1',
+      name: 'Blue Travel Laptop Backpack',
+      category: 'Bags',
+      basePriceInr: 1499,
+      gstRate: 18,
+      status: 'active',
+      primaryImageUrl: image,
+      source: { provider: 'shopify' },
+      variants: [{ sku: 'BAG-1-OS', color: 'Blue', size: 'OS', stock: 6, enabled: true }],
+    });
+    await CatalogProduct.create({
+      sku: 'BAG-2',
+      name: 'Plain Tote',
+      category: 'Bags',
+      basePriceInr: 499,
+      status: 'active',
+      primaryImageUrl: '',
+      source: { provider: 'manual' },
+    });
+    const tenant = await makeTenant();
+    const { token } = await makeUser(tenant, 'company_admin', 'tenant');
+
+    const found = await callCatalog(token, { query: 'Blue Travel Laptop Backpack' });
+    expect(found.structuredContent.items).toHaveLength(1);
+    const item = found.structuredContent.items[0];
+    expect(item.id).toBe(String(backpack._id));
+    expect(item.name).toBe('Blue Travel Laptop Backpack');
+    expect(item.sellingPriceInr).toBe(1499);
+    expect(item.primaryImageUrl).toBe(image);
+    expect(item.variants).toEqual([
+      expect.objectContaining({ sku: 'BAG-1-OS', stock: 6, sellingPriceInr: 1499 }),
+    ]);
+    expect(found.content[0].text).toContain(image);
+    expect(found.content[0].text).toContain(`id ${backpack._id}`);
+    expect(found.content[0].text).toContain('do not replace');
+    expect(found.content[0].text).toContain('inspiration');
+    expect(found.content[0].text).not.toContain('Plain Tote');
+    const link = found.content.find((block) => block.type === 'resource_link');
+    expect(link.uri).toBe(image);
+    expect(link.mimeType).toBe('image/jpeg');
+
+    const plain = await callCatalog(token, { query: 'Plain Tote' });
+    expect(plain.structuredContent.items[0].primaryImageUrl).toBe('');
+    expect(plain.content[0].text).toContain('Official image: none. Do not substitute an external image.');
+    expect(plain.content.some((block) => block.type === 'resource_link')).toBe(false);
   });
 
   it('treats a dotted query as literal text', async () => {

@@ -15,6 +15,17 @@ const MAX_LIMIT = 25;
  * Catalog selling prices are GST-inclusive rupees. Search compares those
  * stored amounts and never recomputes or strips GST.
  */
+export const CATALOG_INVENTORY_RULE = [
+  'Results are real ShelfMerch catalog products.',
+  'Use only the ids, prices, variants, stock, and primaryImageUrl values in the result.',
+  'Do not invent product ids, prices, variants, or stock.',
+  'primaryImageUrl is the official catalog image.',
+  'Display that URL and do not replace it with an image from web search.',
+  'If the image cannot be rendered, show the URL itself.',
+  'A product that is not in the result is not ShelfMerch inventory and must not be used in store, campaign, or order tools.',
+  'If the user asked for general gifting ideas, label anything outside this result as inspiration and do not claim it can be ordered through ShelfMerch.',
+].join(' ');
+
 export const CATALOG_SEARCH_DESCRIPTION = [
   'Search the ShelfMerch selling catalog.',
   'sellingPriceInr is the GST-inclusive price in rupees: the product base price, or a variant price override when one is set.',
@@ -24,6 +35,7 @@ export const CATALOG_SEARCH_DESCRIPTION = [
   'If the base price is outside the range, sellingPriceInr is the lowest matching variant price.',
   'Results are active products a tenant can order. Disabled variants are omitted.',
   'Cost, margin, and supplier fields are not returned.',
+  CATALOG_INVENTORY_RULE,
 ].join(' ');
 
 export function escapeCatalogSearch(search) {
@@ -222,16 +234,69 @@ export async function searchCatalog(input = {}) {
   return paginatedResponse(items, total, { page, limit });
 }
 
+function imageMimeType(url) {
+  let path = url;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    // keep the raw string
+  }
+  const ext = path.split('.').pop()?.toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return undefined;
+}
+
+export function officialImageNote(url) {
+  const value = typeof url === 'string' ? url.trim() : '';
+  if (!value) return 'Official image: none. Do not substitute an external image.';
+  return `Official image: ${value}`;
+}
+
+/** URL-oriented image block. MCP image content requires downloaded bytes, which these tools do not fetch. */
+export function officialImageLink(item, url, description) {
+  const value = typeof url === 'string' ? url.trim() : '';
+  if (!/^https?:\/\//i.test(value)) return null;
+  const link = {
+    type: 'resource_link',
+    name: item.name || item.sku || 'Catalog product',
+    uri: value,
+    description,
+  };
+  const mimeType = imageMimeType(value);
+  if (mimeType) link.mimeType = mimeType;
+  return link;
+}
+
 export function catalogSearchText(output) {
   const { items, pagination } = output;
-  const header = `Catalog matches. Prices are GST-inclusive rupees. Page ${pagination.page} of ${pagination.totalPages} (${pagination.total} total).`;
+  const header = [
+    'ShelfMerch catalog inventory. Prices are GST-inclusive rupees.',
+    `Page ${pagination.page} of ${pagination.totalPages} (${pagination.total} total).`,
+    CATALOG_INVENTORY_RULE,
+  ].join(' ');
   if (!items.length) return `${header}\nNo matching products.`;
   const lines = items.map((item) => {
     const variants = item.variants
-      .map((variant) => `${variant.sku || variant.size || variant.color || 'variant'} ₹${variant.sellingPriceInr}`)
+      .map((variant) => `${variant.sku || variant.size || variant.color || 'variant'} ₹${variant.sellingPriceInr} stock ${variant.stock}`)
       .join(', ');
     const variantNote = variants ? ` variants: ${variants}` : '';
-    return `${item.name} [${item.sku}] ₹${item.sellingPriceInr} incl. GST (${item.gstRate}%) ${item.category}${variantNote}`;
+    return `${item.name} [${item.sku}] id ${item.id} ₹${item.sellingPriceInr} incl. GST (${item.gstRate}%) ${item.category}${variantNote} ${officialImageNote(item.primaryImageUrl)}`;
   });
   return [header, ...lines].join('\n');
+}
+
+export function catalogSearchContent(output) {
+  const links = output.items
+    .map((item) =>
+      officialImageLink(
+        item,
+        item.primaryImageUrl,
+        `Official ShelfMerch catalog image for ${item.name || item.sku}. Do not replace this URL.`,
+      ),
+    )
+    .filter(Boolean);
+  return [{ type: 'text', text: catalogSearchText(output) }, ...links];
 }
