@@ -84,6 +84,7 @@ import {
 } from './middleware/zohoPeopleEmbed.middleware.js';
 import { sendPrivacyPolicy } from './modules/legal/privacyPolicy.controller.js';
 import { sendTermsOfService } from './modules/legal/termsOfService.controller.js';
+import { sendSlackTerms } from './modules/legal/slackTerms.controller.js';
 import { sendDocsPage, DOCS_PUBLIC_ROUTES } from './modules/docs/docs.controller.js';
 import blogRoutes from './modules/blog/blog.routes.js';
 import { sendBlogArticle, sendBlogIndex, sendBlogMedia } from './modules/blog/blogPublic.controller.js';
@@ -421,6 +422,7 @@ export function createApp() {
   /** Public legal pages — full HTML (indexable without SPA bootstrap). */
   app.get('/legal/privacy-policy', sendPrivacyPolicy);
   app.get('/legal/terms-of-service', sendTermsOfService);
+  app.get('/legal/slack-terms-of-service', sendSlackTerms);
 
   /** Public Zoho People documentation — full HTML for Marketplace reviewers & customers. */
   for (const routePath of DOCS_PUBLIC_ROUTES) {

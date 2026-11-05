@@ -137,6 +137,13 @@
       "canonicalPath": "/legal/terms-of-service"
     },
     {
+      "path": "/legal/slack-terms-of-service",
+      "title": "Slack Integration Terms of Service | ShelfMerch",
+      "description": "Terms of Service for the ShelfMerch Slack integration: workspace authorization, permissions, notifications, privacy and disconnection.",
+      "robots": "noindex, follow",
+      "canonicalPath": "/legal/slack-terms-of-service"
+    },
+    {
       "path": "/docs/zoho-people",
       "title": "ShelfMerch for Zoho People · Documentation",
       "description": "Sync employees from Zoho People into ShelfMerch for onboarding kits, rewards, and corporate gifting."

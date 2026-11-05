@@ -73,6 +73,11 @@ describe('SPA document SEO', () => {
     expect(resolveSpaSeo(catalog, '/terms-condition').canonical).toBe('https://shelfmerch.io/legal/terms-of-service');
     expect(resolveSpaSeo(catalog, '/legal/terms-of-service').mode).toBe('public');
     expect(resolveSpaSeo(catalog, '/legal/terms-of-service').canonical).toBe('https://shelfmerch.io/legal/terms-of-service');
+    const slack = resolveSpaSeo(catalog, '/legal/slack-terms-of-service');
+    expect(slack.mode).toBe('public');
+    expect(slack.canonical).toBe('https://shelfmerch.io/legal/slack-terms-of-service');
+    expect(slack.robots).toBe('noindex, follow');
+    expect(documentKind('/legal/slack-terms-of-service')).toBe('shell');
     expect(documentKind('/terms-condition')).toBe('shell');
     expect(documentKind('/terms-condition/shops')).toBe('not-found');
     for (const alias of ['/terms', '/terms-condition', '/terms/index.html']) {

@@ -410,6 +410,10 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/features/legal/TermsOfServicePage"), "TermsOfServicePage"),
       },
       {
+        path: "legal/slack-terms-of-service",
+        lazy: page(() => import("@/features/legal/SlackTermsOfServicePage"), "SlackTermsOfServicePage"),
+      },
+      {
         path: "docs/zoho-people",
         lazy: page(
           () => import("@/features/docs/zoho-people/ZohoPeopleDocsHomePage"),

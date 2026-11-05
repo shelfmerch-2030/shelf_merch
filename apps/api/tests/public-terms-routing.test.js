@@ -30,6 +30,7 @@ import { createApp } from '../src/app.js';
 import { Tenant } from '../src/modules/tenants/tenant.model.js';
 
 const canonical = '/legal/terms-of-service';
+const slackCanonical = '/legal/slack-terms-of-service';
 const agents = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36',
   'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
@@ -51,6 +52,31 @@ describe('public Terms routing through the production Express document handler',
 
   for (const agent of agents) {
     for (const method of ['get', 'head']) {
+      it(`${method.toUpperCase()} Slack Terms are public, complete HTML (${agent.split(' ')[0]})`, async () => {
+        const res = await request(app)[method](slackCanonical).set('User-Agent', agent);
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toMatch(/text\/html/);
+        expect(res.headers.location).toBeUndefined();
+        expect(res.headers['x-robots-tag']).toBe('noindex, follow');
+        expect(res.headers['cache-control']).toBe('private, no-store');
+        expect(tenantLookup).not.toHaveBeenCalled();
+        if (method === 'get') {
+          expect(res.text).toContain('<title>Slack Integration Terms of Service | ShelfMerch</title>');
+          expect(res.text).toContain('rel="canonical" href="https://shelfmerch.io/legal/slack-terms-of-service"');
+          for (const section of ['about', 'scope', 'authorization', 'use', 'permissions', 'privacy', 'disconnect', 'availability', 'ip', 'termination', 'liability', 'support', 'approval']) {
+            expect(res.text).toContain(`id="slack-${section}"`);
+          }
+          expect(res.text).toContain('Chitlu Innovations Private Limited');
+          expect(res.text).toContain('support@shelfmerch.com');
+          expect(res.text).toContain('Draft for owner review');
+          expect(res.text).toContain('channels:read');
+          expect(res.text).toContain('chat:write.public');
+          expect(res.text).not.toMatch(/Zoho|Last updated:/i);
+          expect(res.text).not.toContain('slt-desktop-nav');
+        } else {
+          expect(res.text).toBeUndefined();
+        }
+      });
       for (const alias of ['/terms', '/terms-condition', '/terms/index.html', '/terms/', '/terms-condition/']) {
         it(`${method.toUpperCase()} ${alias} permanently redirects without auth (${agent.split(' ')[0]})`, async () => {
           const redirect = await request(app)[method](`${alias}?source=slack`).set('User-Agent', agent);
@@ -71,7 +97,7 @@ describe('public Terms routing through the production Express document handler',
         });
       }
       it(`${method.toUpperCase()} canonical, homepage, privacy and workspace routes still work (${agent.split(' ')[0]})`, async () => {
-        for (const url of [canonical, '/', '/privacy', '/legal/privacy-policy', '/routing-test-workspace', '/routing-test-workspace/shops']) {
+        for (const url of [canonical, slackCanonical, '/', '/privacy', '/legal/privacy-policy', '/routing-test-workspace', '/routing-test-workspace/shops']) {
           const res = await request(app)[method](url).set('User-Agent', agent);
           expect(res.status, url).toBe(200);
           expect(res.headers['content-type']).toMatch(/text\/html/);
