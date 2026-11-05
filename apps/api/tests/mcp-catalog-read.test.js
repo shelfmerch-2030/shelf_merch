@@ -208,19 +208,14 @@ describe('catalog read tools', () => {
       ]);
       expect(item.variants).toEqual([
         expect.objectContaining({ sku: 'MUG-DETAIL-WHT', sellingPriceInr: 118, stock: 4 }),
-        expect.objectContaining({ sku: 'MUG-DETAIL-LUX', sellingPriceInr: 236, stock: 2 }),
+        expect.objectContaining({ sku: 'MUG-DETAIL-LUX', sellingPriceInr: 118, stock: 2 }),
       ]);
       expectRedacted(result);
       expect(result.content[0].text).toContain('ShelfMerch catalog');
       expect(result.content[0].text).toContain(PUBLIC_IMAGE);
       expect(result.content[0].text).toContain('inspiration');
       expect(result.content[0].text).toContain('https://cdn.example/mug-side-wave1.jpg');
-      const links = result.content.filter((block) => block.type === 'resource_link');
-      expect(links.map((block) => block.uri)).toEqual([
-        PUBLIC_IMAGE,
-        'https://cdn.example/mug-side-wave1.jpg',
-      ]);
-      expect(links[0].description).toContain('Do not replace');
+      expect(result.content.some((block) => block.type === 'resource_link')).toBe(false);
     }
   });
 

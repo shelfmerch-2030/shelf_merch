@@ -28,11 +28,9 @@ export const CATALOG_INVENTORY_RULE = [
 
 export const CATALOG_SEARCH_DESCRIPTION = [
   'Search the ShelfMerch selling catalog.',
-  'sellingPriceInr is the GST-inclusive price in rupees: the product base price, or a variant price override when one is set.',
-  'minSellingPriceInr and maxSellingPriceInr filter those inclusive rupee prices and do not remove GST.',
-  'A product matches when its base selling price is inside the range, or an enabled variant override is.',
-  'Every selling price in the result is inside that range. Variants outside it are omitted.',
-  'If the base price is outside the range, sellingPriceInr is the lowest matching variant price.',
+  'sellingPriceInr is the GST-inclusive catalog selling price in rupees and is not reduced by removing GST.',
+  'Every variant uses that same selling price. Selecting a color or size does not change it.',
+  'minSellingPriceInr and maxSellingPriceInr filter that catalog selling price and do not remove GST.',
   'Results are active products a tenant can order. Disabled variants are omitted.',
   'Cost, margin, and supplier fields are not returned.',
   CATALOG_INVENTORY_RULE,
@@ -42,25 +40,13 @@ export function escapeCatalogSearch(search) {
   return String(search ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Inclusive-rupee range. Variant overrides count only when the variant is enabled. */
+/** Inclusive-rupee range against the catalog selling price checkout charges. */
 export function inclusiveSellingPriceFilter(minSellingPriceInr, maxSellingPriceInr) {
   if (minSellingPriceInr == null && maxSellingPriceInr == null) return {};
   const range = {};
   if (minSellingPriceInr != null) range.$gte = minSellingPriceInr;
   if (maxSellingPriceInr != null) range.$lte = maxSellingPriceInr;
-  return {
-    $or: [
-      { basePriceInr: range },
-      {
-        variants: {
-          $elemMatch: {
-            enabled: { $ne: false },
-            priceOverrideInr: range,
-          },
-        },
-      },
-    ],
-  };
+  return { basePriceInr: range };
 }
 
 export function catalogSearchMongoFilter(input = {}) {
@@ -107,9 +93,19 @@ export function applyPriceLimits(item, minSellingPriceInr, maxSellingPriceInr) {
   return { ...item, sellingPriceInr, variants };
 }
 
+/**
+ * Storefront checkout sets unitPriceInr from basePriceInr after the color
+ * and size are chosen. priceOverrideInr is not part of that charge.
+ */
+export function variantSellingPrices(basePriceInr, variants) {
+  const base = rupees(basePriceInr);
+  return (variants ?? []).map(() => base);
+}
+
 export function toCatalogSearchItem(product) {
   const visible = withEnabledVariants(product);
   const sellingPriceInr = rupees(visible.basePriceInr);
+  const variantPrices = variantSellingPrices(visible.basePriceInr, visible.variants);
   return {
     id: String(visible._id),
     sku: visible.sku ?? '',
@@ -122,11 +118,11 @@ export function toCatalogSearchItem(product) {
     gstRate: Number(visible.gstRate ?? 18),
     moq: Number(visible.moq ?? 1),
     primaryImageUrl: visible.primaryImageUrl ?? '',
-    variants: (visible.variants ?? []).map((variant) => ({
+    variants: (visible.variants ?? []).map((variant, index) => ({
       sku: variant.sku ?? '',
       color: variant.color ?? '',
       size: variant.size ?? '',
-      sellingPriceInr: rupees(variant.priceOverrideInr ?? visible.basePriceInr),
+      sellingPriceInr: variantPrices[index],
       stock: Number(variant.stock ?? 0),
     })),
   };
@@ -234,40 +230,10 @@ export async function searchCatalog(input = {}) {
   return paginatedResponse(items, total, { page, limit });
 }
 
-function imageMimeType(url) {
-  let path = url;
-  try {
-    path = new URL(url).pathname;
-  } catch {
-    // keep the raw string
-  }
-  const ext = path.split('.').pop()?.toLowerCase();
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'webp') return 'image/webp';
-  if (ext === 'gif') return 'image/gif';
-  return undefined;
-}
-
 export function officialImageNote(url) {
   const value = typeof url === 'string' ? url.trim() : '';
   if (!value) return 'Official image: none. Do not substitute an external image.';
   return `Official image: ${value}`;
-}
-
-/** URL-oriented image block. MCP image content requires downloaded bytes, which these tools do not fetch. */
-export function officialImageLink(item, url, description) {
-  const value = typeof url === 'string' ? url.trim() : '';
-  if (!/^https?:\/\//i.test(value)) return null;
-  const link = {
-    type: 'resource_link',
-    name: item.name || item.sku || 'Catalog product',
-    uri: value,
-    description,
-  };
-  const mimeType = imageMimeType(value);
-  if (mimeType) link.mimeType = mimeType;
-  return link;
 }
 
 export function catalogSearchText(output) {
@@ -289,14 +255,7 @@ export function catalogSearchText(output) {
 }
 
 export function catalogSearchContent(output) {
-  const links = output.items
-    .map((item) =>
-      officialImageLink(
-        item,
-        item.primaryImageUrl,
-        `Official ShelfMerch catalog image for ${item.name || item.sku}. Do not replace this URL.`,
-      ),
-    )
-    .filter(Boolean);
-  return [{ type: 'text', text: catalogSearchText(output) }, ...links];
+  // The official URL stays in the text. A resource_link is not an embedded
+  // image, and this server does not serve resources/read for the CDN file.
+  return [{ type: 'text', text: catalogSearchText(output) }];
 }

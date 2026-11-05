@@ -331,19 +331,13 @@ describe('POST /mcp catalog_search', () => {
       maxSellingPriceInr: 120,
     });
     const skus = result.structuredContent.items.map((item) => item.sku).sort();
-    expect(skus).toEqual(['CAP-1', 'MUG-1', 'SEED-1']);
+    expect(skus).toEqual(['MUG-1', 'SEED-1']);
 
     const mug = result.structuredContent.items.find((item) => item.sku === 'MUG-1');
     expect(mug.sellingPriceInr).toBe(118);
     expect(mug.gstRate).toBe(18);
-    expect(mug.variants.map((variant) => variant.sku)).toEqual(['MUG-1-WHT']);
-    expect(mug.variants[0].sellingPriceInr).toBe(118);
-
-    const cap = result.structuredContent.items.find((item) => item.sku === 'CAP-1');
-    expect(cap.sellingPriceInr).toBe(115);
-    expect(cap.variants).toEqual([
-      expect.objectContaining({ sku: 'CAP-1-M', size: 'M', sellingPriceInr: 115, stock: 2 }),
-    ]);
+    expect(mug.variants.map((variant) => variant.sku).sort()).toEqual(['MUG-1-CHEAP', 'MUG-1-LUX', 'MUG-1-WHT']);
+    expect(mug.variants.map((variant) => variant.sellingPriceInr)).toEqual([118, 118, 118]);
 
     const payload = JSON.stringify(result);
     expect(payload).not.toContain('costPriceInr');
@@ -351,8 +345,7 @@ describe('POST /mcp catalog_search', () => {
     expect(payload).not.toContain('Secret Mill');
     expect(payload).not.toContain('marginInr');
     expect(payload).not.toContain('MUG-1-OLD');
-    expect(payload).not.toContain('MUG-1-LUX');
-    expect(payload).not.toContain('MUG-1-CHEAP');
+    expect(payload).not.toContain('CAP-1');
     for (const item of result.structuredContent.items) {
       expect(item.sellingPriceInr).toBeGreaterThanOrEqual(110);
       expect(item.sellingPriceInr).toBeLessThanOrEqual(120);
@@ -409,14 +402,92 @@ describe('POST /mcp catalog_search', () => {
     expect(found.content[0].text).toContain('do not replace');
     expect(found.content[0].text).toContain('inspiration');
     expect(found.content[0].text).not.toContain('Plain Tote');
-    const link = found.content.find((block) => block.type === 'resource_link');
-    expect(link.uri).toBe(image);
-    expect(link.mimeType).toBe('image/jpeg');
+    expect(found.content).toEqual([{ type: 'text', text: expect.stringContaining(image) }]);
 
     const plain = await callCatalog(token, { query: 'Plain Tote' });
     expect(plain.structuredContent.items[0].primaryImageUrl).toBe('');
     expect(plain.content[0].text).toContain('Official image: none. Do not substitute an external image.');
     expect(plain.content.some((block) => block.type === 'resource_link')).toBe(false);
+  });
+
+  it('charges the catalog selling price for every selected variant', async () => {
+    await CatalogProduct.create([
+      {
+        sku: 'BAG-SHARED',
+        name: 'Shared Color Pack',
+        category: 'Bags',
+        basePriceInr: 700,
+        gstRate: 18,
+        status: 'active',
+        source: { provider: 'shopify' },
+        variants: [
+          { sku: 'BAG-SHARED-BLU', color: 'Blue', size: 'OS', priceOverrideInr: 800, stock: 3, enabled: true },
+          { sku: 'BAG-SHARED-RED', color: 'Red', size: 'OS', priceOverrideInr: 800, stock: 2, enabled: true },
+        ],
+      },
+      {
+        sku: 'BAG-SAME',
+        name: 'Same Price Pack',
+        category: 'Bags',
+        basePriceInr: 700,
+        gstRate: 18,
+        status: 'active',
+        source: { provider: 'manual' },
+        variants: [
+          { sku: 'BAG-SAME-BLU', color: 'Blue', size: 'OS', priceOverrideInr: 700, stock: 1, enabled: true },
+          { sku: 'BAG-SAME-RED', color: 'Red', size: 'OS', stock: 1, enabled: true },
+        ],
+      },
+      {
+        sku: 'BAG-SPLIT',
+        name: 'Split Price Pack',
+        category: 'Bags',
+        basePriceInr: 700,
+        gstRate: 18,
+        status: 'active',
+        source: { provider: 'manual' },
+        variants: [
+          { sku: 'BAG-SPLIT-BLU', color: 'Blue', size: 'OS', stock: 4, enabled: true },
+          { sku: 'BAG-SPLIT-RED', color: 'Red', size: 'OS', priceOverrideInr: 900, stock: 5, enabled: true },
+        ],
+      },
+    ]);
+    const tenant = await makeTenant();
+    const { token } = await makeUser(tenant, 'company_admin', 'tenant');
+
+    const shared = await callCatalog(token, { query: 'Shared Color Pack' });
+    const sharedItem = shared.structuredContent.items[0];
+    expect(sharedItem.sellingPriceInr).toBe(700);
+    expect(sharedItem.gstRate).toBe(18);
+    expect(sharedItem.variants.map((variant) => variant.sellingPriceInr)).toEqual([700, 700]);
+    expect(shared.content[0].text).not.toContain('₹800');
+    expect(shared.content[0].text).toContain('₹700');
+    expect(shared.content[0].text).not.toContain('593');
+
+    const same = await callCatalog(token, { query: 'Same Price Pack' });
+    expect(same.structuredContent.items[0].variants.map((variant) => variant.sellingPriceInr)).toEqual([700, 700]);
+
+    const split = await callCatalog(token, { query: 'Split Price Pack' });
+    const splitItem = split.structuredContent.items[0];
+    expect(splitItem.sellingPriceInr).toBe(700);
+    expect(splitItem.variants).toEqual([
+      expect.objectContaining({ sku: 'BAG-SPLIT-BLU', color: 'Blue', sellingPriceInr: 700, stock: 4 }),
+      expect.objectContaining({ sku: 'BAG-SPLIT-RED', color: 'Red', sellingPriceInr: 700, stock: 5 }),
+    ]);
+    const detail = rpcBody(await mcpRequest(token, 'tools/call', {
+      name: 'catalog_get_product',
+      arguments: { productId: splitItem.id },
+    })).result;
+    expect(detail.structuredContent.sellingPriceInr).toBe(700);
+    expect(detail.structuredContent.gstRate).toBe(18);
+    expect(detail.structuredContent.variants.map((variant) => [variant.color, variant.sellingPriceInr])).toEqual([
+      ['Blue', 700],
+      ['Red', 700],
+    ]);
+    expect(detail.content[0].text).toContain('incl. GST');
+    expect(detail.content[0].text).toContain('₹700');
+    expect(detail.content[0].text).not.toContain('₹900');
+    expect(detail.content[0].text).not.toContain('₹593');
   });
 
   it('treats a dotted query as literal text', async () => {

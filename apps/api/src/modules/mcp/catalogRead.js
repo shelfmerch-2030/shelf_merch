@@ -2,13 +2,14 @@ import { z } from 'zod';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { tenantCatalogFilter } from '../catalog/catalogFilters.js';
 import { listPublicCategories } from '../catalog/platformCatalog.service.js';
-import { CATALOG_INVENTORY_RULE, officialImageLink, officialImageNote, toCatalogSearchItem } from './catalogSearch.js';
+import { CATALOG_INVENTORY_RULE, officialImageNote, toCatalogSearchItem } from './catalogSearch.js';
 
 const PRODUCT_ID = /^[a-fA-F0-9]{24}$/;
 
 export const CATALOG_GET_PRODUCT_DESCRIPTION = [
   'Look up one ShelfMerch catalog product by id.',
-  'sellingPriceInr is the GST-inclusive price in rupees: the product base price, or a variant price override when one is set.',
+  'sellingPriceInr is the GST-inclusive catalog price in rupees and is not reduced by removing GST.',
+  'Every variant uses that same selling price. Selecting a color or size does not change it.',
   'Only active products a tenant can order are returned. Disabled variants are omitted.',
   'images lists official marketing photos, with primaryImageUrl first.',
   'Display primaryImageUrl. Do not replace it with an image from web search. If it cannot be rendered, show the URL itself.',
@@ -102,23 +103,7 @@ export function catalogProductText(product) {
 }
 
 export function catalogProductContent(product) {
-  const links = [];
-  const primary = officialImageLink(
-    product,
-    product.primaryImageUrl,
-    `Official ShelfMerch catalog image for ${product.name || product.sku}. Do not replace this URL.`,
-  );
-  if (primary) links.push(primary);
-  for (const url of product.images ?? []) {
-    if (url === product.primaryImageUrl) continue;
-    const extra = officialImageLink(
-      product,
-      url,
-      `Additional official ShelfMerch catalog image for ${product.name || product.sku}.`,
-    );
-    if (extra) links.push(extra);
-  }
-  return [{ type: 'text', text: catalogProductText(product) }, ...links];
+  return [{ type: 'text', text: catalogProductText(product) }];
 }
 
 export const CATALOG_LIST_CATEGORIES_DESCRIPTION = [
