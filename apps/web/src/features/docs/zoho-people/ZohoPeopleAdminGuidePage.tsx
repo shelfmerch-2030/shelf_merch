@@ -56,8 +56,8 @@ export function ZohoPeopleAdminGuidePage() {
           <span aria-hidden="true">+</span>
           <ShelfMerchLogo height={26} theme="dark" />
         </div>
-        <img className="zag-welcome-art" src="/images/resources/zoho/zoho-onboarding-hero.webp"
-          alt="An HR colleague welcoming a new employee with a branded merchandise kit"
+        <img className="zag-welcome-art" src="/images/resources/zoho/zoho-admin-guide-hero-v1.png"
+            alt="An administrator reviewing security settings and employee data controls"
           width="1536" height="1024" />
       </div>
       </header>

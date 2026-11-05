@@ -1,6 +1,9 @@
 import { Link } from "react-router";
 import { DocsHeading, DocsShell } from "../DocsShell";
 import { useDocsMeta } from "../useDocsMeta";
+import { ShelfMerchLogo } from "@/components/brand/ShelfMerchLogo";
+import zohoPeopleLogo from "../../../../assets/integrations/zoho-people.png";
+import "./zoho-admin-guide.css";
 
 export function ZohoPeopleUserGuidePage() {
   useDocsMeta({
@@ -15,6 +18,7 @@ export function ZohoPeopleUserGuidePage() {
 
   return (
     <DocsShell
+      className="zoho-admin-guide zoho-user-guide"
       activePath="/docs/zoho-people/user-guide"
       breadcrumbs={[
         { label: "Home", to: "/" },
@@ -22,10 +26,19 @@ export function ZohoPeopleUserGuidePage() {
         { label: "User Guide" },
       ]}
     >
-      <h1>ShelfMerch for Zoho People — User Guide</h1>
+      <header className="zag-hero">
+      <div className="zag-hero-copy">
+      <span className="zag-eyebrow">ZOHO PEOPLE DOCUMENTATION</span>
+      <h1>User <em>guide.</em></h1>
       <p className="docs-sub">
         Connect Zoho People, sync employees, and manage onboarding recipients in ShelfMerch.
       </p>
+      </div>
+      <div className="zag-hero-visual">
+        <div className="zag-partner-logos"><img src={zohoPeopleLogo} alt="Zoho People" /><span aria-hidden="true">+</span><ShelfMerchLogo height={26} theme="dark" /></div>
+        <img className="zag-welcome-art" src="/images/resources/zoho/zoho-user-guide-hero-v1.png" alt="A colleague connecting and checking employee records from a laptop" width="1536" height="1024" />
+      </div>
+      </header>
 
       <DocsHeading id="introduction">1. Introduction</DocsHeading>
       <p>

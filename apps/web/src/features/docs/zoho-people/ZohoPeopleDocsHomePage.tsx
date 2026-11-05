@@ -40,8 +40,8 @@ export function ZohoPeopleDocsHomePage() {
             <span aria-hidden="true">+</span>
             <ShelfMerchLogo height={26} theme="dark" />
           </div>
-          <img className="zag-welcome-art" src="/images/resources/zoho/zoho-onboarding-hero.webp"
-            alt="An HR colleague welcoming an employee with a merchandise kit" width="1536" height="1024" />
+          <img className="zag-welcome-art" src="/images/resources/zoho/zoho-overview-hero-v1.png"
+            alt="Colleagues connecting an employee directory with merchandise programs" width="1536" height="1024" />
         </div>
       </header>
       <section className="zoho-onboarding" aria-labelledby="zoho-start-title">

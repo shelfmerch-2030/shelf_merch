@@ -114,8 +114,8 @@ export function ZohoPeopleExampleWorkflowPage() {
                 </div>
                 <img
                   className="zw-welcome-art"
-                  src="/images/resources/zoho/zoho-onboarding-hero.webp"
-                  alt="An HR colleague welcoming a new employee with a thoughtfully prepared welcome kit"
+                  src="/images/resources/zoho/zoho-case-study-hero-v1.png"
+            alt="HR and operations colleagues preparing a welcome kit for a new employee"
                   width="1536"
                   height="1024"
                   fetchPriority="high"

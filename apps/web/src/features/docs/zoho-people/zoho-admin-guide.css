@@ -48,6 +48,10 @@
 }
 .zoho-admin-guide .zag-hero-copy,
 .zoho-admin-guide .zag-hero-visual { min-width: 0; }
+.zoho-user-guide .zag-hero { background: #f0ebff; }
+@media (min-width: 761px) {
+  .zoho-user-guide .zag-hero-visual { order: -1; }
+}
 .zoho-admin-guide .zag-partner-logos {
   display: flex;
   align-items: center;
