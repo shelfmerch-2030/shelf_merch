@@ -649,13 +649,23 @@ describe('campaign send MCP tools', () => {
       actorUserId: admin.user._id,
       input: { campaignId: String(campaign._id) },
     });
-    await executeLaunch({
+    expect(preview.preview.walletImpact).toMatchObject({
+      debitedNow: 500,
+      balance: 10_000,
+      unallocatedAmount: 7_000,
+      balanceBefore: 10_000,
+      balanceAfter: 9_500,
+      unallocatedBefore: 7_000,
+      unallocatedAfter: 6_500,
+    });
+    const launchedAdmin = await executeLaunch({
       tenantId: tenant._id,
       actorUserId: admin.user._id,
       input: { campaignId: String(campaign._id) },
       confirmationId: preview.confirmationId,
       idempotencyKey: 'admin-unallocated-launch',
     });
+    expect(launchedAdmin).toMatchObject({ balance: 9_500, unallocatedAmount: 6_500 });
     const afterAdmin = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
     const marketing = await Entity.findOne({ _id: entity._id, tenantId: tenant._id });
     const adminSpend = await WalletTransaction.findOne({ tenantId: tenant._id, type: 'campaign_spend' });
@@ -680,25 +690,50 @@ describe('campaign send MCP tools', () => {
       actorUserId: manager.user._id,
       input: creditInput(250),
     });
-    await executeCreditAllocation({
+    expect(prepared.preview.walletImpact).toMatchObject({
+      balance: 3_000,
+      unallocatedAmount: 3_000,
+    });
+    expect(JSON.stringify(prepared.preview)).not.toContain('10000');
+    expect(JSON.stringify(prepared.preview)).not.toContain('7000');
+    const credited = await executeCreditAllocation({
       tenantId: tenant._id,
       actorUserId: manager.user._id,
       input: creditInput(250),
       confirmationId: prepared.confirmationId,
       idempotencyKey: 'manager-budget-credits',
     });
+    expect(credited).toMatchObject({ balance: 3_000, unallocatedAmount: 3_000 });
+    expect(JSON.stringify(credited)).not.toContain('10000');
+    expect(JSON.stringify(credited)).not.toContain('7000');
     const preview = await prepareLaunch({
       tenantId: tenant._id,
       actorUserId: manager.user._id,
       input: { campaignId: String(campaign._id) },
     });
-    await executeLaunch({
+    expect(preview.preview.walletImpact).toMatchObject({
+      debitedNow: 500,
+      balance: 3_000,
+      unallocatedAmount: 3_000,
+      balanceBefore: 3_000,
+      balanceAfter: 2_500,
+      unallocatedBefore: 3_000,
+      unallocatedAfter: 2_500,
+    });
+    expect(JSON.stringify(preview.preview)).not.toContain('10000');
+    expect(JSON.stringify(preview.preview)).not.toContain('7000');
+    expect(JSON.stringify(preview.preview)).not.toContain('9500');
+    const launched = await executeLaunch({
       tenantId: tenant._id,
       actorUserId: manager.user._id,
       input: { campaignId: String(campaign._id) },
       confirmationId: preview.confirmationId,
       idempotencyKey: 'manager-budget-launch',
     });
+    expect(launched).toMatchObject({ balance: 2_500, unallocatedAmount: 2_500 });
+    expect(JSON.stringify(launched)).not.toContain('9500');
+    expect(JSON.stringify(launched)).not.toContain('7000');
+    expect(JSON.stringify(launched)).not.toContain('10000');
     const after = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
     const marketing = await Entity.findOne({ _id: entity._id, tenantId: tenant._id });
     const spend = await WalletTransaction.findOne({ tenantId: tenant._id, type: 'campaign_spend' });

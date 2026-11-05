@@ -317,5 +317,11 @@ export async function listEntityTransactions({ tenantId, entityId, user, query }
     WalletTransaction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     WalletTransaction.countDocuments(filter),
   ]);
-  return paginatedResponse(items, total, { page, limit });
+  const manager = user?.role === 'entity_manager' || user?.scopeType === 'entity';
+  // balanceAfter is the organization wallet cash snapshot. The department
+  // history screen recomputes remaining budget, so entity managers do not receive it.
+  const visible = manager
+    ? items.map(({ balanceAfter: _balanceAfter, ...row }) => row)
+    : items;
+  return paginatedResponse(visible, total, { page, limit });
 }

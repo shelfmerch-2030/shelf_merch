@@ -519,6 +519,36 @@ describe('kit campaign draft and launch', () => {
     expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(1);
   });
 
+  it('shows a department manager their remaining budget and refuses another tenant', async () => {
+    await ledger.createTransaction({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      type: 'allocation_to_entity',
+      amount: 3_000,
+      relatedEntityId: entity._id,
+    });
+    const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [entity._id] });
+    const prepared = await prepareMerchandiseDraft({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: draftInput(),
+    });
+    expect(prepared.preview.walletImpact).toMatchObject({
+      balance: 3_000,
+      unallocatedAmount: 3_000,
+    });
+    expect(JSON.stringify(prepared.preview)).not.toContain('10000');
+    expect(JSON.stringify(prepared.preview)).not.toContain('7000');
+
+    const other = await makeTenant({ slug: 'kit-other' });
+    const outsider = await makeUser(other, 'entity_manager', 'entity', { assignedEntityIds: [] });
+    await expect(prepareMerchandiseDraft({
+      tenantId: tenant._id,
+      actorUserId: outsider.user._id,
+      input: draftInput(),
+    })).rejects.toMatchObject({ code: 'ACTOR_INACTIVE' });
+  });
+
 describe('kit campaign MCP tools', () => {
   it('keeps campaigns:merchandise off the initial challenge and preserves existing tools', async () => {
     const password = 'correct-horse';

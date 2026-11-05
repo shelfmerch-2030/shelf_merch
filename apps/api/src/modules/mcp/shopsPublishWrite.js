@@ -25,6 +25,7 @@ const publishFieldsSchema = z.object(selectFields).strict().refine(hasStoreSelec
 });
 
 export const SHOPS_PREPARE_PUBLISH_DESCRIPTION = [
+  'Company admins only. Entity managers cannot publish a store. Do not offer publish to an entity manager.',
   'Preview publishing one company store from draft to live without changing it.',
   'This is the MCP equivalent of the dashboard Save & Publish step after a draft store already exists.',
   'Resolve the store by id or exact name. When several stores share a name, ask the user to choose.',
@@ -36,6 +37,7 @@ export const SHOPS_PREPARE_PUBLISH_DESCRIPTION = [
 ].join(' ');
 
 export const SHOPS_EXECUTE_PUBLISH_DESCRIPTION = [
+  'Company admins only. Entity managers cannot publish a store, even with a confirmation id.',
   'Publish the selected store from shops_prepare_publish after the user explicitly confirmed.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the caller, tenant, and store before going live.',

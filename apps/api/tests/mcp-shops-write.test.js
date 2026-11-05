@@ -16,6 +16,8 @@ import {
   prepareShopUpdate,
   shopsExecuteUpdateInputSchema,
 } from '../src/modules/mcp/shopsWrite.js';
+import { prepareShopPublish } from '../src/modules/mcp/shopsPublishWrite.js';
+import { listShops } from '../src/modules/mcp/shopsRead.js';
 import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
 
 const PROTOCOL = '2026-07-28';
@@ -543,6 +545,88 @@ describe('company store MCP tools', () => {
     expect(stored.slug).toBe('mcp-qa-store');
     expect(stored.currencyMode).toBe('points');
   });
+
+it('blocks entity managers from creating, updating, publishing, or deleting stores', async () => {
+  const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [] });
+  await expect(prepareShopCreate({
+    tenantId: tenant._id,
+    actorUserId: manager.user._id,
+    input: { name: 'Manager Store', currencyMode: 'inr' },
+  })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+  expect(await shopCount()).toBe(0);
+
+  const prepared = await prepareShopCreate({
+    tenantId: tenant._id,
+    actorUserId: admin.user._id,
+    input: { name: 'Admin Store', currencyMode: 'inr' },
+  });
+  await expect(executeShopCreate({
+    tenantId: tenant._id,
+    actorUserId: manager.user._id,
+    input: { name: 'Admin Store', currencyMode: 'inr' },
+    confirmationId: prepared.confirmationId,
+    idempotencyKey: 'manager-stolen-confirm',
+  })).rejects.toMatchObject({ code: 'CONFIRMATION_INVALID' });
+  expect(await shopCount()).toBe(0);
+
+  await McpWriteConfirmation.updateOne(
+    { confirmationId: prepared.confirmationId, tenantId: tenant._id },
+    { $set: { actorUserId: manager.user._id } },
+  );
+  await expect(executeShopCreate({
+    tenantId: tenant._id,
+    actorUserId: manager.user._id,
+    input: { name: 'Admin Store', currencyMode: 'inr' },
+    confirmationId: prepared.confirmationId,
+    idempotencyKey: 'manager-own-confirm',
+  })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+  expect(await shopCount()).toBe(0);
+
+  const other = await makeTenant({ slug: 'shops-other' });
+  const outsider = await makeUser(other, 'entity_manager', 'entity', { assignedEntityIds: [] });
+  await expect(prepareShopCreate({
+    tenantId: tenant._id,
+    actorUserId: outsider.user._id,
+    input: { name: 'Foreign Store' },
+  })).rejects.toMatchObject({ code: 'ACTOR_INACTIVE' });
+  await expect(executeShopCreate({
+    tenantId: tenant._id,
+    actorUserId: outsider.user._id,
+    input: { name: 'Admin Store', currencyMode: 'inr' },
+    confirmationId: prepared.confirmationId,
+    idempotencyKey: 'outsider-confirm',
+  })).rejects.toMatchObject({ code: 'ACTOR_INACTIVE' });
+  expect(await shopCount()).toBe(0);
+
+  const shop = await Shop.create({
+    tenantId: tenant._id,
+    name: 'Readable Store',
+    slug: 'readable-store',
+    status: 'draft',
+    categories: ['Merch'],
+  });
+  const listed = await listShops({ tenantId: tenant._id, actorUserId: manager.user._id, input: {} });
+  expect(listed.shops.map((row) => row.name)).toContain('Readable Store');
+
+  await expect(prepareShopUpdate({
+    tenantId: tenant._id,
+    actorUserId: manager.user._id,
+    input: { shopId: String(shop._id), name: 'Hijacked' },
+  })).rejects.toMatchObject({ status: 403 });
+  await expect(prepareShopPublish({
+    tenantId: tenant._id,
+    actorUserId: manager.user._id,
+    input: { shopId: String(shop._id) },
+  })).rejects.toMatchObject({ status: 403 });
+
+  const removed = await request(app)
+    .delete(`/api/v1/shops/${shop._id}`)
+    .set(authHeader(manager.token));
+  expect(removed.status).toBe(403);
+  const stored = await Shop.findOne({ _id: shop._id, tenantId: tenant._id });
+  expect(stored.name).toBe('Readable Store');
+  expect(stored.status).toBe('draft');
+});
 
 it('keeps shops:write off the initial challenge and creates a draft through the tools', async () => {
     const password = 'correct-horse';

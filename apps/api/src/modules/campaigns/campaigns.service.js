@@ -55,7 +55,7 @@ export async function assertWalletCanSpend({ tenantId, entityId, amount, user })
     if (budget > wallet.balance) {
       throw new ApiError(
         422,
-        `Insufficient wallet cash to complete this send (₹${wallet.balance} available)`,
+        'Insufficient budget to complete this send',
         'INSUFFICIENT_FUNDS',
       );
     }

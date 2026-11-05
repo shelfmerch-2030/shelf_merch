@@ -34,6 +34,70 @@ export async function listWallets({ tenantId }) {
   return repaired.filter(Boolean).map(withMeta);
 }
 
+function isEntityManager(user) {
+  return user?.role === 'entity_manager' || user?.scopeType === 'entity';
+}
+
+function withoutOrganizationCash(wallet) {
+  const obj = { ...(wallet.toObject ? wallet.toObject() : wallet) };
+  delete obj.balance;
+  delete obj.totalAmount;
+  delete obj.allocatedAmount;
+  delete obj.unallocatedAmount;
+  if (obj.fundingDocument && typeof obj.fundingDocument === 'object') {
+    obj.fundingDocument = { ...obj.fundingDocument };
+    delete obj.fundingDocument.requestedAmount;
+  }
+  return obj;
+}
+
+async function departmentWalletIdsForManager(tenantId, user) {
+  const dbUser = user?.userId
+    ? await User.findOne({ _id: user.userId, tenantId }).select('email').lean()
+    : null;
+  const email = dbUser?.email?.toLowerCase();
+  const or = [{ managerUserId: user.userId }];
+  if (email) or.push({ managerEmail: email });
+  const managed = user?.userId
+    ? await Entity.find({ tenantId, $or: or }).select('_id').lean()
+    : [];
+  const ids = [...new Set([
+    ...(user?.assignedEntityIds ?? []).map(String),
+    ...managed.map((entity) => String(entity._id)),
+  ])].filter(Boolean);
+  if (!ids.length) return new Set();
+  const entities = await Entity.find({ tenantId, _id: { $in: ids } }).select('walletId').lean();
+  return new Set(entities.map((entity) => String(entity.walletId)).filter(Boolean));
+}
+
+function presentWallet(wallet) {
+  const obj = wallet.toObject ? wallet.toObject() : wallet;
+  return {
+    ...obj,
+    unallocatedAmount: obj.balance - obj.allocatedAmount,
+    validNextStatuses: validNextStatuses('wallet', obj.status),
+  };
+}
+
+/** Read model for HTTP callers. Entity managers do not receive organization cash. */
+export async function listWalletsForCaller({ tenantId, user }) {
+  const rows = await listWallets({ tenantId });
+  if (!isEntityManager(user)) return rows;
+  const allowed = await departmentWalletIdsForManager(tenantId, user);
+  return rows.filter((row) => allowed.has(String(row._id))).map(withoutOrganizationCash);
+}
+
+export async function getWalletForCaller({ tenantId, walletId, user }) {
+  const wallet = await getWallet({ tenantId, walletId });
+  if (!isEntityManager(user)) return presentWallet(wallet);
+  const allowed = await departmentWalletIdsForManager(tenantId, user);
+  if (!allowed.has(String(wallet._id))) throw new NotFoundError('Wallet not found');
+  return withoutOrganizationCash({
+    ...wallet.toObject(),
+    validNextStatuses: validNextStatuses('wallet', wallet.status),
+  });
+}
+
 export async function getWallet({ tenantId, walletId }) {
   const wallet = await Wallet.findOne({ _id: walletId, tenantId });
   if (!wallet) throw new NotFoundError('Wallet not found');
@@ -569,6 +633,77 @@ export async function listTransactions({ tenantId, walletId, query }) {
     walletId: wallet._id,
     query,
   });
+}
+
+const DEPARTMENT_TXN_TYPES = ['allocation_to_entity', 'campaign_spend', 'order_payment', 'refund'];
+
+function departmentRemainingById(rows) {
+  const chronological = [...rows].sort((a, b) => {
+    const time = new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime();
+    if (time) return time;
+    return String(a._id).localeCompare(String(b._id));
+  });
+  let allocated = 0;
+  let spent = 0;
+  const remaining = new Map();
+  for (const row of chronological) {
+    if (row.type === 'allocation_to_entity') allocated += Number(row.amount) || 0;
+    else if (row.type === 'campaign_spend' || row.type === 'order_payment') spent += Math.abs(Number(row.amount) || 0);
+    remaining.set(String(row._id), allocated - spent);
+  }
+  return remaining;
+}
+
+async function listDepartmentWalletTransactions({ tenantId, user, walletId, query }) {
+  const allowed = await departmentWalletIdsForManager(tenantId, user);
+  const wallet = await Wallet.findOne({ _id: walletId, tenantId }).select('_id').lean();
+  if (!wallet || !allowed.has(String(wallet._id))) throw new NotFoundError('Wallet not found');
+  const departments = await Entity.find({ tenantId, walletId: wallet._id }).select('_id').lean();
+  const visibleIds = [];
+  const managerIds = await (async () => {
+    const dbUser = user?.userId
+      ? await User.findOne({ _id: user.userId, tenantId }).select('email').lean()
+      : null;
+    const email = dbUser?.email?.toLowerCase();
+    const or = [{ managerUserId: user.userId }];
+    if (email) or.push({ managerEmail: email });
+    const managed = user?.userId
+      ? await Entity.find({ tenantId, walletId: wallet._id, $or: or }).select('_id').lean()
+      : [];
+    return new Set([
+      ...(user?.assignedEntityIds ?? []).map(String),
+      ...managed.map((entity) => String(entity._id)),
+    ]);
+  })();
+  for (const department of departments) {
+    if (managerIds.has(String(department._id))) visibleIds.push(department._id);
+  }
+  const rows = visibleIds.length
+    ? await WalletTransaction.find({
+      tenantId,
+      walletId: wallet._id,
+      relatedEntityId: { $in: visibleIds },
+      type: { $in: DEPARTMENT_TXN_TYPES },
+    }).select('type amount description createdAt').lean()
+    : [];
+  const remaining = departmentRemainingById(rows);
+  const filtered = query?.type ? rows.filter((row) => row.type === query.type) : rows;
+  filtered.sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0));
+  const { page, limit, skip } = getPagination(query ?? {});
+  const pageRows = filtered.slice(skip, skip + limit).map((row) => ({
+    _id: row._id,
+    type: row.type,
+    amount: row.amount,
+    description: row.description || '',
+    createdAt: row.createdAt,
+    availableAfter: remaining.get(String(row._id)) ?? 0,
+  }));
+  return paginatedResponse(pageRows, filtered.length, { page, limit });
+}
+
+export async function listTransactionsForCaller({ tenantId, walletId, query, user }) {
+  if (!isEntityManager(user)) return listTransactions({ tenantId, walletId, query });
+  return listDepartmentWalletTransactions({ tenantId, user, walletId, query });
 }
 
 function walletTransactionStamp(value) {

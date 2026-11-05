@@ -198,7 +198,7 @@ describe('wallet read tools', () => {
     expectRedacted(challenge);
   });
 
-  it('returns company wallets to an admin and an entity manager with unallocated balances', async () => {
+  it('returns organization wallet balances to a company admin only', async () => {
     const seeded = await seedWallets();
     const password = 'correct-horse-1';
     const adminEmail = `admin-${seeded.tenant.slug}@test.io`;
@@ -221,6 +221,7 @@ describe('wallet read tools', () => {
     const tool = listed.tools.find((entry) => entry.name === 'wallet_list_balances');
     expect(tool.annotations.readOnlyHint).toBe(true);
     expect(tool.annotations.destructiveHint).toBe(false);
+    expect(tool.description).toContain('Entity managers do not receive organization wallet cash');
 
     const balances = await callTool(adminToken, 'wallet_list_balances');
     expect(balances.structuredContent.items.map((item) => item.name)).toEqual(['Reserve', 'Company Cash']);
@@ -239,9 +240,11 @@ describe('wallet read tools', () => {
     expectRedacted(balances);
 
     const managerBalances = await callTool(managerToken, 'wallet_list_balances');
-    expect(managerBalances.structuredContent.items.map((item) => item.id)).toEqual(
-      balances.structuredContent.items.map((item) => item.id),
-    );
+    expect(managerBalances.structuredContent).toEqual({ items: [], scope: 'department' });
+    expect(managerBalances.content[0].text).toContain('Organization wallet balances are not available');
+    expect(JSON.stringify(managerBalances)).not.toContain('100000');
+    expect(JSON.stringify(managerBalances)).not.toContain('60000');
+    expect(JSON.stringify(managerBalances)).not.toContain('Company Cash');
 
     const history = await callTool(adminToken, 'wallet_list_transactions', {
       walletId: String(seeded.cash._id),
@@ -261,6 +264,114 @@ describe('wallet read tools', () => {
     expect(history.structuredContent.items[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expectRedacted(history);
     expect(JSON.stringify(history)).not.toContain(String(admin.user._id));
+  });
+
+  it('shows an entity manager their department budget and hides organization cash, other departments, and other tenants', async () => {
+    const seeded = await seedWallets();
+    const password = 'correct-horse-1';
+    const sales = await makeEntity(seeded.tenant, seeded.cash, 'Sales');
+    await ledger.createTransaction({
+      tenantId: seeded.tenant._id,
+      walletId: seeded.cash._id,
+      type: 'allocation_to_entity',
+      amount: 10_000,
+      relatedEntityId: sales._id,
+    });
+    const managerEmail = `mgr-scope-${seeded.tenant.slug}@test.io`;
+    const manager = await makeUser(seeded.tenant, 'entity_manager', 'entity', {
+      email: managerEmail,
+      password,
+      scopeId: seeded.entity._id,
+      assignedEntityIds: [seeded.entity._id],
+    });
+    manager.token = await login(managerEmail, password);
+    const managerToken = await issueOauth(seeded.tenant, manager, 'wallets:read entities:read');
+
+    const foreignEntity = await makeEntity(seeded.other, seeded.foreign, 'Overseas', { allocatedAmount: 80_000 });
+    const outsiderEmail = `outsider-${seeded.other.slug}@test.io`;
+    const outsider = await makeUser(seeded.other, 'entity_manager', 'entity', {
+      email: outsiderEmail,
+      password,
+      scopeId: foreignEntity._id,
+      assignedEntityIds: [foreignEntity._id],
+    });
+    outsider.token = await login(outsiderEmail, password);
+    const outsiderToken = await issueOauth(seeded.other, outsider, 'wallets:read entities:read');
+
+    const departments = await callTool(managerToken, 'entities_list');
+    expect(departments.structuredContent.departments).toEqual([
+      expect.objectContaining({
+        name: 'Marketing',
+        allocatedAmount: 40_000,
+        spentAmount: 0,
+        remainingAmount: 40_000,
+      }),
+    ]);
+    expect(departments.structuredContent.departments[0]).not.toHaveProperty('balance');
+    expect(departments.structuredContent.departments[0]).not.toHaveProperty('unallocatedAmount');
+    const departmentText = JSON.stringify(departments.structuredContent.departments);
+    expect(departmentText).not.toContain('100000');
+    expect(departmentText).not.toContain('60000');
+    expect(departmentText).not.toContain('Sales');
+
+    const balances = await callTool(managerToken, 'wallet_list_balances');
+    expect(balances.structuredContent.items).toEqual([]);
+    const balanceText = JSON.stringify(balances);
+    expect(balanceText).not.toContain('100000');
+    expect(balanceText).not.toContain('60000');
+    expect(balanceText).not.toContain('Company Cash');
+    expect(balanceText).not.toContain('Reserve');
+
+    const history = await callTool(managerToken, 'wallet_list_transactions', {
+      walletId: String(seeded.cash._id),
+    });
+    expect(history.structuredContent.items).toEqual([
+      expect.objectContaining({
+        type: 'allocation_to_entity',
+        amount: 40_000,
+        balanceAfter: 40_000,
+        availableAfter: 40_000,
+      }),
+    ]);
+    const historyText = JSON.stringify(history);
+    expect(historyText).not.toContain('fund_in');
+    expect(historyText).not.toContain('100000');
+    expect(historyText).not.toContain('10000');
+    expect(historyText).not.toContain('60000');
+
+    const funding = await callTool(managerToken, 'wallet_list_transactions', {
+      walletId: String(seeded.cash._id),
+      type: 'fund_in',
+    });
+    expect(funding.structuredContent.items).toEqual([]);
+    expect(funding.structuredContent.pagination.total).toBe(0);
+
+    const reserve = await callTool(managerToken, 'wallet_list_transactions', {
+      walletId: String(seeded.reserve._id),
+    });
+    expect(reserve.isError).toBe(true);
+    expect(reserve.content[0].text).toBe('Wallet not found.');
+
+    const foreignDepartments = await callTool(outsiderToken, 'entities_list');
+    expect(foreignDepartments.structuredContent.departments.map((row) => row.name)).toEqual(['Overseas']);
+    expect(JSON.stringify(foreignDepartments.structuredContent.departments)).not.toContain('Marketing');
+    expect(JSON.stringify(foreignDepartments.structuredContent.departments)).not.toContain('40000');
+    const foreignBalances = await callTool(outsiderToken, 'wallet_list_balances');
+    expect(foreignBalances.structuredContent.items).toEqual([]);
+    expect(JSON.stringify(foreignBalances)).not.toContain('Company Cash');
+    expect(JSON.stringify(foreignBalances)).not.toContain('100000');
+    expect(JSON.stringify(foreignBalances)).not.toContain('Foreign Cash');
+    const foreignHistory = await callTool(outsiderToken, 'wallet_list_transactions', {
+      walletId: String(seeded.cash._id),
+    });
+    expect(foreignHistory.isError).toBe(true);
+    expect(foreignHistory.content[0].text).toBe('Wallet not found.');
+    const ownForeign = await callTool(outsiderToken, 'wallet_list_transactions', {
+      walletId: String(seeded.foreign._id),
+    });
+    expect(ownForeign.structuredContent.items).toEqual([]);
+    expect(JSON.stringify(ownForeign)).not.toContain('fund_in');
+    expect(JSON.stringify(ownForeign)).not.toContain('80000');
   });
 
   it('filters and pages transactions and rejects an unknown type', async () => {

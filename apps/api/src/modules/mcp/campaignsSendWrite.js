@@ -15,6 +15,7 @@ import { WalletTransaction } from '../wallets/walletTransaction.model.js';
 import * as ledger from '../../services/ledger.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
+import { maskWalletImpact, visibleFunds } from './walletVisibility.js';
 
 const SEND_ROLES = new Set(rolesForTenantArea('campaignOps', 'write'));
 
@@ -32,6 +33,7 @@ export const CREDIT_PREPARE_DESCRIPTION = [
   'Company admins and the campaign department manager only.',
   'Amount is INR per recipient: whole number, minimum ₹250. Wallet debit is recipient count times that INR amount (shipping is included; no extra fee is charged).',
   'A company admin debit comes from the organization wallet unallocated balance and does not reduce a department allocation. A department manager debit comes from that department remaining budget.',
+  'For a department manager, balance and unallocatedAmount in this preview are that department remaining budget. They are not the organization wallet total, organization allocated total, or organization unallocated cash.',
   'Points stores convert at ₹1 = 2 Points. INR stores convert at ₹1 = 1 Credit. Points stay on the selected store.',
   'This step does not debit the wallet, create Contacts, or send invitations.',
 ].join(' ');
@@ -40,6 +42,7 @@ export const CREDIT_EXECUTE_DESCRIPTION = [
   'Apply the reward credits previewed for a points campaign.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the campaign, recipients, and wallet before saving.',
+  'For a department manager, balance and unallocatedAmount in the result are that department remaining budget, not organization wallet cash.',
   'A repeated key does not change the credits again.',
 ].join(' ');
 
@@ -48,12 +51,14 @@ export const LAUNCH_PREPARE_DESCRIPTION = [
   'Delivery follows the draft schedule: immediately, at sendAt, or manual invite links (self).',
   'UPI and card checkout stay on the ShelfMerch hosted payment page. This tool only launches wallet-funded campaigns.',
   'Nothing is debited or sent by this preview. Ask for explicit confirmation before campaigns_execute_launch.',
+  'For a department manager, walletImpact balance and unallocatedAmount are that department remaining budget. They are not organization wallet cash or unallocated cash.',
 ].join(' ');
 
 export const LAUNCH_EXECUTE_DESCRIPTION = [
   'Launch the approved Send Points campaign from campaigns_prepare_launch after explicit confirmation.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the wallet immediately before the debit. A company admin spends organization unallocated balance and does not reduce a department allocation. A department manager spends that department remaining budget. Immediate mode sends invitations once. Scheduled mode waits until sendAt. Self mode opens redemption without emailing invites.',
+  'For a department manager, balance and unallocatedAmount in the result are that department remaining budget, not organization wallet cash.',
   'A repeated key does not debit the wallet or send those invitations again.',
 ].join(' ');
 
@@ -228,23 +233,25 @@ function projectedImpact(actor, wallet, totalBudget) {
   };
 }
 
-async function presentCredit(tenantId, campaignId) {
+async function presentCredit(tenantId, campaignId, actor) {
   const campaign = await loadCampaign(tenantId, campaignId);
   const wallet = await walletView(tenantId, campaign.entityId);
+  const funds = await visibleFunds(actor?.user, tenantId, campaign.entityId, wallet);
   return {
     campaignId: String(campaign._id),
     status: campaign.status,
     recipientCount: campaign.recipientCount,
     creditsPerRecipient: campaign.creditsPerRecipient,
     totalBudget: campaign.totalBudget,
-    balance: wallet.balance,
-    unallocatedAmount: wallet.unallocatedAmount,
+    balance: funds.balance,
+    unallocatedAmount: funds.unallocatedAmount,
   };
 }
 
-async function presentLaunch(tenantId, campaignId) {
+async function presentLaunch(tenantId, campaignId, actor) {
   const campaign = await loadCampaign(tenantId, campaignId);
   const wallet = await walletView(tenantId, campaign.entityId);
+  const funds = await visibleFunds(actor?.user, tenantId, campaign.entityId, wallet);
   const invitationsSent = await Recipient.countDocuments({
     tenantId,
     campaignId: campaign._id,
@@ -261,8 +268,8 @@ async function presentLaunch(tenantId, campaignId) {
     status: campaign.status,
     recipientCount: campaign.recipientCount,
     totalBudget: campaign.totalBudget,
-    balance: wallet.balance,
-    unallocatedAmount: wallet.unallocatedAmount,
+    balance: funds.balance,
+    unallocatedAmount: funds.unallocatedAmount,
     invitationsSent,
     invitationsUnresolved: Boolean(campaign.schedule?.invitesUnresolved) || claimedUnsent > 0,
   };
@@ -305,6 +312,7 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
     payload: requested,
     now,
     authorize: async (actor) => {
+      planned.actor = actor;
       planned.state = await prepareCreditState(tenantId, actor, requested);
     },
     validate: async () => requested,
@@ -325,6 +333,7 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
     }),
   });
   const state = planned.state;
+  const funds = await visibleFunds(planned.actor?.user, tenantId, state.campaign.entityId, state.wallet);
   return {
     confirmationId: prepared.confirmationId,
     expiresAt: prepared.expiresAt,
@@ -334,12 +343,12 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
       recipientCount: state.recipientCount,
       creditsPerRecipient: requested.creditsPerRecipient,
       totalBudget: state.totalBudget,
-      walletImpact: {
+      walletImpact: maskWalletImpact(funds, {
         debitedNow: 0,
         requiredAtLaunch: state.totalBudget,
         balance: state.wallet.balance,
         unallocatedAmount: state.wallet.unallocatedAmount,
-      },
+      }),
     },
   };
 }
@@ -368,7 +377,7 @@ export async function executeCreditAllocation({
     },
     validate: async () => requested,
     resourceState: async () => creditSnapshot(tenantId, requested.campaignId),
-    reconcile: async () => {
+    reconcile: async (actor) => {
       const campaign = await Campaign.findOne({ _id: requested.campaignId, tenantId })
         .select('status creditsPerRecipient totalBudget recipientCount');
       if (!campaign) return { outcome: 'uncertain' };
@@ -376,7 +385,7 @@ export async function executeCreditAllocation({
       const applied = campaign.creditsPerRecipient === requested.creditsPerRecipient
         && campaign.totalBudget === requested.creditsPerRecipient * count
         && ['credits_allocated', 'approved', 'launched', 'redemption_open'].includes(campaign.status);
-      if (applied) return { outcome: 'completed', result: await presentCredit(tenantId, campaign._id) };
+      if (applied) return { outcome: 'completed', result: await presentCredit(tenantId, campaign._id, actor) };
       if (campaign.status === 'recipients_uploaded') return { outcome: 'absent' };
       return { outcome: 'uncertain' };
     },
@@ -391,7 +400,7 @@ export async function executeCreditAllocation({
           idempotencyKey: `credits:${confirmationId}`,
         });
       }
-      const result = await presentCredit(tenantId, requested.campaignId);
+      const result = await presentCredit(tenantId, requested.campaignId, actor);
       await writeAudit({
         tenantId,
         req: { tenantId, user: { userId: actor.user.userId, role: actor.user.role } },
@@ -461,17 +470,21 @@ export async function prepareLaunch({ tenantId, actorUserId, input, now }) {
     }),
   });
   const state = planned.state;
-  const impact = state.launched || state.debit
-    ? {
-      debitedNow: 0,
-      balance: state.wallet.balance,
-      unallocatedAmount: state.wallet.unallocatedAmount,
-      balanceBefore: state.wallet.balance,
-      balanceAfter: state.wallet.balance,
-      unallocatedBefore: state.wallet.unallocatedAmount,
-      unallocatedAfter: state.wallet.unallocatedAmount,
-    }
-    : projectedImpact(planned.actor, state.wallet, state.campaign.totalBudget);
+  const funds = await visibleFunds(planned.actor?.user, tenantId, state.campaign.entityId, state.wallet);
+  const impact = maskWalletImpact(
+    funds,
+    state.launched || state.debit
+      ? {
+        debitedNow: 0,
+        balance: state.wallet.balance,
+        unallocatedAmount: state.wallet.unallocatedAmount,
+        balanceBefore: state.wallet.balance,
+        balanceAfter: state.wallet.balance,
+        unallocatedBefore: state.wallet.unallocatedAmount,
+        unallocatedAfter: state.wallet.unallocatedAmount,
+      }
+      : projectedImpact(planned.actor, state.wallet, state.campaign.totalBudget),
+  );
   return {
     confirmationId: prepared.confirmationId,
     expiresAt: prepared.expiresAt,
@@ -512,7 +525,7 @@ export async function executeLaunch({
     },
     validate: async () => requested,
     resourceState: async () => launchSnapshot(tenantId, requested.campaignId),
-    reconcile: async () => {
+    reconcile: async (actor) => {
       const campaign = await Campaign.findOne({ _id: requested.campaignId, tenantId }).select('status totalBudget schedule');
       if (!campaign) return { outcome: 'uncertain' };
       const debit = await existingDebit(tenantId, campaign._id);
@@ -520,7 +533,7 @@ export async function executeLaunch({
       if (launched && (campaign.totalBudget === 0 || debit)) {
         const mode = campaign.schedule?.mode || 'now';
         if (mode !== 'now') {
-          return { outcome: 'completed', result: await presentLaunch(tenantId, campaign._id) };
+          return { outcome: 'completed', result: await presentLaunch(tenantId, campaign._id, actor) };
         }
         const pending = await Recipient.countDocuments({
           tenantId,
@@ -528,7 +541,7 @@ export async function executeLaunch({
           invitedAt: null,
           inviteClaimedAt: null,
         });
-        if (pending === 0) return { outcome: 'completed', result: await presentLaunch(tenantId, campaign._id) };
+        if (pending === 0) return { outcome: 'completed', result: await presentLaunch(tenantId, campaign._id, actor) };
       }
       return { outcome: 'absent' };
     },
@@ -548,7 +561,7 @@ export async function executeLaunch({
         user: actor.user,
         paymentMode: 'wallet',
       });
-      const result = await presentLaunch(tenantId, requested.campaignId);
+      const result = await presentLaunch(tenantId, requested.campaignId, actor);
       await writeAudit({
         tenantId,
         req: { tenantId, user: { userId: actor.user.userId, role: actor.user.role } },

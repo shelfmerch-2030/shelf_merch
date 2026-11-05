@@ -122,8 +122,9 @@ const updateSchema = updateFieldsSchema.refine(hasStoreUpdate, {
 });
 
 export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
+  'Company admins only. If the signed-in user is an entity manager, do not ask for a store name or currency and do not show a store creation form. Tell them a company admin has to create the store.',
   'Preview a new ShelfMerch company store without saving it.',
-  'Ask the company admin for the store name and currency (points or inr).',
+  'Ask a company admin for the store name and currency (points or inr).',
   'Currency cannot be changed after creation — say that clearly before confirming.',
   'Points conversion is ₹1 = 2 Points; INR mode is ₹1 = 1 Credit.',
   'When categories are omitted, applies the same default builder categories as the dashboard (Food & Beverages, Work Essentials, Merch).',
@@ -134,6 +135,7 @@ export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
 ].join(' ');
 
 export const SHOPS_EXECUTE_CREATE_DESCRIPTION = [
+  'Company admins only. Entity managers cannot create a store, even with a confirmation id.',
   'Create the draft store from shops_prepare_create.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks the caller and the store settings before writing.',
@@ -143,13 +145,15 @@ export const SHOPS_EXECUTE_CREATE_DESCRIPTION = [
 ].join(' ');
 
 export const SHOPS_PREPARE_UPDATE_DESCRIPTION = [
+  'Company admins only. Entity managers can read stores but cannot edit them. Do not collect store changes from an entity manager.',
   'Preview a company store name, slug, domain, categories, logo, or banner change without saving it.',
-  'Company admins only. Status and currency mode are rejected (currency is permanent after create).',
+  'Status and currency mode are rejected (currency is permanent after create).',
   'Optional logoTicketId / bannerTicketId from shops_prepare_asset_upload are accepted; confirmation hashing uses resolved media URLs.',
   'The confirmation is bound to the current store record and expires.',
 ].join(' ');
 
 export const SHOPS_EXECUTE_UPDATE_DESCRIPTION = [
+  'Company admins only. Entity managers cannot update a store, even with a confirmation id.',
   'Apply the store change from shops_prepare_update.',
   'Requires the confirmation id and an idempotency key.',
   'Rechecks permissions and the store record before writing.',

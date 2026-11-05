@@ -58,7 +58,7 @@ function assertReader(user) {
   }
 }
 
-async function visibleIds(tenantId, user) {
+export async function visibleDepartmentIds(tenantId, user) {
   const manager = user.role === 'entity_manager' || user.scopeType === 'entity';
   if (!manager) return null;
   const dbUser = user.userId
@@ -115,7 +115,7 @@ export async function listEntitiesForCaller(ctx, args = {}) {
 export async function listDepartments({ tenantId, user, walletId }) {
   assertReader(user);
   const filter = { tenantId, ...(walletId ? { walletId } : {}) };
-  const visible = await visibleIds(tenantId, user);
+  const visible = await visibleDepartmentIds(tenantId, user);
   if (visible) filter._id = { $in: visible };
   const entities = await Entity.find(filter).sort({ createdAt: 1 }).lean();
   const walletIds = [...new Set(entities.map((entity) => String(entity.walletId)))];
