@@ -291,10 +291,10 @@ export const appRouter = createBrowserRouter([
       { path: "privacy/index.html", loader: () => redirect("/privacy") },
       {
         path: "terms-condition",
-        lazy: page(() => import("@/features/marketing/TermsPage"), "TermsPage"),
+        loader: () => redirect("/legal/terms-of-service"),
       },
-      { path: "terms", loader: () => redirect("/terms-condition") },
-      { path: "terms/index.html", loader: () => redirect("/terms-condition") },
+      { path: "terms", loader: () => redirect("/legal/terms-of-service") },
+      { path: "terms/index.html", loader: () => redirect("/legal/terms-of-service") },
       {
         path: "resources",
         lazy: page(() => import("@/components/resources/ResourcesHub")),

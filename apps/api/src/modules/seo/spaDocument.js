@@ -42,7 +42,9 @@ const PUBLIC_REDIRECTS = {
   '/about/index.html': '/about',
   '/careers/index.html': '/careers',
   '/privacy/index.html': '/privacy',
-  '/terms/index.html': '/terms',
+  '/terms': '/legal/terms-of-service',
+  '/terms-condition': '/legal/terms-of-service',
+  '/terms/index.html': '/legal/terms-of-service',
 };
 
 /** 301 target for aliases and trailing slashes on public marketing pages. */

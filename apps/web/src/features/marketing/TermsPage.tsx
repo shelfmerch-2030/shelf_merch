@@ -56,7 +56,7 @@ export function TermsPage() {
     title: "Terms & Conditions | Shelf Merch",
     description:
       "Terms and Conditions for Shelf Merch websites, company stores, merchandise programmes and fulfilment services.",
-    canonicalPath: "/terms-condition",
+    canonicalPath: "/legal/terms-of-service",
   });
   useEffect(() => {
     const frame = requestAnimationFrame(() => {

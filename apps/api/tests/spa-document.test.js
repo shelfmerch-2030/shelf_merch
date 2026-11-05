@@ -70,6 +70,15 @@ describe('SPA document SEO', () => {
     const privacy = resolveSpaSeo(catalog, '/privacy');
     expect(privacy.robots).toBe('noindex, follow');
     expect(privacy.canonical).toBe('https://shelfmerch.io/legal/privacy-policy');
+    expect(resolveSpaSeo(catalog, '/terms-condition').canonical).toBe('https://shelfmerch.io/legal/terms-of-service');
+    expect(resolveSpaSeo(catalog, '/legal/terms-of-service').mode).toBe('public');
+    expect(resolveSpaSeo(catalog, '/legal/terms-of-service').canonical).toBe('https://shelfmerch.io/legal/terms-of-service');
+    expect(documentKind('/terms-condition')).toBe('shell');
+    expect(documentKind('/terms-condition/shops')).toBe('not-found');
+    for (const alias of ['/terms', '/terms-condition', '/terms/index.html']) {
+      expect(publicRedirectTarget(alias)).toBe('/legal/terms-of-service');
+      expect(publicRedirectTarget(`${alias}/`)).toBe('/legal/terms-of-service');
+    }
   });
 
   it('escapes metadata inserted into the shell', () => {

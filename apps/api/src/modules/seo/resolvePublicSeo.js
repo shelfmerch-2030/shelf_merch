@@ -68,6 +68,7 @@ const RESERVED_TOP_LEVEL_PATHS = new Set([
   'solutions',
   'support',
   'terms',
+  'terms-condition',
   'uploads',
   'zoho',
 ]);

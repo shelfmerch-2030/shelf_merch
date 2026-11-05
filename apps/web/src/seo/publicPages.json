@@ -131,6 +131,12 @@
       "canonicalPath": "/legal/terms-of-service"
     },
     {
+      "path": "/legal/terms-of-service",
+      "title": "Terms of Service | ShelfMerch",
+      "description": "Terms of Service for ShelfMerch by Chitlu Innovations Private Limited.",
+      "canonicalPath": "/legal/terms-of-service"
+    },
+    {
       "path": "/docs/zoho-people",
       "title": "ShelfMerch for Zoho People · Documentation",
       "description": "Sync employees from Zoho People into ShelfMerch for onboarding kits, rewards, and corporate gifting."

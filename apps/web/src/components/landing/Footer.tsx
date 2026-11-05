@@ -155,7 +155,7 @@ const FOOTER_SECTIONS: FooterSection[] = [
     title: "Legal",
     links: (
       <>
-        <a href="/terms-condition">Terms &amp; Conditions</a>
+        <a href="/legal/terms-of-service">Terms &amp; Conditions</a>
         <a href="/privacy">Privacy Policy</a>
         <a
           href="/privacy#cookie-preferences"
