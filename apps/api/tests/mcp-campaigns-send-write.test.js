@@ -4,6 +4,7 @@ import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
 import { Campaign } from '../src/modules/campaigns/campaign.model.js';
+import { Entity } from '../src/modules/entities/entity.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { Wallet } from '../src/modules/wallets/wallet.model.js';
 import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
@@ -621,5 +622,89 @@ describe('campaign send MCP tools', () => {
     expect(vi.mocked(notify).mock.calls.length).toBe(0);
     expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'campaign_spend' })).toBe(1);
     expect((await Recipient.findOne({ campaignId: campaign._id, tenantId: tenant._id })).creditAmount).toBe(250);
+  });
+
+  it('spends organization unallocated cash for a company admin and department budget for a manager', async () => {
+    await ledger.createTransaction({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      type: 'allocation_to_entity',
+      amount: 3_000,
+      relatedEntityId: entity._id,
+    });
+    const prepared = await prepareCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(250),
+    });
+    await executeCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: creditInput(250),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'admin-unallocated-credits',
+    });
+    const preview = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'admin-unallocated-launch',
+    });
+    const afterAdmin = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
+    const marketing = await Entity.findOne({ _id: entity._id, tenantId: tenant._id });
+    const adminSpend = await WalletTransaction.findOne({ tenantId: tenant._id, type: 'campaign_spend' });
+    expect(afterAdmin.balance).toBe(9_500);
+    expect(afterAdmin.allocatedAmount).toBe(3_000);
+    expect(marketing.spentAmount).toBe(0);
+    expect(adminSpend.relatedEntityId).toBeFalsy();
+    expect(adminSpend.amount).toBe(-500);
+  });
+
+  it('debits a department manager from that department allocation only', async () => {
+    await ledger.createTransaction({
+      tenantId: tenant._id,
+      walletId: wallet._id,
+      type: 'allocation_to_entity',
+      amount: 3_000,
+      relatedEntityId: entity._id,
+    });
+    const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [entity._id] });
+    const prepared = await prepareCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: creditInput(250),
+    });
+    await executeCreditAllocation({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: creditInput(250),
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'manager-budget-credits',
+    });
+    const preview = await prepareLaunch({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: { campaignId: String(campaign._id) },
+    });
+    await executeLaunch({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: { campaignId: String(campaign._id) },
+      confirmationId: preview.confirmationId,
+      idempotencyKey: 'manager-budget-launch',
+    });
+    const after = await Wallet.findOne({ _id: wallet._id, tenantId: tenant._id });
+    const marketing = await Entity.findOne({ _id: entity._id, tenantId: tenant._id });
+    const spend = await WalletTransaction.findOne({ tenantId: tenant._id, type: 'campaign_spend' });
+    expect(after.balance).toBe(9_500);
+    expect(after.allocatedAmount).toBe(2_500);
+    expect(marketing.spentAmount).toBe(500);
+    expect(String(spend.relatedEntityId)).toBe(String(entity._id));
   });
 });

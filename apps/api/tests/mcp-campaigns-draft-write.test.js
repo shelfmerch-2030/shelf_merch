@@ -4,6 +4,7 @@ import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
 import { Campaign } from '../src/modules/campaigns/campaign.model.js';
+import { Entity } from '../src/modules/entities/entity.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
 import { OauthGrantBinding } from '../src/modules/oauth/oauthGrantBinding.model.js';
@@ -277,6 +278,80 @@ describe('points campaign draft service', () => {
     expect(new Set(fulfilled.map((entry) => entry.value.id)).size).toBe(1);
     const token = (await Recipient.findOne({ tenantId: tenant._id, email: SECRET_EMAIL })).redemptionToken;
     for (const entry of fulfilled) expectNoSecrets(entry.value, token);
+  });
+
+  it('lets a company admin fund from the organization wallet without selecting a newer department', async () => {
+    const walletId = entity.walletId;
+    await makeEntity(tenant, { _id: walletId }, 'Sales');
+    const { entityId: _ignored, ...base } = draftInput({ name: 'Org funded' });
+    const input = { ...base, walletId: String(walletId) };
+    const entitiesBefore = await Entity.countDocuments({ tenantId: tenant._id });
+    const prepared = await preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview).toMatchObject({
+      entityId: String(entity._id),
+      entityName: 'Marketing',
+      fundingSource: 'organization_unallocated',
+      departmentBudgetCharged: false,
+    });
+    expect(await Entity.countDocuments({ tenantId: tenant._id })).toBe(entitiesBefore);
+    const saved = await executePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'org-wallet-draft',
+    });
+    expect(saved.entityId).toBe(String(entity._id));
+    expect(await Entity.countDocuments({ tenantId: tenant._id })).toBe(entitiesBefore);
+  });
+
+  it('creates the default spend entity only when a company admin confirms a wallet with no department', async () => {
+    const bare = await makeFundedWallet(tenant, { name: 'Org cash', amount: 5_000 });
+    const { entityId: _ignored, ...base } = draftInput({ name: 'Bare wallet' });
+    const input = { ...base, walletId: String(bare._id) };
+    const prepared = await preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+    });
+    expect(prepared.preview.fundingSource).toBe('organization_unallocated');
+    expect(prepared.preview.departmentBudgetCharged).toBe(false);
+    expect(prepared.preview.entityId).toBeUndefined();
+    expect(await Entity.countDocuments({ tenantId: tenant._id, walletId: bare._id })).toBe(0);
+    const saved = await executePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: admin.user._id,
+      input,
+      confirmationId: prepared.confirmationId,
+      idempotencyKey: 'bare-wallet-draft',
+    });
+    const created = await Entity.findOne({ tenantId: tenant._id, walletId: bare._id });
+    expect(created.name).toBe('Org cash');
+    expect(saved.entityId).toBe(String(created._id));
+  });
+
+  it('requires a department manager to choose their own department budget', async () => {
+    const manager = await makeUser(tenant, 'entity_manager', 'entity', { assignedEntityIds: [entity._id] });
+    const { entityId: _ignored, ...base } = draftInput({ name: 'Manager wallet only' });
+    await expect(preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: { ...base, walletId: String(entity.walletId) },
+    })).rejects.toMatchObject({ code: 'ENTITY_REQUIRED' });
+    const prepared = await preparePointsDraft({
+      tenantId: tenant._id,
+      actorUserId: manager.user._id,
+      input: draftInput({ name: 'Manager department' }),
+    });
+    expect(prepared.preview).toMatchObject({
+      entityId: String(entity._id),
+      fundingSource: 'department_budget',
+      departmentBudgetCharged: true,
+    });
   });
 });
 

@@ -31,6 +31,7 @@ export const CREDIT_PREPARE_DESCRIPTION = [
   'Preview reward credits for an existing Send Points campaign.',
   'Company admins and the campaign department manager only.',
   'Amount is INR per recipient: whole number, minimum ₹250. Wallet debit is recipient count times that INR amount (shipping is included; no extra fee is charged).',
+  'A company admin debit comes from the organization wallet unallocated balance and does not reduce a department allocation. A department manager debit comes from that department remaining budget.',
   'Points stores convert at ₹1 = 2 Points. INR stores convert at ₹1 = 1 Credit. Points stay on the selected store.',
   'This step does not debit the wallet, create Contacts, or send invitations.',
 ].join(' ');
@@ -52,7 +53,7 @@ export const LAUNCH_PREPARE_DESCRIPTION = [
 export const LAUNCH_EXECUTE_DESCRIPTION = [
   'Launch the approved Send Points campaign from campaigns_prepare_launch after explicit confirmation.',
   'Requires the confirmation id and an idempotency key.',
-  'Rechecks the wallet immediately before the debit. Immediate mode sends invitations once. Scheduled mode waits until sendAt. Self mode opens redemption without emailing invites.',
+  'Rechecks the wallet immediately before the debit. A company admin spends organization unallocated balance and does not reduce a department allocation. A department manager spends that department remaining budget. Immediate mode sends invitations once. Scheduled mode waits until sendAt. Self mode opens redemption without emailing invites.',
   'A repeated key does not debit the wallet or send those invitations again.',
 ].join(' ');
 

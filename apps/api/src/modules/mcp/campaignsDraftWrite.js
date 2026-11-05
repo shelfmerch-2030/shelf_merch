@@ -5,7 +5,9 @@ import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { objectId } from '../users/users.validation.js';
 import { Entity } from '../entities/entity.model.js';
+import { ensureSpendEntity } from '../entities/entities.service.js';
 import { Shop } from '../shops/shop.model.js';
+import { Wallet } from '../wallets/wallet.model.js';
 import { Campaign } from '../campaigns/campaign.model.js';
 import { savePointsDraft } from '../campaigns/campaigns.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
@@ -24,7 +26,8 @@ const recipientSchema = z.object({
 
 const draftSchema = z.object({
   campaignId: objectId.optional(),
-  entityId: objectId,
+  entityId: objectId.optional().describe('Department id. Required when a department manager is spending that department budget. Omit when a company admin is paying from the organization wallet.'),
+  walletId: objectId.optional().describe('Organization wallet id from wallet_list_balances. Company admins paying from the organization wallet pass this and omit entityId. Do not choose a department the admin did not name.'),
   shopId: objectId,
   name: z.string().trim().min(1).max(160),
   pointsScope: z.enum(['stadium', 'shop']).optional(),
@@ -39,17 +42,23 @@ const draftSchema = z.object({
     timezone: z.string().max(80).optional(),
   }).optional(),
   recipients: z.array(recipientSchema).max(500).optional(),
+}).superRefine((value, ctx) => {
+  if (!value.entityId && !value.walletId) {
+    ctx.addIssue({ code: 'custom', message: 'A department or an organization wallet is required', path: ['walletId'] });
+  }
 });
 
 export const CAMPAIGNS_PREPARE_POINTS_DRAFT_DESCRIPTION = [
   'Prepare a Send Points campaign draft without saving the campaign or its recipients.',
   'Use this for both dashboard entry points: a store already chosen, or a store the user picks from shops_list.',
-  'Requires a department, a shop, and a campaign name. Recipients are optional until send.',
+  'Requires a shop and a campaign name. Recipients are optional until send.',
+  'Company admins paying from their side pass walletId and omit entityId. The debit is the organization wallet unallocated balance. It does not reduce any department allocated budget. The campaign is still stored on the wallet spend entity the dashboard already uses (the oldest department on that wallet, or a default department created only when the draft is saved). Never pick Marketing, Sales, or another department to satisfy entityId.',
+  'Department managers pass entityId for their own department. Their remaining department budget is what gets spent. walletId alone is not organization funding for a manager.',
   'creditsPerRecipient is INR per person. Points stores show ₹1 = 2 Points; INR stores show ₹1 = 1 Credit. Minimum ₹250 whole rupees is enforced when allocating credits, not while saving an unfinished draft.',
   'Pass existing contacts as contactId plus email, or new emails directly. This matches the dashboard: new emails become campaign recipients and are not written to Contacts during prepare or draft save.',
   'CSV import in the dashboard is parsed in the browser into the same recipient list. Pass those rows here; do not ask the user to paste a binary file.',
   'Schedule mode now, scheduled, or self (manual invite link, no email). For scheduled, sendAt must be the UTC instant for that timezone wall clock. The worker delivers from sendAt and does not reinterpret timezone.',
-  'Company admins can draft for any department. Department managers can draft only for their departments.',
+  'Company admins can draft against the organization wallet. Department managers can draft only for their departments.',
   'Does not launch the campaign, debit a wallet, create Contacts, or send invitations.',
   'Returns a one-use confirmation. Saving requires campaigns_execute_points_draft.',
 ].join(' ');
@@ -67,7 +76,11 @@ const previewSchema = z.object({
   action: z.enum(['create', 'update']),
   campaignId: z.string().optional(),
   name: z.string(),
-  entityId: z.string(),
+  entityId: z.string().optional(),
+  entityName: z.string().optional(),
+  walletId: z.string().optional(),
+  fundingSource: z.enum(['organization_unallocated', 'department_budget']),
+  departmentBudgetCharged: z.boolean(),
   shopId: z.string(),
   recipientCount: z.number().int(),
   creditsPerRecipient: z.number(),
@@ -125,7 +138,9 @@ function parseDraft(input) {
   }
   return {
     ...(parsed.data.campaignId ? { campaignId: parsed.data.campaignId } : {}),
-    entityId: parsed.data.entityId,
+    ...(parsed.data.entityId ? { entityId: parsed.data.entityId } : {}),
+    ...(parsed.data.walletId ? { walletId: parsed.data.walletId } : {}),
+    anchor: parsed.data.entityId || `wallet:${parsed.data.walletId}`,
     shopId: parsed.data.shopId,
     name: parsed.data.name.trim(),
     pointsScope: parsed.data.pointsScope ?? 'shop',
@@ -138,7 +153,22 @@ function parseDraft(input) {
 
 function nameKey(input) {
   const name = input.name.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `points:${input.entityId}:${input.shopId}:${name}`;
+  return `points:${input.anchor}:${input.shopId}:${name}`;
+}
+
+function isDepartmentManager(user) {
+  return user?.scopeType === 'entity' || user?.role === 'entity_manager';
+}
+
+function hashDraft(input) {
+  const copy = { ...input };
+  delete copy.anchor;
+  delete copy.resolvedEntityId;
+  delete copy.entityName;
+  delete copy.fundingSource;
+  delete copy.departmentBudgetCharged;
+  delete copy.walletName;
+  return copy;
 }
 
 async function ensureClaims() {
@@ -172,9 +202,27 @@ async function linkedDraft(tenantId, input) {
 }
 
 async function assertDraftTarget(tenantId, user, input) {
-  const entity = await Entity.findOne({ _id: input.entityId, tenantId });
-  if (!entity) throw new NotFoundError('Entity not found');
-  assertEntityAccess(user, entity._id);
+  const manager = isDepartmentManager(user);
+  let entity = null;
+  if (input.entityId) {
+    entity = await Entity.findOne({ _id: input.entityId, tenantId });
+    if (!entity) throw new NotFoundError('Entity not found');
+    if (input.walletId && String(entity.walletId) !== String(input.walletId)) {
+      throw new ApiError(422, 'That department is not on the selected wallet', 'ENTITY_WALLET_MISMATCH');
+    }
+    assertEntityAccess(user, entity._id);
+  } else if (manager) {
+    throw new ApiError(422, 'Choose the department whose budget should pay for this campaign', 'ENTITY_REQUIRED');
+  } else {
+    const wallet = await Wallet.findOne({ _id: input.walletId, tenantId });
+    if (!wallet) throw new NotFoundError('Wallet not found');
+    entity = await Entity.findOne({ tenantId, walletId: wallet._id }).sort({ createdAt: 1 });
+    input.walletName = wallet.name;
+  }
+  input.resolvedEntityId = entity ? String(entity._id) : '';
+  input.entityName = entity?.name || input.walletName || '';
+  input.fundingSource = manager ? 'department_budget' : 'organization_unallocated';
+  input.departmentBudgetCharged = manager;
   const shop = await Shop.findOne({ _id: input.shopId, tenantId });
   if (!shop) throw new NotFoundError('Shop not found');
   const campaign = await linkedDraft(tenantId, input);
@@ -211,7 +259,11 @@ function previewFrom(input, campaign) {
     action: campaign ? 'update' : 'create',
     ...(campaign ? { campaignId: String(campaign._id) } : {}),
     name: input.name,
-    entityId: String(input.entityId),
+    ...(input.resolvedEntityId ? { entityId: input.resolvedEntityId } : {}),
+    ...(input.entityName ? { entityName: input.entityName } : {}),
+    ...(input.walletId ? { walletId: String(input.walletId) } : {}),
+    fundingSource: input.fundingSource,
+    departmentBudgetCharged: input.departmentBudgetCharged,
     shopId: String(input.shopId),
     recipientCount: input.recipients.length,
     creditsPerRecipient: input.creditsPerRecipient,
@@ -236,9 +288,11 @@ function normalizedDraftName(name) {
 
 async function matchingDraft(tenantId, input) {
   const wanted = normalizedDraftName(input.name);
+  const entityId = input.resolvedEntityId || input.entityId;
+  if (!entityId) return null;
   const rows = await Campaign.find({
     tenantId,
-    entityId: input.entityId,
+    entityId,
     shopId: input.shopId,
     type: 'points',
     status: { $in: INCOMPLETE_CAMPAIGN_STATUSES },
@@ -275,7 +329,20 @@ async function waitForDraft(tenantId, logicalKey, input) {
   throw new ApiError(409, 'This draft is already being saved', 'DRAFT_IN_PROGRESS');
 }
 
+async function spendEntityId(tenantId, actor, input) {
+  if (input.resolvedEntityId) return input.resolvedEntityId;
+  const entity = await ensureSpendEntity({
+    tenantId,
+    walletId: input.walletId,
+    userId: actor.user.userId,
+    user: actor.user,
+  });
+  input.resolvedEntityId = String(entity._id);
+  return input.resolvedEntityId;
+}
+
 async function saveLinkedDraft({ tenantId, actor, input }) {
+  const entityId = await spendEntityId(tenantId, actor, input);
   let campaignId = input.campaignId;
   let ownsClaim = false;
   const logicalKey = nameKey(input);
@@ -301,7 +368,7 @@ async function saveLinkedDraft({ tenantId, actor, input }) {
     userId: actor.user.userId,
     user: actor.user,
     data: {
-      entityId: input.entityId,
+      entityId,
       shopId: input.shopId,
       name: input.name,
       pointsScope: input.pointsScope,
@@ -316,7 +383,7 @@ async function saveLinkedDraft({ tenantId, actor, input }) {
     if (ownsClaim) {
       const existing = await Campaign.findOne({
         tenantId,
-        entityId: input.entityId,
+        entityId,
         shopId: input.shopId,
         name: input.name,
         type: 'points',
@@ -367,7 +434,7 @@ export async function preparePointsDraft({ tenantId, actorUserId, input, now }) 
       assertDraftWriter(actor);
       planned.campaign = await assertDraftTarget(tenantId, actor.user, requested);
     },
-    validate: async () => requested,
+    validate: async () => hashDraft(requested),
     resourceState: async () => resourceVersion(tenantId, requested),
     summary: async () => ({
       action: planned.campaign ? 'update' : 'create',
@@ -404,7 +471,7 @@ export async function executePointsDraft({
       assertDraftWriter(actor);
       await assertDraftTarget(tenantId, actor.user, requested);
     },
-    validate: async () => requested,
+    validate: async () => hashDraft(requested),
     resourceState: async () => resourceVersion(tenantId, requested),
     reconcile: async () => {
       const match = await matchingDraft(tenantId, requested);
@@ -451,6 +518,14 @@ export function pointsDraftText(output, heading) {
     heading,
     `${subject.name}. ${subject.action || subject.status}. Recipients: ${subject.recipientCount}.`,
   ];
+  if (subject.fundingSource === 'organization_unallocated') {
+    lines.push(subject.entityName
+      ? `Organization wallet unallocated balance. Recorded on ${subject.entityName}. That department allocation is not reduced.`
+      : 'Organization wallet unallocated balance. No department allocation is reduced.');
+  }
+  if (subject.fundingSource === 'department_budget' && subject.entityName) {
+    lines.push(`Department budget for ${subject.entityName}.`);
+  }
   if (output.confirmationId) lines.push('Confirm this preview before it expires.');
   return lines.join('\n');
 }
