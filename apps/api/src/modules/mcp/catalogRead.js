@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { tenantCatalogFilter } from '../catalog/catalogFilters.js';
 import { listPublicCategories } from '../catalog/platformCatalog.service.js';
-import { toCatalogSearchItem } from './catalogSearch.js';
+import { CATALOG_INVENTORY_RULE, officialImageLink, officialImageNote, toCatalogSearchItem } from './catalogSearch.js';
 
 const PRODUCT_ID = /^[a-fA-F0-9]{24}$/;
 
@@ -10,7 +10,10 @@ export const CATALOG_GET_PRODUCT_DESCRIPTION = [
   'Look up one ShelfMerch catalog product by id.',
   'sellingPriceInr is the GST-inclusive price in rupees: the product base price, or a variant price override when one is set.',
   'Only active products a tenant can order are returned. Disabled variants are omitted.',
-  'images lists marketing photos, with the primary image first.',
+  'images lists official marketing photos, with primaryImageUrl first.',
+  'Display primaryImageUrl. Do not replace it with an image from web search. If it cannot be rendered, show the URL itself.',
+  'Do not invent prices, variants, or stock.',
+  'This product is ShelfMerch inventory. Anything not returned here is not available to order and, if offered as a general gift idea, must be labeled inspiration.',
   'Cost, margin, supplier, vendor, source identifiers, customization costs, and production-mask assets are not returned.',
 ].join(' ');
 
@@ -87,13 +90,35 @@ export async function getCatalogProduct(productId) {
 
 export function catalogProductText(product) {
   const variants = product.variants
-    .map((variant) => `${variant.sku || variant.size || variant.color || 'variant'} ₹${variant.sellingPriceInr}`)
+    .map((variant) => `${variant.sku || variant.size || variant.color || 'variant'} ₹${variant.sellingPriceInr} stock ${variant.stock}`)
     .join(', ');
   const variantNote = variants ? ` variants: ${variants}` : '';
+  const gallery = (product.images ?? []).filter((url) => url && url !== product.primaryImageUrl);
+  const galleryNote = gallery.length ? ` Additional official images: ${gallery.join(' ')}` : '';
   return [
-    'Catalog product. Price is GST-inclusive rupees.',
-    `${product.name} [${product.sku}] ₹${product.sellingPriceInr} incl. GST (${product.gstRate}%) ${product.category}${variantNote}`,
+    `ShelfMerch catalog product. ${CATALOG_INVENTORY_RULE}`,
+    `${product.name} [${product.sku}] id ${product.id} ₹${product.sellingPriceInr} incl. GST (${product.gstRate}%) ${product.category}${variantNote} ${officialImageNote(product.primaryImageUrl)}${galleryNote}`,
   ].join('\n');
+}
+
+export function catalogProductContent(product) {
+  const links = [];
+  const primary = officialImageLink(
+    product,
+    product.primaryImageUrl,
+    `Official ShelfMerch catalog image for ${product.name || product.sku}. Do not replace this URL.`,
+  );
+  if (primary) links.push(primary);
+  for (const url of product.images ?? []) {
+    if (url === product.primaryImageUrl) continue;
+    const extra = officialImageLink(
+      product,
+      url,
+      `Additional official ShelfMerch catalog image for ${product.name || product.sku}.`,
+    );
+    if (extra) links.push(extra);
+  }
+  return [{ type: 'text', text: catalogProductText(product) }, ...links];
 }
 
 export const CATALOG_LIST_CATEGORIES_DESCRIPTION = [

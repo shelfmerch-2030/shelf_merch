@@ -154,6 +154,10 @@ describe('catalog read tools', () => {
     const listed = rpcBody(await mcpRequest(token, 'tools/list'));
     const names = listed.result.tools.map((tool) => tool.name);
     expect(names).toEqual(expect.arrayContaining(['catalog_search', 'catalog_get_product', 'catalog_list_categories']));
+    const productTool = listed.result.tools.find((entry) => entry.name === 'catalog_get_product');
+    expect(productTool.description).toContain('primaryImageUrl');
+    expect(productTool.description).toContain('web search');
+    expect(productTool.description).toContain('inspiration');
     for (const name of ['catalog_get_product', 'catalog_list_categories']) {
       const tool = listed.result.tools.find((entry) => entry.name === name);
       expect(tool.annotations.readOnlyHint).toBe(true);
@@ -207,7 +211,16 @@ describe('catalog read tools', () => {
         expect.objectContaining({ sku: 'MUG-DETAIL-LUX', sellingPriceInr: 236, stock: 2 }),
       ]);
       expectRedacted(result);
-      expect(result.content[0].text).toContain('GST-inclusive');
+      expect(result.content[0].text).toContain('ShelfMerch catalog');
+      expect(result.content[0].text).toContain(PUBLIC_IMAGE);
+      expect(result.content[0].text).toContain('inspiration');
+      expect(result.content[0].text).toContain('https://cdn.example/mug-side-wave1.jpg');
+      const links = result.content.filter((block) => block.type === 'resource_link');
+      expect(links.map((block) => block.uri)).toEqual([
+        PUBLIC_IMAGE,
+        'https://cdn.example/mug-side-wave1.jpg',
+      ]);
+      expect(links[0].description).toContain('Do not replace');
     }
   });
 

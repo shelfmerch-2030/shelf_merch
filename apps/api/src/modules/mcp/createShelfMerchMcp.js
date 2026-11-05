@@ -3,9 +3,9 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import { logger } from '../../config/logger.js';
 import {
   CATALOG_SEARCH_DESCRIPTION,
+  catalogSearchContent,
   catalogSearchInputSchema,
   catalogSearchOutputSchema,
-  catalogSearchText,
   searchCatalog,
 } from './catalogSearch.js';
 import {
@@ -16,7 +16,7 @@ import {
   catalogGetProductOutputSchema,
   catalogListCategoriesInputSchema,
   catalogListCategoriesOutputSchema,
-  catalogProductText,
+  catalogProductContent,
   getCatalogProduct,
   listCatalogCategories,
 } from './catalogRead.js';
@@ -386,7 +386,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
         try {
           const output = await searchCatalog(args);
           return {
-            content: [{ type: 'text', text: catalogSearchText(output) }],
+            content: catalogSearchContent(output),
             structuredContent: output,
           };
         } catch (err) {
@@ -426,7 +426,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
             };
           }
           return {
-            content: [{ type: 'text', text: catalogProductText(output) }],
+            content: catalogProductContent(output),
             structuredContent: output,
           };
         } catch (err) {
