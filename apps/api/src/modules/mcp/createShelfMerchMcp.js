@@ -29,6 +29,13 @@ import {
   readCatalogProductCard,
 } from './catalogProductCard.js';
 import {
+  KIT_CATALOG_CARD_MIME,
+  KIT_CATALOG_CARD_URI,
+  kitCatalogCardResourceMeta,
+  kitCatalogCardToolMeta,
+  readKitCatalogCard,
+} from './kitCatalogCard.js';
+import {
   ORDERS_GET_DESCRIPTION,
   ORDERS_SEARCH_DESCRIPTION,
   getOrderForCaller,
@@ -389,6 +396,14 @@ import {
  * request. Subscription streams are refused because an in-memory listen bus
  * would not be shared across replicas.
  */
+function requireAnyScope(...scopes) {
+  return ({ authInfo } = {}) => {
+    if (!authInfo) return;
+    const active = new Set(authInfo.scopes || []);
+    if (scopes.some((scope) => active.has(scope))) return;
+    return { scopes };
+  };
+}
 export const shelfMerchMcpHandler = createMcpHandler(
   () => {
     const server = new McpServer({ name: 'shelfmerch', version: '0.1.0' });
@@ -411,6 +426,19 @@ export const shelfMerchMcpHandler = createMcpHandler(
         _meta: catalogProductCardResourceMeta(),
       },
       async () => readCatalogProductCard(),
+    );
+    server.registerResource(
+      'catalog_kit_card',
+      KIT_CATALOG_CARD_URI,
+      {
+        title: 'Kit catalog card',
+        description:
+          'Read-only cards for kits_list, kits_get, kits_list_curated, and kits_get_curated. It does not send a kit or copy a curated kit.',
+        mimeType: KIT_CATALOG_CARD_MIME,
+        scopeChallenge: requireAnyScope('catalog:read', 'campaigns:read'),
+        _meta: kitCatalogCardResourceMeta(),
+      },
+      async () => readKitCatalogCard(),
     );
     server.registerTool(
       'catalog_search',
@@ -1493,6 +1521,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
           },
           scopeChallenge: requireScopes(scope),
           _meta: {
+            ...kitCatalogCardToolMeta(),
             securitySchemes: [{ type: 'oauth2', scopes: [scope] }],
           },
         },
@@ -1500,7 +1529,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
           try {
             const output = await call(ctx, args);
             return {
-              content: [{ type: 'text', text: kitsText(output, title) }],
+              content: [{ type: 'text', text: kitsText(output, title, { cardVisible: catalogCardVisibleFromContext(ctx) }) }],
               structuredContent: output,
             };
           } catch (err) {

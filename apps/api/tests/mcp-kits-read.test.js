@@ -4,7 +4,9 @@ import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Kit } from '../src/modules/kits/kit.model.js';
 import { PlatformKit } from '../src/modules/kits/platformKit.model.js';
 import { makeTenant, makeUser } from './helpers.js';
-import { getCuratedKit, getKit, listCuratedKits, listKits } from '../src/modules/mcp/kitsRead.js';
+import { getCuratedKit, getKit, kitsText, listCuratedKits, listKits, officialKitImageUrl } from '../src/modules/mcp/kitsRead.js';
+import { CATALOG_PRODUCT_CARD_URI, catalogProductCardHtml } from '../src/modules/mcp/catalogProductCard.js';
+import { KIT_CATALOG_CARD_URI, kitCatalogCardHtml, kitCatalogCardToolMeta } from '../src/modules/mcp/kitCatalogCard.js';
 
 let tenant;
 let admin;
@@ -71,6 +73,10 @@ describe('workspace and curated kit reads', () => {
       imageUrl: 'https://cdn.shopify.com/kit.png',
       sendEligible: true,
     });
+    expect(listed.items[0].description).toBe('For new hires');
+    expect(listed.items[0].products).toEqual([
+      expect.objectContaining({ name: 'Desk Mug', quantity: 1, imageUrl: 'https://cdn.shopify.com/mug.png' }),
+    ]);
     expect(JSON.stringify(listed)).not.toContain('Secret Kit');
 
     const detail = await getKit({
@@ -139,10 +145,80 @@ describe('workspace and curated kit reads', () => {
     expect(detail.products).toEqual([
       expect.objectContaining({ name: 'Notebook', quantity: 1 }),
     ]);
+
     await expect(getCuratedKit({
       tenantId: tenant._id,
       user: { role: 'company_admin', userId: admin.user._id },
       platformKitId: '6a82b7d8a03ad62bdb7f3bc9',
     })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('keeps a missing official image empty and does not invent one', async () => {
+    await Kit.create({
+      tenantId: tenant._id,
+      name: 'Plain Kit',
+      description: 'No photo',
+      productRefs: [],
+      status: 'live',
+      kitPrice: 250,
+      artworkUrl: '/uploads/kit.png',
+    });
+    const listed = await listKits({
+      tenantId: tenant._id,
+      user: { role: 'company_admin', userId: admin.user._id },
+      input: { query: 'Plain' },
+    });
+    expect(listed.items).toHaveLength(1);
+    expect(listed.items[0]).toMatchObject({
+      type: 'customized',
+      priceInr: 250,
+      imageUrl: '',
+      description: 'No photo',
+      itemCount: 0,
+    });
+    const text = kitsText(listed, 'List workspace kits');
+    expect(text).toContain('Official image: none');
+    expect(text).toContain('250 INR');
+    const card = kitsText(listed, 'List workspace kits', { cardVisible: true });
+    expect(card).toContain('kit card');
+    expect(card).not.toContain('https://');
+    expect(card).not.toContain('250');
+  });
+});
+
+
+  it('resolves public kit artwork and hides private files', () => {
+    const bases = ['https://app.example'];
+    expect(officialKitImageUrl('/uploads/abc/artwork/logo.png', bases)).toBe('https://app.example/uploads/abc/artwork/logo.png');
+    expect(officialKitImageUrl('uploads/abc/mockup/front.webp', bases)).toBe('https://app.example/uploads/abc/mockup/front.webp');
+    expect(officialKitImageUrl('https://cdn.shopify.com/kit.png', bases)).toBe('https://cdn.shopify.com/kit.png');
+    expect(officialKitImageUrl('/uploads/abc/document/secret.pdf', bases)).toBe('');
+    expect(officialKitImageUrl('/uploads/abc/artwork/../secret.png', bases)).toBe('');
+    expect(officialKitImageUrl('http://cdn.shopify.com/kit.png', bases)).toBe('');
+    expect(officialKitImageUrl('/uploads/kit.png', bases)).toBe('');
+  });
+describe('kit catalog card', () => {
+  it('registers a versioned kit card without changing the product card', () => {
+    const meta = kitCatalogCardToolMeta();
+    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v1.html');
+    expect(meta.ui.resourceUri).toBe(KIT_CATALOG_CARD_URI);
+    expect(meta['openai/outputTemplate']).toBe(KIT_CATALOG_CARD_URI);
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v4.html');
+    expect(CATALOG_PRODUCT_CARD_URI).not.toBe(KIT_CATALOG_CARD_URI);
+    const html = kitCatalogCardHtml();
+    expect(html).toContain('View details');
+    expect(html).toContain('Show more');
+    expect(html).toContain('Back');
+    expect(html).toContain('Image unavailable');
+    expect(html).toContain('Listed price');
+    expect(html).toContain('Estimated card price');
+    expect(html).toContain('Stored card price, not the checkout total.');
+    expect(html).toContain('min-width: 520px');
+    expect(html).toContain('height: 160px');
+    expect(html).toContain('height: 168px');
+    expect(html).toContain('max-height: 320px');
+    expect(html.toLowerCase()).not.toContain('gst');
+    expect(catalogProductCardHtml()).not.toContain('catalog-kit-card');
+    expect(html).not.toContain('catalog-product-card');
   });
 });

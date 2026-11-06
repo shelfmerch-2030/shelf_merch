@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import { ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { Kit } from '../kits/kit.model.js';
@@ -17,6 +18,7 @@ export const KITS_LIST_DESCRIPTION = [
   'Each row includes the kit id, type, status, item count, stored kit price, official image, and whether it can be sent.',
   'The stored price is the kit card price. The send preview calculates the payable total.',
   'This does not send a kit, create a campaign, or copy a curated kit.',
+  'When the kit card is shown, it is the only kit presentation. Do not repeat the kit list, images, or prices.',
 ].join(' ');
 
 export const KITS_GET_DESCRIPTION = [
@@ -24,6 +26,7 @@ export const KITS_GET_DESCRIPTION = [
   'Includes constituent products, quantities, the stored kit price, status, packaging, and the official image.',
   'A curated copy is marked curated and keeps the platform kit id it came from.',
   'Company admins and department managers only. This does not send the kit.',
+  'When the kit card is shown, it is the only kit presentation. Do not repeat the kit list, images, or prices.',
 ].join(' ');
 
 export const KITS_LIST_CURATED_DESCRIPTION = [
@@ -32,6 +35,7 @@ export const KITS_LIST_CURATED_DESCRIPTION = [
   'Each row includes the platform kit id, item count, stored price, official image, packaging, and whether a logo is required before sending.',
   'Any signed-in company admin or department manager in a workspace can read them.',
   'This does not copy the kit into the workspace or send it.',
+  'When the kit card is shown, it is the only kit presentation. Do not repeat the kit list, images, or prices.',
 ].join(' ');
 
 export const KITS_GET_CURATED_DESCRIPTION = [
@@ -39,7 +43,15 @@ export const KITS_GET_CURATED_DESCRIPTION = [
   'Includes item labels, quantities, the stored inclusive price, images, packaging, and logo requirement.',
   'Archived and draft platform kits are not returned.',
   'This does not copy the kit into the workspace or send it.',
+  'When the kit card is shown, it is the only kit presentation. Do not repeat the kit list, images, or prices.',
 ].join(' ');
+
+const productSchema = z.object({
+  catalogProductId: z.string(),
+  name: z.string(),
+  quantity: z.number().int(),
+  imageUrl: z.string(),
+});
 
 const kitSummarySchema = z.object({
   id: z.string(),
@@ -51,13 +63,8 @@ const kitSummarySchema = z.object({
   imageUrl: z.string(),
   packaging: z.string(),
   sendEligible: z.boolean(),
-});
-
-const productSchema = z.object({
-  catalogProductId: z.string(),
-  name: z.string(),
-  quantity: z.number().int(),
-  imageUrl: z.string(),
+  description: z.string(),
+  products: z.array(productSchema),
 });
 
 export const kitsListInputSchema = z.object({
@@ -67,10 +74,8 @@ export const kitsListInputSchema = z.object({
 export const kitsListOutputSchema = z.object({ items: z.array(kitSummarySchema) });
 export const kitsGetInputSchema = z.object({ kitId: z.string().trim().regex(OBJECT_ID) });
 export const kitsGetOutputSchema = kitSummarySchema.extend({
-  description: z.string(),
   platformKitId: z.string(),
   requireLogo: z.boolean(),
-  products: z.array(productSchema),
 });
 export const kitsListCuratedInputSchema = z.object({
   query: z.string().trim().max(80).optional(),
@@ -82,10 +87,7 @@ export const kitsListCuratedOutputSchema = z.object({
   })),
 });
 export const kitsGetCuratedInputSchema = z.object({ platformKitId: z.string().trim().regex(OBJECT_ID) });
-export const kitsGetCuratedOutputSchema = kitsListCuratedOutputSchema.shape.items.element.extend({
-  description: z.string(),
-  products: z.array(productSchema),
-});
+export const kitsGetCuratedOutputSchema = kitsListCuratedOutputSchema.shape.items.element;
 
 function assertReader(user) {
   if (!READ_ROLES.has(user?.role)) {
@@ -106,19 +108,103 @@ function escapeSearch(value) {
   return String(value || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function httpsImage(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
+const PUBLIC_KIT_IMAGE_KINDS = new Set(['artwork', 'mockup', 'product', 'logo']);
+const PUBLIC_KIT_IMAGE_EXT = /\.(png|jpe?g|webp|gif|svg)$/i;
+
+function httpsOrigin(value) {
   try {
-    const url = new URL(raw);
+    const url = new URL(String(value || '').trim());
     if (url.protocol !== 'https:' || url.username || url.password) return '';
-    return url.href;
+    return url.origin;
   } catch {
     return '';
   }
 }
 
-function curatedSummary(kit) {
+/** HTTPS origins that already serve dashboard /uploads files. */
+export function kitImageResourceOrigins(bases = [env.BASE_URL, env.APP_URL, env.CLIENT_URL]) {
+  const origins = [];
+  for (const base of bases) {
+    const origin = httpsOrigin(base);
+    if (origin && !origins.includes(origin)) origins.push(origin);
+  }
+  return origins;
+}
+
+function dashboardUploadPath(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('http://') || raw.startsWith('https://')) return '';
+  const normalized = raw.startsWith('/') ? raw : `/${raw}`;
+  if (normalized.includes('..') || normalized.includes('\\') || normalized.includes('?') || normalized.includes('#') || normalized.includes('\0')) return '';
+  const parts = normalized.split('/');
+  if (parts.length !== 5 || parts[1] !== 'uploads' || !parts[2] || parts[2] === '.') return '';
+  if (!PUBLIC_KIT_IMAGE_KINDS.has(parts[3]) || !PUBLIC_KIT_IMAGE_EXT.test(parts[4])) return '';
+  return normalized;
+}
+
+/**
+ * Official kit image for ChatGPT. HTTPS URLs pass through. A relative upload
+ * is joined to the same public app origin the dashboard already uses, and only
+ * for public image kinds. Documents and other private files stay empty.
+ */
+export function officialKitImageUrl(value, origins = kitImageResourceOrigins()) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 2000) return '';
+  if (raw.startsWith('https://') || raw.startsWith('http://')) {
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== 'https:' || url.username || url.password) return '';
+      if (url.pathname.includes('/document/') || url.pathname.includes('/attachment/')) return '';
+      return url.href;
+    } catch {
+      return '';
+    }
+  }
+  const uploadPath = dashboardUploadPath(raw);
+  const origin = origins.find((item) => item.startsWith('https://'));
+  if (!uploadPath || !origin) return '';
+  return origin + uploadPath;
+}
+
+async function catalogById(ids) {
+  const unique = [...new Set(ids.map((id) => String(id || '')).filter(Boolean))];
+  if (!unique.length) return new Map();
+  const products = await CatalogProduct.find({ _id: { $in: unique } }).select('name primaryImageUrl').lean();
+  return new Map(products.map((product) => [String(product._id), product]));
+}
+
+function workspaceProducts(kit, byId) {
+  return (kit.productRefs || []).map((ref) => {
+    const product = byId.get(String(ref.catalogProductId));
+    return {
+      catalogProductId: ref.catalogProductId ? String(ref.catalogProductId) : '',
+      name: ref.name || product?.name || 'Item',
+      quantity: 1,
+      imageUrl: officialKitImageUrl(ref.mockupUrl || product?.primaryImageUrl),
+    };
+  });
+}
+
+function curatedProducts(kit, byId) {
+  const fromItems = (kit.items || []).map((item) => {
+    const product = byId.get(String(item.catalogProductId));
+    return {
+      catalogProductId: item.catalogProductId ? String(item.catalogProductId) : '',
+      name: product?.name || 'Item',
+      quantity: Math.max(1, Math.round(Number(item.qty) || 1)),
+      imageUrl: officialKitImageUrl(product?.primaryImageUrl),
+    };
+  });
+  if (fromItems.length) return fromItems;
+  return (kit.itemImages || []).map((item) => ({
+    catalogProductId: '',
+    name: item.label || 'Item',
+    quantity: 1,
+    imageUrl: officialKitImageUrl(item.imageUrl),
+  }));
+}
+
+function curatedSummary(kit, products = []) {
   const items = Array.isArray(kit.items) ? kit.items : [];
   const images = Array.isArray(kit.itemImages) ? kit.itemImages : [];
   return {
@@ -128,27 +214,31 @@ function curatedSummary(kit) {
     status: kit.status || 'active',
     itemCount: items.length || images.length,
     priceInr: Math.round(Number(kit.approxValueInr) || 0),
-    imageUrl: httpsImage(kit.heroImage || kit.imageUrls?.[0]),
+    imageUrl: officialKitImageUrl(kit.heroImage || kit.imageUrls?.[0]),
     packaging: kit.packaging || 'box',
     requireLogo: kit.rules?.requireLogo !== false,
+    description: String(kit.description || ''),
+    products,
   };
 }
 
-function workspaceSummary(kit, meta) {
+function workspaceSummary(kit, meta, products = []) {
   const curated = isCuratedKitMeta(meta);
-  const products = kit.productRefs || [];
+  const refs = kit.productRefs || [];
   const images = Array.isArray(meta?.itemImages) ? meta.itemImages : [];
-  const sendEligible = kit.status !== 'archived' && (products.length > 0 || curated);
+  const sendEligible = kit.status !== 'archived' && (refs.length > 0 || curated);
   return {
     id: String(kit._id),
     name: kit.name || 'Kit',
     type: curated ? 'curated' : 'customized',
     status: kit.status || 'draft',
-    itemCount: products.length || images.length,
+    itemCount: refs.length || images.length,
     priceInr: Math.round(Number(curated ? meta.approxValueInr || kit.kitPrice : kit.kitPrice) || 0),
-    imageUrl: httpsImage(kit.artworkUrl || meta?.heroImage || meta?.imageUrls?.[0]),
+    imageUrl: officialKitImageUrl(kit.artworkUrl || meta?.heroImage || meta?.imageUrls?.[0]),
     packaging: kit.packaging || 'none',
     sendEligible,
+    description: String(meta?.description || kit.description || ''),
+    products,
   };
 }
 
@@ -158,8 +248,9 @@ export async function listKits({ tenantId, user, input = {} }) {
   if (input.status) filter.status = input.status;
   if (input.query) filter.name = new RegExp(escapeSearch(input.query), 'i');
   const kits = await Kit.find(filter).sort({ name: 1 }).limit(100).lean();
+  const byId = await catalogById(kits.flatMap((kit) => (kit.productRefs || []).map((ref) => ref.catalogProductId)));
   return {
-    items: kits.map((kit) => workspaceSummary(kit, parseCuratedKitMeta(kit.designNotes))),
+    items: kits.map((kit) => workspaceSummary(kit, parseCuratedKitMeta(kit.designNotes), workspaceProducts(kit, byId))),
   };
 }
 
@@ -169,25 +260,11 @@ export async function getKit({ tenantId, user, kitId }) {
   if (!kit) throw new NotFoundError('Kit not found');
   const meta = parseCuratedKitMeta(kit.designNotes);
   const ids = (kit.productRefs || []).map((ref) => ref.catalogProductId).filter(Boolean);
-  const products = ids.length
-    ? await CatalogProduct.find({ _id: { $in: ids } }).select('name primaryImageUrl').lean()
-    : [];
-  const byId = new Map(products.map((product) => [String(product._id), product]));
-  const rows = (kit.productRefs || []).map((ref) => {
-    const product = byId.get(String(ref.catalogProductId));
-    return {
-      catalogProductId: ref.catalogProductId ? String(ref.catalogProductId) : '',
-      name: ref.name || product?.name || 'Item',
-      quantity: 1,
-      imageUrl: httpsImage(ref.mockupUrl || product?.primaryImageUrl),
-    };
-  });
+  const byId = await catalogById(ids);
   return {
-    ...workspaceSummary(kit, meta),
-    description: String(meta?.description || kit.description || ''),
+    ...workspaceSummary(kit, meta, workspaceProducts(kit, byId)),
     platformKitId: meta?.originalId ? String(meta.originalId) : '',
     requireLogo: meta ? meta.requireLogo !== false : false,
-    products: rows,
   };
 }
 
@@ -201,7 +278,8 @@ export async function listCuratedKits({ tenantId, user, input = {} }) {
   }
   if (input.maxPriceInr != null) filter.approxValueInr = { $lte: input.maxPriceInr };
   const kits = await PlatformKit.find(filter).sort({ name: 1 }).limit(100).lean();
-  return { items: kits.map(curatedSummary) };
+  const byId = await catalogById(kits.flatMap((kit) => (kit.items || []).map((item) => item.catalogProductId)));
+  return { items: kits.map((kit) => curatedSummary(kit, curatedProducts(kit, byId))) };
 }
 
 export async function getCuratedKit({ tenantId, user, platformKitId }) {
@@ -210,32 +288,7 @@ export async function getCuratedKit({ tenantId, user, platformKitId }) {
   const kit = await PlatformKit.findOne({ _id: platformKitId, status: 'active' }).lean();
   if (!kit) throw new NotFoundError('Kit not found');
   const ids = (kit.items || []).map((item) => item.catalogProductId).filter(Boolean);
-  const products = ids.length
-    ? await CatalogProduct.find({ _id: { $in: ids } }).select('name primaryImageUrl').lean()
-    : [];
-  const byId = new Map(products.map((product) => [String(product._id), product]));
-  const fromItems = (kit.items || []).map((item) => {
-    const product = byId.get(String(item.catalogProductId));
-    return {
-      catalogProductId: item.catalogProductId ? String(item.catalogProductId) : '',
-      name: product?.name || 'Item',
-      quantity: Math.max(1, Math.round(Number(item.qty) || 1)),
-      imageUrl: httpsImage(product?.primaryImageUrl),
-    };
-  });
-  const fromImages = fromItems.length
-    ? fromItems
-    : (kit.itemImages || []).map((item) => ({
-      catalogProductId: '',
-      name: item.label || 'Item',
-      quantity: 1,
-      imageUrl: httpsImage(item.imageUrl),
-    }));
-  return {
-    ...curatedSummary(kit),
-    description: kit.description || '',
-    products: fromImages,
-  };
+  return curatedSummary(kit, curatedProducts(kit, await catalogById(ids)));
 }
 
 export async function listKitsForCaller(ctx, args) {
@@ -255,12 +308,24 @@ export async function getCuratedKitForCaller(ctx, args) {
   return getCuratedKit({ tenantId: reader.tenantId, user: reader.user, platformKitId: args?.platformKitId });
 }
 
-export function kitsText(output, heading) {
+export function kitsText(output, heading, options = {}) {
   const items = output.items || [output];
   if (!items.length || !items[0]?.name) return `${heading}\nNo matching kits.`;
+  if (options.cardVisible) {
+    const noun = items.length === 1 ? 'kit is' : 'kits are';
+    return [
+      `${heading}. ${items.length} ${noun} on the ShelfMerch kit card.`,
+      'The kit card is the only kit presentation.',
+      'Reply with one short sentence.',
+      'Do not add a kit card, image preview, or price list.',
+    ].join(' ');
+  }
   const lines = items.map((kit) => {
     const price = kit.priceInr ? `${kit.priceInr} INR` : 'price unavailable';
-    return `${kit.name} [${kit.type}] ${kit.status} ${kit.itemCount} items ${price}`;
+    const image = kit.imageUrl
+      ? `Official image: ${kit.imageUrl}`
+      : 'Official image: none. Do not substitute an external image.';
+    return `${kit.name} [${kit.type}] ${kit.status} ${kit.itemCount} items ${price}. ${image}`;
   });
   return [heading, ...lines].join('\n');
 }
