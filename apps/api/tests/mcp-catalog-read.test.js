@@ -11,6 +11,7 @@ import {
   CATALOG_PRODUCT_CARD_MIME,
   CATALOG_PRODUCT_CARD_URI,
   catalogProductCardHtml,
+  catalogProductCards,
   catalogProductCardView,
   officialCatalogImageUrl,
 } from '../src/modules/mcp/catalogProductCard.js';
@@ -168,6 +169,10 @@ describe('catalog read tools', () => {
     expect(productTool.description).toContain('web search');
     expect(productTool.description).toContain('inspiration');
     expect(productTool._meta.ui.resourceUri).toBe(CATALOG_PRODUCT_CARD_URI);
+    expect(productTool._meta['openai/outputTemplate']).toBe(CATALOG_PRODUCT_CARD_URI);
+    const searchTool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
+    expect(searchTool._meta.ui.resourceUri).toBe(CATALOG_PRODUCT_CARD_URI);
+    expect(searchTool._meta['openai/outputTemplate']).toBe(CATALOG_PRODUCT_CARD_URI);
     for (const name of ['catalog_get_product', 'catalog_list_categories']) {
       const tool = listed.result.tools.find((entry) => entry.name === name);
       expect(tool.annotations.readOnlyHint).toBe(true);
@@ -356,6 +361,8 @@ describe('catalog read tools', () => {
     expect(content.mimeType).toBe(CATALOG_PRODUCT_CARD_MIME);
     expect(content.text).toContain('<!DOCTYPE html>');
     expect(content.text).toContain('ui/notifications/tool-result');
+    expect(content.text).toContain('toolOutput');
+    expect(card._meta.ui.csp.resourceDomains).toContain('https://cdn.shopify.com');
     expect(content.text).toContain('Image unavailable');
     expect(content.text).toContain('Product Information');
     expect(content.text.toLowerCase()).not.toContain('gst');
@@ -430,7 +437,32 @@ describe('catalog read tools', () => {
       information: 'No product information available.',
       imageUrl: '',
     });
+    const listed = catalogProductCards({
+      structuredContent: {
+        items: [
+          { id: 'polo-1', name: 'ActiveDry Polo', sellingPriceInr: 390, primaryImageUrl: 'https://cdn.shopify.com/s/files/1/example/13.png' },
+          { id: 'polo-2', name: 'Corporate Polo', sellingPriceInr: 610, primaryImageUrl: 'https://cdn.shopify.com/s/files/1/example/12.png' },
+          { id: 'crew-1', name: 'Alif Activewear Crew Neck', sellingPriceInr: 410, primaryImageUrl: '' },
+          { id: 'crew-2', name: 'Classic Crew Neck', sellingPriceInr: 410, primaryImageUrl: 'javascript:alert(1)' },
+        ],
+      },
+    });
+    expect(listed.map((item) => item.imageUrl)).toEqual([
+      'https://cdn.shopify.com/s/files/1/example/13.png',
+      'https://cdn.shopify.com/s/files/1/example/12.png',
+      '',
+      '',
+    ]);
+    expect(listed.map((item) => item.priceLabel)).toEqual(['₹390', '₹610', '₹410', '₹410']);
+    expect(catalogProductCards({
+      id: 'pack-1',
+      name: 'Travel Pack',
+      description: 'Padded laptop sleeve.',
+      sellingPriceInr: 700,
+      primaryImageUrl: image,
+    })[0]).toMatchObject({ name: 'Travel Pack', priceLabel: '₹700', imageUrl: image });
     expect(catalogProductCardHtml()).toContain(catalogProductCardView.name);
+    expect(catalogProductCardHtml()).toContain('toolOutput');
     expect(officialCatalogImageUrl('http://cdn.shopify.com/a.jpg')).toBe('');
     expect(officialCatalogImageUrl('javascript:alert(1)')).toBe('');
     expect(officialCatalogImageUrl('https://user:token@cdn.shopify.com/a.jpg')).toBe('');

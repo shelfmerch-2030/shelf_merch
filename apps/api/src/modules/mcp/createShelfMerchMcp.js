@@ -23,6 +23,8 @@ import {
 import {
   CATALOG_PRODUCT_CARD_MIME,
   CATALOG_PRODUCT_CARD_URI,
+  catalogProductCardResourceMeta,
+  catalogProductCardToolMeta,
   readCatalogProductCard,
 } from './catalogProductCard.js';
 import {
@@ -382,9 +384,10 @@ export const shelfMerchMcpHandler = createMcpHandler(
       {
         title: 'Catalog product card',
         description:
-          'Read-only product card for one catalog_get_product result. It has no product records of its own.',
+          'Read-only cards for catalog_search and catalog_get_product. It has no product records of its own.',
         mimeType: CATALOG_PRODUCT_CARD_MIME,
         scopeChallenge: requireScopes('catalog:read'),
+        _meta: catalogProductCardResourceMeta(),
       },
       async () => readCatalogProductCard(),
     );
@@ -404,6 +407,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
         scopeChallenge: requireScopes('catalog:read'),
         _meta: {
           securitySchemes: [{ type: 'oauth2', scopes: ['catalog:read'] }],
+          ...catalogProductCardToolMeta(),
         },
       },
       async (args) => {
@@ -438,7 +442,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
         scopeChallenge: requireScopes('catalog:read'),
         _meta: {
           securitySchemes: [{ type: 'oauth2', scopes: ['catalog:read'] }],
-          ui: { resourceUri: CATALOG_PRODUCT_CARD_URI },
+          ...catalogProductCardToolMeta(),
         },
       },
       async (args) => {
