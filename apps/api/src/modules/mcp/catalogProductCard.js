@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 
-export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v2.html';
+export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v3.html';
 
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
 
@@ -485,7 +485,7 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.3.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.4.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
   })
     .then((result) => {
