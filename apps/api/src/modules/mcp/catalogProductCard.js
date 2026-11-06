@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 
-export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v3.html';
+export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v4.html';
 
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
 
@@ -485,7 +485,7 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.4.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.5.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
   })
     .then((result) => {
@@ -531,7 +531,7 @@ export function catalogProductCardHtml() {
   #message { padding: 16px; }
   button { font: inherit; cursor: pointer; }
   button:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 12px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 10px; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
   .filters { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip, .more, .back, .details, .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
@@ -539,10 +539,15 @@ export function catalogProductCardHtml() {
   .card, .product { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
   .card { display: flex; flex-direction: column; }
   .media { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
-  .media.large { aspect-ratio: 4 / 3; max-height: 320px; width: 100%; }
+  .card .media { aspect-ratio: auto; height: 160px; }
+  .media.large { aspect-ratio: 4 / 3; height: auto; max-height: 320px; width: 100%; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .image-fallback { margin: 0; padding: 12px; text-align: center; }
   .body, .product { padding: 12px; }
+  .card .body { padding: 8px 10px; }
+  .card h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .price, .card .stock, .card .swatches { margin-top: 2px; }
+  .card .details { margin-top: 6px; min-height: 36px; }
   .product { display: block; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.25rem; }
@@ -553,7 +558,7 @@ export function catalogProductCardHtml() {
   .colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .meta { margin-top: 16px; }
   .note { color: var(--color-text-secondary, #5c6370); }
-  @media (min-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } .card .media { height: 168px; } }
   @media (prefers-color-scheme: dark) {
     body { color: var(--color-text-primary, #f4f4f5); }
     .card, .product, .chip, .more, .back, .details, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }

@@ -173,6 +173,7 @@ describe('catalog read tools', () => {
     expect(productTool.description).toContain('primaryImageUrl');
     expect(productTool.description).toContain('web search');
     expect(productTool.description).toContain('inspiration');
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v4.html');
     expect(productTool._meta.ui.resourceUri).toBe(CATALOG_PRODUCT_CARD_URI);
     expect(productTool._meta['openai/outputTemplate']).toBe(CATALOG_PRODUCT_CARD_URI);
     const searchTool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
@@ -477,6 +478,10 @@ describe('catalog read tools', () => {
     expect(catalogProductCardHtml()).toContain(catalogProductCardView.name);
     expect(catalogProductCardHtml()).toContain('toolOutput');
     expect(catalogProductCardHtml()).toContain('min-width: 520px');
+    expect(catalogProductCardHtml()).toContain('.card .media { aspect-ratio: auto; height: 160px; }');
+    expect(catalogProductCardHtml()).toContain('.card .media { height: 168px; }');
+    expect(catalogProductCardHtml()).toContain('max-height: 320px');
+    expect(catalogProductCardHtml()).toContain("version: '0.5.0'");
     expect(officialCatalogImageUrl('http://cdn.shopify.com/a.jpg')).toBe('');
     expect(officialCatalogImageUrl('javascript:alert(1)')).toBe('');
     expect(officialCatalogImageUrl('https://user:token@cdn.shopify.com/a.jpg')).toBe('');
