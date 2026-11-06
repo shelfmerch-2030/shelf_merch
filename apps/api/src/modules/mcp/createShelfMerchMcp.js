@@ -261,6 +261,26 @@ import {
   prepareBudgetAllocationForCaller,
 } from './budgetsWrite.js';
 import {
+  KITS_GET_CURATED_DESCRIPTION,
+  KITS_GET_DESCRIPTION,
+  KITS_LIST_CURATED_DESCRIPTION,
+  KITS_LIST_DESCRIPTION,
+  getCuratedKitForCaller,
+  getKitForCaller,
+  kitsError,
+  kitsGetCuratedInputSchema,
+  kitsGetCuratedOutputSchema,
+  kitsGetInputSchema,
+  kitsGetOutputSchema,
+  kitsListCuratedInputSchema,
+  kitsListCuratedOutputSchema,
+  kitsListInputSchema,
+  kitsListOutputSchema,
+  kitsText,
+  listCuratedKitsForCaller,
+  listKitsForCaller,
+} from './kitsRead.js';
+import {
   ENTITIES_LIST_DESCRIPTION,
   entitiesListInputSchema,
   entitiesListOutputSchema,
@@ -1446,6 +1466,48 @@ export const shelfMerchMcpHandler = createMcpHandler(
             return {
               isError: true,
               content: [{ type: 'text', text: campaignSendError(err, fallback) }],
+            };
+          }
+        },
+      );
+    }
+    const kitReadTools = [
+      ['kits_list', 'List workspace kits', KITS_LIST_DESCRIPTION, kitsListInputSchema, kitsListOutputSchema, listKitsForCaller, 'Kit list failed.', 'campaigns:read'],
+      ['kits_get', 'Get workspace kit', KITS_GET_DESCRIPTION, kitsGetInputSchema, kitsGetOutputSchema, getKitForCaller, 'Kit lookup failed.', 'campaigns:read'],
+      ['kits_list_curated', 'List curated kits', KITS_LIST_CURATED_DESCRIPTION, kitsListCuratedInputSchema, kitsListCuratedOutputSchema, listCuratedKitsForCaller, 'Curated kit list failed.', 'catalog:read'],
+      ['kits_get_curated', 'Get curated kit', KITS_GET_CURATED_DESCRIPTION, kitsGetCuratedInputSchema, kitsGetCuratedOutputSchema, getCuratedKitForCaller, 'Curated kit lookup failed.', 'catalog:read'],
+    ];
+    for (const [name, title, description, inputSchema, outputSchema, call, fallback, scope] of kitReadTools) {
+      server.registerTool(
+        name,
+        {
+          title,
+          description,
+          inputSchema,
+          outputSchema,
+          annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: false,
+          },
+          scopeChallenge: requireScopes(scope),
+          _meta: {
+            securitySchemes: [{ type: 'oauth2', scopes: [scope] }],
+          },
+        },
+        async (args, ctx) => {
+          try {
+            const output = await call(ctx, args);
+            return {
+              content: [{ type: 'text', text: kitsText(output, title) }],
+              structuredContent: output,
+            };
+          } catch (err) {
+            logger.error({ errName: err?.name, errCode: err?.code }, `MCP ${name} failed`);
+            return {
+              isError: true,
+              content: [{ type: 'text', text: kitsError(err, fallback) }],
             };
           }
         },
