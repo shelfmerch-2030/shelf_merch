@@ -1,13 +1,16 @@
 import { env } from '../../config/env.js';
 
 export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v2.html';
+
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
+
+export const CATALOG_GRID_PAGE = 6;
 
 const SHOPIFY_IMAGE_ORIGIN = 'https://cdn.shopify.com';
 
 function httpsOrigin(value) {
   try {
-    const url = new URL(String(value || '').trim());
+    const url = new URL(String(value ?? '').trim());
     if (url.protocol !== 'https:' || url.username || url.password) return '';
     return url.origin;
   } catch {
@@ -62,13 +65,16 @@ export function rupeeLabel(amount) {
   return `₹${Math.round(value)}`;
 }
 
+function text(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 /**
  * View model for any catalog_get_product result. The price is the catalog
  * selling price. Variant overrides are not displayed.
  */
 export function catalogProductCardView(product) {
   const source = product && typeof product === 'object' ? product : {};
-  const text = (value) => (typeof value === 'string' ? value.trim() : '');
   const variants = Array.isArray(source.variants)
     ? source.variants.map((variant) => {
         const row = variant && typeof variant === 'object' ? variant : {};
@@ -79,6 +85,7 @@ export function catalogProductCardView(product) {
           color: text(row.color),
           size: text(row.size),
           stockLabel: available ? `In stock (${Math.round(stock)})` : 'Out of stock',
+          available,
         };
       })
     : [];
@@ -87,6 +94,9 @@ export function catalogProductCardView(product) {
     if (variant.color && !colors.includes(variant.color)) colors.push(variant.color);
   }
   const description = text(source.description);
+  const knownStock = variants.filter((variant) => variant.stockLabel);
+  const anyAvailable = variants.some((variant) => variant.available);
+  const moq = Number(source.moq);
   return {
     name: text(source.name) || 'Catalog product',
     productId: text(source.id),
@@ -94,6 +104,11 @@ export function catalogProductCardView(product) {
     hasInformation: Boolean(description),
     information: description || 'No product information available.',
     imageUrl: officialCatalogImageUrl(source.primaryImageUrl),
+    category: text(source.category),
+    subcategory: text(source.subcategory),
+    childCategory: text(source.childCategory),
+    availabilityLabel: knownStock.length ? (anyAvailable ? 'In stock' : 'Out of stock') : '',
+    moqLabel: Number.isFinite(moq) && moq > 0 ? `Minimum order ${Math.round(moq)}` : '',
     colors,
     variants,
   };
@@ -113,9 +128,69 @@ export function catalogProductCards(result) {
   return [];
 }
 
+/** A search payload stays a grid. A single product opens on its detail view. */
+export function catalogCardSession(result) {
+  const source = result && typeof result === 'object' ? result : {};
+  const body =
+    source.structuredContent && typeof source.structuredContent === 'object'
+      ? source.structuredContent
+      : source;
+  const pagination = body.pagination && typeof body.pagination === 'object' ? body.pagination : null;
+  return {
+    mode: Array.isArray(body.items) ? 'grid' : 'detail',
+    views: catalogProductCards(result),
+    pagination: pagination
+      ? {
+          page: Number(pagination.page),
+          limit: Number(pagination.limit),
+          total: Number(pagination.total),
+          totalPages: Number(pagination.totalPages),
+        }
+      : null,
+  };
+}
+
+/** Groups come from the loaded page. They are not a second catalog search. */
+export function catalogBrowseFilters(views) {
+  const rows = Array.isArray(views) ? views : [];
+  const options = [{ id: 'all', label: 'All', count: rows.length }];
+  let field = null;
+  for (const key of ['childCategory', 'subcategory', 'category']) {
+    const labels = new Set(rows.map((view) => (view && view[key] ? view[key] : '')).filter(Boolean));
+    if (labels.size > 1) {
+      field = key;
+      break;
+    }
+  }
+  if (!field) return { field: null, options };
+  const counts = new Map();
+  for (const view of rows) {
+    const label = view && view[field] ? view[field] : 'Other';
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  for (const label of [...counts.keys()].sort((a, b) => a.localeCompare(b))) {
+    options.push({ id: label, label, count: counts.get(label) });
+  }
+  return { field, options };
+}
+
+export function catalogColorPreview(colors) {
+  const list = Array.isArray(colors) ? colors.filter(Boolean) : [];
+  return { shown: list.slice(0, 3), more: Math.max(0, list.length - 3) };
+}
+
+export function catalogPageNote(loadedCount, pagination) {
+  if (!pagination || !Number.isFinite(pagination.total) || pagination.total <= loadedCount) return '';
+  return `Filters apply to the ${loadedCount} products loaded on this page, not all ${pagination.total} matches.`;
+}
+
 function startCatalogProductCard() {
   const message = document.getElementById('message');
   const cards = document.getElementById('cards');
+  let session = { mode: 'grid', views: [], pagination: null };
+  let filterId = 'all';
+  let shown = CATALOG_GRID_PAGE;
+  let detailId = '';
 
   function showMessage(value) {
     message.hidden = false;
@@ -124,17 +199,19 @@ function startCatalogProductCard() {
     cards.replaceChildren();
   }
 
-  function stockLine(variant) {
-    const parts = [variant.color, variant.size, variant.sku].filter(Boolean);
-    if (!parts.length) return variant.stockLabel;
-    return parts.join(' · ') + ' · ' + variant.stockLabel;
+  function groupLabel(view) {
+    const filters = catalogBrowseFilters(session.views);
+    if (!filters.field) return '';
+    return view[filters.field] || 'Other';
   }
 
-  function paintCard(view, showEmptyInformation) {
-    const article = document.createElement('article');
-    article.className = 'product';
-    const media = document.createElement('div');
-    media.className = 'media';
+  function filteredViews() {
+    const filters = catalogBrowseFilters(session.views);
+    if (!filters.field || filterId === 'all') return session.views;
+    return session.views.filter((view) => groupLabel(view) === filterId);
+  }
+
+  function paintImage(media, view) {
     function unavailable() {
       media.replaceChildren();
       const fallback = document.createElement('p');
@@ -144,64 +221,216 @@ function startCatalogProductCard() {
     }
     if (!view.imageUrl) {
       unavailable();
-    } else {
-      const image = document.createElement('img');
-      image.alt = view.name;
-      image.addEventListener('error', unavailable);
-      image.src = view.imageUrl;
-      media.append(image);
+      return;
     }
+    const image = document.createElement('img');
+    image.alt = view.name;
+    image.addEventListener('error', unavailable, { once: true });
+    image.src = view.imageUrl;
+    media.append(image);
+  }
+
+  function paintSummary(view) {
+    const article = document.createElement('article');
+    article.className = 'card';
+    const media = document.createElement('div');
+    media.className = 'media';
+    paintImage(media, view);
+    const body = document.createElement('div');
+    body.className = 'body';
+    const name = document.createElement('h2');
+    name.textContent = view.name;
+    const price = document.createElement('p');
+    price.className = 'price';
+    price.textContent = view.priceLabel;
+    body.append(name, price);
+    if (view.availabilityLabel) {
+      const stock = document.createElement('p');
+      stock.className = 'stock';
+      stock.textContent = view.availabilityLabel;
+      body.append(stock);
+    }
+    const preview = catalogColorPreview(view.colors);
+    if (preview.shown.length) {
+      const colors = document.createElement('p');
+      colors.className = 'swatches';
+      colors.textContent = preview.more
+        ? `${preview.shown.join(', ')} +${preview.more} more`
+        : preview.shown.join(', ');
+      body.append(colors);
+    }
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'details';
+    action.textContent = 'View details';
+    action.addEventListener('click', () => {
+      detailId = view.productId;
+      paintDetail();
+    });
+    body.append(action);
+    article.append(media, body);
+    return article;
+  }
+
+  function paintGrid() {
+    const rows = filteredViews();
+    message.hidden = true;
+    cards.hidden = false;
+    cards.className = 'grid';
+    cards.replaceChildren();
+    const filters = catalogBrowseFilters(session.views);
+    const bar = document.createElement('div');
+    bar.className = 'toolbar';
+    if (filters.options.length > 1) {
+      const group = document.createElement('div');
+      group.className = 'filters';
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', 'Filter loaded products');
+      for (const option of filters.options) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chip';
+        button.textContent = `${option.label} (${option.count})`;
+        button.setAttribute('aria-pressed', option.id === filterId ? 'true' : 'false');
+        button.addEventListener('click', () => {
+          filterId = option.id;
+          shown = CATALOG_GRID_PAGE;
+          paintGrid();
+        });
+        group.append(button);
+      }
+      bar.append(group);
+    }
+    const pageNote = catalogPageNote(session.views.length, session.pagination);
+    if (pageNote) {
+      const note = document.createElement('p');
+      note.className = 'note';
+      note.textContent = pageNote;
+      bar.append(note);
+    }
+    if (bar.childNodes.length) cards.append(bar);
+    if (!session.views.length) {
+      showMessage('No matching products.');
+      return;
+    }
+    if (!rows.length) {
+      const empty = document.createElement('p');
+      empty.className = 'note';
+      empty.textContent = 'No products in this group on the loaded page.';
+      cards.append(empty);
+      return;
+    }
+    for (const view of rows.slice(0, shown)) cards.append(paintSummary(view));
+    const status = document.createElement('p');
+    status.className = 'note';
+    status.textContent = `Showing ${Math.min(shown, rows.length)} of ${rows.length} loaded.`;
+    cards.append(status);
+    if (rows.length > shown) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'more';
+      more.textContent = 'Show more';
+      more.addEventListener('click', () => {
+        shown += CATALOG_GRID_PAGE;
+        paintGrid();
+      });
+      cards.append(more);
+    }
+  }
+
+  function paintDetail() {
+    const view = session.views.find((item) => item.productId === detailId) || session.views[0];
+    if (!view) {
+      showMessage('Product not found.');
+      return;
+    }
+    message.hidden = true;
+    cards.hidden = false;
+    cards.className = 'detail';
+    cards.replaceChildren();
+    if (session.mode === 'grid') {
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'back';
+      back.textContent = 'Back';
+      back.addEventListener('click', () => paintGrid());
+      cards.append(back);
+    }
+    const article = document.createElement('article');
+    article.className = 'product';
+    const media = document.createElement('div');
+    media.className = 'media large';
+    paintImage(media, view);
     const name = document.createElement('h1');
     name.textContent = view.name;
     const price = document.createElement('p');
     price.className = 'price';
     price.textContent = view.priceLabel;
-    const colors = document.createElement('div');
-    colors.className = 'colors';
-    const variants = document.createElement('div');
+    article.append(media, name, price);
+    if (view.availabilityLabel) {
+      const stock = document.createElement('p');
+      stock.className = 'stock';
+      stock.textContent = view.availabilityLabel;
+      article.append(stock);
+    }
+    const heading = document.createElement('h2');
+    heading.textContent = 'Product Information';
+    const info = document.createElement('p');
+    info.className = 'information';
+    info.textContent = view.information;
+    article.append(heading, info);
+    const variantBox = document.createElement('div');
+    variantBox.className = 'variants';
     function renderVariants(color) {
-      variants.replaceChildren();
-      const rows = view.variants.filter((variant) => !color || variant.color === color);
-      if (!rows.length) {
+      variantBox.replaceChildren();
+      const matches = view.variants.filter((variant) => !color || variant.color === color);
+      if (!matches.length) {
         const empty = document.createElement('p');
         empty.textContent = 'No variants';
-        variants.append(empty);
+        variantBox.append(empty);
         return;
       }
-      for (const variant of rows) {
+      for (const variant of matches) {
         const line = document.createElement('p');
-        line.textContent = stockLine(variant);
-        variants.append(line);
+        const parts = [variant.color, variant.size].filter(Boolean);
+        line.textContent = parts.length ? `${parts.join(' / ')} · ${variant.stockLabel}` : variant.stockLabel;
+        variantBox.append(line);
       }
     }
-    view.colors.forEach((color, index) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = color;
-      button.addEventListener('click', () => {
-        for (const child of colors.children) child.setAttribute('aria-pressed', 'false');
-        button.setAttribute('aria-pressed', 'true');
-        renderVariants(color);
+    if (view.colors.length) {
+      const colors = document.createElement('div');
+      colors.className = 'colors';
+      view.colors.forEach((color, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = color;
+        button.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+        button.addEventListener('click', () => {
+          for (const child of colors.children) child.setAttribute('aria-pressed', 'false');
+          button.setAttribute('aria-pressed', 'true');
+          renderVariants(color);
+        });
+        colors.append(button);
       });
-      if (index === 0) button.setAttribute('aria-pressed', 'true');
-      colors.append(button);
-    });
+      article.append(colors);
+    }
     renderVariants(view.colors[0] || '');
-    article.append(media, name, price, colors, variants);
-    if (view.hasInformation || showEmptyInformation) {
-      const heading = document.createElement('h2');
-      heading.textContent = 'Product Information';
-      const info = document.createElement('p');
-      info.className = 'information';
-      info.textContent = view.information;
-      article.append(heading, info);
+    article.append(variantBox);
+    const details = document.createElement('div');
+    details.className = 'meta';
+    const metaHeading = document.createElement('h2');
+    metaHeading.textContent = 'Details';
+    details.append(metaHeading);
+    if (view.moqLabel) {
+      const moq = document.createElement('p');
+      moq.textContent = view.moqLabel;
+      details.append(moq);
     }
     const idLine = document.createElement('p');
-    const id = document.createElement('span');
-    id.textContent = view.productId;
-    idLine.append('Product id ', id);
-    article.append(idLine);
-    return article;
+    idLine.append('Product id ', view.productId);
+    details.append(idLine);
+    article.append(details);
+    cards.append(article);
   }
 
   function renderResult(params) {
@@ -213,15 +442,16 @@ function startCatalogProductCard() {
       showMessage(block ? block.text : 'Product not found.');
       return;
     }
-    const views = catalogProductCards(result);
-    if (!views.length) {
-      showMessage('Waiting for catalog product');
+    session = catalogCardSession(result);
+    filterId = 'all';
+    shown = CATALOG_GRID_PAGE;
+    detailId = session.mode === 'detail' && session.views[0] ? session.views[0].productId : '';
+    if (!session.views.length) {
+      showMessage('No matching products.');
       return;
     }
-    message.hidden = true;
-    cards.hidden = false;
-    const showEmptyInformation = views.length === 1;
-    cards.replaceChildren(...views.map((view) => paintCard(view, showEmptyInformation)));
+    if (session.mode === 'detail') paintDetail();
+    else paintGrid();
   }
 
   const pending = new Map();
@@ -255,7 +485,7 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.2.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.3.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
   })
     .then((result) => {
@@ -279,8 +509,14 @@ export function catalogProductCardHtml() {
   const script = [
     officialCatalogImageUrl.toString(),
     rupeeLabel.toString(),
+    text.toString(),
     catalogProductCardView.toString(),
     catalogProductCards.toString(),
+    catalogCardSession.toString(),
+    catalogBrowseFilters.toString(),
+    catalogColorPreview.toString(),
+    catalogPageNote.toString(),
+    `const CATALOG_GRID_PAGE = ${CATALOG_GRID_PAGE};`,
     startCatalogProductCard.toString(),
     'startCatalogProductCard();',
   ].join('\n');
@@ -291,23 +527,44 @@ export function catalogProductCardHtml() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Catalog product</title>
 <style>
-  body { margin: 0; font-family: Georgia, serif; color: var(--color-text-primary, #172033); background: var(--color-background-primary, #fff); }
-  #message, #cards { padding: 16px; }
-  #cards { display: grid; gap: 16px; }
-  .product { display: grid; gap: 12px; }
-  .media { min-height: 180px; display: grid; place-items: center; background: var(--color-background-secondary, #f4f6f8); }
-  img { max-width: 100%; max-height: 280px; object-fit: contain; }
-  h1, h2, p { margin: 0; }
+  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--color-text-primary, #1c1d24); background: transparent; overflow-x: hidden; }
+  #message { padding: 16px; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 12px; }
+  .toolbar, .note, .more { grid-column: 1 / -1; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip, .more, .back, .details, .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
+  .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
+  .card, .product { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
+  .card { display: flex; flex-direction: column; }
+  .media { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
+  .media.large { aspect-ratio: 4 / 3; max-height: 320px; width: 100%; }
+  .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+  .image-fallback { margin: 0; padding: 12px; text-align: center; }
+  .body, .product { padding: 12px; }
+  .product { display: block; }
+  h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.25rem; }
-  .price { font-size: 1.5rem; font-weight: 700; }
-  .colors { display: flex; flex-wrap: wrap; gap: 8px; }
-  button { font: inherit; padding: 6px 10px; border: 1px solid var(--color-border-primary, #c5ced9); background: transparent; }
-  button[aria-pressed="true"] { border-color: var(--color-text-primary, #172033); }
-  .information { white-space: pre-wrap; }
+  h2 { font-size: 1rem; }
+  .price { margin-top: 4px; font-weight: 700; }
+  .stock, .swatches, .information, .variants p, .meta p { margin-top: 6px; }
+  .details, .more, .back { margin-top: 10px; }
+  .colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .meta { margin-top: 16px; }
+  .note { color: var(--color-text-secondary, #5c6370); }
+  @media (min-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (prefers-color-scheme: dark) {
+    body { color: var(--color-text-primary, #f4f4f5); }
+    .card, .product, .chip, .more, .back, .details, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
+    .media { background: var(--color-background-secondary, #111114); }
+    .note { color: var(--color-text-secondary, #c4c4cc); }
+  }
 </style>
 </head>
 <body>
-<p id="message">Waiting for catalog product</p>
+<p id="message" aria-live="polite">Waiting for catalog product</p>
 <div id="cards" hidden></div>
 <script>${script}</script>
 </body>

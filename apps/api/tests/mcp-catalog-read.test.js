@@ -10,9 +10,14 @@ import { authHeader, makeTenant, makeUser } from './helpers.js';
 import {
   CATALOG_PRODUCT_CARD_MIME,
   CATALOG_PRODUCT_CARD_URI,
+  catalogBrowseFilters,
+  catalogCardSession,
+  catalogColorPreview,
+  catalogPageNote,
   catalogProductCardHtml,
   catalogProductCards,
   catalogProductCardView,
+  CATALOG_GRID_PAGE,
   officialCatalogImageUrl,
 } from '../src/modules/mcp/catalogProductCard.js';
 
@@ -173,6 +178,8 @@ describe('catalog read tools', () => {
     const searchTool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
     expect(searchTool._meta.ui.resourceUri).toBe(CATALOG_PRODUCT_CARD_URI);
     expect(searchTool._meta['openai/outputTemplate']).toBe(CATALOG_PRODUCT_CARD_URI);
+    expect(searchTool.description).toContain('do not repeat the product list');
+    expect(productTool.description).toContain('do not repeat');
     for (const name of ['catalog_get_product', 'catalog_list_categories']) {
       const tool = listed.result.tools.find((entry) => entry.name === name);
       expect(tool.annotations.readOnlyHint).toBe(true);
@@ -365,7 +372,13 @@ describe('catalog read tools', () => {
     expect(card._meta.ui.csp.resourceDomains).toContain('https://cdn.shopify.com');
     expect(content.text).toContain('Image unavailable');
     expect(content.text).toContain('Product Information');
+    expect(content.text).toContain('View details');
+    expect(content.text).toContain('Show more');
+    expect(content.text).toContain('Back');
+    expect(content.text).toContain('ui/notifications/tool-result');
     expect(content.text.toLowerCase()).not.toContain('gst');
+    expect(content.text).not.toContain('Polo');
+    expect(content.text).not.toContain('Hoodies');
     expect(content.text).not.toContain('6a82b7d8a03ad62bdb7f3bc9');
     expect(content.text).not.toContain('Blue Travel');
     expect(content._meta.ui.csp.resourceDomains).toContain('https://cdn.shopify.com');
@@ -463,9 +476,62 @@ describe('catalog read tools', () => {
     })[0]).toMatchObject({ name: 'Travel Pack', priceLabel: '₹700', imageUrl: image });
     expect(catalogProductCardHtml()).toContain(catalogProductCardView.name);
     expect(catalogProductCardHtml()).toContain('toolOutput');
+    expect(catalogProductCardHtml()).toContain('min-width: 520px');
     expect(officialCatalogImageUrl('http://cdn.shopify.com/a.jpg')).toBe('');
     expect(officialCatalogImageUrl('javascript:alert(1)')).toBe('');
     expect(officialCatalogImageUrl('https://user:token@cdn.shopify.com/a.jpg')).toBe('');
     expect(officialCatalogImageUrl(`${image}#fragment`)).toBe(`${image}#fragment`);
+  });
+
+  it('pages a loaded search, filters by the data on that page, and opens one product directly', () => {
+    const groups = ['Polo', 'Crew Neck', 'Hoodies', 'Jackets', 'Caps'];
+    const items = Array.from({ length: 19 }, (_, index) => ({
+      id: `item-${index}`,
+      name: `Loaded ${index}`,
+      sellingPriceInr: 400 + index,
+      subcategory: groups[index % groups.length],
+      category: 'Apparel',
+      description: index === 0 ? 'Organized storage.' : '',
+      moq: index === 0 ? 2 : 1,
+      primaryImageUrl: index === 3 ? '' : `https://cdn.shopify.com/s/files/1/example/${index}.png`,
+      variants: Array.from({ length: index === 1 ? 5 : 1 }, (__, colorIndex) => ({
+        color: ['Blue', 'Red', 'Green', 'Black', 'White'][colorIndex],
+        size: 'M',
+        stock: index === 2 ? 0 : 4,
+        sellingPriceInr: 900,
+      })),
+    }));
+    const session = catalogCardSession({
+      items,
+      pagination: { page: 1, limit: 25, total: 19, totalPages: 1 },
+    });
+    expect(session.mode).toBe('grid');
+    expect(session.views).toHaveLength(19);
+    expect(session.views[0]).toMatchObject({
+      priceLabel: '₹400',
+      availabilityLabel: 'In stock',
+      information: 'Organized storage.',
+      moqLabel: 'Minimum order 2',
+    });
+    expect(JSON.stringify(session.views[0])).not.toContain('900');
+    expect(session.views[2].availabilityLabel).toBe('Out of stock');
+    expect(session.views[3].imageUrl).toBe('');
+    expect(catalogColorPreview(session.views[1].colors)).toEqual({
+      shown: ['Blue', 'Red', 'Green'],
+      more: 2,
+    });
+    const filters = catalogBrowseFilters(session.views);
+    expect(filters.field).toBe('subcategory');
+    expect(filters.options.map((option) => option.label)).toEqual(['All', 'Caps', 'Crew Neck', 'Hoodies', 'Jackets', 'Polo']);
+    expect(filters.options.find((option) => option.label === 'Polo').count).toBe(4);
+    expect(catalogPageNote(10, { total: 40 })).toContain('not all 40');
+    expect(catalogPageNote(19, session.pagination)).toBe('');
+    expect(catalogCardSession({ id: 'only-1', name: 'Only Bottle', sellingPriceInr: 500 }).mode).toBe('detail');
+    expect(catalogCardSession({ items: [] }).views).toEqual([]);
+    expect(CATALOG_GRID_PAGE).toBe(6);
+    const visible = session.views.slice(0, CATALOG_GRID_PAGE);
+    expect(visible).toHaveLength(6);
+    expect(session.views.slice(0, CATALOG_GRID_PAGE * 2)).toHaveLength(12);
+    expect(session.views.slice(0, CATALOG_GRID_PAGE * 4)).toHaveLength(19);
   });
 });

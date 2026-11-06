@@ -3,6 +3,7 @@ import { toNodeHandler } from '@modelcontextprotocol/node';
 import { logger } from '../../config/logger.js';
 import {
   CATALOG_SEARCH_DESCRIPTION,
+  catalogCardVisibleFromContext,
   catalogSearchContent,
   catalogSearchInputSchema,
   catalogSearchOutputSchema,
@@ -410,11 +411,11 @@ export const shelfMerchMcpHandler = createMcpHandler(
           ...catalogProductCardToolMeta(),
         },
       },
-      async (args) => {
+      async (args, ctx) => {
         try {
           const output = await searchCatalog(args);
           return {
-            content: catalogSearchContent(output),
+            content: catalogSearchContent(output, { cardVisible: catalogCardVisibleFromContext(ctx) }),
             structuredContent: output,
           };
         } catch (err) {
@@ -445,7 +446,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
           ...catalogProductCardToolMeta(),
         },
       },
-      async (args) => {
+      async (args, ctx) => {
         try {
           const output = await getCatalogProduct(args.productId);
           if (!output) {
@@ -455,7 +456,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
             };
           }
           return {
-            content: catalogProductContent(output),
+            content: catalogProductContent(output, { cardVisible: catalogCardVisibleFromContext(ctx) }),
             structuredContent: output,
           };
         } catch (err) {

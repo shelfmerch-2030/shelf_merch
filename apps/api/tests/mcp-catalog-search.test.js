@@ -8,7 +8,7 @@ import { shopSignOptions } from '../src/config/jwt.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { signRedemptionSession } from '../src/modules/redemptions/redemptions.service.js';
 import { clearTenantLimitCache } from '../src/services/tenantGuardrails.service.js';
-import { catalogSearchMongoFilter } from '../src/modules/mcp/catalogSearch.js';
+import { catalogClientShowsProductCard, catalogSearchMongoFilter } from '../src/modules/mcp/catalogSearch.js';
 import { evaluateMcpBoundary } from '../src/modules/mcp/mcpBoundary.js';
 import { authHeader, makeTenant, makeUser } from './helpers.js';
 
@@ -16,7 +16,7 @@ const PROTOCOL = '2026-07-28';
 
 let app;
 
-function mcpRequest(token, method, params = {}, extraHeaders = {}) {
+function mcpRequest(token, method, params = {}, extraHeaders = {}, meta = {}) {
   const req = request(app)
     .post('/mcp')
     .set('Accept', 'application/json, text/event-stream')
@@ -35,6 +35,7 @@ function mcpRequest(token, method, params = {}, extraHeaders = {}) {
       _meta: {
         'io.modelcontextprotocol/protocolVersion': PROTOCOL,
         'io.modelcontextprotocol/clientCapabilities': {},
+        ...meta,
       },
     },
   });
@@ -307,6 +308,7 @@ describe('POST /mcp catalog_search', () => {
       expect(listed.result.tools.map((tool) => tool.name)).toContain('catalog_search');
       const tool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
       expect(tool.description).toContain('primaryImageUrl');
+      expect(tool.description).toContain('do not repeat the product list');
       expect(tool.description).toContain('web search');
       expect(tool.description).toContain('inspiration');
       expect(tool.annotations.readOnlyHint).toBe(true);
@@ -394,6 +396,7 @@ describe('POST /mcp catalog_search', () => {
     expect(item.name).toBe('Blue Travel Laptop Backpack');
     expect(item.sellingPriceInr).toBe(1499);
     expect(item.primaryImageUrl).toBe(image);
+    expect(item.description).toBe('');
     expect(item.variants).toEqual([
       expect.objectContaining({ sku: 'BAG-1-OS', stock: 6, sellingPriceInr: 1499 }),
     ]);
@@ -488,6 +491,93 @@ describe('POST /mcp catalog_search', () => {
     expect(detail.content[0].text).toContain('₹700');
     expect(detail.content[0].text).not.toContain('₹900');
     expect(detail.content[0].text).not.toContain('₹593');
+  });
+
+  it('summarizes for a UI host and keeps the official image for other clients', async () => {
+    const image = 'https://cdn.shopify.com/s/files/1/example/Blue_Travel_Laptop_Backpack.jpg?v=1';
+    await CatalogProduct.create([
+      {
+        sku: 'BAG-UI',
+        name: 'Blue Travel Laptop Backpack',
+        category: 'Bags',
+        basePriceInr: 700,
+        gstRate: 18,
+        description: 'Organized storage.',
+        status: 'active',
+        primaryImageUrl: image,
+        source: { provider: 'shopify' },
+        variants: [
+          { sku: 'BAG-UI-BLU', color: 'Blue', size: 'OS', priceOverrideInr: 800, stock: 3, enabled: true },
+          { sku: 'BAG-UI-RED', color: 'Red', size: 'OS', priceOverrideInr: 800, stock: 2, enabled: true },
+        ],
+      },
+      {
+        sku: 'MUG-UI',
+        name: 'Desk Mug',
+        category: 'Drinkware',
+        basePriceInr: 118,
+        status: 'active',
+        primaryImageUrl: 'https://cdn.shopify.com/s/files/1/example/mug.jpg',
+        source: { provider: 'manual' },
+        variants: [{ sku: 'MUG-UI-WHT', color: 'White', size: 'OS', stock: 4, enabled: true }],
+      },
+    ]);
+    const tenant = await makeTenant();
+    const { token } = await makeUser(tenant, 'company_admin', 'tenant');
+    const uiMeta = {
+      'io.modelcontextprotocol/clientCapabilities': {
+        extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } },
+      },
+    };
+
+    const search = rpcBody(await mcpRequest(token, 'tools/call', {
+      name: 'catalog_search',
+      arguments: { query: 'Blue Travel' },
+    }, {}, uiMeta)).result;
+    expect(search.content).toEqual([{ type: 'text', text: expect.any(String) }]);
+    expect(search.content[0].text).toContain('only product presentation');
+    expect(search.content[0].text).not.toContain(image);
+    expect(search.content[0].text).not.toContain('BAG-UI-BLU');
+    expect(search.content[0].text).not.toContain('variants:');
+    expect(search.structuredContent.items[0].primaryImageUrl).toBe(image);
+    expect(search.structuredContent.items[0].sellingPriceInr).toBe(700);
+    expect(search.structuredContent.items[0].variants.map((variant) => variant.sellingPriceInr)).toEqual([700, 700]);
+
+    const listed = rpcBody(await mcpRequest(token, 'tools/call', {
+      name: 'catalog_search',
+      arguments: { category: 'Bags', limit: 25 },
+    }, {}, uiMeta)).result;
+    expect(listed.content[0].text).toContain('products loaded');
+    expect(listed.content[0].text).not.toContain('https://');
+    expect(listed.content[0].text).not.toContain('Desk Mug');
+    expect(listed.structuredContent.items.map((item) => item.primaryImageUrl)).toEqual(expect.arrayContaining([image]));
+
+    const productId = search.structuredContent.items[0].id;
+    const detail = rpcBody(await mcpRequest(token, 'tools/call', {
+      name: 'catalog_get_product',
+      arguments: { productId },
+    }, {}, uiMeta)).result;
+    expect(detail.content).toEqual([{ type: 'text', text: expect.any(String) }]);
+    expect(detail.content[0].text).toContain('only product presentation');
+    expect(detail.content[0].text).not.toContain(image);
+    expect(detail.content[0].text).not.toContain('BAG-UI');
+    expect(detail.content[0].text).not.toContain('₹800');
+    expect(detail.structuredContent.primaryImageUrl).toBe(image);
+    expect(detail.structuredContent.sellingPriceInr).toBe(700);
+    expect(detail.structuredContent.description).toBe('Organized storage.');
+
+    expect(catalogClientShowsProductCard({
+      extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } },
+    })).toBe(true);
+    expect(catalogClientShowsProductCard(null, { name: 'ChatGPT-User' })).toBe(false);
+    expect(catalogClientShowsProductCard({
+      extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html'] } },
+    })).toBe(false);
+
+    const plain = await callCatalog(token, { query: 'Blue Travel Laptop Backpack' });
+    expect(plain.content[0].text).toContain(image);
+    expect(plain.content[0].text).toContain('incl. GST');
+    expect(plain.content.some((block) => block.type === 'image' || block.type === 'resource_link')).toBe(false);
   });
 
   it('treats a dotted query as literal text', async () => {

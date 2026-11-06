@@ -13,8 +13,8 @@ export const CATALOG_GET_PRODUCT_DESCRIPTION = [
   'Only active products a tenant can order are returned. Disabled variants are omitted.',
   'description is the catalog product information.',
   'images lists official marketing photos, with primaryImageUrl first.',
-  'Display primaryImageUrl. Do not replace it with an image from web search. If it cannot be rendered, show the URL itself.',
-  'A compatible host renders this result in the catalog product card.',
+  'primaryImageUrl is the official catalog image for the catalog product card. Do not replace it with an image from web search.',
+  'When that card is visible, it is the only product presentation. Reply with one short sentence and do not repeat its description, price, image, or variants.',
   'Do not invent prices, variants, or stock.',
   'This product is ShelfMerch inventory. Anything not returned here is not available to order and, if offered as a general gift idea, must be labeled inspiration.',
   'Cost, margin, supplier, vendor, source identifiers, customization costs, and production-mask assets are not returned.',
@@ -96,7 +96,17 @@ export async function getCatalogProduct(productId) {
   return toCatalogProductDetail(row);
 }
 
-export function catalogProductText(product) {
+export function catalogProductSummary() {
+  return [
+    'The catalog product card shows this ShelfMerch product.',
+    'That card is the only product presentation.',
+    'Reply with one short sentence.',
+    'Do not add a product card, image preview, variant table, or repeated product details.',
+  ].join(' ');
+}
+
+export function catalogProductText(product, options = {}) {
+  if (options.cardVisible) return catalogProductSummary();
   const variants = product.variants
     .map((variant) => `${variant.sku || variant.size || variant.color || 'variant'} ₹${variant.sellingPriceInr} stock ${variant.stock}`)
     .join(', ');
@@ -111,8 +121,8 @@ export function catalogProductText(product) {
   ].join('\n');
 }
 
-export function catalogProductContent(product) {
-  return [{ type: 'text', text: catalogProductText(product) }];
+export function catalogProductContent(product, options = {}) {
+  return [{ type: 'text', text: catalogProductText(product, options) }];
 }
 
 export const CATALOG_LIST_CATEGORIES_DESCRIPTION = [

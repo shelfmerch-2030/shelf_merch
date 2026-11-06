@@ -20,14 +20,17 @@ export const CATALOG_INVENTORY_RULE = [
   'Use only the ids, prices, variants, stock, and primaryImageUrl values in the result.',
   'Do not invent product ids, prices, variants, or stock.',
   'primaryImageUrl is the official catalog image.',
-  'Display that URL and do not replace it with an image from web search.',
-  'If the image cannot be rendered, show the URL itself.',
+  'do not replace it with an image from web search.',
+  'The catalog product card is the only product presentation when the host shows it. Do not add another product card, image preview, or variant table.',
+  'When that card is not shown, quote primaryImageUrl as text.',
   'A product that is not in the result is not ShelfMerch inventory and must not be used in store, campaign, or order tools.',
   'If the user asked for general gifting ideas, label anything outside this result as inspiration and do not claim it can be ordered through ShelfMerch.',
 ].join(' ');
 
 export const CATALOG_SEARCH_DESCRIPTION = [
   'Search the ShelfMerch selling catalog.',
+  'When the host shows the catalog product card, that card is the only product presentation. Reply with one short sentence and do not repeat the product list, prices, images, or variants.',
+  'Clients without that card should use the text result, which lists every product returned on this page and quotes each primaryImageUrl.',
   'sellingPriceInr is the GST-inclusive catalog selling price in rupees and is not reduced by removing GST.',
   'Every variant uses that same selling price. Selecting a color or size does not change it.',
   'minSellingPriceInr and maxSellingPriceInr filter that catalog selling price and do not remove GST.',
@@ -117,6 +120,7 @@ export function toCatalogSearchItem(product) {
     sellingPriceInr,
     gstRate: Number(visible.gstRate ?? 18),
     moq: Number(visible.moq ?? 1),
+    description: typeof visible.description === 'string' ? visible.description.trim() : '',
     primaryImageUrl: visible.primaryImageUrl ?? '',
     variants: (visible.variants ?? []).map((variant, index) => ({
       sku: variant.sku ?? '',
@@ -188,6 +192,7 @@ export const catalogSearchOutputSchema = z.object({
       sellingPriceInr: z.number().int(),
       gstRate: z.number(),
       moq: z.number(),
+      description: z.string(),
       primaryImageUrl: z.string(),
       variants: z.array(catalogSearchVariantSchema),
     }),
@@ -201,7 +206,7 @@ export const catalogSearchOutputSchema = z.object({
 });
 
 const PUBLIC_PRODUCT_FIELDS =
-  'sku name brand category subcategory childCategory basePriceInr gstRate moq primaryImageUrl variants status source';
+  'sku name brand category subcategory childCategory basePriceInr gstRate moq description primaryImageUrl variants status source';
 
 export async function searchCatalog(input = {}) {
   const filter = catalogSearchMongoFilter(input);
@@ -236,10 +241,37 @@ export function officialImageNote(url) {
   return `Official image: ${value}`;
 }
 
-export function catalogSearchText(output) {
+const CLIENT_CAPABILITIES_KEY = 'io.modelcontextprotocol/clientCapabilities';
+const MCP_APP_MIME = 'text/html;profile=mcp-app';
+
+/** Short text only when the client declares it can render an MCP Apps HTML card. */
+export function catalogClientShowsProductCard(capabilities) {
+  const ui = capabilities?.extensions?.['io.modelcontextprotocol/ui'];
+  return Boolean(ui && typeof ui === 'object' && Array.isArray(ui.mimeTypes) && ui.mimeTypes.includes(MCP_APP_MIME));
+}
+
+export function catalogCardVisibleFromContext(ctx) {
+  const envelope = ctx?.mcpReq?.envelope;
+  return catalogClientShowsProductCard(envelope?.[CLIENT_CAPABILITIES_KEY]);
+}
+
+export function catalogSearchSummary(output) {
+  const { items, pagination } = output;
+  const shown = Array.isArray(items) ? items.length : 0;
+  return [
+    `ShelfMerch catalog page ${pagination.page} of ${pagination.totalPages}: ${shown} products loaded, ${pagination.total} matches.`,
+    'The catalog product card is the only product presentation.',
+    'Reply with one short sentence.',
+    'Do not add a product card, image preview, variant table, price list, or repeated product details.',
+  ].join(' ');
+}
+
+export function catalogSearchText(output, options = {}) {
+  if (options.cardVisible) return catalogSearchSummary(output);
   const { items, pagination } = output;
   const header = [
     'ShelfMerch catalog inventory. Prices are GST-inclusive rupees.',
+    'This text is for clients that do not show the catalog product card.',
     `Page ${pagination.page} of ${pagination.totalPages} (${pagination.total} total).`,
     CATALOG_INVENTORY_RULE,
   ].join(' ');
@@ -254,8 +286,8 @@ export function catalogSearchText(output) {
   return [header, ...lines].join('\n');
 }
 
-export function catalogSearchContent(output) {
-  // The official URL stays in the text. A resource_link is not an embedded
-  // image, and this server does not serve resources/read for the CDN file.
-  return [{ type: 'text', text: catalogSearchText(output) }];
+export function catalogSearchContent(output, options = {}) {
+  // Text only. An image block or resource_link is not an embedded catalog photo,
+  // and this server does not serve resources/read for the CDN file.
+  return [{ type: 'text', text: catalogSearchText(output, options) }];
 }
