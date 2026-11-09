@@ -15,6 +15,7 @@ import {
   catalogColorPreview,
   catalogPageNote,
   catalogProductCardHtml,
+  publicCatalogProductUrl,
   catalogProductCards,
   catalogProductCardView,
   CATALOG_GRID_PAGE,
@@ -173,7 +174,7 @@ describe('catalog read tools', () => {
     expect(productTool.description).toContain('primaryImageUrl');
     expect(productTool.description).toContain('web search');
     expect(productTool.description).toContain('inspiration');
-    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v4.html');
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v5.html');
     expect(productTool._meta.ui.resourceUri).toBe(CATALOG_PRODUCT_CARD_URI);
     expect(productTool._meta['openai/outputTemplate']).toBe(CATALOG_PRODUCT_CARD_URI);
     const searchTool = listed.result.tools.find((entry) => entry.name === 'catalog_search');
@@ -475,13 +476,21 @@ describe('catalog read tools', () => {
       sellingPriceInr: 700,
       primaryImageUrl: image,
     })[0]).toMatchObject({ name: 'Travel Pack', priceLabel: '₹700', imageUrl: image });
+    expect(publicCatalogProductUrl('507f1f77bcf86cd799439011', ['https://shelfmerch.io'])).toBe('https://shelfmerch.io/apps/catalog/507f1f77bcf86cd799439011');
+    expect(publicCatalogProductUrl('pack-1', ['https://shelfmerch.io'])).toBe('');
+    expect(publicCatalogProductUrl('507f1f77bcf86cd799439011', ['http://localhost:5173'])).toMatch(/\/apps\/catalog\/507f1f77bcf86cd799439011$/);
     expect(catalogProductCardHtml()).toContain(catalogProductCardView.name);
     expect(catalogProductCardHtml()).toContain('toolOutput');
-    expect(catalogProductCardHtml()).toContain('min-width: 520px');
-    expect(catalogProductCardHtml()).toContain('.card .media { aspect-ratio: auto; height: 160px; }');
+    expect(catalogProductCardHtml()).toContain('container-type: inline-size');
+    expect(catalogProductCardHtml()).toContain('@container (min-width: 520px)');
+    expect(catalogProductCardHtml()).toContain('layoutMode');
+    expect(catalogProductCardHtml()).toContain('hero-stage');
+    expect(catalogProductCardHtml()).toContain('list-stage');
+    expect(catalogProductCardHtml()).toContain('View on ShelfMerch');
+    expect(catalogProductCardHtml()).toContain('.card .media { height: 160px; }');
     expect(catalogProductCardHtml()).toContain('.card .media { height: 168px; }');
     expect(catalogProductCardHtml()).toContain('max-height: 320px');
-    expect(catalogProductCardHtml()).toContain("version: '0.5.0'");
+    expect(catalogProductCardHtml()).toContain("version: '0.6.0'");
     expect(officialCatalogImageUrl('http://cdn.shopify.com/a.jpg')).toBe('');
     expect(officialCatalogImageUrl('javascript:alert(1)')).toBe('');
     expect(officialCatalogImageUrl('https://user:token@cdn.shopify.com/a.jpg')).toBe('');

@@ -1,7 +1,7 @@
 import { catalogProductCardResourceDomains } from './catalogProductCard.js';
 import { kitImageResourceOrigins } from './kitsRead.js';
 
-export const KIT_CATALOG_CARD_URI = 'ui://shelfmerch/catalog-kit-card-v1.html';
+export const KIT_CATALOG_CARD_URI = 'ui://shelfmerch/catalog-kit-card-v3.html';
 export const KIT_CATALOG_CARD_MIME = 'text/html;profile=mcp-app';
 const KIT_PAGE = 6;
 
@@ -42,33 +42,45 @@ function kitCatalogCardHtml() {
   button, input { font: inherit; }
   button { cursor: pointer; }
   button:focus-visible, input:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 10px; }
+  .stage { display: grid; gap: 10px; padding: 10px; container-type: inline-size; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
   .filters, .search { display: flex; flex-wrap: wrap; gap: 8px; }
   .search input { flex: 1 1 160px; min-width: 0; border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 8px 12px; }
   .chip, .more, .back, .details { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
   .chip[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
-  .card, .kit { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
+  .card, .row, .hero, .kit { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
   .card { display: flex; flex-direction: column; }
+  .row, .hero { display: flex; align-items: stretch; }
   .media { position: relative; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
   .card .media { height: 160px; }
+  .row-media { width: 112px; min-width: 112px; height: 112px; }
+  .hero-media { width: 42%; min-width: 140px; max-width: 280px; min-height: 180px; }
   .media.large { aspect-ratio: 4 / 3; height: auto; max-height: 320px; width: 100%; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .image-fallback { margin: 0; padding: 12px; text-align: center; }
   .body, .kit { padding: 12px; }
   .card .body { padding: 8px 10px; }
-  .card h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .kit { display: block; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.25rem; }
+  .card h2, .row h2, .hero h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .meta-line, .price, .contents p { margin-top: 4px; }
   .price { font-weight: 700; }
   .hint, .note { color: var(--color-text-secondary, #5c6370); }
   .details, .more, .back { margin-top: 8px; min-height: 36px; }
-  @media (min-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } .card .media { height: 168px; } }
+  .grid { grid-template-columns: 1fr; }
+  .list-stage, .hero-stage { grid-template-columns: 1fr; }
+  @container (min-width: 520px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .card .media { height: 168px; }
+  }
+  @container (max-width: 419px) {
+    .row, .hero { flex-direction: column; }
+    .row-media, .hero-media { width: 100%; max-width: none; height: 160px; min-height: 160px; }
+  }
   @media (prefers-color-scheme: dark) {
     body { color: var(--color-text-primary, #f4f4f5); }
-    .card, .kit, .chip, .more, .back, .details, .search input { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .card, .row, .hero, .kit, .chip, .more, .back, .details, .search input { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
     .chip[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
     .media { background: var(--color-background-secondary, #111114); }
     .hint, .note { color: var(--color-text-secondary, #c4c4cc); }
@@ -130,11 +142,21 @@ function readBody(result) {
   return source;
 }
 
+function requestedType(body) {
+  const value = body && body.view && typeof body.view.type === 'string' ? body.view.type : '';
+  if (value === 'customized' || value === 'curated' || value === 'all') return value;
+  return '';
+}
+
 function readSession(result) {
   const body = readBody(result);
-  if (Array.isArray(body.items)) return { mode: 'grid', kits: body.items };
-  if (body && (body.name || body.imageUrl || body.id)) return { mode: 'detail', kits: [body] };
-  return { mode: 'grid', kits: [] };
+  if (Array.isArray(body.items)) {
+    return { mode: 'grid', kits: body.items, type: requestedType(body) || 'all' };
+  }
+  if (body && (body.name || body.imageUrl || body.id)) {
+    return { mode: 'detail', kits: [body], type: body.type === 'curated' ? 'curated' : body.type === 'customized' ? 'customized' : 'all' };
+  }
+  return { mode: 'grid', kits: [], type: 'all' };
 }
 
 function optionCounts(key) {
@@ -180,11 +202,17 @@ function paintImage(media, kit) {
   media.append(image);
 }
 
-function paintSummary(kit) {
+function layoutMode(count) {
+  if (count <= 1) return 'hero';
+  if (count <= 5) return 'list';
+  return 'grid';
+}
+
+function paintSummary(kit, mode) {
   const article = document.createElement('article');
-  article.className = 'card';
+  article.className = mode === 'hero' ? 'hero' : mode === 'list' ? 'row' : 'card';
   const media = document.createElement('div');
-  media.className = 'media';
+  media.className = mode === 'hero' ? 'media hero-media' : mode === 'list' ? 'media row-media' : 'media';
   paintImage(media, kit);
   const body = document.createElement('div');
   body.className = 'body';
@@ -230,7 +258,8 @@ function paintGrid() {
   const rows = filtered();
   message.hidden = true;
   cards.hidden = false;
-  cards.className = 'grid';
+  const mode = layoutMode(rows.length);
+  cards.className = mode === 'hero' ? 'stage hero-stage' : mode === 'list' ? 'stage list-stage' : 'stage grid';
   cards.replaceChildren();
   const bar = document.createElement('div');
   bar.className = 'toolbar';
@@ -289,21 +318,24 @@ function paintGrid() {
     cards.append(empty);
     return;
   }
-  for (const kit of rows.slice(0, shown)) cards.append(paintSummary(kit));
-  const status = document.createElement('p');
-  status.className = 'note';
-  status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
-  cards.append(status);
-  if (rows.length > shown) {
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'more';
-    more.textContent = 'Show more';
-    more.addEventListener('click', () => {
-      shown += PAGE;
-      paintGrid();
-    });
-    cards.append(more);
+  const visible = mode === 'grid' ? rows.slice(0, shown) : rows;
+  for (const kit of visible) cards.append(paintSummary(kit, mode));
+  if (mode === 'grid') {
+    const status = document.createElement('p');
+    status.className = 'note';
+    status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
+    cards.append(status);
+    if (rows.length > shown) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'more';
+      more.textContent = 'Show more';
+      more.addEventListener('click', () => {
+        shown += PAGE;
+        paintGrid();
+      });
+      cards.append(more);
+    }
   }
 }
 
@@ -380,7 +412,7 @@ function renderResult(params) {
     return;
   }
   session = readSession(result);
-  typeId = 'all';
+  typeId = session.type || 'all';
   statusId = 'all';
   query = '';
   shown = PAGE;
@@ -424,7 +456,7 @@ function renderHostOutput() {
 
 request('ui/initialize', {
   protocolVersion: '2026-01-26',
-  appInfo: { name: 'shelfmerch-catalog-kit-card', version: '0.1.0' },
+  appInfo: { name: 'shelfmerch-catalog-kit-card', version: '0.3.0' },
   appCapabilities: { availableDisplayModes: ['inline'] },
 }).then((result) => {
   const variables = result?.hostContext?.styles?.variables;

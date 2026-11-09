@@ -12,7 +12,8 @@ const READ_ROLES = new Set(rolesForTenantArea('kits', 'read'));
 const OBJECT_ID = /^[a-f\d]{24}$/i;
 
 export const KITS_LIST_DESCRIPTION = [
-  'List customized kits owned by this workspace, including a curated kit only after it has been copied into the workspace.',
+  'List workspace kits. Customized kits are workspace-built. Curated copies keep type curated after they are copied into the workspace.',
+  'Pass type=customized for customized-only, type=curated for curated workspace copies only, or omit type / pass type=all for every authorized workspace kit.',
   'Company admins and department managers can list them. Another workspace is never included.',
   'Search matches the kit name. Draft, live, and archived kits can be filtered by status.',
   'Each row includes the kit id, type, status, item count, stored kit price, official image, and whether it can be sent.',
@@ -70,8 +71,12 @@ const kitSummarySchema = z.object({
 export const kitsListInputSchema = z.object({
   query: z.string().trim().max(80).optional(),
   status: z.enum(['draft', 'live', 'archived']).optional(),
+  type: z.enum(['customized', 'curated', 'all']).optional(),
 });
-export const kitsListOutputSchema = z.object({ items: z.array(kitSummarySchema) });
+export const kitsListOutputSchema = z.object({
+  items: z.array(kitSummarySchema),
+  view: z.object({ type: z.enum(['customized', 'curated', 'all']) }),
+});
 export const kitsGetInputSchema = z.object({ kitId: z.string().trim().regex(OBJECT_ID) });
 export const kitsGetOutputSchema = kitSummarySchema.extend({
   platformKitId: z.string(),
@@ -85,6 +90,7 @@ export const kitsListCuratedOutputSchema = z.object({
   items: z.array(kitSummarySchema.omit({ sendEligible: true }).extend({
     requireLogo: z.boolean(),
   })),
+  view: z.object({ type: z.literal('curated') }),
 });
 export const kitsGetCuratedInputSchema = z.object({ platformKitId: z.string().trim().regex(OBJECT_ID) });
 export const kitsGetCuratedOutputSchema = kitsListCuratedOutputSchema.shape.items.element;
@@ -122,11 +128,17 @@ function httpsOrigin(value) {
 }
 
 /** HTTPS origins that already serve dashboard /uploads files. */
-export function kitImageResourceOrigins(bases = [env.BASE_URL, env.APP_URL, env.CLIENT_URL]) {
+/** HTTPS origins that already host official kit artwork for the dashboard. */
+export function kitImageResourceOrigins(bases = [env.BASE_URL, env.APP_URL, env.CLIENT_URL, env.S3_PUBLIC_BASE_URL, env.R2_ENDPOINT]) {
   const origins = [];
-  for (const base of bases) {
-    const origin = httpsOrigin(base);
+  const add = (value) => {
+    const origin = httpsOrigin(value);
     if (origin && !origins.includes(origin)) origins.push(origin);
+  };
+  for (const base of bases) add(base);
+  if (env.S3_BUCKET_NAME && env.AWS_REGION) {
+    add(`https://s3.${env.AWS_REGION}.amazonaws.com`);
+    add(`https://${env.S3_BUCKET_NAME}.s3.${env.AWS_REGION}.amazonaws.com`);
   }
   return origins;
 }
@@ -244,13 +256,18 @@ function workspaceSummary(kit, meta, products = []) {
 
 export async function listKits({ tenantId, user, input = {} }) {
   assertReader(user);
+  const requestedType = input.type === 'customized' || input.type === 'curated' ? input.type : 'all';
   const filter = { tenantId };
   if (input.status) filter.status = input.status;
   if (input.query) filter.name = new RegExp(escapeSearch(input.query), 'i');
   const kits = await Kit.find(filter).sort({ name: 1 }).limit(100).lean();
   const byId = await catalogById(kits.flatMap((kit) => (kit.productRefs || []).map((ref) => ref.catalogProductId)));
+  const items = kits
+    .map((kit) => workspaceSummary(kit, parseCuratedKitMeta(kit.designNotes), workspaceProducts(kit, byId)))
+    .filter((kit) => requestedType === 'all' || kit.type === requestedType);
   return {
-    items: kits.map((kit) => workspaceSummary(kit, parseCuratedKitMeta(kit.designNotes), workspaceProducts(kit, byId))),
+    items,
+    view: { type: requestedType },
   };
 }
 
@@ -279,7 +296,10 @@ export async function listCuratedKits({ tenantId, user, input = {} }) {
   if (input.maxPriceInr != null) filter.approxValueInr = { $lte: input.maxPriceInr };
   const kits = await PlatformKit.find(filter).sort({ name: 1 }).limit(100).lean();
   const byId = await catalogById(kits.flatMap((kit) => (kit.items || []).map((item) => item.catalogProductId)));
-  return { items: kits.map((kit) => curatedSummary(kit, curatedProducts(kit, byId))) };
+  return {
+    items: kits.map((kit) => curatedSummary(kit, curatedProducts(kit, byId))),
+    view: { type: 'curated' },
+  };
 }
 
 export async function getCuratedKit({ tenantId, user, platformKitId }) {

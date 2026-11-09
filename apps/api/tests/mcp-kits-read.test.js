@@ -73,6 +73,7 @@ describe('workspace and curated kit reads', () => {
       imageUrl: 'https://cdn.shopify.com/kit.png',
       sendEligible: true,
     });
+    expect(listed.view).toEqual({ type: 'all' });
     expect(listed.items[0].description).toBe('For new hires');
     expect(listed.items[0].products).toEqual([
       expect.objectContaining({ name: 'Desk Mug', quantity: 1, imageUrl: 'https://cdn.shopify.com/mug.png' }),
@@ -128,6 +129,7 @@ describe('workspace and curated kit reads', () => {
       input: { query: 'onboarding', maxPriceInr: 1500 },
     });
     expect(listed.items.map((kit) => kit.name)).toEqual(['Welcome Box']);
+    expect(listed.view).toEqual({ type: 'curated' });
     expect(listed.items[0]).toMatchObject({
       type: 'curated',
       priceInr: 1500,
@@ -153,6 +155,61 @@ describe('workspace and curated kit reads', () => {
     })).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
+  it('filters customized kits without dropping curated origin labels', async () => {
+    const product = await CatalogProduct.create({
+      sku: 'SM-MUG-2',
+      name: 'Desk Mug',
+      category: 'Drinkware',
+      group: 'mug',
+      basePriceInr: 118,
+      primaryImageUrl: 'https://cdn.shopify.com/mug.png',
+    });
+    await Kit.create({
+      tenantId: tenant._id,
+      name: 'Team Welcome Kit',
+      description: 'Custom onboarding',
+      productRefs: [{ catalogProductId: product._id, name: 'Desk Mug', brand: '', group: 'mug' }],
+      status: 'live',
+      kitPrice: 118,
+      artworkUrl: 'https://s3.ap-south-1.amazonaws.com/shelfmerch.io/tenant/artwork/welcome.jpeg',
+    });
+    await Kit.create({
+      tenantId: tenant._id,
+      name: '10 in 1 Work Bundle',
+      productRefs: [{ catalogProductId: product._id, name: 'Desk Mug', brand: '', group: 'mug' }],
+      status: 'live',
+      kitPrice: 1500,
+      artworkUrl: 'https://cdn.shopify.com/bundle.png',
+      designNotes: JSON.stringify({ curated: true, originalId: '6a82b7d8a03ad62bdb7f3bc9', approxValueInr: 1500, heroImage: 'https://cdn.shopify.com/bundle.png' }),
+    });
+
+    const customized = await listKits({
+      tenantId: tenant._id,
+      user: { role: 'company_admin', userId: admin.user._id },
+      input: { type: 'customized' },
+    });
+    expect(customized.view).toEqual({ type: 'customized' });
+    expect(customized.items.map((kit) => kit.name)).toEqual(['Team Welcome Kit']);
+    expect(customized.items[0].type).toBe('customized');
+    expect(customized.items[0].imageUrl).toBe('https://s3.ap-south-1.amazonaws.com/shelfmerch.io/tenant/artwork/welcome.jpeg');
+
+    const curatedCopies = await listKits({
+      tenantId: tenant._id,
+      user: { role: 'company_admin', userId: admin.user._id },
+      input: { type: 'curated' },
+    });
+    expect(curatedCopies.view).toEqual({ type: 'curated' });
+    expect(curatedCopies.items.map((kit) => kit.name)).toEqual(['10 in 1 Work Bundle']);
+    expect(curatedCopies.items[0].type).toBe('curated');
+
+    const all = await listKits({
+      tenantId: tenant._id,
+      user: { role: 'company_admin', userId: admin.user._id },
+      input: { type: 'all' },
+    });
+    expect(all.view).toEqual({ type: 'all' });
+    expect(all.items.map((kit) => kit.name).sort()).toEqual(['10 in 1 Work Bundle', 'Team Welcome Kit']);
+  });
   it('keeps a missing official image empty and does not invent one', async () => {
     await Kit.create({
       tenantId: tenant._id,
@@ -200,10 +257,10 @@ describe('workspace and curated kit reads', () => {
 describe('kit catalog card', () => {
   it('registers a versioned kit card without changing the product card', () => {
     const meta = kitCatalogCardToolMeta();
-    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v1.html');
+    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v3.html');
     expect(meta.ui.resourceUri).toBe(KIT_CATALOG_CARD_URI);
     expect(meta['openai/outputTemplate']).toBe(KIT_CATALOG_CARD_URI);
-    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v4.html');
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v5.html');
     expect(CATALOG_PRODUCT_CARD_URI).not.toBe(KIT_CATALOG_CARD_URI);
     const html = kitCatalogCardHtml();
     expect(html).toContain('View details');
@@ -213,7 +270,12 @@ describe('kit catalog card', () => {
     expect(html).toContain('Listed price');
     expect(html).toContain('Estimated card price');
     expect(html).toContain('Stored card price, not the checkout total.');
-    expect(html).toContain('min-width: 520px');
+    expect(html).toContain('container-type: inline-size');
+    expect(html).toContain('@container (min-width: 520px)');
+    expect(html).toContain('layoutMode');
+    expect(html).toContain('hero-stage');
+    expect(html).toContain('list-stage');
+    expect(html).toContain("version: '0.3.0'");
     expect(html).toContain('height: 160px');
     expect(html).toContain('height: 168px');
     expect(html).toContain('max-height: 320px');

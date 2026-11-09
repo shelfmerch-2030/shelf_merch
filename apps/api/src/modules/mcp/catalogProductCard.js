@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 
-export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v4.html';
+export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v5.html';
 
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
 
@@ -45,6 +45,24 @@ export function catalogProductCardResourceMeta() {
 }
 
 /** Accept only an https catalog URL, unchanged, with no embedded credentials. */
+const SITE_ORIGIN = 'https://shelfmerch.io';
+
+/** Prefer the configured public site origin; localhost falls back to production. */
+export function catalogSiteOrigin(bases = [env.CLIENT_URL, env.APP_URL, env.BASE_URL]) {
+  for (const base of bases) {
+    const candidate = httpsOrigin(base);
+    if (candidate && !candidate.includes('localhost') && !candidate.includes('127.0.0.1')) return candidate;
+  }
+  return SITE_ORIGIN;
+}
+
+/** Public marketing product page. Localhost falls back to the production catalog origin. */
+export function publicCatalogProductUrl(productId, bases = [env.CLIENT_URL, env.APP_URL, env.BASE_URL]) {
+  const id = typeof productId === 'string' ? productId.trim() : '';
+  if (!/^[a-f\d]{24}$/i.test(id)) return '';
+  return `${catalogSiteOrigin(bases)}/apps/catalog/${id}`;
+}
+
 export function officialCatalogImageUrl(value) {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
@@ -111,6 +129,7 @@ export function catalogProductCardView(product) {
     moqLabel: Number.isFinite(moq) && moq > 0 ? `Minimum order ${Math.round(moq)}` : '',
     colors,
     variants,
+    pageUrl: publicCatalogProductUrl(source.id),
   };
 }
 
@@ -211,6 +230,12 @@ function startCatalogProductCard() {
     return session.views.filter((view) => groupLabel(view) === filterId);
   }
 
+  function layoutMode(count) {
+    if (count <= 1) return 'hero';
+    if (count <= 5) return 'list';
+    return 'grid';
+  }
+
   function paintImage(media, view) {
     function unavailable() {
       media.replaceChildren();
@@ -230,20 +255,20 @@ function startCatalogProductCard() {
     media.append(image);
   }
 
-  function paintSummary(view) {
-    const article = document.createElement('article');
-    article.className = 'card';
-    const media = document.createElement('div');
-    media.className = 'media';
-    paintImage(media, view);
-    const body = document.createElement('div');
-    body.className = 'body';
-    const name = document.createElement('h2');
-    name.textContent = view.name;
-    const price = document.createElement('p');
-    price.className = 'price';
-    price.textContent = view.priceLabel;
-    body.append(name, price);
+  function openExternal(url) {
+    if (!url) return;
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
+    }
+  }
+
+  function appendMeta(body, view) {
     if (view.availabilityLabel) {
       const stock = document.createElement('p');
       stock.className = 'stock';
@@ -255,19 +280,51 @@ function startCatalogProductCard() {
       const colors = document.createElement('p');
       colors.className = 'swatches';
       colors.textContent = preview.more
-        ? `${preview.shown.join(', ')} +${preview.more} more`
+        ? preview.shown.join(', ') + ' +' + preview.more + ' more'
         : preview.shown.join(', ');
       body.append(colors);
     }
+  }
+
+  function appendActions(body, view, { detailsClass = 'details' } = {}) {
+    const actions = document.createElement('div');
+    actions.className = 'actions';
     const action = document.createElement('button');
     action.type = 'button';
-    action.className = 'details';
+    action.className = detailsClass;
     action.textContent = 'View details';
     action.addEventListener('click', () => {
       detailId = view.productId;
       paintDetail();
     });
-    body.append(action);
+    actions.append(action);
+    if (view.pageUrl) {
+      const external = document.createElement('button');
+      external.type = 'button';
+      external.className = 'external';
+      external.textContent = 'View on ShelfMerch';
+      external.addEventListener('click', () => openExternal(view.pageUrl));
+      actions.append(external);
+    }
+    body.append(actions);
+  }
+
+  function paintSummary(view, mode) {
+    const article = document.createElement('article');
+    article.className = mode === 'hero' ? 'hero' : mode === 'list' ? 'row' : 'card';
+    const media = document.createElement('div');
+    media.className = mode === 'hero' ? 'media hero-media' : mode === 'list' ? 'media row-media' : 'media';
+    paintImage(media, view);
+    const body = document.createElement('div');
+    body.className = 'body';
+    const name = document.createElement('h2');
+    name.textContent = view.name;
+    const price = document.createElement('p');
+    price.className = 'price';
+    price.textContent = view.priceLabel;
+    body.append(name, price);
+    appendMeta(body, view);
+    appendActions(body, view);
     article.append(media, body);
     return article;
   }
@@ -276,7 +333,8 @@ function startCatalogProductCard() {
     const rows = filteredViews();
     message.hidden = true;
     cards.hidden = false;
-    cards.className = 'grid';
+    const mode = layoutMode(rows.length);
+    cards.className = mode === 'hero' ? 'stage hero-stage' : mode === 'list' ? 'stage list-stage' : 'stage grid';
     cards.replaceChildren();
     const filters = catalogBrowseFilters(session.views);
     const bar = document.createElement('div');
@@ -290,7 +348,7 @@ function startCatalogProductCard() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'chip';
-        button.textContent = `${option.label} (${option.count})`;
+        button.textContent = option.label + ' (' + option.count + ')';
         button.setAttribute('aria-pressed', option.id === filterId ? 'true' : 'false');
         button.addEventListener('click', () => {
           filterId = option.id;
@@ -320,21 +378,24 @@ function startCatalogProductCard() {
       cards.append(empty);
       return;
     }
-    for (const view of rows.slice(0, shown)) cards.append(paintSummary(view));
-    const status = document.createElement('p');
-    status.className = 'note';
-    status.textContent = `Showing ${Math.min(shown, rows.length)} of ${rows.length} loaded.`;
-    cards.append(status);
-    if (rows.length > shown) {
-      const more = document.createElement('button');
-      more.type = 'button';
-      more.className = 'more';
-      more.textContent = 'Show more';
-      more.addEventListener('click', () => {
-        shown += CATALOG_GRID_PAGE;
-        paintGrid();
-      });
-      cards.append(more);
+    const visible = mode === 'grid' ? rows.slice(0, shown) : rows;
+    for (const view of visible) cards.append(paintSummary(view, mode));
+    if (mode === 'grid') {
+      const status = document.createElement('p');
+      status.className = 'note';
+      status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
+      cards.append(status);
+      if (rows.length > shown) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'more';
+        more.textContent = 'Show more';
+        more.addEventListener('click', () => {
+          shown += CATALOG_GRID_PAGE;
+          paintGrid();
+        });
+        cards.append(more);
+      }
     }
   }
 
@@ -393,7 +454,7 @@ function startCatalogProductCard() {
       for (const variant of matches) {
         const line = document.createElement('p');
         const parts = [variant.color, variant.size].filter(Boolean);
-        line.textContent = parts.length ? `${parts.join(' / ')} · ${variant.stockLabel}` : variant.stockLabel;
+        line.textContent = parts.length ? parts.join(' / ') + ' — ' + variant.stockLabel : variant.stockLabel;
         variantBox.append(line);
       }
     }
@@ -426,9 +487,14 @@ function startCatalogProductCard() {
       moq.textContent = view.moqLabel;
       details.append(moq);
     }
-    const idLine = document.createElement('p');
-    idLine.append('Product id ', view.productId);
-    details.append(idLine);
+    if (view.pageUrl) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'external';
+      link.textContent = 'View on ShelfMerch';
+      link.addEventListener('click', () => openExternal(view.pageUrl));
+      details.append(link);
+    }
     article.append(details);
     cards.append(article);
   }
@@ -485,31 +551,36 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.5.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.6.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
-  })
-    .then((result) => {
-      const variables = result?.hostContext?.styles?.variables;
-      if (variables && typeof variables === 'object') {
-        for (const [key, value] of Object.entries(variables)) {
-          if (typeof key === 'string' && key.startsWith('--') && typeof value === 'string') {
-            document.documentElement.style.setProperty(key, value);
-          }
+  }).then((result) => {
+    const variables = result?.hostContext?.styles?.variables;
+    if (variables && typeof variables === 'object') {
+      for (const [key, value] of Object.entries(variables)) {
+        if (typeof key === 'string' && key.startsWith('--') && typeof value === 'string') {
+          document.documentElement.style.setProperty(key, value);
         }
       }
-      window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized' }, '*');
-      renderHostOutput();
-    })
-    .catch(() => {
-      renderHostOutput();
-    });
+    }
+    window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized' }, '*');
+    renderHostOutput();
+  }).catch(() => {
+    renderHostOutput();
+  });
 }
+
 
 export function catalogProductCardHtml() {
   const script = [
     officialCatalogImageUrl.toString(),
     rupeeLabel.toString(),
     text.toString(),
+    `const SITE_ORIGIN = ${JSON.stringify(catalogSiteOrigin())};`,
+    `function publicCatalogProductUrl(productId) {
+  const id = typeof productId === 'string' ? productId.trim() : '';
+  if (!/^[a-f\\d]{24}$/i.test(id) || !SITE_ORIGIN) return '';
+  return SITE_ORIGIN + '/apps/catalog/' + id;
+}`,
     catalogProductCardView.toString(),
     catalogProductCards.toString(),
     catalogCardSession.toString(),
@@ -531,40 +602,48 @@ export function catalogProductCardHtml() {
   #message { padding: 16px; }
   button { font: inherit; cursor: pointer; }
   button:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 10px; padding: 10px; }
+  .stage { display: grid; gap: 10px; padding: 10px; container-type: inline-size; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
   .filters { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip, .more, .back, .details, .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
+  .chip, .more, .back, .details, .external, .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
   .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
-  .card, .product { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
+  .card, .row, .hero, .product { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
   .card { display: flex; flex-direction: column; }
-  .media { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
-  .card .media { aspect-ratio: auto; height: 160px; }
+  .row, .hero { display: flex; align-items: stretch; gap: 0; }
+  .media { position: relative; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
+  .card .media { height: 160px; }
+  .row-media { width: 112px; min-width: 112px; height: 112px; }
+  .hero-media { width: 42%; min-width: 140px; max-width: 280px; min-height: 180px; }
   .media.large { aspect-ratio: 4 / 3; height: auto; max-height: 320px; width: 100%; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .image-fallback { margin: 0; padding: 12px; text-align: center; }
   .body, .product { padding: 12px; }
   .card .body { padding: 8px 10px; }
-  .card h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .card .price, .card .stock, .card .swatches { margin-top: 2px; }
-  .card .details { margin-top: 6px; min-height: 36px; }
-  .product { display: block; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.25rem; }
-  h2 { font-size: 1rem; }
+  .card h2, .row h2, .hero h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .price { margin-top: 4px; font-weight: 700; }
-  .stock, .swatches, .information, .variants p, .meta p { margin-top: 6px; }
-  .details, .more, .back { margin-top: 10px; }
-  .colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .stock, .swatches, .note, .information, .variants p, .meta p { margin-top: 4px; color: var(--color-text-secondary, #5c6370); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .details, .more, .back, .external { min-height: 36px; }
+  .grid { grid-template-columns: 1fr; }
+  .list-stage, .hero-stage { grid-template-columns: 1fr; }
+  .colors { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
   .meta { margin-top: 16px; }
-  .note { color: var(--color-text-secondary, #5c6370); }
-  @media (min-width: 520px) { .grid { grid-template-columns: 1fr 1fr; } .card .media { height: 168px; } }
+  @container (min-width: 520px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .card .media { height: 168px; }
+  }
+  @container (max-width: 419px) {
+    .row, .hero { flex-direction: column; }
+    .row-media, .hero-media { width: 100%; max-width: none; height: 160px; min-height: 160px; }
+  }
   @media (prefers-color-scheme: dark) {
     body { color: var(--color-text-primary, #f4f4f5); }
-    .card, .product, .chip, .more, .back, .details, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .card, .row, .hero, .product, .chip, .more, .back, .details, .external, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
     .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
     .media { background: var(--color-background-secondary, #111114); }
-    .note { color: var(--color-text-secondary, #c4c4cc); }
+    .stock, .swatches, .note, .information, .variants p, .meta p { color: var(--color-text-secondary, #c4c4cc); }
   }
 </style>
 </head>
