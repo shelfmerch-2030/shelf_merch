@@ -27,11 +27,19 @@ export function useCatalogCategoryTree(includeProductGroups = true) {
     queryFn: fetchPublicCatalogCategories,
     staleTime: 60_000,
   });
+  const categories = Array.isArray(tree.data) ? tree.data : undefined;
   // Reuses the same All Products query/cache as landing and category pages.
-  const products = useCatalog(ALL_PRODUCTS, undefined, includeProductGroups && needsCatalogPresentationTree(tree.data ?? []));
-  const data = useMemo(() => tree.data
-    ? buildCatalogPresentationTree(tree.data, products.data?.items ?? [])
-    : undefined, [tree.data, products.data?.items]);
+  const products = useCatalog(
+    ALL_PRODUCTS,
+    undefined,
+    includeProductGroups && needsCatalogPresentationTree(categories ?? []),
+  );
+  const data = useMemo(
+    () => (categories
+      ? buildCatalogPresentationTree(categories, products.data?.items ?? [])
+      : undefined),
+    [categories, products.data?.items],
+  );
   return { ...tree, data };
 }
 

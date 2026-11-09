@@ -5,6 +5,7 @@ import { catalogCategorySlug, catalogCollectionName, productMatchesCollection } 
 const COLLECTIONS = new Set(["Apparel", "Bags", "Drinkware", "Office", "Office Supplies", "Technology", "Stationery", "Electronics & Gadgets"]);
 
 export function needsCatalogPresentationTree(nodes: readonly PublicCatalogCategory[]) {
+  if (!Array.isArray(nodes)) return false;
   return nodes.some((node) => !node.children.length && COLLECTIONS.has(node.name));
 }
 
@@ -16,6 +17,7 @@ export function needsCatalogPresentationTree(nodes: readonly PublicCatalogCatego
 export function buildCatalogPresentationTree(
   nodes: readonly PublicCatalogCategory[], products: readonly UiProduct[],
 ): PublicCatalogCategory[] {
+  if (!Array.isArray(nodes)) return [];
   return nodes.map((node) => {
     if (node.children.length || !COLLECTIONS.has(node.name)) return node;
     const collection = catalogCollectionName(node.name);
