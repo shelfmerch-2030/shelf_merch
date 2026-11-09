@@ -7,7 +7,7 @@ import { makeTenant, makeUser } from './helpers.js';
 import { getCuratedKit, getKit, kitsText, listCuratedKits, listKits, officialKitImageUrl } from '../src/modules/mcp/kitsRead.js';
 import { CATALOG_PRODUCT_CARD_URI, catalogProductCardHtml } from '../src/modules/mcp/catalogProductCard.js';
 import { KIT_CATALOG_CARD_URI, kitCatalogCardHtml, kitCatalogCardToolMeta } from '../src/modules/mcp/kitCatalogCard.js';
-import { normalizeKitListType, kitsListInputSchema, KITS_LIST_DESCRIPTION } from '../src/modules/mcp/kitsRead.js';
+import { normalizeKitListType, kitsListInputSchema, KITS_LIST_DESCRIPTION, resolveKitListLimit, listKits, listCuratedKits } from '../src/modules/mcp/kitsRead.js';
 
 let tenant;
 let admin;
@@ -74,7 +74,7 @@ describe('workspace and curated kit reads', () => {
       imageUrl: 'https://cdn.shopify.com/kit.png',
       sendEligible: true,
     });
-    expect(listed.view).toEqual({ type: 'all' });
+    expect(listed.view).toEqual({ type: 'all', limit: 100 });
     expect(listed.items[0].description).toBe('For new hires');
     expect(listed.items[0].products).toEqual([
       expect.objectContaining({ name: 'Desk Mug', quantity: 1, imageUrl: 'https://cdn.shopify.com/mug.png' }),
@@ -130,7 +130,7 @@ describe('workspace and curated kit reads', () => {
       input: { query: 'onboarding', maxPriceInr: 1500 },
     });
     expect(listed.items.map((kit) => kit.name)).toEqual(['Welcome Box']);
-    expect(listed.view).toEqual({ type: 'curated' });
+    expect(listed.view).toEqual({ type: 'curated', limit: 100 });
     expect(listed.items[0]).toMatchObject({
       type: 'curated',
       priceInr: 1500,
@@ -189,13 +189,31 @@ describe('workspace and curated kit reads', () => {
       user: { role: 'company_admin', userId: admin.user._id },
       input: { type: 'customized' },
     });
-    expect(customized.view).toEqual({ type: 'customized' });
+    expect(customized.view).toEqual({ type: 'customized', limit: 100 });
     expect(customized.items.map((kit) => kit.name)).toEqual(['Team Welcome Kit']);
     expect(customized.items[0].type).toBe('customized');
+
+    const limitedCustomized = await listKits({
+      tenantId: tenant._id,
+      user: { role: 'company_admin', userId: admin.user._id },
+      input: { type: 'customized', limit: 1 },
+    });
+    expect(limitedCustomized.view).toEqual({ type: 'customized', limit: 1 });
+    expect(limitedCustomized.items).toHaveLength(1);
+    expect(limitedCustomized.items[0].type).toBe('customized');
+    expect(limitedCustomized.items[0].products[0]).toEqual(expect.objectContaining({
+      name: expect.any(String),
+      imageUrl: expect.any(String),
+      colors: expect.any(Array),
+      sizes: expect.any(Array),
+    }));
 
     expect(normalizeKitListType('customised')).toBe('customized');
     expect(normalizeKitListType('CUSTOMIZED')).toBe('customized');
     expect(kitsListInputSchema.parse({ type: 'customised' })).toEqual({ type: 'customized' });
+    expect(resolveKitListLimit(5)).toBe(5);
+    expect(resolveKitListLimit(undefined)).toBe(100);
+    expect(kitsListInputSchema.parse({ type: 'customized', limit: 5 })).toEqual({ type: 'customized', limit: 5 });
     expect(KITS_LIST_DESCRIPTION).toContain('type=customized');
     expect(KITS_LIST_DESCRIPTION).toContain('customised');
     expect(KITS_LIST_DESCRIPTION).toContain('Do not omit type');
@@ -206,7 +224,7 @@ describe('workspace and curated kit reads', () => {
       user: { role: 'company_admin', userId: admin.user._id },
       input: { type: 'curated' },
     });
-    expect(curatedCopies.view).toEqual({ type: 'curated' });
+    expect(curatedCopies.view).toEqual({ type: 'curated', limit: 100 });
     expect(curatedCopies.items.map((kit) => kit.name)).toEqual(['10 in 1 Work Bundle']);
     expect(curatedCopies.items[0].type).toBe('curated');
 
@@ -215,7 +233,7 @@ describe('workspace and curated kit reads', () => {
       user: { role: 'company_admin', userId: admin.user._id },
       input: { type: 'all' },
     });
-    expect(all.view).toEqual({ type: 'all' });
+    expect(all.view).toEqual({ type: 'all', limit: 100 });
     expect(all.items.map((kit) => kit.name).sort()).toEqual(['10 in 1 Work Bundle', 'Team Welcome Kit']);
   });
   it('keeps a missing official image empty and does not invent one', async () => {
@@ -272,10 +290,10 @@ describe('kit catalog card', () => {
   });
   it('registers a versioned kit card without changing the product card', () => {
     const meta = kitCatalogCardToolMeta();
-    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v4.html');
+    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v5.html');
     expect(meta.ui.resourceUri).toBe(KIT_CATALOG_CARD_URI);
     expect(meta['openai/outputTemplate']).toBe(KIT_CATALOG_CARD_URI);
-    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v6.html');
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v7.html');
     expect(CATALOG_PRODUCT_CARD_URI).not.toBe(KIT_CATALOG_CARD_URI);
     const html = kitCatalogCardHtml();
     expect(html).toContain('View details');
@@ -286,17 +304,21 @@ describe('kit catalog card', () => {
     expect(html).toContain('Estimated card price');
     expect(html).toContain('Stored card price, not the checkout total.');
     expect(html).toContain('container-type: inline-size');
-    expect(html).toContain('@container (min-width: 520px)');
+    expect(html).toContain('@container (max-width: 360px)');
     expect(html).toContain('layoutMode');
     expect(html).toContain('list-stage');
     expect(html).not.toContain('hero-stage');
+    expect(html).toContain('Included products');
+    expect(html).toContain('paintProductRow');
+    expect(html).toContain('.details:hover');
+    expect(html).toContain('initialVisibleCount');
     expect(html).toContain('linkish');
     expect(html).toContain('row-media');
     expect(html).toContain('list-stage');
-    expect(html).toContain("version: '0.4.0'");
+    expect(html).toContain("version: '0.5.0'");
     expect(html).toContain('row-media');
-    expect(html).toContain('width: 104px');
-    expect(html).toContain('height: 120px');
+    expect(html).toContain('width: 100px');
+    expect(html).toContain('height: 110px');
     expect(html.toLowerCase()).not.toContain('gst');
     expect(catalogProductCardHtml()).not.toContain('catalog-kit-card');
     expect(html).not.toContain('catalog-product-card');

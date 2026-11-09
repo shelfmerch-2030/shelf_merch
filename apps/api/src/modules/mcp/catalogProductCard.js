@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 
-export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v6.html';
+export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v7.html';
 
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
 
@@ -208,6 +208,11 @@ function startCatalogProductCard() {
   const cards = document.getElementById('cards');
   let session = { mode: 'grid', views: [], pagination: null };
   let filterId = 'all';
+  function initialVisibleCount(session) {
+    const requested = Number(session?.pagination?.limit);
+    if (Number.isFinite(requested) && requested > 0 && requested <= CATALOG_GRID_PAGE) return Math.round(requested);
+    return CATALOG_GRID_PAGE;
+  }
   let shown = CATALOG_GRID_PAGE;
   let detailId = '';
 
@@ -230,9 +235,8 @@ function startCatalogProductCard() {
     return session.views.filter((view) => groupLabel(view) === filterId);
   }
 
-  function layoutMode(count) {
-    if (count <= 5) return 'list';
-    return 'grid';
+  function layoutMode() {
+    return 'list';
   }
 
   function paintImage(media, view) {
@@ -308,11 +312,11 @@ function startCatalogProductCard() {
     body.append(actions);
   }
 
-  function paintSummary(view, mode) {
+  function paintSummary(view) {
     const article = document.createElement('article');
-    article.className = mode === 'list' ? 'row' : 'card';
+    article.className = 'row';
     const media = document.createElement('div');
-    media.className = mode === 'list' ? 'media row-media' : 'media';
+    media.className = 'media row-media';
     paintImage(media, view);
     const body = document.createElement('div');
     body.className = 'body';
@@ -332,8 +336,7 @@ function startCatalogProductCard() {
     const rows = filteredViews();
     message.hidden = true;
     cards.hidden = false;
-    const mode = layoutMode(rows.length);
-    cards.className = mode === 'list' ? 'stage list-stage' : 'stage grid';
+        cards.className = 'stage list-stage';
     cards.replaceChildren();
     const filters = catalogBrowseFilters(session.views);
     const bar = document.createElement('div');
@@ -377,27 +380,25 @@ function startCatalogProductCard() {
       cards.append(empty);
       return;
     }
-    const visible = mode === 'grid' ? rows.slice(0, shown) : rows;
-    for (const view of visible) cards.append(paintSummary(view, mode));
-    if (mode === 'grid') {
-      const status = document.createElement('p');
-      status.className = 'note';
-      status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
-      cards.append(status);
-      if (rows.length > shown) {
-        const more = document.createElement('button');
-        more.type = 'button';
-        more.className = 'more';
-        more.textContent = 'Show more';
-        more.addEventListener('click', () => {
-          shown += CATALOG_GRID_PAGE;
-          paintGrid();
-        });
-        cards.append(more);
-      }
+        const visible = rows.slice(0, shown);
+    for (const view of visible) cards.append(paintSummary(view));
+    const status = document.createElement('p');
+    status.className = 'note';
+    status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
+    cards.append(status);
+    if (rows.length > shown) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'more';
+      more.textContent = 'Show more';
+      more.addEventListener('click', () => {
+        shown += CATALOG_GRID_PAGE;
+        paintGrid();
+      });
+      cards.append(more);
     }
   }
-
+
   function paintDetail() {
     const view = session.views.find((item) => item.productId === detailId) || session.views[0];
     if (!view) {
@@ -550,7 +551,7 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.7.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.8.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
   }).then((result) => {
     const variables = result?.hostContext?.styles?.variables;
@@ -602,61 +603,63 @@ export function catalogProductCardHtml() {
   button, input, a { font: inherit; }
   button { cursor: pointer; }
   button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .stage { display: grid; gap: 0; padding: 4px 2px; container-type: inline-size; }
+  .stage { display: grid; gap: 0; padding: 4px 2px 8px; container-type: inline-size; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
   .toolbar { display: grid; gap: 8px; padding: 4px 4px 10px; }
   .filters, .search { display: flex; flex-wrap: wrap; gap: 6px; }
   .search input { flex: 1 1 140px; min-width: 0; border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 7px 11px; }
-  .chip, .more, .back { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 5px 10px; }
+  .chip, .more, .back { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 5px 10px; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .chip:hover, .more:hover, .back:hover { background: var(--color-background-secondary, #eef2fb); }
   .chip[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
-  .row, .card, .kit, .product { min-width: 0; }
-  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: transparent; }
-  .row:last-of-type { border-bottom: 0; }
-  .card { display: flex; flex-direction: column; border: 1px solid var(--color-border-primary, #e7ebf3); border-radius: 10px; overflow: hidden; background: var(--color-background-primary, #fff); }
-  .kit, .product { padding: 10px 4px; }
+  .row, .card, .kit, .product, .kit-product { min-width: 0; }
+  .row, .kit-product { display: flex; align-items: flex-start; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: transparent; }
+  .row:last-of-type, .kit-product:last-of-type { border-bottom: 0; }
   .media { position: relative; overflow: hidden; background: #fff; border-radius: 10px; border: 1px solid var(--color-border-primary, #e7ebf3); flex: 0 0 auto; }
-  .row-media { width: 104px; min-width: 104px; height: 104px; }
-  .card .media { height: 120px; border-radius: 0; border: 0; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: var(--color-background-secondary, #f7f9fe); }
-  .media.large { width: 100%; max-width: 220px; height: 160px; margin-bottom: 10px; }
+  .row-media, .kit-product-media { width: 100px; min-width: 100px; height: 110px; }
+  .media.large { width: 100%; max-width: 220px; height: 160px; margin: 0 0 10px; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .image-fallback { margin: 0; padding: 10px; text-align: center; font-size: 12px; color: var(--color-text-secondary, #5c6370); }
   .body { min-width: 0; flex: 1 1 auto; padding: 0; }
-  .card .body { padding: 8px 10px 10px; }
+  .kit, .product { padding: 10px 4px 14px; }
+  .kit-products { margin-top: 12px; display: grid; gap: 0; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.15rem; }
-  .row h2, .card h2 { color: inherit; font-size: 0.95rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row h2, .kit-product h2 { color: inherit; font-size: 0.95rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .section-title { margin: 14px 0 6px; font-size: 0.8rem; letter-spacing: .04em; text-transform: uppercase; color: var(--color-text-secondary, #5c6370); }
   .badge { display: inline-flex; align-items: center; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; line-height: 1.3; background: var(--color-background-secondary, #eef2fb); color: var(--color-text-secondary, #3d4658); }
   .badge.curated { background: #e8f6ed; color: #146c2e; }
   .badge.customized { background: #eef2fb; color: #2f3f74; }
   .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p { margin-top: 4px; color: var(--color-text-secondary, #5c6370); font-size: 12px; }
   .price { margin-top: 5px; font-weight: 700; font-size: 0.92rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 7px; }
-  .details, .external, .linkish { border: 0; background: transparent; padding: 0; min-height: 0; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .details, .external, .linkish { border: 0; background: transparent; padding: 2px 4px; min-height: 0; border-radius: 6px; color: #3D5FD9; text-decoration: underline; text-underline-offset: 2px; transition: color .15s ease, background-color .15s ease; }
+  .details:hover, .external:hover, .linkish:hover { color: #243ea8; background: rgba(61, 95, 217, 0.1); }
+  .details:active, .external:active, .linkish:active { color: #1c3186; background: rgba(61, 95, 217, 0.16); }
   .external::after { content: " ↗"; }
   .more, .back { margin-top: 8px; min-height: 34px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 8px; padding-top: 4px; }
   .list-stage { grid-template-columns: 1fr; }
   .colors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 4px 9px; }
+  .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 4px 9px; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .colors button:hover { background: var(--color-background-secondary, #eef2fb); }
   .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
   .meta { margin-top: 12px; }
-  @container (min-width: 520px) {
-    .grid { grid-template-columns: 1fr 1fr; }
-  }
   @container (max-width: 360px) {
-    .row { gap: 8px; }
-    .row-media { width: 84px; min-width: 84px; height: 84px; }
+    .row, .kit-product { gap: 8px; }
+    .row-media, .kit-product-media { width: 88px; min-width: 88px; height: 98px; }
   }
   @media (prefers-color-scheme: dark) {
     body { color: var(--color-text-primary, #f4f4f5); background: var(--color-background-primary, #111114); }
-    .chip, .more, .back, .search input, .card, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .chip, .more, .back, .search input, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .chip:hover, .more:hover, .back:hover, .colors button:hover { background: #2a2a30; }
     .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
-    .row { border-bottom-color: var(--color-border-primary, #2f2f35); }
+    .row, .kit-product { border-bottom-color: var(--color-border-primary, #2f2f35); }
     .media { background: #111114; border-color: #2f2f35; }
-    .card .media { background: #111114; }
     .badge { background: #22232a; color: #c9cdd8; }
     .badge.curated { background: #16361f; color: #b6f0c6; }
-    .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p, .image-fallback { color: var(--color-text-secondary, #c4c4cc); }
+    .badge.customized { background: #222846; color: #c9d4ff; }
+    .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p, .image-fallback, .section-title { color: var(--color-text-secondary, #c4c4cc); }
+    .details, .external, .linkish { color: #8fa4ff; }
+    .details:hover, .external:hover, .linkish:hover { color: #b6c4ff; background: rgba(143, 164, 255, 0.12); }
   }
 </style>
 </head>

@@ -1,7 +1,7 @@
 import { catalogProductCardResourceDomains } from './catalogProductCard.js';
 import { kitImageResourceOrigins } from './kitsRead.js';
 
-export const KIT_CATALOG_CARD_URI = 'ui://shelfmerch/catalog-kit-card-v4.html';
+export const KIT_CATALOG_CARD_URI = 'ui://shelfmerch/catalog-kit-card-v5.html';
 export const KIT_CATALOG_CARD_MIME = 'text/html;profile=mcp-app';
 const KIT_PAGE = 6;
 
@@ -42,61 +42,63 @@ function kitCatalogCardHtml() {
   button, input, a { font: inherit; }
   button { cursor: pointer; }
   button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .stage { display: grid; gap: 0; padding: 4px 2px; container-type: inline-size; }
+  .stage { display: grid; gap: 0; padding: 4px 2px 8px; container-type: inline-size; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
   .toolbar { display: grid; gap: 8px; padding: 4px 4px 10px; }
   .filters, .search { display: flex; flex-wrap: wrap; gap: 6px; }
   .search input { flex: 1 1 140px; min-width: 0; border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 7px 11px; }
-  .chip, .more, .back { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 5px 10px; }
+  .chip, .more, .back { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 5px 10px; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .chip:hover, .more:hover, .back:hover { background: var(--color-background-secondary, #eef2fb); }
   .chip[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
-  .row, .card, .kit, .product { min-width: 0; }
-  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: transparent; }
-  .row:last-of-type { border-bottom: 0; }
-  .card { display: flex; flex-direction: column; border: 1px solid var(--color-border-primary, #e7ebf3); border-radius: 10px; overflow: hidden; background: var(--color-background-primary, #fff); }
-  .kit, .product { padding: 10px 4px; }
+  .row, .card, .kit, .product, .kit-product { min-width: 0; }
+  .row, .kit-product { display: flex; align-items: flex-start; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: transparent; }
+  .row:last-of-type, .kit-product:last-of-type { border-bottom: 0; }
   .media { position: relative; overflow: hidden; background: #fff; border-radius: 10px; border: 1px solid var(--color-border-primary, #e7ebf3); flex: 0 0 auto; }
-  .row-media { width: 104px; min-width: 104px; height: 104px; }
-  .card .media { height: 120px; border-radius: 0; border: 0; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: var(--color-background-secondary, #f7f9fe); }
-  .media.large { width: 100%; max-width: 220px; height: 160px; margin-bottom: 10px; }
+  .row-media, .kit-product-media { width: 100px; min-width: 100px; height: 110px; }
+  .media.large { width: 100%; max-width: 220px; height: 160px; margin: 0 0 10px; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
   .image-fallback { margin: 0; padding: 10px; text-align: center; font-size: 12px; color: var(--color-text-secondary, #5c6370); }
   .body { min-width: 0; flex: 1 1 auto; padding: 0; }
-  .card .body { padding: 8px 10px 10px; }
+  .kit, .product { padding: 10px 4px 14px; }
+  .kit-products { margin-top: 12px; display: grid; gap: 0; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
   h1 { font-size: 1.15rem; }
-  .row h2, .card h2 { color: inherit; font-size: 0.95rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .row h2, .kit-product h2 { color: inherit; font-size: 0.95rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .section-title { margin: 14px 0 6px; font-size: 0.8rem; letter-spacing: .04em; text-transform: uppercase; color: var(--color-text-secondary, #5c6370); }
   .badge { display: inline-flex; align-items: center; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; line-height: 1.3; background: var(--color-background-secondary, #eef2fb); color: var(--color-text-secondary, #3d4658); }
   .badge.curated { background: #e8f6ed; color: #146c2e; }
   .badge.customized { background: #eef2fb; color: #2f3f74; }
   .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p { margin-top: 4px; color: var(--color-text-secondary, #5c6370); font-size: 12px; }
   .price { margin-top: 5px; font-weight: 700; font-size: 0.92rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 7px; }
-  .details, .external, .linkish { border: 0; background: transparent; padding: 0; min-height: 0; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .details, .external, .linkish { border: 0; background: transparent; padding: 2px 4px; min-height: 0; border-radius: 6px; color: #3D5FD9; text-decoration: underline; text-underline-offset: 2px; transition: color .15s ease, background-color .15s ease; }
+  .details:hover, .external:hover, .linkish:hover { color: #243ea8; background: rgba(61, 95, 217, 0.1); }
+  .details:active, .external:active, .linkish:active { color: #1c3186; background: rgba(61, 95, 217, 0.16); }
   .external::after { content: " ↗"; }
   .more, .back { margin-top: 8px; min-height: 34px; }
-  .grid { display: grid; grid-template-columns: 1fr; gap: 8px; padding-top: 4px; }
   .list-stage { grid-template-columns: 1fr; }
   .colors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-  .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 4px 9px; }
+  .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 4px 9px; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .colors button:hover { background: var(--color-background-secondary, #eef2fb); }
   .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
   .meta { margin-top: 12px; }
-  @container (min-width: 520px) {
-    .grid { grid-template-columns: 1fr 1fr; }
-  }
   @container (max-width: 360px) {
-    .row { gap: 8px; }
-    .row-media { width: 84px; min-width: 84px; height: 84px; }
+    .row, .kit-product { gap: 8px; }
+    .row-media, .kit-product-media { width: 88px; min-width: 88px; height: 98px; }
   }
   @media (prefers-color-scheme: dark) {
     body { color: var(--color-text-primary, #f4f4f5); background: var(--color-background-primary, #111114); }
-    .chip, .more, .back, .search input, .card, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .chip, .more, .back, .search input, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    .chip:hover, .more:hover, .back:hover, .colors button:hover { background: #2a2a30; }
     .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
-    .row { border-bottom-color: var(--color-border-primary, #2f2f35); }
+    .row, .kit-product { border-bottom-color: var(--color-border-primary, #2f2f35); }
     .media { background: #111114; border-color: #2f2f35; }
-    .card .media { background: #111114; }
     .badge { background: #22232a; color: #c9cdd8; }
     .badge.curated { background: #16361f; color: #b6f0c6; }
-    .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p, .image-fallback { color: var(--color-text-secondary, #c4c4cc); }
+    .badge.customized { background: #222846; color: #c9d4ff; }
+    .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p, .image-fallback, .section-title { color: var(--color-text-secondary, #c4c4cc); }
+    .details, .external, .linkish { color: #8fa4ff; }
+    .details:hover, .external:hover, .linkish:hover { color: #b6c4ff; background: rgba(143, 164, 255, 0.12); }
   }
 </style>
 </head>
@@ -112,6 +114,11 @@ let typeId = 'all';
 let statusId = 'all';
 let query = '';
 let refocusSearch = false;
+function initialVisibleCount(session) {
+  const requested = Number(session && session.limit);
+  if (Number.isFinite(requested) && requested > 0 && requested <= PAGE) return Math.round(requested);
+  return PAGE;
+}
 let shown = PAGE;
 let detailId = '';
 
@@ -164,12 +171,12 @@ function requestedType(body) {
 function readSession(result) {
   const body = readBody(result);
   if (Array.isArray(body.items)) {
-    return { mode: 'grid', kits: body.items, type: requestedType(body) || 'all' };
+    return { mode: 'grid', kits: body.items, type: requestedType(body) || 'all', limit: Number(body.view && body.view.limit) };
   }
   if (body && (body.name || body.imageUrl || body.id)) {
-    return { mode: 'detail', kits: [body], type: body.type === 'curated' ? 'curated' : body.type === 'customized' ? 'customized' : 'all' };
+    return { mode: 'detail', kits: [body], type: body.type === 'curated' ? 'curated' : body.type === 'customized' ? 'customized' : 'all', limit: undefined };
   }
-  return { mode: 'grid', kits: [], type: 'all' };
+  return { mode: 'grid', kits: [], type: 'all', limit: undefined };
 }
 
 function optionCounts(key) {
@@ -215,16 +222,15 @@ function paintImage(media, kit) {
   media.append(image);
 }
 
-function layoutMode(count) {
-  if (count <= 5) return 'list';
-  return 'grid';
+function layoutMode() {
+  return 'list';
 }
 
-function paintSummary(kit, mode) {
+function paintSummary(kit) {
   const article = document.createElement('article');
-  article.className = mode === 'list' ? 'row' : 'card';
+  article.className = 'row';
   const media = document.createElement('div');
-  media.className = mode === 'list' ? 'media row-media' : 'media';
+  media.className = 'media row-media';
   paintImage(media, kit);
   const body = document.createElement('div');
   body.className = 'body';
@@ -274,8 +280,7 @@ function paintGrid() {
   const rows = filtered();
   message.hidden = true;
   cards.hidden = false;
-  const mode = layoutMode(rows.length);
-  cards.className = mode === 'list' ? 'stage list-stage' : 'stage grid';
+    cards.className = 'stage list-stage';
   cards.replaceChildren();
   const bar = document.createElement('div');
   bar.className = 'toolbar';
@@ -337,25 +342,63 @@ function paintGrid() {
     cards.append(empty);
     return;
   }
-  const visible = mode === 'grid' ? rows.slice(0, shown) : rows;
-  for (const kit of visible) cards.append(paintSummary(kit, mode));
-  if (mode === 'grid') {
-    const status = document.createElement('p');
-    status.className = 'note';
-    status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
-    cards.append(status);
-    if (rows.length > shown) {
-      const more = document.createElement('button');
-      more.type = 'button';
-      more.className = 'more';
-      more.textContent = 'Show more';
-      more.addEventListener('click', () => {
-        shown += PAGE;
-        paintGrid();
-      });
-      cards.append(more);
-    }
+    const visible = rows.slice(0, shown);
+  for (const kit of visible) cards.append(paintSummary(kit));
+  const status = document.createElement('p');
+  status.className = 'note';
+  status.textContent = 'Showing ' + Math.min(shown, rows.length) + ' of ' + rows.length + ' loaded.';
+  cards.append(status);
+  if (rows.length > shown) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'more';
+    more.textContent = 'Show more';
+    more.addEventListener('click', () => {
+      shown += PAGE;
+      paintGrid();
+    });
+    cards.append(more);
   }
+}
+
+function paintProductRow(product) {
+  const article = document.createElement('article');
+  article.className = 'kit-product';
+  const media = document.createElement('div');
+  media.className = 'media kit-product-media';
+  paintImage(media, { imageUrl: product && product.imageUrl, name: product && product.name });
+  const body = document.createElement('div');
+  body.className = 'body';
+  const name = document.createElement('h2');
+  name.textContent = text(product && product.name) || 'Product';
+  body.append(name);
+  const qty = Number(product && product.quantity);
+  const metaBits = [];
+  if (Number.isFinite(qty) && qty > 0) metaBits.push('Qty ' + Math.round(qty));
+  if (text(product && product.brand)) metaBits.push(text(product.brand));
+  if (text(product && product.stockLabel)) metaBits.push(text(product.stockLabel));
+  if (metaBits.length) {
+    const meta = document.createElement('p');
+    meta.className = 'meta-line';
+    meta.textContent = metaBits.join(' · ');
+    body.append(meta);
+  }
+  const colors = Array.isArray(product && product.colors) ? product.colors.map((value) => text(value)).filter(Boolean) : [];
+  const sizes = Array.isArray(product && product.sizes) ? product.sizes.map((value) => text(value)).filter(Boolean) : [];
+  if (colors.length) {
+    const line = document.createElement('p');
+    line.className = 'swatches';
+    line.textContent = 'Colors: ' + colors.slice(0, 8).join(', ') + (colors.length > 8 ? '…' : '');
+    body.append(line);
+  }
+  if (sizes.length) {
+    const line = document.createElement('p');
+    line.className = 'meta-line';
+    line.textContent = 'Sizes: ' + sizes.slice(0, 10).join(', ') + (sizes.length > 10 ? '…' : '');
+    body.append(line);
+  }
+  article.append(media, body);
+  return article;
 }
 
 function paintDetail() {
@@ -383,43 +426,47 @@ function paintDetail() {
   paintImage(media, kit);
   const name = document.createElement('h1');
   name.textContent = text(kit.name) || 'Kit';
-  const kind = document.createElement('p');
-  kind.className = 'meta-line';
-  kind.textContent = (kit.type === 'curated' ? 'Curated' : 'Customized') + (kit.status ? ' · ' + kit.status : '');
+  const badge = document.createElement('span');
+  badge.className = 'badge ' + (kit.type === 'curated' ? 'curated' : 'customized');
+  badge.textContent = (kit.type === 'curated' ? 'Curated' : 'Customized') + (kit.status ? ' · ' + kit.status : '');
   const price = document.createElement('p');
   price.className = 'price';
   price.textContent = priceLabel(kit);
   const hint = document.createElement('p');
   hint.className = 'hint';
   hint.textContent = 'Stored card price, not the checkout total.';
-  article.append(media, name, kind, price, hint);
+  article.append(media, name, badge, price, hint);
+  if (text(kit.packaging)) {
+    const packaging = document.createElement('p');
+    packaging.className = 'meta-line';
+    packaging.textContent = 'Packaging: ' + text(kit.packaging);
+    article.append(packaging);
+  }
   const description = text(kit.description);
   if (description) {
     const heading = document.createElement('h2');
+    heading.className = 'section-title';
     heading.textContent = 'Description';
     const copy = document.createElement('p');
     copy.textContent = description;
     article.append(heading, copy);
   }
   const products = Array.isArray(kit.products) ? kit.products : [];
-  const contents = document.createElement('div');
-  contents.className = 'contents';
   const heading = document.createElement('h2');
-  heading.textContent = 'Contents';
-  contents.append(heading);
+  heading.className = 'section-title';
+  heading.textContent = 'Included products';
+  article.append(heading);
+  const box = document.createElement('div');
+  box.className = 'kit-products';
   if (!products.length) {
     const empty = document.createElement('p');
+    empty.className = 'note';
     empty.textContent = (Number(kit.itemCount) || 0) + ' items';
-    contents.append(empty);
+    box.append(empty);
   } else {
-    for (const product of products) {
-      const line = document.createElement('p');
-      const qty = Math.max(1, Math.round(Number(product.quantity) || 1));
-      line.textContent = (text(product.name) || 'Item') + ' × ' + qty;
-      contents.append(line);
-    }
+    for (const product of products) box.append(paintProductRow(product));
   }
-  article.append(contents);
+  article.append(box);
   cards.append(article);
 }
 
@@ -475,7 +522,7 @@ function renderHostOutput() {
 
 request('ui/initialize', {
   protocolVersion: '2026-01-26',
-  appInfo: { name: 'shelfmerch-catalog-kit-card', version: '0.4.0' },
+  appInfo: { name: 'shelfmerch-catalog-kit-card', version: '0.5.0' },
   appCapabilities: { availableDisplayModes: ['inline'] },
 }).then((result) => {
   const variables = result?.hostContext?.styles?.variables;

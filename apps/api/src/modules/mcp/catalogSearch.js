@@ -29,6 +29,7 @@ export const CATALOG_INVENTORY_RULE = [
 
 export const CATALOG_SEARCH_DESCRIPTION = [
   'Search the ShelfMerch selling catalog.',
+  'When the user asks for top/first/show N products, pass limit=N. Results follow existing name order and are not popularity-ranked.',
   'When the host shows the catalog product card, that card is the only product presentation. Reply with one short sentence and do not repeat the product list, prices, images, or variants.',
   'Clients without that card should use the text result, which lists every product returned on this page and quotes each primaryImageUrl.',
   'sellingPriceInr is the GST-inclusive catalog selling price in rupees and is not reduced by removing GST.',
@@ -161,7 +162,7 @@ export const catalogSearchInputSchema = z
       .optional()
       .describe('Maximum GST-inclusive selling price in rupees.'),
     page: z.number().int().min(1).max(10_000).optional().describe('1-based page number.'),
-    limit: z.number().int().min(1).max(25).optional().describe('Page size. Default 10, maximum 25.'),
+    limit: z.number().int().min(1).max(25).optional().describe('Page size. Default 10, maximum 25. When the user asks for top/first/show N products, pass limit=N.'),
   })
   .refine(
     (value) =>

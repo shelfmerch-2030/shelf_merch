@@ -54,8 +54,12 @@ export const KITS_GET_CURATED_DESCRIPTION = [
 const productSchema = z.object({
   catalogProductId: z.string(),
   name: z.string(),
+  brand: z.string(),
   quantity: z.number().int(),
   imageUrl: z.string(),
+  colors: z.array(z.string()),
+  sizes: z.array(z.string()),
+  stockLabel: z.string(),
 });
 
 const kitSummarySchema = z.object({
@@ -83,6 +87,12 @@ export function normalizeKitListType(value) {
   return normalized;
 }
 
+export function resolveKitListLimit(value, { defaultLimit = 100, maxLimit = 100 } = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return defaultLimit;
+  return Math.min(maxLimit, Math.max(1, Math.round(n)));
+}
+
 export const kitsListInputSchema = z.object({
   query: z.string().trim().max(80).optional(),
   status: z.enum(['draft', 'live', 'archived']).optional(),
@@ -92,10 +102,16 @@ export const kitsListInputSchema = z.object({
   ).describe(
     'customized = workspace-built kits only (also accepts customised). curated = curated workspace copies only. all = every authorized workspace kit. Required when the user asks for customised/customized/own/company kits.',
   ),
+  limit: z.number().int().min(1).max(100).optional().describe(
+    'Maximum kits to return. When the user asks for top/first/show N kits, pass limit=N. Results follow existing name order and are not popularity-ranked.',
+  ),
 });
 export const kitsListOutputSchema = z.object({
   items: z.array(kitSummarySchema),
-  view: z.object({ type: z.enum(['customized', 'curated', 'all']) }),
+  view: z.object({
+    type: z.enum(['customized', 'curated', 'all']),
+    limit: z.number().int(),
+  }),
 });
 export const kitsGetInputSchema = z.object({ kitId: z.string().trim().regex(OBJECT_ID) });
 export const kitsGetOutputSchema = kitSummarySchema.extend({
@@ -105,12 +121,18 @@ export const kitsGetOutputSchema = kitSummarySchema.extend({
 export const kitsListCuratedInputSchema = z.object({
   query: z.string().trim().max(80).optional(),
   maxPriceInr: z.number().nonnegative().optional(),
+  limit: z.number().int().min(1).max(100).optional().describe(
+    'Maximum curated kits to return. When the user asks for top/first/show N curated kits, pass limit=N. Results follow existing name order and are not popularity-ranked.',
+  ),
 });
 export const kitsListCuratedOutputSchema = z.object({
   items: z.array(kitSummarySchema.omit({ sendEligible: true }).extend({
     requireLogo: z.boolean(),
   })),
-  view: z.object({ type: z.literal('curated') }),
+  view: z.object({
+    type: z.literal('curated'),
+    limit: z.number().int(),
+  }),
 });
 export const kitsGetCuratedInputSchema = z.object({ platformKitId: z.string().trim().regex(OBJECT_ID) });
 export const kitsGetCuratedOutputSchema = kitsListCuratedOutputSchema.shape.items.element;
@@ -198,21 +220,48 @@ export function officialKitImageUrl(value, origins = kitImageResourceOrigins()) 
   return origin + uploadPath;
 }
 
+function variantOptions(product) {
+  const variants = Array.isArray(product?.variants)
+    ? product.variants.filter((variant) => variant && variant.enabled !== false)
+    : [];
+  const colors = [];
+  const sizes = [];
+  let stock = 0;
+  for (const variant of variants) {
+    const color = String(variant.color || '').trim();
+    const size = String(variant.size || '').trim();
+    if (color && !colors.includes(color)) colors.push(color);
+    if (size && !sizes.includes(size)) sizes.push(size);
+    const qty = Number(variant.stock);
+    if (Number.isFinite(qty)) stock += qty;
+  }
+  return {
+    colors,
+    sizes,
+    stockLabel: variants.length ? (stock > 0 ? 'In stock' : 'Out of stock') : '',
+  };
+}
+
 async function catalogById(ids) {
   const unique = [...new Set(ids.map((id) => String(id || '')).filter(Boolean))];
   if (!unique.length) return new Map();
-  const products = await CatalogProduct.find({ _id: { $in: unique } }).select('name primaryImageUrl').lean();
+  const products = await CatalogProduct.find({ _id: { $in: unique } }).select('name brand primaryImageUrl variants').lean();
   return new Map(products.map((product) => [String(product._id), product]));
 }
 
 function workspaceProducts(kit, byId) {
   return (kit.productRefs || []).map((ref) => {
     const product = byId.get(String(ref.catalogProductId));
+    const options = variantOptions(product);
     return {
       catalogProductId: ref.catalogProductId ? String(ref.catalogProductId) : '',
       name: ref.name || product?.name || 'Item',
+      brand: String(ref.brand || product?.brand || ''),
       quantity: 1,
       imageUrl: officialKitImageUrl(ref.mockupUrl || product?.primaryImageUrl),
+      colors: options.colors,
+      sizes: options.sizes,
+      stockLabel: options.stockLabel,
     };
   });
 }
@@ -220,19 +269,28 @@ function workspaceProducts(kit, byId) {
 function curatedProducts(kit, byId) {
   const fromItems = (kit.items || []).map((item) => {
     const product = byId.get(String(item.catalogProductId));
+    const options = variantOptions(product);
     return {
       catalogProductId: item.catalogProductId ? String(item.catalogProductId) : '',
       name: product?.name || 'Item',
+      brand: String(product?.brand || ''),
       quantity: Math.max(1, Math.round(Number(item.qty) || 1)),
       imageUrl: officialKitImageUrl(product?.primaryImageUrl),
+      colors: options.colors,
+      sizes: options.sizes,
+      stockLabel: options.stockLabel,
     };
   });
   if (fromItems.length) return fromItems;
   return (kit.itemImages || []).map((item) => ({
     catalogProductId: '',
     name: item.label || 'Item',
+    brand: '',
     quantity: 1,
     imageUrl: officialKitImageUrl(item.imageUrl),
+    colors: [],
+    sizes: [],
+    stockLabel: '',
   }));
 }
 
@@ -277,6 +335,7 @@ function workspaceSummary(kit, meta, products = []) {
 export async function listKits({ tenantId, user, input = {} }) {
   assertReader(user);
   const requestedType = input.type === 'customized' || input.type === 'curated' ? input.type : 'all';
+  const limit = resolveKitListLimit(input.limit);
   const filter = { tenantId };
   if (input.status) filter.status = input.status;
   if (input.query) filter.name = new RegExp(escapeSearch(input.query), 'i');
@@ -284,10 +343,11 @@ export async function listKits({ tenantId, user, input = {} }) {
   const byId = await catalogById(kits.flatMap((kit) => (kit.productRefs || []).map((ref) => ref.catalogProductId)));
   const items = kits
     .map((kit) => workspaceSummary(kit, parseCuratedKitMeta(kit.designNotes), workspaceProducts(kit, byId)))
-    .filter((kit) => requestedType === 'all' || kit.type === requestedType);
+    .filter((kit) => requestedType === 'all' || kit.type === requestedType)
+    .slice(0, limit);
   return {
     items,
-    view: { type: requestedType },
+    view: { type: requestedType, limit },
   };
 }
 
@@ -314,11 +374,12 @@ export async function listCuratedKits({ tenantId, user, input = {} }) {
     filter.$or = [{ name: pattern }, { description: pattern }];
   }
   if (input.maxPriceInr != null) filter.approxValueInr = { $lte: input.maxPriceInr };
+  const limit = resolveKitListLimit(input.limit);
   const kits = await PlatformKit.find(filter).sort({ name: 1 }).limit(100).lean();
   const byId = await catalogById(kits.flatMap((kit) => (kit.items || []).map((item) => item.catalogProductId)));
   return {
-    items: kits.map((kit) => curatedSummary(kit, curatedProducts(kit, byId))),
-    view: { type: 'curated' },
+    items: kits.map((kit) => curatedSummary(kit, curatedProducts(kit, byId))).slice(0, limit),
+    view: { type: 'curated', limit },
   };
 }
 
