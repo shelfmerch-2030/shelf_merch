@@ -7,6 +7,7 @@ import { makeTenant, makeUser } from './helpers.js';
 import { getCuratedKit, getKit, kitsText, listCuratedKits, listKits, officialKitImageUrl } from '../src/modules/mcp/kitsRead.js';
 import { CATALOG_PRODUCT_CARD_URI, catalogProductCardHtml } from '../src/modules/mcp/catalogProductCard.js';
 import { KIT_CATALOG_CARD_URI, kitCatalogCardHtml, kitCatalogCardToolMeta } from '../src/modules/mcp/kitCatalogCard.js';
+import { normalizeKitListType, kitsListInputSchema, KITS_LIST_DESCRIPTION } from '../src/modules/mcp/kitsRead.js';
 
 let tenant;
 let admin;
@@ -191,6 +192,13 @@ describe('workspace and curated kit reads', () => {
     expect(customized.view).toEqual({ type: 'customized' });
     expect(customized.items.map((kit) => kit.name)).toEqual(['Team Welcome Kit']);
     expect(customized.items[0].type).toBe('customized');
+
+    expect(normalizeKitListType('customised')).toBe('customized');
+    expect(normalizeKitListType('CUSTOMIZED')).toBe('customized');
+    expect(kitsListInputSchema.parse({ type: 'customised' })).toEqual({ type: 'customized' });
+    expect(KITS_LIST_DESCRIPTION).toContain('type=customized');
+    expect(KITS_LIST_DESCRIPTION).toContain('customised');
+    expect(KITS_LIST_DESCRIPTION).toContain('Do not omit type');
     expect(customized.items[0].imageUrl).toBe('https://s3.ap-south-1.amazonaws.com/shelfmerch.io/tenant/artwork/welcome.jpeg');
 
     const curatedCopies = await listKits({
@@ -255,12 +263,19 @@ describe('workspace and curated kit reads', () => {
     expect(officialKitImageUrl('/uploads/kit.png', bases)).toBe('');
   });
 describe('kit catalog card', () => {
+  it('initializes the type chip from view.type and omits All for typed requests', () => {
+    const html = kitCatalogCardHtml();
+    expect(html).toContain('requestedType(body)');
+    expect(html).toContain("session.type === 'all'");
+    expect(html).toContain('typeOptions');
+    expect(html).toContain("typeId = session.type || 'all'");
+  });
   it('registers a versioned kit card without changing the product card', () => {
     const meta = kitCatalogCardToolMeta();
-    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v3.html');
+    expect(KIT_CATALOG_CARD_URI).toBe('ui://shelfmerch/catalog-kit-card-v4.html');
     expect(meta.ui.resourceUri).toBe(KIT_CATALOG_CARD_URI);
     expect(meta['openai/outputTemplate']).toBe(KIT_CATALOG_CARD_URI);
-    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v5.html');
+    expect(CATALOG_PRODUCT_CARD_URI).toBe('ui://shelfmerch/catalog-product-card-v6.html');
     expect(CATALOG_PRODUCT_CARD_URI).not.toBe(KIT_CATALOG_CARD_URI);
     const html = kitCatalogCardHtml();
     expect(html).toContain('View details');
@@ -273,12 +288,15 @@ describe('kit catalog card', () => {
     expect(html).toContain('container-type: inline-size');
     expect(html).toContain('@container (min-width: 520px)');
     expect(html).toContain('layoutMode');
-    expect(html).toContain('hero-stage');
     expect(html).toContain('list-stage');
-    expect(html).toContain("version: '0.3.0'");
-    expect(html).toContain('height: 160px');
-    expect(html).toContain('height: 168px');
-    expect(html).toContain('max-height: 320px');
+    expect(html).not.toContain('hero-stage');
+    expect(html).toContain('linkish');
+    expect(html).toContain('row-media');
+    expect(html).toContain('list-stage');
+    expect(html).toContain("version: '0.4.0'");
+    expect(html).toContain('row-media');
+    expect(html).toContain('width: 104px');
+    expect(html).toContain('height: 120px');
     expect(html.toLowerCase()).not.toContain('gst');
     expect(catalogProductCardHtml()).not.toContain('catalog-kit-card');
     expect(html).not.toContain('catalog-product-card');

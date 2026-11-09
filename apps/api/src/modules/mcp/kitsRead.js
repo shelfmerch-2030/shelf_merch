@@ -12,8 +12,12 @@ const READ_ROLES = new Set(rolesForTenantArea('kits', 'read'));
 const OBJECT_ID = /^[a-f\d]{24}$/i;
 
 export const KITS_LIST_DESCRIPTION = [
-  'List workspace kits. Customized kits are workspace-built. Curated copies keep type curated after they are copied into the workspace.',
-  'Pass type=customized for customized-only, type=curated for curated workspace copies only, or omit type / pass type=all for every authorized workspace kit.',
+  'List workspace kits for the signed-in company.',
+  'type is required for intent matching. British spelling customised means customized.',
+  'For "customised kits", "customized kits", "own kits", or "company kits", call with type=customized. Do not omit type.',
+  'For "curated kits" that already live in this workspace, call with type=curated.',
+  'For "all workspace kits" or an explicit request for every kit, call with type=all.',
+  'Customized kits are workspace-built. Curated workspace copies keep type curated and must not appear in customized results.',
   'Company admins and department managers can list them. Another workspace is never included.',
   'Search matches the kit name. Draft, live, and archived kits can be filtered by status.',
   'Each row includes the kit id, type, status, item count, stored kit price, official image, and whether it can be sent.',
@@ -68,10 +72,26 @@ const kitSummarySchema = z.object({
   products: z.array(productSchema),
 });
 
+/** Map common natural-language type aliases before enum validation. */
+export function normalizeKitListType(value) {
+  if (typeof value !== 'string') return value;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (normalized === 'customized' || normalized === 'customised') return 'customized';
+  if (normalized === 'curated') return 'curated';
+  if (normalized === 'all') return 'all';
+  return normalized;
+}
+
 export const kitsListInputSchema = z.object({
   query: z.string().trim().max(80).optional(),
   status: z.enum(['draft', 'live', 'archived']).optional(),
-  type: z.enum(['customized', 'curated', 'all']).optional(),
+  type: z.preprocess(
+    normalizeKitListType,
+    z.enum(['customized', 'curated', 'all']).optional(),
+  ).describe(
+    'customized = workspace-built kits only (also accepts customised). curated = curated workspace copies only. all = every authorized workspace kit. Required when the user asks for customised/customized/own/company kits.',
+  ),
 });
 export const kitsListOutputSchema = z.object({
   items: z.array(kitSummarySchema),

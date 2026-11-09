@@ -1,6 +1,6 @@
 import { env } from '../../config/env.js';
 
-export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v5.html';
+export const CATALOG_PRODUCT_CARD_URI = 'ui://shelfmerch/catalog-product-card-v6.html';
 
 export const CATALOG_PRODUCT_CARD_MIME = 'text/html;profile=mcp-app';
 
@@ -231,7 +231,6 @@ function startCatalogProductCard() {
   }
 
   function layoutMode(count) {
-    if (count <= 1) return 'hero';
     if (count <= 5) return 'list';
     return 'grid';
   }
@@ -291,7 +290,7 @@ function startCatalogProductCard() {
     actions.className = 'actions';
     const action = document.createElement('button');
     action.type = 'button';
-    action.className = detailsClass;
+    action.className = detailsClass === 'details' ? 'details linkish' : detailsClass;
     action.textContent = 'View details';
     action.addEventListener('click', () => {
       detailId = view.productId;
@@ -301,7 +300,7 @@ function startCatalogProductCard() {
     if (view.pageUrl) {
       const external = document.createElement('button');
       external.type = 'button';
-      external.className = 'external';
+      external.className = 'external linkish';
       external.textContent = 'View on ShelfMerch';
       external.addEventListener('click', () => openExternal(view.pageUrl));
       actions.append(external);
@@ -311,9 +310,9 @@ function startCatalogProductCard() {
 
   function paintSummary(view, mode) {
     const article = document.createElement('article');
-    article.className = mode === 'hero' ? 'hero' : mode === 'list' ? 'row' : 'card';
+    article.className = mode === 'list' ? 'row' : 'card';
     const media = document.createElement('div');
-    media.className = mode === 'hero' ? 'media hero-media' : mode === 'list' ? 'media row-media' : 'media';
+    media.className = mode === 'list' ? 'media row-media' : 'media';
     paintImage(media, view);
     const body = document.createElement('div');
     body.className = 'body';
@@ -334,7 +333,7 @@ function startCatalogProductCard() {
     message.hidden = true;
     cards.hidden = false;
     const mode = layoutMode(rows.length);
-    cards.className = mode === 'hero' ? 'stage hero-stage' : mode === 'list' ? 'stage list-stage' : 'stage grid';
+    cards.className = mode === 'list' ? 'stage list-stage' : 'stage grid';
     cards.replaceChildren();
     const filters = catalogBrowseFilters(session.views);
     const bar = document.createElement('div');
@@ -551,7 +550,7 @@ function startCatalogProductCard() {
 
   request('ui/initialize', {
     protocolVersion: '2026-01-26',
-    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.6.0' },
+    appInfo: { name: 'shelfmerch-catalog-product-card', version: '0.7.0' },
     appCapabilities: { availableDisplayModes: ['inline'] },
   }).then((result) => {
     const variables = result?.hostContext?.styles?.variables;
@@ -598,52 +597,66 @@ export function catalogProductCardHtml() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Catalog product</title>
 <style>
-  body { margin: 0; font: 14px/1.4 "Segoe UI", system-ui, sans-serif; color: var(--color-text-primary, #1c1d24); background: transparent; overflow-x: hidden; }
-  #message { padding: 16px; }
-  button { font: inherit; cursor: pointer; }
-  button:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
-  .stage { display: grid; gap: 10px; padding: 10px; container-type: inline-size; }
+  body { margin: 0; font: 13px/1.35 "Segoe UI", system-ui, sans-serif; color: var(--color-text-primary, #1c1d24); background: var(--color-background-primary, #fff); overflow-x: hidden; }
+  #message { padding: 12px; }
+  button, input, a { font: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid #3D5FD9; outline-offset: 2px; }
+  .stage { display: grid; gap: 0; padding: 4px 2px; container-type: inline-size; }
   .toolbar, .note, .more { grid-column: 1 / -1; }
-  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip, .more, .back, .details, .external, .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 6px 10px; }
-  .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
-  .card, .row, .hero, .product { min-width: 0; background: var(--color-background-primary, #fff); border: 1px solid var(--color-border-primary, #e4e7ee); border-radius: 12px; overflow: hidden; }
-  .card { display: flex; flex-direction: column; }
-  .row, .hero { display: flex; align-items: stretch; gap: 0; }
-  .media { position: relative; overflow: hidden; background: var(--color-background-secondary, #f7f9fe); }
-  .card .media { height: 160px; }
-  .row-media { width: 112px; min-width: 112px; height: 112px; }
-  .hero-media { width: 42%; min-width: 140px; max-width: 280px; min-height: 180px; }
-  .media.large { aspect-ratio: 4 / 3; height: auto; max-height: 320px; width: 100%; }
+  .toolbar { display: grid; gap: 8px; padding: 4px 4px 10px; }
+  .filters, .search { display: flex; flex-wrap: wrap; gap: 6px; }
+  .search input { flex: 1 1 140px; min-width: 0; border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 7px 11px; }
+  .chip, .more, .back { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 5px 10px; }
+  .chip[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
+  .row, .card, .kit, .product { min-width: 0; }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: transparent; }
+  .row:last-of-type { border-bottom: 0; }
+  .card { display: flex; flex-direction: column; border: 1px solid var(--color-border-primary, #e7ebf3); border-radius: 10px; overflow: hidden; background: var(--color-background-primary, #fff); }
+  .kit, .product { padding: 10px 4px; }
+  .media { position: relative; overflow: hidden; background: #fff; border-radius: 10px; border: 1px solid var(--color-border-primary, #e7ebf3); flex: 0 0 auto; }
+  .row-media { width: 104px; min-width: 104px; height: 104px; }
+  .card .media { height: 120px; border-radius: 0; border: 0; border-bottom: 1px solid var(--color-border-primary, #e7ebf3); background: var(--color-background-secondary, #f7f9fe); }
+  .media.large { width: 100%; max-width: 220px; height: 160px; margin-bottom: 10px; }
   .media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
-  .image-fallback { margin: 0; padding: 12px; text-align: center; }
-  .body, .product { padding: 12px; }
-  .card .body { padding: 8px 10px; }
+  .image-fallback { margin: 0; padding: 10px; text-align: center; font-size: 12px; color: var(--color-text-secondary, #5c6370); }
+  .body { min-width: 0; flex: 1 1 auto; padding: 0; }
+  .card .body { padding: 8px 10px 10px; }
   h1, h2, p { margin: 0; overflow-wrap: anywhere; }
-  h1 { font-size: 1.25rem; }
-  .card h2, .row h2, .hero h2 { font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .price { margin-top: 4px; font-weight: 700; }
-  .stock, .swatches, .note, .information, .variants p, .meta p { margin-top: 4px; color: var(--color-text-secondary, #5c6370); }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-  .details, .more, .back, .external { min-height: 36px; }
-  .grid { grid-template-columns: 1fr; }
-  .list-stage, .hero-stage { grid-template-columns: 1fr; }
-  .colors { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-  .meta { margin-top: 16px; }
+  h1 { font-size: 1.15rem; }
+  .row h2, .card h2 { color: inherit; font-size: 0.95rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .badge { display: inline-flex; align-items: center; margin-top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 11px; line-height: 1.3; background: var(--color-background-secondary, #eef2fb); color: var(--color-text-secondary, #3d4658); }
+  .badge.curated { background: #e8f6ed; color: #146c2e; }
+  .badge.customized { background: #eef2fb; color: #2f3f74; }
+  .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p { margin-top: 4px; color: var(--color-text-secondary, #5c6370); font-size: 12px; }
+  .price { margin-top: 5px; font-weight: 700; font-size: 0.92rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 7px; }
+  .details, .external, .linkish { border: 0; background: transparent; padding: 0; min-height: 0; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .external::after { content: " ↗"; }
+  .more, .back { margin-top: 8px; min-height: 34px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 8px; padding-top: 4px; }
+  .list-stage { grid-template-columns: 1fr; }
+  .colors { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .colors button { border: 1px solid var(--color-border-primary, #d5dbe8); background: var(--color-background-primary, #fff); color: inherit; border-radius: 999px; padding: 4px 9px; }
+  .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; border-color: #3D5FD9; }
+  .meta { margin-top: 12px; }
   @container (min-width: 520px) {
     .grid { grid-template-columns: 1fr 1fr; }
-    .card .media { height: 168px; }
   }
-  @container (max-width: 419px) {
-    .row, .hero { flex-direction: column; }
-    .row-media, .hero-media { width: 100%; max-width: none; height: 160px; min-height: 160px; }
+  @container (max-width: 360px) {
+    .row { gap: 8px; }
+    .row-media { width: 84px; min-width: 84px; height: 84px; }
   }
   @media (prefers-color-scheme: dark) {
-    body { color: var(--color-text-primary, #f4f4f5); }
-    .card, .row, .hero, .product, .chip, .more, .back, .details, .external, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
+    body { color: var(--color-text-primary, #f4f4f5); background: var(--color-background-primary, #111114); }
+    .chip, .more, .back, .search input, .card, .colors button { background: var(--color-background-primary, #1c1c1f); border-color: var(--color-border-primary, #3a3a40); }
     .chip[aria-pressed="true"], .colors button[aria-pressed="true"] { background: #3D5FD9; color: #fff; }
-    .media { background: var(--color-background-secondary, #111114); }
-    .stock, .swatches, .note, .information, .variants p, .meta p { color: var(--color-text-secondary, #c4c4cc); }
+    .row { border-bottom-color: var(--color-border-primary, #2f2f35); }
+    .media { background: #111114; border-color: #2f2f35; }
+    .card .media { background: #111114; }
+    .badge { background: #22232a; color: #c9cdd8; }
+    .badge.curated { background: #16361f; color: #b6f0c6; }
+    .meta-line, .stock, .swatches, .hint, .note, .information, .variants p, .meta p, .image-fallback { color: var(--color-text-secondary, #c4c4cc); }
   }
 </style>
 </head>
