@@ -285,6 +285,10 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/components/LandingPage")),
       },
       { path: "about", lazy: page(() => import("@/features/marketing/AboutPage"), "AboutPage") },
+      {
+        path: "in-office-swag-store",
+        lazy: page(() => import("@/features/marketing/InOfficeSwagStorePage")),
+      },
       { path: "about/index.html", loader: () => redirect("/about") },
       {
         path: "careers",

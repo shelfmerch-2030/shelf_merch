@@ -1,0 +1,87 @@
+/* Match the Platform / Zoho workflow type scale and editorial section rhythm. */
+.office-swag {
+  padding-top: 69.7px;
+  background: #fff;
+  color: #171717;
+  font-family: var(--font-family-public-sans);
+}
+.office-swag-wrap { width: min(1280px, 90%); margin-inline: auto; }
+.office-swag :is(h1, h2, h3, p, figure) { margin: 0; }
+.office-swag :is(h1, h2, h3) { font-family: var(--font-family-primary); font-weight: 700; }
+.office-swag h1 { font-size: clamp(46px, 5.3vw, 76px); line-height: 1.05; letter-spacing: -.045em; }
+.office-swag h2 { font-size: clamp(32px, 3.4vw, 48px); line-height: 1.12; letter-spacing: -.035em; }
+.office-swag h3 { font-size: 27px; line-height: 1.2; letter-spacing: -.03em; }
+.office-swag :is(h1, h2) em { display: block; color: inherit; font-family: var(--font-family-public-serif); font-style: italic; }
+.office-swag h1 em { font-weight: 400; letter-spacing: -.03em; }
+.office-swag h2 em { font-weight: 700; }
+.office-swag p { font-family: var(--font-family-public-sans); font-size: 19px; line-height: 1.65; font-weight: 400; letter-spacing: normal; color: #171717; }
+.office-swag .office-swag-eyebrow { display: block; font-size: 12px; line-height: 1.7; font-weight: 700; letter-spacing: .1em; color: inherit; }
+.office-swag-section { padding-block: 64px; }
+.office-swag-hero { padding-block: 36px; background: #eef3fd; }
+.office-swag-hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; gap: 50px; }
+.office-swag-hero-copy > .office-swag-eyebrow { margin-bottom: 20px; }
+.office-swag-hero-copy h1 { margin-bottom: 28px; }
+.office-swag-hero-copy > p:not(.office-swag-eyebrow) { max-width: 570px; }
+.office-swag-hero-copy > p:not(.office-swag-eyebrow) + p { margin-top: 18px; }
+.office-swag img { display: block; width: 100%; }
+.office-swag-hero-photo img { height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+.office-swag .office-swag-button { display: inline-flex; justify-content: center; align-items: center; gap: 14px; min-height: 56px; margin-top: 24px; padding: 17px 25px; border-radius: 99px; background: #171717; color: #fff; font-family: var(--font-family-primary); font-size: 14px; font-weight: 700; line-height: 1.4; text-decoration: none; transition: background 160ms; }
+.office-swag .office-swag-button:hover { background: #333; }
+.office-swag .office-swag-button:focus-visible { outline: 3px solid #3155ff; outline-offset: 5px; }
+.office-swag-button svg { flex-shrink: 0; }
+.office-swag-process-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; gap: 100px; padding-block: 16px; }
+.office-swag-section-heading { position: sticky; top: 105px; }
+.office-swag-section-heading .office-swag-eyebrow { margin-bottom: 22px; }
+.office-swag-step-grid { list-style: none; padding: 0; margin: 0; }
+.office-swag-step-grid li { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 20px; position: relative; }
+.office-swag-step-grid li:not(:last-child)::before { content: ""; position: absolute; top: 42px; bottom: 0; left: 20px; border-left: 1px solid #dce2ed; }
+.office-swag-step-number { display: grid; place-items: center; width: 42px; height: 42px; background: #eef3fd; border: 1px solid #dce2ed; border-radius: 50%; color: #171717; font-size: 12px; font-weight: 700; }
+.office-swag-step-grid article { padding: 4px 0 38px; }
+.office-swag-step-grid li:last-child article { padding-bottom: 0; }
+.office-swag-step-grid h3 { margin-bottom: 16px; }
+.office-swag-culture { background: #f5f3ee; }
+.office-swag-culture-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 70px; align-items: center; }
+.office-swag-culture-photo img { height: auto; aspect-ratio: 4 / 5; object-fit: cover; object-position: center; }
+.office-swag-benefits { margin-top: 36px; }
+.office-swag-benefits article + article { margin-top: 28px; padding-top: 28px; border-top: 1px solid #d8d5cc; }
+.office-swag-benefits h3 { font-size: 25px; line-height: 1.2; letter-spacing: -.025em; margin-bottom: 16px; }
+.office-swag-occasion-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 90px; align-items: start; }
+.office-swag-occasion-grid .office-swag-eyebrow { margin-bottom: 22px; }
+.office-swag-table { width: 100%; border-collapse: collapse; table-layout: fixed; text-align: left; }
+.office-swag-table th, .office-swag-table td { padding: 24px 14px; font-size: 19px; line-height: 1.65; vertical-align: top; border-bottom: 1px solid #dce2ed; overflow-wrap: break-word; }
+.office-swag-table thead th { padding-top: 0; font-size: 12px; line-height: 1.7; font-weight: 700; letter-spacing: .05em; color: #171717; }
+.office-swag-table thead th:first-child { width: 36%; }
+.office-swag-table tbody th { font-family: var(--font-family-primary); font-weight: 700; font-size: 20px; line-height: 1.4; }
+.office-swag-contact { background: #eef3fd; }
+.office-swag-contact-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 90px; align-items: center; }
+.office-swag-contact .office-swag-eyebrow { margin-bottom: 20px; }
+.office-swag-contact p { margin-top: 24px; max-width: 510px; }
+.office-swag-shelf-photo img { height: auto; aspect-ratio: 4 / 3; object-fit: cover; }
+@media (max-width: 1100px) {
+  .office-swag-hero-grid, .office-swag-process-layout, .office-swag-culture-grid, .office-swag-occasion-grid, .office-swag-contact-grid { gap: 36px; }
+}
+@media (max-width: 860px) {
+  .office-swag { padding-top: 60px; }
+  .office-swag-hero-grid, .office-swag-culture-grid, .office-swag-contact-grid { grid-template-columns: 1fr; gap: 32px; }
+  .office-swag-hero-copy { max-width: 650px; }
+  .office-swag-hero-photo img { max-height: 500px; object-fit: contain; }
+  .office-swag-culture-photo img { aspect-ratio: 4 / 3; object-fit: cover; }
+}
+@media (max-width: 760px) {
+  .office-swag-hero { padding-block: 28px; }
+  .office-swag-section { padding-block: 44px; }
+  .office-swag h1 { font-size: clamp(44px, 8.8vw, 64px); }
+  .office-swag h2 { font-size: clamp(28px, 6vw, 34px); }
+  .office-swag p { font-size: 18px; }
+  .office-swag-process-layout, .office-swag-occasion-grid { grid-template-columns: 1fr; gap: 30px; padding-block: 0; }
+  .office-swag-section-heading { position: static; }
+  .office-swag-hero-photo img { max-height: 390px; }
+  .office-swag-step-grid li { gap: 16px; }
+  .office-swag-step-grid h3 { font-size: 25px; }
+  .office-swag-table th, .office-swag-table td { padding: 20px 10px; font-size: 17px; }
+  .office-swag-table thead th { font-size: 12px; }
+  .office-swag-table tbody th { font-size: 18px; }
+  .office-swag-table thead th:first-child { width: 38%; }
+  .office-swag .office-swag-button { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .office-swag .office-swag-button { transition: none; } }
