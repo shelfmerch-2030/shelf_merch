@@ -4,6 +4,7 @@ import { ResourceDropdown } from "../resources/ResourceDropdown";
 import { CatalogDropdown } from "./CatalogDropdown";
 import "../landing-mobile.css";
 import "../resources/resource-nav.css";
+import "./header-office-link.css";
 
 function AuthLinks({ className, onNavigate }: { className?: string; onNavigate?: () => void }) {
   return (
@@ -75,6 +76,14 @@ export function Header() {
           <CatalogDropdown onNavigate={closeMenu} />
           <Link to="/about" onClick={closeMenu}>
             About
+          </Link>
+          <Link
+            className="office-store-nav"
+            to="/in-office-swag-store"
+            aria-current={pathname === "/in-office-swag-store" ? "page" : undefined}
+            onClick={closeMenu}
+          >
+            In-Office Swag Store
           </Link>
           <AuthLinks className="mobile-only" onNavigate={closeMenu} />
           <Link className="header-cta nav-drawer-cta mobile-only" to="/request-demo" onClick={closeMenu}>
