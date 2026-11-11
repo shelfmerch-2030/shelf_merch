@@ -12,7 +12,7 @@ import { writeAudit } from '../../services/audit.service.js';
 import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { PlatformKit } from './platformKit.model.js';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
-import { importFromShopify } from '../catalog/shopifyImport.service.js';
+import { createShopifyImportRouter } from '../catalog/shopifyImport.routes.js';
 import { moveKitToCatalog } from '../catalog/kindMove.service.js';
 import { normalizeVariantImages, withNormalizedVariantImages } from './kitVariantImages.js';
 
@@ -193,19 +193,10 @@ const kitsWrite = platformArea('kits', 'write');
 
 // Import only kit bundles from Shopify (catalog products are imported from the
 // Catalog page) — keeps kits and catalog products sorted into separate flows.
-platformKitsRouter.post(
+platformKitsRouter.use(
   '/import/shopify',
-  kitsWrite,
-  validate({ body: z.object({ domain: z.string().min(1), accessToken: z.string().min(1) }) }),
-  asyncHandler(async (req, res) => {
-    const summary = await importFromShopify({ domain: req.body.domain, token: req.body.accessToken, only: 'kits' });
-    writeAudit({
-      req,
-      action: 'kit.import.shopify',
-      entityType: 'PlatformKit',
-      after: { domain: summary.domain, kits: summary.kits, failed: summary.failed },
-    });
-    res.json(summary);
+  createShopifyImportRouter({
+    kind: 'kits', area: 'kits', action: 'kit.import.shopify', entityType: 'PlatformKit',
   }),
 );
 

@@ -7,7 +7,7 @@ import { ProductCard } from "./ProductCard";
 import { FeaturedCatalogProducts } from "./FeaturedCatalogProducts";
 import { CategoryCarousel, type CategoryTile } from "./CategoryCarousel";
 import { CatalogMarketingFooter } from "./CatalogMarketingFooter";
-import { catalogHomePath } from "./CatalogBrowseView";
+import { catalogHomePath } from "../catalogPaths";
 import { buildCatalogOverviewTiles } from "./catalog-navigation";
 import { TRUST_LOGOS } from "../../../components/landing/TrustBar";
 import "./catalog-view.css";

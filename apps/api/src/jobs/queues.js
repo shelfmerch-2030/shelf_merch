@@ -2,6 +2,7 @@ import { Queue } from 'bullmq';
 import { ensureRedisReady, getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
 import { processCsvImport } from '../modules/imports/imports.service.js';
+import { runShopifyImportJob } from '../modules/catalog/shopifyImportJob.service.js';
 import {
   MERGE_HRIS_SYNC_QUEUE,
   MERGE_SYNC_JOB_ATTEMPTS,
@@ -15,6 +16,7 @@ export const SCHEDULED_CAMPAIGN_QUEUE = 'scheduled-campaigns';
 const MAX_IN_PROCESS_DELAY_MS = 2_147_483_647;
 
 let csvImportQueue = null;
+let shopifyImportQueue = null;
 let notificationQueue = null;
 let scheduledCampaignQueue = null;
 let mergeHrisSyncQueue = null;
@@ -42,6 +44,40 @@ function makeQueue(name) {
 export function getCsvImportQueue() {
   if (!csvImportQueue) csvImportQueue = makeQueue('csv-import');
   return csvImportQueue;
+}
+
+export function getShopifyImportQueue() {
+  if (!shopifyImportQueue) shopifyImportQueue = makeQueue('shopify-import');
+  return shopifyImportQueue;
+}
+
+export async function enqueueShopifyImport({ jobId, domain, accessToken, only }) {
+  const payload = { jobId: String(jobId), domain, accessToken, only };
+  let timeout;
+  try {
+    if (!(await ensureRedisReady())) throw new Error('Redis not ready');
+    // A disconnect after the readiness probe must not hold the HTTP response open.
+    // The runner claims queued jobs atomically if this add eventually succeeds too.
+    await Promise.race([
+      getShopifyImportQueue().add('import', payload, {
+        jobId: `shopify-import-${jobId}`,
+        removeOnComplete: true,
+        removeOnFail: true,
+      }),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Shopify enqueue timed out')), 3_000);
+      }),
+    ]);
+  } catch {
+    logger.warn({ jobId: String(jobId) }, 'Redis unavailable; processing Shopify import inline');
+    setImmediate(() => {
+      runShopifyImportJob(payload).catch(() =>
+        logger.error({ jobId: String(jobId) }, 'Inline Shopify import failed'),
+      );
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function getNotificationQueue() {

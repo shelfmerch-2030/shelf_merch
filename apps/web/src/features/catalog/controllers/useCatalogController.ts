@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useCatalog, useCatalogCategoryTree } from "../model";
 import {
@@ -12,6 +12,7 @@ import {
   type CatalogCategoryNode,
 } from "../types";
 import type { UiProduct } from "../model";
+import { catalogHomePath } from "../catalogPaths";
 
 function mapPublicChildren(
   children: { name: string; slug: string; children?: unknown[] }[] | undefined,
@@ -55,6 +56,7 @@ export type CatalogVm = {
 export function useCatalogController(): CatalogVm {
   const { data: workspace } = useWorkspace();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const params = useParams();
   const [searchParams] = useSearchParams();
   const categoryTree = useCatalogCategoryTree();
@@ -141,8 +143,7 @@ export function useCatalogController(): CatalogVm {
         : "Could not load catalog products"
       : null,
     onCategory: (next) => {
-      const currentPath = window.location.pathname;
-      const basePath = currentPath.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
+      const basePath = catalogHomePath(pathname);
 
       if (next === ALL_PRODUCTS) {
         const nextParams = new URLSearchParams(searchParams);

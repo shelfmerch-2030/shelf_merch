@@ -170,6 +170,13 @@ const tenantChildren: RouteObject[] = [
         lazy: page(() => import("@/features/catalog/CatalogBrowsePage"), "CatalogBrowsePage"),
       },
       {
+        path: "category/:category",
+        lazy: page(
+          () => import("@/features/catalog/CatalogCategoryPage"),
+          "CatalogCategoryPage",
+        ),
+      },
+      {
         path: ":id",
         lazy: page(() => import("@/features/catalog/CatalogProductPage"), "CatalogProductPage"),
       },

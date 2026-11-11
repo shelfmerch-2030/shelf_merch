@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { CatalogProduct } from './catalogProduct.model.js';
 import { PlatformKit } from '../kits/platformKit.model.js';
+import { normalizeVariantEntry } from '../kits/kitVariantImages.js';
 import { ApiError } from '../../utils/errors.js';
 
 const SHOPIFY_API_VERSION = '2026-04';
@@ -939,7 +940,7 @@ export function mapShopifyKit(p, domain, mapped, kindOverride = null) {
  * `only` sorts the import: 'products' brings in just catalog products, 'kits'
  * brings in just kit bundles, 'all' (default) does both.
  */
-export async function importFromShopify({ domain, token, only = 'all' }) {
+export async function importFromShopify({ domain, token, only = 'all', onProgress }) {
   const host = normalizeDomain(domain);
   const accessToken = normalizeAccessToken(token);
   const products = await fetchShopifyProducts({ domain: host, token: accessToken });
@@ -950,8 +951,22 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
   let failed = 0;
   const items = [];
 
+  const snapshot = () => ({
+    domain: host,
+    total: products.length,
+    imported: product.imported + kit.imported,
+    updated: product.updated + kit.updated,
+    skipped: product.skipped + kit.skipped,
+    failed,
+    products: { ...product },
+    kits: { ...kit },
+    items: [...items],
+  });
+  await onProgress?.(snapshot());
+
   for (const p of products) {
     const externalId = String(p.id);
+    const previousItemCount = items.length;
     try {
       // Manual Catalog ↔ Kits override wins; otherwise name/type/tag heuristics.
       // Classify up front so a filtered import skips metafield fetches it doesn't need.
@@ -1001,21 +1016,32 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
             },
           },
         );
-        const existingKit = await PlatformKit.findOne({
+        // Read raw values first: Mongoose cannot hydrate legacy URL strings
+        // into the current embedded variant-image schema.
+        const storedKit = await PlatformKit.findOne({
           'source.provider': 'shopify',
           'source.externalId': externalId,
-        });
+        }).lean();
+        const hasLegacyVariantImages = storedKit?.variantImages?.some((entry) => typeof entry === 'string');
+        if (hasLegacyVariantImages) {
+          storedKit.variantImages = storedKit.variantImages
+            .map((entry) => typeof entry === 'string' ? normalizeVariantEntry(entry) : entry)
+            .filter(Boolean);
+        }
+        const existingKit = storedKit ? PlatformKit.hydrate(storedKit) : null;
         if (existingKit) {
           const changed =
             existingKit.name !== kitFields.name
             || String(existingKit.description ?? '') !== String(kitFields.description ?? '')
             || JSON.stringify(existingKit.imageUrls ?? []) !== JSON.stringify(kitFields.imageUrls ?? [])
+            || hasLegacyVariantImages
             || (kindOverride && existingKit.source?.kindOverride !== kindOverride);
           if (changed) {
             existingKit.name = kitFields.name;
             existingKit.description = kitFields.description;
             existingKit.imageUrls = kitFields.imageUrls;
             existingKit.approxValueInr = kitFields.approxValueInr;
+            if (hasLegacyVariantImages) existingKit.markModified('variantImages');
             if (kindOverride) {
               existingKit.source = existingKit.source || {};
               existingKit.source.kindOverride = kindOverride;
@@ -1095,19 +1121,12 @@ export async function importFromShopify({ domain, token, only = 'all' }) {
     } catch (err) {
       failed += 1;
       items.push({ title: p?.title ?? externalId, status: 'failed', reason: err.message });
+    } finally {
+      // Await persistence outside the item error handler so a DB progress failure
+      // cannot turn an already-imported product into a second, failed item.
+      if (items.length > previousItemCount) await onProgress?.(snapshot());
     }
   }
 
-  return {
-    domain: host,
-    total: products.length,
-    // Grand totals (back-compat) plus the kit/product split.
-    imported: product.imported + kit.imported,
-    updated: product.updated + kit.updated,
-    skipped: product.skipped + kit.skipped,
-    failed,
-    products: product,
-    kits: kit,
-    items,
-  };
+  return snapshot();
 }

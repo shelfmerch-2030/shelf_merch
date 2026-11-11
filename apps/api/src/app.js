@@ -87,6 +87,7 @@ import { sendTermsOfService } from './modules/legal/termsOfService.controller.js
 import { sendSlackTerms } from './modules/legal/slackTerms.controller.js';
 import { sendDocsPage, DOCS_PUBLIC_ROUTES } from './modules/docs/docs.controller.js';
 import blogRoutes from './modules/blog/blog.routes.js';
+import seoGrowthRoutes from './modules/seoGrowth/seoGrowth.routes.js';
 import { sendBlogArticle, sendBlogIndex, sendBlogMedia } from './modules/blog/blogPublic.controller.js';
 import {
   sendBlogSitemap,
@@ -335,6 +336,7 @@ export function createApp() {
   api.use('/platform/finance', platformFinanceRoutes);
   api.use('/platform/demo-leads', platformDemoLeadsRouter);
   api.use('/platform/blog-posts', blogRoutes);
+  api.use('/platform/seo-growth', seoGrowthRoutes);
   api.use('/platform/audit-logs', platformAuditRouter);
   api.use('/platform/reports', platformReportsRouter);
   api.use('/platform/support-tickets', platformSupportRouter);

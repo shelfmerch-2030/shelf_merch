@@ -1042,19 +1042,101 @@ export type ShopifyImportSummary = {
   items: { title: string; status: string; reason?: string; kind?: "product" | "kit" }[];
 };
 
-export function importShopify(domain: string, accessToken: string) {
-  return apiFetch<ShopifyImportSummary>("/platform/products/import/shopify", {
+export type ShopifyImportStatus = ShopifyImportSummary & {
+  importJobId: string;
+  status: "queued" | "processing" | "done" | "failed";
+  error?: string;
+};
+
+type ShopifyImportStarted = { importJobId: string; status: "queued" };
+type ShopifyImportOnStatus = (status: ShopifyImportStatus) => void;
+
+export function startShopifyImport(domain: string, accessToken: string, signal?: AbortSignal) {
+  return apiFetch<ShopifyImportStarted>("/platform/products/import/shopify", {
     method: "POST",
     body: JSON.stringify({ domain, accessToken }),
+    signal,
   });
 }
 
-/** Import only kit bundles from Shopify into the Kits collection. */
-export function importShopifyKits(domain: string, accessToken: string) {
-  return apiFetch<ShopifyImportSummary>("/platform/kits/import/shopify", {
+export function startShopifyKitsImport(domain: string, accessToken: string, signal?: AbortSignal) {
+  return apiFetch<ShopifyImportStarted>("/platform/kits/import/shopify", {
     method: "POST",
     body: JSON.stringify({ domain, accessToken }),
+    signal,
   });
+}
+
+export function fetchShopifyImportStatus(jobId: string, kits = false, signal?: AbortSignal) {
+  return apiFetch<ShopifyImportStatus>(
+    `/platform/${kits ? "kits" : "products"}/import/shopify/${encodeURIComponent(jobId)}/status`,
+    { signal, cache: "no-store" },
+  );
+}
+
+function waitForShopifyPoll(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, 1_000);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
+/** One GET at a time; brief gateway/network outages do not lose the running job. */
+export async function pollShopifyImport(
+  jobId: string,
+  { kits = false, onStatus, signal }: { kits?: boolean; onStatus?: ShopifyImportOnStatus; signal?: AbortSignal } = {},
+): Promise<ShopifyImportStatus> {
+  const controller = new AbortController();
+  const abort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  const timeoutError = new Error(`Import status timed out after 30 minutes. The import may still be running (job ${jobId}).`);
+  const timer = setTimeout(() => controller.abort(timeoutError), 30 * 60_000);
+  try {
+    while (true) {
+      controller.signal.throwIfAborted();
+      let status: ShopifyImportStatus;
+      try {
+        status = await fetchShopifyImportStatus(jobId, kits, controller.signal);
+      } catch (err) {
+        controller.signal.throwIfAborted();
+        const code = err && typeof err === "object" && "status" in err ? Number(err.status) : 0;
+        if (!(err instanceof TypeError) && ![502, 503, 504].includes(code)) throw err;
+        await waitForShopifyPoll(controller.signal);
+        continue;
+      }
+      controller.signal.throwIfAborted();
+      onStatus?.(status);
+      if (status.status === "done") return status;
+      if (status.status === "failed") throw new Error(status.error || "Shopify import failed");
+      await waitForShopifyPoll(controller.signal);
+    }
+  } catch (err) {
+    if (controller.signal.aborted) throw controller.signal.reason;
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
+}
+
+export async function importShopify(domain: string, accessToken: string, onStatus?: ShopifyImportOnStatus, signal?: AbortSignal) {
+  const { importJobId } = await startShopifyImport(domain, accessToken, signal);
+  return pollShopifyImport(importJobId, { onStatus, signal });
+}
+
+/** Import only kit bundles from Shopify into the Kits collection. */
+export async function importShopifyKits(domain: string, accessToken: string, onStatus?: ShopifyImportOnStatus, signal?: AbortSignal) {
+  const { importJobId } = await startShopifyKitsImport(domain, accessToken, signal);
+  return pollShopifyImport(importJobId, { kits: true, onStatus, signal });
 }
 
 // ---- Operations desk: status/action enums ----

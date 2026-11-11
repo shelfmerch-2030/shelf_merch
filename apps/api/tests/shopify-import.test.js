@@ -19,6 +19,15 @@ import {
   normalizeDomain,
 } from '../src/modules/catalog/shopifyImport.service.js';
 import { ensureCatalogCategories } from '../src/seed/catalogCategories.js';
+import { ShopifyImportJob } from '../src/modules/catalog/shopifyImportJob.model.js';
+import { runShopifyImportJob } from '../src/modules/catalog/shopifyImportJob.service.js';
+import { enqueueShopifyImport } from '../src/jobs/queues.js';
+import { AuditLog } from '../src/modules/auditLogs/auditLog.model.js';
+import * as shopifyImportService from '../src/modules/catalog/shopifyImport.service.js';
+
+vi.mock('../src/jobs/queues.js', async (importOriginal) => ({
+  ...await importOriginal(), enqueueShopifyImport: vi.fn(),
+}));
 
 let app;
 let catalogToken;
@@ -182,6 +191,7 @@ afterAll(disconnectTestDb);
 afterEach(() => vi.restoreAllMocks());
 
 beforeEach(async () => {
+  vi.mocked(enqueueShopifyImport).mockClear();
   await clearTestDb();
   await ensureCatalogCategories();
   catalogToken = await makeUser(null, 'platform_catalog_admin', 'platform');
@@ -189,11 +199,88 @@ beforeEach(async () => {
   tenantToken = await makeUser(tenant, 'company_admin', 'tenant');
 });
 
-const importReq = (token) =>
+const startImportReq = (token, body = { domain: 'xyz.myshopify.com', accessToken: 'shpat_test' }, kind = 'products') =>
   request(app)
-    .post('/api/v1/platform/products/import/shopify')
+    .post(`/api/v1/platform/${kind}/import/shopify`)
     .set('Authorization', `Bearer ${token}`)
-    .send({ domain: 'xyz.myshopify.com', accessToken: 'shpat_test' });
+    .send(body);
+
+// Mapping regression tests explicitly run the queued job, then read its summary.
+async function importReq(token, body) {
+  const started = await startImportReq(token, body);
+  if (started.status !== 202) return started;
+  const payload = vi.mocked(enqueueShopifyImport).mock.calls.at(-1)[0];
+  await runShopifyImportJob(payload);
+  return request(app)
+    .get(`/api/v1/platform/products/import/shopify/${started.body.importJobId}/status`)
+    .set('Authorization', `Bearer ${token}`);
+}
+
+describe('asynchronous Shopify import endpoints', () => {
+  it.each(['products', 'kits'])('queues a %s job and returns a platform-scoped, credential-free status', async (kind) => {
+    const started = await startImportReq(catalogToken, undefined, kind);
+    expect(started.status).toBe(202);
+    expect(started.body).toEqual({ importJobId: expect.any(String), status: 'queued' });
+    expect(enqueueShopifyImport).toHaveBeenCalledWith({
+      jobId: started.body.importJobId, domain: 'xyz.myshopify.com', accessToken: 'shpat_test', only: kind,
+    });
+    const path = `/api/v1/platform/${kind}/import/shopify/${started.body.importJobId}/status`;
+    const queued = await request(app).get(path).set('Authorization', `Bearer ${catalogToken}`);
+    expect(queued.status).toBe(200);
+    expect(queued.headers['cache-control']).toBe('no-store');
+    expect(queued.body).toMatchObject({ status: 'queued', imported: 0, failed: 0, items: [] });
+    const stored = await ShopifyImportJob.findById(started.body.importJobId).lean();
+    expect(stored.kind).toBe(kind);
+    expect(stored.createdBy).toBeTruthy();
+    expect(stored.tenantId).toBeUndefined();
+    expect(JSON.stringify(stored)).not.toContain('shpat_test');
+    const audit = await AuditLog.findOne({ 'after.importJobId': started.body.importJobId });
+    expect(audit.after).toEqual({ domain: 'xyz.myshopify.com', importJobId: started.body.importJobId });
+    expect((await request(app).get(path).set('Authorization', `Bearer ${tenantToken}`)).status).toBe(403);
+    expect((await request(app).get(path)).status).toBe(401);
+    const wrongKind = kind === 'products' ? 'kits' : 'products';
+    expect((await request(app).get(path.replace(`/${kind}/`, `/${wrongKind}/`))
+      .set('Authorization', `Bearer ${catalogToken}`)).status).toBe(404);
+    expect((await request(app).get(path.replace(started.body.importJobId, 'invalid'))
+      .set('Authorization', `Bearer ${catalogToken}`)).status).toBe(400);
+  });
+
+  it('exposes progress before the worker finishes and appends final items once', async () => {
+    let reportProgress;
+    const reported = new Promise((resolve) => { reportProgress = resolve; });
+    let finish;
+    const canFinish = new Promise((resolve) => { finish = resolve; });
+    const partial = {
+      domain: 'xyz.myshopify.com', total: 2, imported: 1, updated: 0, skipped: 0, failed: 0,
+      products: { imported: 1, updated: 0, skipped: 0 }, kits: { imported: 0, updated: 0, skipped: 0 },
+      items: [{ title: 'First tee', status: 'imported', kind: 'product' }],
+    };
+    vi.spyOn(shopifyImportService, 'importFromShopify').mockImplementation(async ({ onProgress }) => {
+      await onProgress(partial);
+      reportProgress();
+      await canFinish;
+      return { ...partial, skipped: 1, products: { ...partial.products, skipped: 1 },
+        items: [...partial.items, { title: 'Second tee', status: 'skipped', kind: 'product' }] };
+    });
+    const started = await startImportReq(catalogToken);
+    const running = runShopifyImportJob(vi.mocked(enqueueShopifyImport).mock.calls.at(-1)[0]);
+    try {
+      await reported;
+      const progress = await request(app)
+        .get(`/api/v1/platform/products/import/shopify/${started.body.importJobId}/status`)
+        .set('Authorization', `Bearer ${catalogToken}`);
+      expect(progress.body).toMatchObject({ status: 'processing', imported: 1, items: partial.items });
+    } finally {
+      finish();
+      await running;
+    }
+    const done = await request(app)
+      .get(`/api/v1/platform/products/import/shopify/${started.body.importJobId}/status`)
+      .set('Authorization', `Bearer ${catalogToken}`);
+    expect(done.body).toMatchObject({ status: 'done', imported: 1, skipped: 1 });
+    expect(done.body.items.map((item) => item.title)).toEqual(['First tee', 'Second tee']);
+  });
+});
 
 describe('Shopify catalog import', () => {
   it('accepts a shop handle or full myshopify host', () => {
@@ -467,7 +554,8 @@ describe('Shopify catalog import', () => {
       .send({
         name: importedTee.name,
         category: 'Apparel',
-        subcategory: 'T-Shirts',
+        subcategory: 'Apparel',
+        childCategory: 'T-Shirts',
         sellingPriceInr: importedTee.basePriceInr,
         costPriceInr: 0,
         brand: importedTee.brand,
@@ -491,14 +579,16 @@ describe('Shopify catalog import', () => {
     expect(await CatalogProduct.countDocuments({ 'source.provider': 'shopify' })).toBe(2);
     const tee = await CatalogProduct.findOne({ 'source.externalId': '111' });
     expect(tee.category).toBe('Apparel');
-    expect(tee.subcategory).toBe('T-Shirts');
+    expect(tee.subcategory).toBe('Apparel');
+    expect(tee.childCategory).toBe('T-Shirts');
   });
 
   it('returns a friendly error for an invalid token (401 from Shopify)', async () => {
     vi.stubGlobal('fetch', stubFetch(401, {}));
     const res = await importReq(catalogToken);
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe('SHOPIFY_UNAUTHORIZED');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toMatch(/Invalid Shopify access token/);
   });
 
   it('rejects a client secret pasted as the access token', async () => {
@@ -513,10 +603,7 @@ describe('Shopify catalog import', () => {
   it('imports when the accessToken field contains the full OAuth token response', async () => {
     const fetchMock = stubShopifyFetch();
     vi.stubGlobal('fetch', fetchMock);
-    const res = await request(app)
-      .post('/api/v1/platform/products/import/shopify')
-      .set('Authorization', `Bearer ${catalogToken}`)
-      .send({
+    const res = await importReq(catalogToken, {
         domain: 'xyz.myshopify.com',
         accessToken: JSON.stringify({
           access_token: 'shpat_from_response',

@@ -61,7 +61,7 @@ export function ShopifyImportView({
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
             Paste the Admin API access token (<code>shpat_…</code>), never the client secret (<code>shpss_…</code>)
             or client ID. The custom app needs <code>read_products</code> (and <code>read_inventory</code> for HSN).
-            Used once for this import and never stored.{" "}
+            Used only for this import.{" "}
             {kits
               ? "Only kit bundles are imported, as curated active kits."
               : "Only active Shopify products are pulled, and they land as drafts. HSN is copied from Shopify inventory items when set; still set cost and GST before publishing."}
@@ -74,6 +74,7 @@ export function ShopifyImportView({
 
       {summary && (
         <div className="card" style={{ padding: 22, maxWidth: 720, marginTop: 18 }}>
+          {busy && <p className="muted" role="status">Importing… Results update as each item finishes.</p>}
           <div className="row" style={{ gap: 24, marginBottom: 14 }}>
             <div>
               <div className="muted" style={{ fontSize: 12 }}>
@@ -145,7 +146,7 @@ export function ShopifyImportView({
             </ul>
           )}
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button type="button" className="btn btn-soft btn-sm" onClick={onViewResults}>
+            <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={onViewResults}>
               {kits ? "View kits" : "View catalog"}
             </button>
           </div>
