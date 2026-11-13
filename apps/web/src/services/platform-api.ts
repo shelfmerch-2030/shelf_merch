@@ -244,8 +244,6 @@ export async function fetchPlatformProducts(params?: {
     totalPages = res.pagination?.totalPages ?? page;
     if (!batch.length) break;
     page += 1;
-    // Safety cap (~12.5k products) against a runaway pagination loop.
-    if (page > 50) break;
   }
 
   return { items, total, page: 1, limit: items.length };

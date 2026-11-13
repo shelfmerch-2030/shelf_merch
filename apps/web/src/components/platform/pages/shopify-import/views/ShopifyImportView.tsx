@@ -111,21 +111,11 @@ export function ShopifyImportView({
           </div>
 
           <div className="row" style={{ gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-            {kits ? (
-              <ImportGroup
-                label="Kit bundles"
-                hint="→ Kits"
-                b={summary.kits}
-                items={summary.items.filter((i) => i.kind === "kit" && i.status !== "failed")}
-              />
-            ) : (
-              <ImportGroup
-                label="Catalog products"
-                hint="→ Catalog"
-                b={summary.products}
-                items={summary.items.filter((i) => i.kind !== "kit" && i.status !== "failed")}
-              />
-            )}
+            <ImportGroup
+              label={kits ? "Kit bundles" : "Catalog products"}
+              hint={kits ? "→ Kits" : "→ Catalog"}
+              items={summary.items}
+            />
           </div>
 
           {kits && summary.kits && summary.kits.imported + summary.kits.updated > 0 && (
@@ -134,17 +124,6 @@ export function ShopifyImportView({
             </p>
           )}
 
-          {summary.failed > 0 && (
-            <ul style={{ color: "var(--danger)", fontSize: 13, paddingLeft: 18 }}>
-              {summary.items
-                .filter((i) => i.status === "failed")
-                .map((i, n) => (
-                  <li key={n}>
-                    {i.title}: {i.reason}
-                  </li>
-                ))}
-            </ul>
-          )}
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={onViewResults}>
               {kits ? "View kits" : "View catalog"}

@@ -46,6 +46,8 @@ export function CatalogView({
   movingId,
   moveError,
   onAddToKits,
+  exportError,
+  onExport,
 }: CatalogVm) {
   const filteredEmpty =
     Boolean(data?.items.length) &&
@@ -58,28 +60,40 @@ export function CatalogView({
         title="Catalog"
         subtitle="Platform product master with internal cost and margin."
         actions={
-          canWrite ? (
-            <>
+          <>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onExport}
+              disabled={loading || Boolean(error) || !data?.items.length}
+              title="Download all catalog products, regardless of search or status filters"
+            >
+              Export CSV
+            </button>
+            {canWrite ? (
+              <>
+                <Link to="/platform/catalog/categories" className="btn btn-ghost btn-sm">
+                  Categories
+                </Link>
+                <Link to="/platform/catalog/import" className="btn btn-ghost btn-sm">
+                  Import from Shopify
+                </Link>
+                <Link to="/platform/catalog/new" className="btn btn-brand btn-sm">
+                  + New product
+                </Link>
+              </>
+            ) : (
               <Link to="/platform/catalog/categories" className="btn btn-ghost btn-sm">
                 Categories
               </Link>
-              <Link to="/platform/catalog/import" className="btn btn-ghost btn-sm">
-                Import from Shopify
-              </Link>
-              <Link to="/platform/catalog/new" className="btn btn-brand btn-sm">
-                + New product
-              </Link>
-            </>
-          ) : (
-            <Link to="/platform/catalog/categories" className="btn btn-ghost btn-sm">
-              Categories
-            </Link>
-          )
+            )}
+          </>
         }
       />
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
       {moveError && <PlatformError message={moveError} />}
+      {exportError && <PlatformError message={exportError} />}
       {data && (
         <>
           <div
