@@ -204,8 +204,10 @@ platformKitsRouter.get(
   '/',
   kitsRead,
   asyncHandler(async (req, res) => {
-    // Default list hides archived kits (e.g. moved to catalog); pass ?status= to override.
-    const filter = req.query.status ? { status: req.query.status } : { status: { $ne: 'archived' } };
+    // Default list hides archived kits; exports use ?status=all to include every kit.
+    const filter = req.query.status === 'all'
+      ? {}
+      : req.query.status ? { status: req.query.status } : { status: { $ne: 'archived' } };
     const kits = await PlatformKit.find(filter).sort({ createdAt: -1 }).lean();
     res.json(kits.map(withNormalizedVariantImages));
   }),

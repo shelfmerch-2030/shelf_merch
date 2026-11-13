@@ -18,6 +18,9 @@ export function KitsView({
   movingId,
   moveError,
   onAddToCatalog,
+  exporting,
+  exportError,
+  onExport,
 }: KitsVm) {
   return (
     <>
@@ -25,21 +28,33 @@ export function KitsView({
         title="Kits"
         subtitle="Platform-curated gift bundles."
         actions={
-          canWrite ? (
-            <div className="row" style={{ gap: 8 }}>
-              <Link to="/platform/kits/import" className="btn btn-soft btn-sm">
-                Import from Shopify
-              </Link>
-              <Link to="/platform/kits/new" className="btn btn-brand btn-sm">
-                + Create a kit
-              </Link>
-            </div>
-          ) : null
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onExport}
+              disabled={loading || Boolean(error) || !data || exporting}
+              title="Download all kits, including archived kits"
+            >
+              {exporting ? "Exporting..." : "Export CSV"}
+            </button>
+            {canWrite && (
+              <>
+                <Link to="/platform/kits/import" className="btn btn-soft btn-sm">
+                  Import from Shopify
+                </Link>
+                <Link to="/platform/kits/new" className="btn btn-brand btn-sm">
+                  + Create a kit
+                </Link>
+              </>
+            )}
+          </div>
         }
       />
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
       {moveError && <PlatformError message={moveError} />}
+      {exportError && <PlatformError message={exportError} />}
       {data && (
         <DataTable
           empty="No kits yet."

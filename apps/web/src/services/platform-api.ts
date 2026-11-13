@@ -286,7 +286,7 @@ export function setInventoryMode(
   });
 }
 
-export async function fetchPlatformKits() {
+export async function fetchPlatformKits(params?: { status?: "all" }) {
   return apiFetch<
     Array<{
       _id: string;
@@ -295,7 +295,7 @@ export async function fetchPlatformKits() {
       approxValueInr: number;
       items?: unknown[];
     }>
-  >("/platform/kits");
+  >(`/platform/kits${params?.status === "all" ? "?status=all" : ""}`);
 }
 
 export type KitRules = {
