@@ -1,4 +1,5 @@
 import { apiFetch } from "./api";
+import type { QcInspectionInput } from "./production-qc";
 
 export type Paginated<T> = {
   items: T[];
@@ -147,12 +148,14 @@ export function setPrimaryAdmin(id: string, userId: string, reason?: string) {
 }
 
 export async function fetchPlatformOrders(params?: {
+  qcStatus?: string;
   status?: string;
   limit?: number;
   tenantId?: string;
   page?: number;
 }) {
   const search = new URLSearchParams();
+  if (params?.qcStatus) search.set("qcStatus", params.qcStatus);
   if (params?.status) search.set("status", params.status);
   if (params?.limit) search.set("limit", String(params.limit));
   if (params?.page) search.set("page", String(params.page));
@@ -1201,17 +1204,33 @@ export function resendTicketTracking(id: string) {
 }
 
 // ---- Production tasks ----
-export function fetchProductionTasks(params?: { status?: string; limit?: number }) {
+export function fetchProductionTask(id: string) {
+  return apiFetch<Record<string, unknown>>(`/platform/production/tasks/${id}`);
+}
+export function fetchProductionTasks(params?: { status?: string; qcStatus?: string; limit?: number }) {
   const q = new URLSearchParams();
   if (params?.status) q.set("status", params.status);
+  if (params?.qcStatus) q.set("qcStatus", params.qcStatus);
   q.set("limit", String(params?.limit ?? 100));
   return apiFetch<Paginated<Record<string, unknown>>>(`/platform/production/tasks?${q}`);
 }
 export function setTaskStatus(id: string, status: string, note?: string) {
-  return apiFetch(`/platform/production/tasks/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note: note ?? "" }) });
+  return apiFetch<Record<string, unknown>>(`/platform/production/tasks/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, note: note ?? "" }) });
 }
-export function recordTaskQc(id: string, passed: boolean, reason?: string, photoUrl?: string) {
-  return apiFetch(`/platform/production/tasks/${id}/qc`, { method: "POST", body: JSON.stringify({ passed, reason: reason ?? "", photoUrl: photoUrl ?? "" }) });
+export function recordTaskQc(id: string, inspection: QcInspectionInput) {
+  return apiFetch<Record<string, unknown>>(`/platform/production/tasks/${id}/qc`, { method: "POST", body: JSON.stringify(inspection) });
+}
+export function uploadTaskQcPhoto(id: string, file: File) {
+  const form = new FormData();
+  form.append('image', file);
+  return apiFetch<{ url: string }>(`/platform/production/tasks/${id}/qc-photos`, { method: 'POST', body: form });
+}
+/** Manifest the task's order on Delhivery One; returns the created shipment (with AWB). */
+export function requestDelhiveryShipment(taskId: string) {
+  return apiFetch<{ _id: string; awb: string; courier: string; trackingUrl: string }>(
+    `/platform/production/tasks/${taskId}/delhivery-shipment`,
+    { method: "POST" },
+  );
 }
 export function createProductionTask(orderId: string, assignedTo?: string) {
   return apiFetch("/platform/production/tasks", { method: "POST", body: JSON.stringify({ orderId, assignedTo: assignedTo ?? "" }) });

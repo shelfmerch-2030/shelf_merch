@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Order } from '../orders/order.model.js';
 import { scheduleOrderInvoiceGeneration } from '../orderInvoices/orderInvoice.hooks.js';
 import { Campaign } from '../campaigns/campaign.model.js';
@@ -11,6 +12,9 @@ import { Kit } from '../kits/kit.model.js';
 import { Invoice } from '../invoices/invoice.model.js';
 import { AuditLog } from '../auditLogs/auditLog.model.js';
 import { ProductionTask } from './productionTask.model.js';
+import { User } from '../users/user.model.js';
+import { qcSchema } from './platform.validation.js';
+import { qcStatus, taskQcFilter, assertTaskQcPassed, assertOrderFulfillmentTransition, latestProductionTask, productionNextStatuses } from './productionQc.service.js';
 import { assertActiveVendor } from '../vendors/vendors.service.js';
 import {
   transitionState,
@@ -74,6 +78,19 @@ export async function listPlatformOrders({ query }) {
 
   const { page, limit, skip } = getPagination(query);
   const filter = buildOrderFilter(query);
+  if (query.qcStatus) {
+    // Filter against the latest task, never an older inspection/task for the order.
+    const matchingTasks = await ProductionTask.aggregate([
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $group: { _id: '$orderId', task: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$task' } },
+      { $match: query.qcStatus === 'not_started' ? { $nor: [taskQcFilter('not_started')] } : taskQcFilter(query.qcStatus) },
+      { $project: { orderId: 1 } },
+    ]);
+    if (query.qcStatus === 'not_started') {
+      filter._id = { $nin: matchingTasks.map((t) => t.orderId) };
+    } else filter._id = { $in: matchingTasks.map((t) => t.orderId) };
+  }
 
   const [items, total] = await Promise.all([
     Order.find(filter).setOptions({ skipTenantGuard: true }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -83,10 +100,16 @@ export async function listPlatformOrders({ query }) {
   const tenantIds = [...new Set(items.map((o) => String(o.tenantId)))];
   const tenants = await Tenant.find({ _id: { $in: tenantIds } }).select('name slug').lean();
   const tenantById = Object.fromEntries(tenants.map((t) => [String(t._id), t]));
+  const tasks = await ProductionTask.find({ orderId: { $in: items.map((o) => o._id) } })
+    .select('orderId status qcResult qcFailReason').sort({ createdAt: -1, _id: -1 }).lean();
+  const taskByOrder = new Map();
+  for (const task of tasks) if (!taskByOrder.has(String(task.orderId))) taskByOrder.set(String(task.orderId), task);
 
   const enriched = items.map((o) => ({
     ...o,
     tenantName: tenantById[String(o.tenantId)]?.name ?? '',
+    productionTask: taskByOrder.get(String(o._id)) ?? null,
+    qcStatus: qcStatus(taskByOrder.get(String(o._id))),
     validNextStatuses: validNextStatuses('order', o.status),
   }));
 
@@ -109,7 +132,7 @@ export async function getPlatformOrderDetail(orderId) {
       .select('name email phone redemptionStatus')
       .lean(),
     Shipment.findOne({ orderId: order._id, tenantId: order.tenantId }).lean(),
-    ProductionTask.findOne({ orderId: order._id }).lean(),
+    latestProductionTask(order._id).lean(),
   ]);
 
   const catalogIds = [
@@ -267,6 +290,7 @@ export async function getPlatformOrderDetail(orderId) {
     recipient,
     shipment,
     productionTask,
+    qcStatus: qcStatus(productionTask),
   };
 }
 
@@ -274,8 +298,17 @@ export async function getPlatformOrderDetail(orderId) {
 export async function updatePlatformOrderStatus({ orderId, status, note, actor }) {
   const order = await getPlatformOrder(orderId);
   const priorStatus = order.status;
+  await assertOrderFulfillmentTransition(order, status);
   transitionState('order', order, status, actor, note ?? '');
   await order.save();
+  // Overriding into production must still put the order on the production board.
+  if (status === 'in_production' && priorStatus !== 'in_production') {
+    const activeTask = await ProductionTask.exists({
+      orderId: order._id,
+      status: { $nin: ['completed', 'issue'] },
+    });
+    if (!activeTask) await createProductionTask({ orderId: order._id, actor });
+  }
   scheduleOrderDispatchedSlackNotification(
     order,
     priorStatus !== 'shipped' && order.status === 'shipped',
@@ -394,31 +427,67 @@ export async function listProductionTasks({ query }) {
   if (query.status) filter.status = query.status;
   if (query.tenantId) filter.tenantId = query.tenantId;
   if (query.assignedTo) filter.assignedTo = { $regex: query.assignedTo, $options: 'i' };
+  if (query.qcStatus) Object.assign(filter, taskQcFilter(query.qcStatus));
 
   const [items, total] = await Promise.all([
     ProductionTask.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     ProductionTask.countDocuments(filter),
   ]);
+  const orderIds = items.map((t) => t.orderId);
+  const [shipments, orders] = await Promise.all([
+    Shipment.find({ orderId: { $in: orderIds } })
+      .setOptions({ skipTenantGuard: true })
+      .select('orderId courier awb trackingUrl status provider')
+      .lean(),
+    Order.find({ _id: { $in: orderIds } }).setOptions({ skipTenantGuard: true }).select('orderNumber items.qty status').lean(),
+  ]);
+  const shipmentByOrder = Object.fromEntries(shipments.map((s) => [String(s.orderId), s]));
+  const orderNumberById = Object.fromEntries(orders.map((o) => [String(o._id), o.orderNumber]));
+  const orderById = Object.fromEntries(orders.map((o) => [String(o._id), o]));
   return paginatedResponse(
-    items.map((t) => ({ ...t, validNextStatuses: validNextStatuses('productionTask', t.status) })),
+    items.map((t) => ({
+      ...t,
+      orderNumber: orderNumberById[String(t.orderId)] ?? '',
+      expectedQuantity: (orderById[String(t.orderId)]?.items ?? []).reduce((sum, item) => sum + item.qty, 0),
+      orderStatus: orderById[String(t.orderId)]?.status ?? '',
+      qcStatus: qcStatus(t),
+      shipment: shipmentByOrder[String(t.orderId)] ?? null,
+      validNextStatuses: productionNextStatuses(t, orderById[String(t.orderId)]?.status, !!shipmentByOrder[String(t.orderId)]),
+    })),
     total,
     { page, limit },
   );
 }
 
-export async function getProductionTask(taskId) {
-  const task = await ProductionTask.findById(taskId);
+export async function getProductionTask(taskId, session = null) {
+  const task = await ProductionTask.findById(taskId).session(session);
   if (!task) throw new NotFoundError('Production task not found');
   return task;
 }
 
-/** §3.6 — tasks may only be created from mockup_approved orders. */
+export async function getProductionTaskDetail(taskId) {
+  const task = await getProductionTask(taskId);
+  const order = await getPlatformOrder(task.orderId);
+  const shipment = await Shipment.findOne({ orderId: task.orderId, tenantId: task.tenantId }).lean();
+  return {
+    ...task.toObject(), orderNumber: order.orderNumber, orderStatus: order.status,
+    expectedQuantity: order.items.reduce((sum, item) => sum + item.qty, 0),
+    qcStatus: qcStatus(task), shipment,
+    validNextStatuses: productionNextStatuses(task, order.status, !!shipment),
+  };
+}
+
+/**
+ * Tasks can start after order approval; mockup review is optional. An order already in
+ * in_production without an active task (e.g. moved there via status override)
+ * may also get one, so it shows up on the production board.
+ */
 export async function createProductionTask({ orderId, assignedTo = '', expectedDispatchAt = null, actor }) {
   const order = await getPlatformOrder(orderId);
-  if (order.status !== 'mockup_approved') {
+  if (!['approved', 'mockup_pending', 'mockup_approved', 'in_production'].includes(order.status)) {
     throw new ApiError(
       422,
-      `Production tasks require a mockup_approved order (current: "${order.status}")`,
+      `Production tasks require an approved order (current: "${order.status}")`,
       'ORDER_NOT_READY',
     );
   }
@@ -440,64 +509,102 @@ export async function createProductionTask({ orderId, assignedTo = '', expectedD
   });
 
   // Kicking off production advances the order.
-  transitionState('order', order, 'in_production', actor, 'Production task created');
-  await order.save();
+  if (order.status !== 'in_production') {
+    transitionState('order', order, 'in_production', actor, 'Production task created');
+    await order.save();
+  }
 
   return task;
 }
 
-async function syncOrderWithTaskStatus(task, status, actor) {
-  const order = await Order.findOne({ _id: task.orderId, tenantId: task.tenantId });
+async function syncOrderWithTaskStatus(task, status, actor, session) {
+  const order = await Order.findOne({ _id: task.orderId, tenantId: task.tenantId }).session(session);
   if (!order) return;
   if (status === 'qc_pending' && order.status === 'in_production') {
     transitionState('order', order, 'qc_pending', actor, 'Production QC started');
-    await order.save();
+    await order.save({ session });
+  }
+  if (status === 'ready_to_ship' && order.status === 'qc_pending') {
+    assertTaskQcPassed(task);
+    transitionState('order', order, 'packed', actor, 'Packing completed');
+    await order.save({ session });
   }
 }
 
 export async function updateProductionTaskStatus({ taskId, status, note, actor }) {
-  const task = await getProductionTask(taskId);
-  transitionState('productionTask', task, status, actor, note ?? '');
-  await task.save();
-  await syncOrderWithTaskStatus(task, status, actor);
-  return task;
+  return mongoose.connection.transaction(async (session) => {
+    const task = await getProductionTask(taskId, session);
+    const order = await Order.findOne({ _id: task.orderId, tenantId: task.tenantId }).session(session);
+    const latest = await latestProductionTask(task.orderId, session);
+    const allowedOrderStatuses = status === 'completed' ? ['packed', 'shipped', 'delivered'] : ['in_production', 'qc_pending', 'packed'];
+    if (!order || !allowedOrderStatuses.includes(order.status) || String(latest?._id) !== String(task._id)) {
+      throw new ApiError(422, 'This order is not available for production changes.', 'ORDER_NOT_READY');
+    }
+    if (task.status === 'qc_pending' && ['packing', 'in_production'].includes(status)) {
+      throw new ApiError(422, 'Use Record QC to pass inspection or return products for rework.', 'QC_REQUIRED');
+    }
+    if (['packing', 'ready_to_ship', 'completed'].includes(status)) assertTaskQcPassed(task);
+    if (status === 'completed') {
+      const shipment = await Shipment.exists({ orderId: task.orderId, tenantId: task.tenantId }).session(session);
+      if (!shipment) throw new ApiError(422, 'Request a shipment before completing this task.', 'SHIPMENT_REQUIRED');
+    }
+    transitionState('productionTask', task, status, actor, note ?? '');
+    if (['issue', 'in_production', 'material_pending'].includes(status) && task.qcResult === 'passed') task.qcResult = '';
+    if (status === 'issue' && order.status === 'packed') {
+      transitionState('order', order, 'issue_raised', actor, note || 'Production issue after packing');
+      await order.save({ session });
+    }
+    await task.save({ session });
+    await syncOrderWithTaskStatus(task, status, actor, session);
+    return task;
+  });
 }
 
 /**
- * §3.6 QC — pass moves the task to packing and the order toward packed;
- * fail loops the task back to in_production with a reason (order stays put,
- * tenant is notified of the delay by the caller).
+ * QC pass authorizes packing; ready_to_ship marks packing complete separately.
+ * Failure returns the task to production for rework; previous inspections remain intact.
  */
-export async function recordQcResult({ taskId, passed, reason = '', photoUrl = '', actor }) {
-  const task = await getProductionTask(taskId);
-  if (task.status !== 'qc_pending') {
-    throw new ApiError(422, `QC can only be recorded in qc_pending (current: "${task.status}")`, 'NOT_IN_QC');
-  }
-  if (!passed && !reason) {
-    throw new ApiError(422, 'QC failure requires a reason', 'REASON_REQUIRED');
-  }
-
-  if (photoUrl) task.qcPhotos.push({ url: photoUrl, at: new Date() });
-  task.qcResult = passed ? 'passed' : 'failed';
-  task.qcFailReason = passed ? '' : reason;
-
-  const order = await Order.findOne({ _id: task.orderId, tenantId: task.tenantId });
-
-  if (passed) {
-    transitionState('productionTask', task, 'packing', actor, 'QC passed');
-    if (order && order.status === 'in_production') {
-      transitionState('order', order, 'qc_pending', actor, 'QC passed');
+export async function recordQcResult({ taskId, actor, ...input }) {
+  const parsed = qcSchema.safeParse(input);
+  if (!parsed.success) throw new ApiError(422, parsed.error.issues.map((i) => i.message).join('; '), 'INVALID_QC');
+  const { passed, reason, notes, checks, inspectedQuantity, failedQuantity, photoUrls } = parsed.data;
+  return mongoose.connection.transaction(async (session) => {
+    const task = await getProductionTask(taskId, session);
+    if (task.status !== 'qc_pending') {
+      throw new ApiError(422, `QC can only be recorded in qc_pending (current: "${task.status}")`, 'NOT_IN_QC');
     }
-    if (order && order.status === 'qc_pending') {
-      transitionState('order', order, 'packed', actor, 'QC passed');
+    const order = await Order.findOne({ _id: task.orderId, tenantId: task.tenantId }).session(session);
+    const latest = await latestProductionTask(task.orderId, session);
+    if (!order || !['in_production', 'qc_pending'].includes(order.status) || String(latest?._id) !== String(task._id)) {
+      throw new ApiError(422, 'The order is not available for QC.', 'ORDER_NOT_READY');
     }
-  } else {
-    transitionState('productionTask', task, 'in_production', actor, `QC failed: ${reason}`);
-  }
+    const expectedQuantity = order.items.reduce((sum, item) => sum + item.qty, 0);
+    if (inspectedQuantity > expectedQuantity || (passed && inspectedQuantity !== expectedQuantity)) {
+      throw new ApiError(422, 'A pass requires inspection of every ordered unit; inspected quantity cannot exceed the order.', 'INVALID_QC_QUANTITY');
+    }
+    if (photoUrls.some((url) => !task.qcPhotos.some((photo) => photo.url === url))) {
+      throw new ApiError(422, 'Upload QC photos to this task before recording inspection.', 'INVALID_QC_PHOTO');
+    }
+    const inspector = await User.findById(actor.userId).select('name').session(session).lean();
+    task.qcInspections.push({ passed, reason: passed ? '' : reason, notes, checks, inspectedQuantity, failedQuantity,
+      expectedQuantity, photoUrls: [...new Set(photoUrls)], inspectorUserId: actor.userId,
+      inspectorName: inspector?.name || actor.name || '', at: new Date() });
+    task.qcResult = passed ? 'passed' : 'failed';
+    task.qcFailReason = passed ? '' : reason;
 
-  await task.save();
-  if (order) await order.save();
-  return task;
+    if (passed) {
+      transitionState('productionTask', task, 'packing', actor, 'QC passed');
+      if (order && order.status === 'in_production') {
+        transitionState('order', order, 'qc_pending', actor, 'QC passed');
+      }
+    } else {
+      transitionState('productionTask', task, 'in_production', actor, `QC failed: ${reason}`);
+    }
+
+    await task.save({ session });
+    await order.save({ session });
+    return task;
+  });
 }
 
 export async function updateProductionTaskFields({ taskId, patch }) {

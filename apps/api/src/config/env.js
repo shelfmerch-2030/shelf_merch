@@ -203,6 +203,13 @@ const envSchema = z.object({
    */
   MCP_ALLOW_LEGACY_JWT: z.enum(['true', 'false']).optional().default('false'),
 
+  /** Delhivery One (courier) — server-only API token. */
+  DELHIVERY_API_TOKEN: z.string().optional().default(''),
+  /** https://track.delhivery.com (production) or https://staging-express.dlv.one (staging). */
+  DELHIVERY_BASE_URL: z.string().optional().default('https://track.delhivery.com'),
+  /** Pickup location name exactly as registered in Delhivery One → Settings → Pickup addresses. */
+  DELHIVERY_PICKUP_LOCATION: z.string().optional().default(''),
+
   /** SEO growth engine — server-only; never expose via VITE_ or client bundles. */
   ANTHROPIC_API_KEY: z.string().optional().default(''),
   ANTHROPIC_MODEL: z.string().optional().default(''),

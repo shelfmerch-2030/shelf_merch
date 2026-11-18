@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Link } from "react-router";
+import { QC_FILTERS, qcLabel } from "@/services/production-qc";
 import {
   DataTable,
   inr,
@@ -21,7 +22,11 @@ const columns: {
     render: (r) => (
       <Link
         to={`/platform/orders/${String(r._id)}`}
-        style={{ color: "var(--brand)", fontWeight: "var(--font-weight-semibold)", textDecoration: "none" }}
+        style={{
+          color: "var(--brand)",
+          fontWeight: "var(--font-weight-semibold)",
+          textDecoration: "none",
+        }}
       >
         {String(r.orderNumber ?? "N/A")}
       </Link>
@@ -29,6 +34,11 @@ const columns: {
   },
   { key: "tenantName", label: "Tenant" },
   { key: "status", label: "Status", render: (r) => <StatusTag status={String(r.status)} /> },
+  {
+    key: "qcStatus",
+    label: "QC",
+    render: (r) => <span className="tag">{qcLabel(r.qcStatus)}</span>,
+  },
   {
     key: "total",
     label: "Total",
@@ -54,10 +64,27 @@ const columns: {
 ];
 
 /** Cross-tenant orders table. */
-export function OrdersView({ data, error, loading }: OrdersVm) {
+export function OrdersView({ data, error, loading, qcFilter, onQcFilter }: OrdersVm) {
   return (
     <>
       <PlatformPageHeader title="Orders" subtitle="Cross-tenant order pipeline." />
+      <div className="field" style={{ maxWidth: 300 }}>
+        <label className="lbl" htmlFor="orders-qc-filter">
+          QC status
+        </label>
+        <select
+          id="orders-qc-filter"
+          className="inp"
+          value={qcFilter}
+          onChange={(e) => onQcFilter(e.target.value)}
+        >
+          {QC_FILTERS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
       {data && <DataTable empty="No orders yet." rows={data.items} columns={columns} />}

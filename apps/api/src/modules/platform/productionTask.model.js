@@ -38,6 +38,25 @@ const productionTaskSchema = new mongoose.Schema(
     ],
     qcResult: { type: String, enum: ['', 'passed', 'failed'], default: '' },
     qcFailReason: { type: String, default: '' },
+    qcInspections: [{
+      passed: { type: Boolean, required: true },
+      reason: { type: String, default: '' },
+      notes: { type: String, default: '' },
+      inspectedQuantity: { type: Number, required: true, min: 1 },
+      failedQuantity: { type: Number, required: true, min: 0 },
+      expectedQuantity: { type: Number, required: true },
+      checks: {
+        product: Boolean,
+        artwork: Boolean,
+        workmanship: Boolean,
+        quantity: Boolean,
+        contents: Boolean,
+      },
+      photoUrls: [String],
+      inspectorUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      inspectorName: String,
+      at: { type: Date, default: Date.now },
+    }],
     expectedDispatchAt: { type: Date, default: null },
     notes: [
       {
@@ -47,9 +66,10 @@ const productionTaskSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true },
+  { timestamps: true, optimisticConcurrency: true },
 );
 
 productionTaskSchema.index({ status: 1, createdAt: -1 });
+productionTaskSchema.index({ orderId: 1, createdAt: -1, _id: -1 });
 
 export const ProductionTask = mongoose.model('ProductionTask', productionTaskSchema);

@@ -12,7 +12,8 @@ import {
   resolveDefaultArtwork,
   type PreviousArtwork,
 } from "../wizard/artworkHistory";
-import { defaultSeedKeysForProducts } from "../wizard/artworkStepModel";
+import { preferredDefaultAreaKey, productHasArtwork } from "../wizard/artworkStepModel";
+import { areaPlacementKey, listPrintAreas, placementKey } from "../mockup-bake";
 import { useCreateCollection, useSyncCollectionPublish, useUpdateCollection } from "../model";
 import type { UiProduct, UiShop } from "../model";
 import {
@@ -67,6 +68,7 @@ export function useSwagWizardController(): SwagWizardVm {
   );
   const [draft, dispatch] = useReducer(swagDraftReducer, INITIAL_SWAG_DRAFT);
   const hydratedEditId = useRef<string | null>(null);
+  const initializedArtworkProducts = useRef(new Set<string>());
 
   const workspaceCatalog: UiProduct[] = workspace?.catalogProducts ?? [];
   const { data: refreshedCatalog, isLoading: isRefreshingCatalog } = useQuery({
@@ -123,15 +125,22 @@ export function useSwagWizardController(): SwagWizardVm {
     if (editCollectionId) return;
     const effectiveArt =
       draft.art || (defaultArt ? { name: defaultArt.name, preview: defaultArt.preview } : null);
-    if (
-      effectiveArt &&
-      pickedProducts.length > 0 &&
-      Object.keys(draft.areaArts || {}).length === 0
-    ) {
-      const keys = defaultSeedKeysForProducts(pickedProducts);
-      if (keys.length) {
-        dispatch({ type: "setAreaArts", keys, art: effectiveArt });
+    if (!effectiveArt) return;
+
+    const keys: string[] = [];
+    pickedProducts.forEach((product, idx) => {
+      if (!listPrintAreas(product).length) return;
+      const productKey = placementKey(product, idx);
+      if (initializedArtworkProducts.current.has(productKey)) return;
+      // Seed each product once, including products selected after the first one.
+      // Remember initialized products so later edits/removals stay intentional.
+      initializedArtworkProducts.current.add(productKey);
+      if (!productHasArtwork(product, idx, draft.areaArts)) {
+        keys.push(areaPlacementKey(product, idx, preferredDefaultAreaKey(product)));
       }
+    });
+    if (keys.length) {
+      dispatch({ type: "setAreaArts", keys, art: effectiveArt });
     }
   }, [editCollectionId, pickedProducts, draft.art, draft.areaArts, defaultArt]);
 

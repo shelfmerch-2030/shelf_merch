@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
 
 const ALLOWED_TYPES = {
+  qc: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'],
   artwork: ['image/svg+xml', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
   document: [
     'application/pdf',

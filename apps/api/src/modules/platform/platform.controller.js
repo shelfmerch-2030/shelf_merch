@@ -3,6 +3,11 @@ import * as platformService from './platform.service.js';
 import * as teamService from './team.service.js';
 import * as settingsService from './platformSettings.service.js';
 import { writeAudit } from '../../services/audit.service.js';
+import * as shipmentsService from '../shipments/shipments.service.js';
+import { uploadFile } from '../../services/storage.service.js';
+import { ApiError } from '../../utils/errors.js';
+import { ProductionTask } from './productionTask.model.js';
+import { latestProductionTask } from './productionQc.service.js';
 
 // ---- Dashboard ----
 
@@ -142,25 +147,62 @@ export async function updateProductionTaskStatus(req, res) {
     entityId: task._id,
     after: { status: task.status, note: req.body.note ?? '' },
   });
-  res.json(task);
+  res.json(await platformService.getProductionTaskDetail(task._id));
+}
+
+export async function getProductionTask(req, res) {
+  res.json(await platformService.getProductionTaskDetail(req.params.id));
 }
 
 export async function recordQc(req, res) {
   const task = await platformService.recordQcResult({
     taskId: req.params.id,
-    passed: req.body.passed,
-    reason: req.body.reason,
-    photoUrl: req.body.photoUrl,
-    actor: { userId: req.user.userId },
+    ...req.body,
+    actor: { userId: req.user.userId, name: req.user.name },
   });
   writeAudit({
     req,
     action: req.body.passed ? 'production.qc_passed' : 'production.qc_failed',
     entityType: 'ProductionTask',
     entityId: task._id,
-    after: { qcResult: task.qcResult, reason: req.body.reason ?? '' },
+    after: { qcResult: task.qcResult, inspection: task.qcInspections.at(-1) },
   });
-  res.json(task);
+  res.json(await platformService.getProductionTaskDetail(task._id));
+}
+
+export async function uploadQcPhoto(req, res) {
+  const task = await platformService.getProductionTask(req.params.id);
+  if (task.status !== 'qc_pending') throw new ApiError(422, 'Move the task to QC pending before uploading inspection evidence.', 'NOT_IN_QC');
+  const order = await platformService.getPlatformOrder(task.orderId);
+  const latest = await latestProductionTask(task.orderId);
+  if (!['in_production', 'qc_pending'].includes(order.status) || String(latest?._id) !== String(task._id)) {
+    throw new ApiError(422, 'This order is not available for QC evidence uploads.', 'ORDER_NOT_READY');
+  }
+  const { url } = await uploadFile({ tenantId: String(task.tenantId), kind: 'qc', file: req.file });
+  // Persist immediately; a stale inspection cannot attach evidence to a later stage.
+  const updated = await ProductionTask.findOneAndUpdate({ _id: task._id, status: 'qc_pending' },
+    { $push: { qcPhotos: { url, at: new Date() } }, $inc: { __v: 1 } }, { returnDocument: 'after' });
+  if (!updated) throw new ApiError(409, 'The task changed. Refresh before uploading QC evidence.', 'TASK_CHANGED');
+  writeAudit({ req, action: 'production.qc_photo_upload', entityType: 'ProductionTask', entityId: task._id, after: { url } });
+  res.status(201).json({ url });
+}
+
+/** Manifest the task's order on Delhivery One and record the AWB. */
+export async function requestDelhiveryShipment(req, res) {
+  const task = await platformService.getProductionTask(req.params.id);
+  const shipment = await shipmentsService.requestDelhiveryShipment({
+    orderId: task.orderId,
+    taskId: task._id,
+    actor: { userId: req.user.userId },
+  });
+  writeAudit({
+    req,
+    action: 'shipment.delhivery_request',
+    entityType: 'Shipment',
+    entityId: shipment._id,
+    after: { orderId: String(shipment.orderId), courier: shipment.courier, awb: shipment.awb, taskId: String(task._id) },
+  });
+  res.status(201).json(shipment);
 }
 
 export async function updateProductionTask(req, res) {

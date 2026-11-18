@@ -5,6 +5,7 @@ import { Tenant } from '../src/modules/tenants/tenant.model.js';
 import { User } from '../src/modules/users/user.model.js';
 import { RoleAssignment } from '../src/modules/roles/roleAssignment.model.js';
 import { Order } from '../src/modules/orders/order.model.js';
+import { ProductionTask } from '../src/modules/platform/productionTask.model.js';
 import { Shipment } from '../src/modules/shipments/shipment.model.js';
 import { encryptToken } from '../src/utils/tokenEncryption.js';
 import { SlackConnection } from '../src/modules/integrations/slack/slackConnection.model.js';
@@ -54,7 +55,12 @@ async function makeOrder(forTenant, overrides = {}) {
     amountBreakdown: { subtotal: 500, serviceFee: 0, gst: 90, total: 590 },
     status: 'packed',
     ...overrides,
-  }).then((o) => o);
+  }).then(async (order) => {
+    if (['packed', 'shipped', 'delivered'].includes(order.status)) {
+      await ProductionTask.create({ tenantId: forTenant._id, orderId: order._id, status: 'ready_to_ship', qcResult: 'passed' });
+    }
+    return order;
+  });
 }
 
 async function seedSlack(forTenant, installedBy, overrides = {}) {

@@ -70,6 +70,7 @@ export function PlatformModal({
   children,
   size = "md",
   closeDisabled = false,
+  scrollBody = false,
 }: {
   title: string;
   subtitle?: string;
@@ -79,6 +80,8 @@ export function PlatformModal({
   size?: "md" | "lg";
   /** When true, Escape and backdrop click do not close (e.g. in-flight request). */
   closeDisabled?: boolean;
+  /** Allow long forms to scroll inside the large modal. */
+  scrollBody?: boolean;
 }) {
   const maxWidth = size === "lg" ? 1140 : 460;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -180,7 +183,7 @@ export function PlatformModal({
             {subtitle}
           </p>
         )}
-        <div style={{ flex: 1, minHeight: 0, overflow: size === "lg" ? "hidden" : undefined }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: size === "lg" ? (scrollBody ? "auto" : "hidden") : undefined }}>
           {children}
         </div>
       </div>
