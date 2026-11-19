@@ -1,0 +1,20 @@
+{
+  "transition": {
+    "cardRetained": true,
+    "rows": 12,
+    "scrollDelta": 0,
+    "inline": true,
+    "borderless": true,
+    "noButtons": true
+  },
+  "images": {
+    "Corporate Polo": "selection-0.png",
+    "Ceramic Mug": "selection-1.png",
+    "Zip Hoodie": "selection-5.png",
+    "Travel Tote": "selection-4.png"
+  },
+  "reloadAcknowledgements": 1,
+  "logoUploaded": true,
+  "applyPrepared": true,
+  "errors": []
+}

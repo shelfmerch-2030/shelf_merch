@@ -100,20 +100,20 @@ async function ensureIndexes() {
   return indexesReady;
 }
 
-export async function loadMcpActor({ tenantId, actorUserId }) {
-  return loadActor({ tenantId, actorUserId });
+export async function loadMcpActor({ tenantId, actorUserId, session = null }) {
+  return loadActor({ tenantId, actorUserId, session });
 }
 
-async function loadActor({ tenantId, actorUserId }) {
-  const workspace = await Tenant.findById(tenantId);
-  const user = await User.findOne({ _id: actorUserId, tenantId });
+async function loadActor({ tenantId, actorUserId, session = null }) {
+  const workspace = await Tenant.findById(tenantId).session(session);
+  const user = await User.findOne({ _id: actorUserId, tenantId }).session(session);
   if (!user || user.status !== 'active') {
     throw new ApiError(403, 'This account cannot confirm the operation', 'ACTOR_INACTIVE');
   }
   if (!workspace || !['active', 'trial'].includes(workspace.status)) {
     throw new ApiError(403, 'This workspace cannot confirm the operation', 'TENANT_INACTIVE');
   }
-  const assignment = await RoleAssignment.findOne({ userId: user._id, tenantId: workspace._id });
+  const assignment = await RoleAssignment.findOne({ userId: user._id, tenantId: workspace._id }).session(session);
   if (!assignment) {
     throw new ApiError(403, 'This account cannot confirm the operation', 'FORBIDDEN');
   }
@@ -187,6 +187,41 @@ async function readIdempotency({ tenantId, actorUserId, idempotencyKey }) {
   return McpWriteIdempotency.findOne({ key: idempotencyKey, tenantId, actorUserId });
 }
 
+/** Read a proven completion only; never reserve, reconcile, retry, or execute. */
+export async function readMcpWriteCompletion({ tenantId, actorUserId, operation, confirmationId, payload, authorize }) {
+  const actor = await loadActor({ tenantId, actorUserId });
+  if (authorize) await authorize(actor);
+  const payloadHash = sha256(canonical(payload));
+  const fingerprint = fingerprintFor({ tenantId, actorUserId, operation, confirmationId, payloadHash });
+  const completed = await McpWriteIdempotency.findOne({ tenantId, actorUserId, fingerprint, status: 'completed' }).lean();
+  return completed ? { status: 'completed', result: completed.result } : { status: 'consumed' };
+}
+
+/** Recover an outcome by the confirmation's canonical payload hash, without execution. */
+export async function readMcpWriteOutcome({ tenantId, actorUserId, operation, confirmationId }) {
+  await loadActor({ tenantId, actorUserId });
+  const confirmation = await McpWriteConfirmation.findOne({ tenantId, actorUserId, operation, confirmationId }).lean();
+  if (!confirmation) return null;
+  const fingerprint = fingerprintFor({ tenantId, actorUserId, operation, confirmationId, payloadHash: confirmation.payloadHash });
+  const completed = await McpWriteIdempotency.findOne({ tenantId, actorUserId, fingerprint, status: 'completed' }).lean();
+  if (completed) return { state: 'completed', result: completed.result };
+  if (operation === 'campaigns.send_points') {
+    // Read-only proof from the combined journal; never resumes a business write
+    // while resolving or projecting conversation history.
+    const { readSendPointsOutcome } = await import('../copilot/sendPointsWorkflow.js');
+    const outcome = await readSendPointsOutcome({ tenantId, actorUserId, confirmationId });
+    if (outcome) return outcome;
+  }
+  if (confirmation.copilotOutcome) return confirmation.copilotOutcome;
+  const failed = await McpWriteIdempotency.findOne({ tenantId, actorUserId, fingerprint, status: 'failed' }).lean();
+  if (failed) return { state: failed.errorCode === 'CONFIRMATION_EXPIRED' ? 'expired' : 'failed', errorCode: failed.errorCode };
+  if (confirmation.status === 'pending') {
+    return { state: confirmation.expiresAt <= new Date() ? 'expired' : 'pending' };
+  }
+  // Rejected alone can mean a safety rejection, not necessarily an explicit Cancel.
+  return { state: confirmation.status === 'rejected' ? 'failed' : 'consumed', errorCode: 'CONFIRMATION_UNAVAILABLE' };
+}
+
 function replayOrConflict(existing, fingerprint) {
   if (!existing) return null;
   if (existing.fingerprint !== fingerprint) {
@@ -245,7 +280,9 @@ async function runGuardedExecute(reservation, execute, actor, context) {
   }, heartbeatMs);
   if (typeof heartbeat.unref === 'function') heartbeat.unref();
   try {
-    const result = redactFor(context, (await execute(actor)) ?? null);
+    const executionContext = { reservationId: reservation._id, leaseOwner: reservation.leaseOwner, fence: reservation.fence };
+    const result = redactFor(context, (await (context.passExecutionContext
+      ? execute(actor, executionContext) : execute(actor))) ?? null);
     const saved = await finishReservation(reservation, { status: 'completed', result, errorCode: '' });
     if (!saved) throw reconciliationRequired();
     await recordAudit({
@@ -334,6 +371,7 @@ async function recoverPending(existing, context) {
     return result;
   }
   if (decision?.outcome === 'absent') {
+    if (context.authorizeResume) await context.authorizeResume();
     return runGuardedExecute(acquired, context.execute, context.actor, context);
   }
   throw reconciliationRequired();
@@ -341,7 +379,8 @@ async function recoverPending(existing, context) {
 
 // A failed row is reconciled only when this operation can prove the outcome.
 // A proven completion is returned without running the operation again.
-// An absent or permanent failure stays failed. An uncertain outcome is not retried.
+// Absent failures stay failed unless an atomic workflow explicitly opts into
+// same-key resume with fresh confirmation authorization. Uncertain writes never run.
 async function recoverFailed(existing, context) {
   const recoverable = typeof context.reconcile === 'function' && !PERMANENT_FAILURE.has(existing.errorCode);
   if (!recoverable) throw storedFailure(existing);
@@ -364,6 +403,20 @@ async function recoverFailed(existing, context) {
     throw reconciliationRequired();
   }
   if (decision?.outcome === 'uncertain') throw reconciliationRequired();
+  if (decision?.outcome === 'absent' && context.authorizeResume) {
+    await context.authorizeResume();
+    const acquired = await McpWriteIdempotency.findOneAndUpdate(
+      { _id: existing._id, tenantId: context.tenantId, actorUserId: context.actorUserId, status: 'failed', fingerprint: context.fingerprint, fence: existing.fence },
+      { $set: { status: 'pending', leaseOwner: randomBytes(16).toString('hex'), leaseExpiresAt: new Date(context.clock.getTime() + context.leaseMs) }, $inc: { fence: 1 } },
+      { returnDocument: 'after' },
+    );
+    if (!acquired) {
+      const raced = await readIdempotency(context);
+      if (raced?.status === 'completed' && raced.fingerprint === context.fingerprint) return raced.result;
+      throw inFlight();
+    }
+    return runGuardedExecute(acquired, context.execute, context.actor, context);
+  }
   throw storedFailure(existing);
 }
 
@@ -391,6 +444,7 @@ export async function prepareMcpWrite({
   resourceState,
   financialConstraint,
   summary,
+  recoveryProof,
   ttlMs = DEFAULT_TTL_MS,
   now,
 }) {
@@ -415,6 +469,7 @@ export async function prepareMcpWrite({
       resourceHash: sha256(canonical(resource ?? {})),
       expiresAt,
       status: 'pending',
+      recoveryProof: recoveryProof ? await recoveryProof(actor) : null,
     });
     await recordAudit({
       tenantId,
@@ -487,6 +542,8 @@ export async function executeMcpWrite({
   financialConstraint,
   execute,
   reconcile,
+  allowProvenResume = false,
+  passExecutionContext = false,
   leaseMs = DEFAULT_LEASE_MS,
   now,
 }) {
@@ -530,6 +587,20 @@ export async function executeMcpWrite({
     confirmationId,
     execute,
     reconcile,
+    passExecutionContext,
+    // Opt-in only for atomic allocation receipts. A consumed confirmation is
+    // reused solely by its original key, while still unexpired and unchanged.
+    authorizeResume: allowProvenResume ? async () => {
+      const confirmation = await McpWriteConfirmation.findOne({ tenantId, actorUserId, operation, confirmationId, status: 'consumed', payloadHash });
+      if (!confirmation) throw new ApiError(409, 'This confirmation is not valid for recovery', 'CONFIRMATION_INVALID');
+      if (confirmation.expiresAt <= clock) throw new ApiError(409, 'This confirmation has expired', 'CONFIRMATION_EXPIRED');
+      const fresh = await loadActor({ tenantId, actorUserId });
+      if (authorize) await authorize(fresh);
+      const resource = resourceState ? await resourceState(fresh) : {};
+      if (confirmation.resourceHash !== sha256(canonical(resource ?? {}))) throw new ApiError(409, 'The preview is out of date', 'CONFIRMATION_STALE');
+      if (financialConstraint) await financialConstraint({ ...fresh, payload: validated });
+      idempotencyContext.actor = fresh;
+    } : null,
   };
   const existing = await readIdempotency({ tenantId, actorUserId, idempotencyKey });
   if (existing) {
@@ -566,10 +637,15 @@ export async function executeMcpWrite({
     });
   } catch (error) {
     const wrapped = asApiError(error);
-    // Duplicate confirm / remount with a new idempotency key: if reconcile can prove the
+    // Duplicate confirm / same idempotency key remount: if reconcile can prove the
     // intended state is already applied, return success without running execute again.
+    // CONFIRMATION_REUSED with a *new* idempotency key is never reconciled here — the
+    // confirmation was consumed by a different call, so this key has no proven claim.
+    // CONFIRMATION_STALE likewise must not be silently reconciled — the resource changed
+    // after prepare, so the user must prepare again with the current state.
     if (
-      (wrapped?.code === 'CONFIRMATION_REUSED' || wrapped?.code === 'CONFIRMATION_STALE')
+      wrapped?.code === 'CONFIRMATION_REUSED'
+      && existing // same idempotency key was used before — reconcile is safe
       && typeof reconcile === 'function'
     ) {
       try {

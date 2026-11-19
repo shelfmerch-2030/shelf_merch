@@ -16,6 +16,9 @@ const mcpWriteConfirmationSchema = new mongoose.Schema(
       required: true,
     },
     consumedAt: { type: Date, default: null },
+    // Copilot transport outcome only; does not change confirmation/ledger semantics.
+    copilotOutcome: { type: mongoose.Schema.Types.Mixed, default: null },
+    recoveryProof: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true },
 );

@@ -8,6 +8,8 @@ const productRefSchema = new mongoose.Schema(
     brand: String,
     name: String,
     group: String,
+    /** Absent on legacy refs. Modern explicit designs never inherit a shared logo. */
+    inheritArtwork: { type: Boolean, default: undefined },
     /** Pre-baked design mockup (mask + artwork) — served to shop/storefront as-is. */
     mockupUrl: { type: String, default: '' },
     /** Pre-baked back-view design mockup (optional). */

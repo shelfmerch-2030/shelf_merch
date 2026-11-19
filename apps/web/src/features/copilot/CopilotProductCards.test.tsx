@@ -165,6 +165,12 @@ describe("Copilot product/kit cards", () => {
     expect(screen.getByText(/₹1,000/)).toBeInTheDocument();
   });
 
+  it("does not turn missing saved department budget data into an available zero balance", () => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[{ kind: "department_budgets", departments: [] }]} /></MemoryRouter>);
+    expect(screen.getByText(/Department budget data is unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText("Available ₹0")).toBeNull();
+  });
+
   it("renders department budgets for entity managers without org wallet cash", () => {
     render(
       <MemoryRouter>

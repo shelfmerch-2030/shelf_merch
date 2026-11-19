@@ -86,10 +86,13 @@
   pointer-events: none;
 }
 .landing-home .lh-hero h1 {
-  font-size: clamp(64px, 8vw, 116px);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
-  margin: 24px 0 28px;
+  font-size: clamp(36px, 4.4vw, 64px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  margin: 20px 0 24px;
+}
+.landing-home .lh-hero h1 > span {
+  display: block;
 }
 .landing-home .lh-hero h1 em {
   display: block;
@@ -167,22 +170,6 @@
   right: 0;
   bottom: 26px;
   transform: rotate(-4deg);
-}
-.landing-home .lh-hero-star {
-  position: absolute;
-  color: #3155ff;
-  font-size: 44px;
-  line-height: 1;
-}
-.landing-home .lh-hero-star-one {
-  left: 57%;
-  top: 48%;
-  transform: rotate(12deg);
-}
-.landing-home .lh-hero-star-two {
-  right: -2%;
-  top: 47%;
-  font-size: 30px;
 }
 @media (max-width: 1100px) {
   .landing-home .lh-hero-details {
@@ -1165,7 +1152,7 @@
     padding-block: 28px 26px;
   }
   .landing-home .lh-hero h1 {
-    font-size: clamp(62px, 13vw, 86px);
+    font-size: clamp(34px, 8.5vw, 48px);
     margin-top: 18px;
   }
   .landing-home .lh-hero .lh-label {

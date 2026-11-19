@@ -74,4 +74,20 @@ describe('curator inside existing authenticated Copilot (isolated database, mock
     const saved = await CopilotConversation.findById(conversation._id);
     expect(saved.messages.at(-1).content).toMatch(/occasion, recipient count, budget per person/);
   });
+  it('continues a saved curator conversation in normal chat without losing its gifting brief or history', async () => {
+    const { args, conversation } = await setup();
+    const brief = { company: 'Toast', occasion: 'Welcome', recipients: 10, budgetPerRecipient: 3000, currency: 'INR', source: 'external', exclusions: ['mugs'] };
+    conversation.curator = { enabled: true, brief, seenKeys: ['product:previous'] };
+    conversation.messages.push({ role: 'assistant', content: 'Previous gifting recommendation', artifacts: [{ kind: 'curation', curation: { brief, concepts: [] } }] });
+    await conversation.save();
+    const model = vi.spyOn(adapter, 'streamAnthropicCompletion').mockResolvedValue({ text: 'Normal Copilot reply', toolCalls: [], usage: { promptTokens: 80, completionTokens: 20 } });
+    await streamAssistantTurn({ ...args, mode: 'chat', content: 'Continue in normal chat', onEvent() {} });
+    const saved = await CopilotConversation.findById(conversation._id);
+    expect(saved.curator).toMatchObject({ enabled: false, brief, seenKeys: ['product:previous'] });
+    expect(saved.messages[0].artifacts[0].curation.brief).toMatchObject(brief);
+    expect(saved.messages.at(-1).content).toBe('Normal Copilot reply');
+    expect(model).toHaveBeenCalledOnce();
+    expect(model.mock.calls[0][0].tools.some(tool => tool.function.name === 'catalog_search')).toBe(true);
+    expect(model.mock.calls[0][0].tools.some(tool => /^curator_/.test(tool.function.name))).toBe(false);
+  });
 });

@@ -3,17 +3,21 @@ import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { writeAudit } from '../../services/audit.service.js';
+import { resolveSpendWalletForEntity, requireWalletForFinancialWrite } from '../../services/ledger.service.js';
 import { objectId } from '../users/users.validation.js';
 import { Entity } from '../entities/entity.model.js';
 import { ensureSpendEntity } from '../entities/entities.service.js';
 import { Shop } from '../shops/shop.model.js';
-import { Wallet } from '../wallets/wallet.model.js';
 import { Campaign } from '../campaigns/campaign.model.js';
 import { savePointsDraft } from '../campaigns/campaigns.service.js';
+import { defaultPointsScope } from '../campaigns/pointsScope.js';
+import { pointsPresentation, pointsPresentationFields } from './pointsPresentation.js';
+import { visibleFunds } from './walletVisibility.js';
 import { getContactRead } from '../contacts/contacts.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { McpPointsDraftClaim } from './mcpPointsDraftClaim.model.js';
+import { captureDraftProof, draftProof, proveDraft, draftRecipientsVersion } from './pointsDraftRecovery.js';
 
 const INCOMPLETE_CAMPAIGN_STATUSES = ['draft', 'recipients_uploaded', 'credits_allocated', 'approved'];
 const WRITE_ROLES = new Set(rolesForTenantArea('campaigns', 'write'));
@@ -38,8 +42,8 @@ const draftSchema = z.object({
   walletId: objectId.optional().describe('Organization wallet id from wallet_list_balances. Company admins paying from the organization wallet pass this and omit entityId. Do not choose a department the admin did not name.'),
   shopId: objectId,
   name: z.string().trim().min(1).max(160),
-  pointsScope: z.enum(['stadium', 'shop']).optional(),
-  creditsPerRecipient: z.number().nonnegative().optional(),
+  pointsScope: z.enum(['stadium', 'shop']).optional().describe('Omit to retain a saved draft scope, or use the store pointsConversionEnabled default for a new draft. shop = this store; stadium = tenant-wide redemption.'),
+  creditsPerRecipient: z.number().nonnegative().optional().describe('INR per recipient, never displayed Points. In a points store 500 Points means ₹250. Minimum whole ₹250 is enforced at credit allocation; unfinished drafts may use zero.'),
   message: z.object({
     from: z.string().max(160).optional(),
     body: z.string().max(4000).optional(),
@@ -62,7 +66,8 @@ export const CAMPAIGNS_PREPARE_POINTS_DRAFT_DESCRIPTION = [
   'Requires a shop and a campaign name. Recipients are optional until send.',
   'Company admins paying from their side pass walletId and omit entityId. The debit is the organization wallet unallocated balance. It does not reduce any department allocated budget. The campaign is still stored on the wallet spend entity the dashboard already uses (the oldest department on that wallet, or a default department created only when the draft is saved). Never pick Marketing, Sales, or another department to satisfy entityId.',
   'Department managers pass entityId for their own department. Their remaining department budget is what gets spent. walletId alone is not organization funding for a manager.',
-  'creditsPerRecipient is INR per person. Points stores show ₹1 = 2 Points; INR stores show ₹1 = 1 Credit. Minimum ₹250 whole rupees is enforced when allocating credits, not while saving an unfinished draft.',
+  'creditsPerRecipient is INR per person, never a displayed Points quantity. Points stores show ₹1 = 2 Points (500 Points means ₹250); INR stores show ₹1 = 1 Credit. Minimum ₹250 whole rupees is enforced when allocating credits, not while saving an unfinished draft.',
+  'Omit pointsScope to preserve an existing draft scope or use the actual store default: pointsConversionEnabled=true means stadium (tenant-wide redemption pooling); otherwise shop (selected-store pooling). Explicit scopes remain supported. currencyMode controls display conversion, not redemption scope. The server returns the resolved scope in the preview.',
   'Pass people from employees_search as contactId only. The server resolves the work email for that contact in this workspace and does not return the email. Do not invent an email and do not call employees_get only to copy one. A new person the user typed still needs their email and name. This does not create Contacts.',
   'CSV import in the dashboard is parsed in the browser into the same recipient list. Pass those rows here; do not ask the user to paste a binary file.',
   'Schedule mode now, scheduled, or self (manual invite link, no email). For scheduled, sendAt must be the UTC instant for that timezone wall clock. The worker delivers from sendAt and does not reinterpret timezone.',
@@ -81,6 +86,7 @@ export const CAMPAIGNS_EXECUTE_POINTS_DRAFT_DESCRIPTION = [
 ].join(' ');
 
 const previewSchema = z.object({
+  ...pointsPresentationFields,
   action: z.enum(['create', 'update']),
   campaignId: z.string().optional(),
   name: z.string(),
@@ -92,9 +98,17 @@ const previewSchema = z.object({
   shopId: z.string(),
   recipientCount: z.number().int(),
   creditsPerRecipient: z.number(),
+  totalBudget: z.number(),
+  walletImpact: z.object({ debitedNow: z.number(), requiredAtLaunch: z.number(), balance: z.number(), unallocatedAmount: z.number() }),
+  deliveryMode: z.enum(['now', 'scheduled', 'self']),
+  sendAt: z.string().nullable().optional(),
+  timezone: z.string().optional(),
 });
 
 const resultSchema = z.object({
+  ...pointsPresentationFields,
+  creditsPerRecipient: z.number().optional(),
+  walletImpact: previewSchema.shape.walletImpact.optional(),
   id: z.string(),
   name: z.string(),
   status: z.string(),
@@ -148,7 +162,7 @@ function parseDraft(input) {
     anchor: parsed.data.entityId || `wallet:${parsed.data.walletId}`,
     shopId: parsed.data.shopId,
     name: parsed.data.name.trim(),
-    pointsScope: parsed.data.pointsScope ?? 'shop',
+    ...(parsed.data.pointsScope ? { pointsScope: parsed.data.pointsScope } : {}),
     creditsPerRecipient: parsed.data.creditsPerRecipient ?? 0,
     ...(parsed.data.message ? { message: parsed.data.message } : {}),
     ...(parsed.data.schedule ? { schedule: { ...parsed.data.schedule, ...(parsed.data.schedule.sendAt ? { sendAt: new Date(parsed.data.schedule.sendAt) } : {}) } } : {}),
@@ -211,7 +225,22 @@ function hashDraft(input) {
   delete copy.fundingSource;
   delete copy.departmentBudgetCharged;
   delete copy.walletName;
+  delete copy.presentation;
   return copy;
+}
+
+async function draftPayload(tenantId, input) {
+  // executeMcpWrite validates before replay/authorization. Resolve only the
+  // omitted default here so replay keeps the saved scope even after launch.
+  if (!input.pointsScope) {
+    const claim = input.campaignId ? null : await McpPointsDraftClaim.findOne({ tenantId, logicalKey: nameKey(input) }).select('campaignId');
+    const campaignId = input.campaignId || claim?.campaignId;
+    const saved = campaignId ? await Campaign.findOne({ tenantId, _id: campaignId }).select('pointsScope') : null;
+    const shop = await Shop.findOne({ tenantId, _id: input.shopId }).select('pointsConversionEnabled');
+    if (!shop) throw new NotFoundError('Shop not found');
+    input.pointsScope = saved?.pointsScope ?? defaultPointsScope(shop);
+  }
+  return hashDraft(input);
 }
 
 async function ensureClaims() {
@@ -248,6 +277,7 @@ async function assertDraftTarget(tenantId, user, input) {
   await resolveRecipients(tenantId, user, input);
   const manager = isDepartmentManager(user);
   let entity = null;
+  let wallet;
   if (input.entityId) {
     entity = await Entity.findOne({ _id: input.entityId, tenantId });
     if (!entity) throw new NotFoundError('Entity not found');
@@ -255,11 +285,11 @@ async function assertDraftTarget(tenantId, user, input) {
       throw new ApiError(422, 'That department is not on the selected wallet', 'ENTITY_WALLET_MISMATCH');
     }
     assertEntityAccess(user, entity._id);
+    ({ wallet } = await resolveSpendWalletForEntity({ tenantId, entityId: entity._id }));
   } else if (manager) {
     throw new ApiError(422, 'Choose the department whose budget should pay for this campaign', 'ENTITY_REQUIRED');
   } else {
-    const wallet = await Wallet.findOne({ _id: input.walletId, tenantId });
-    if (!wallet) throw new NotFoundError('Wallet not found');
+    wallet = await requireWalletForFinancialWrite({ tenantId, walletId: input.walletId });
     entity = await Entity.findOne({ tenantId, walletId: wallet._id }).sort({ createdAt: 1 });
     input.walletName = wallet.name;
   }
@@ -271,6 +301,13 @@ async function assertDraftTarget(tenantId, user, input) {
   if (!shop) throw new NotFoundError('Shop not found');
   const campaign = await linkedDraft(tenantId, input);
   if (campaign) assertEntityAccess(user, campaign.entityId);
+  input.pointsScope ??= campaign?.pointsScope ?? defaultPointsScope(shop);
+  const balance = Number(wallet.balance) || 0;
+  const funds = await visibleFunds(user, tenantId, entity?._id, { balance, unallocatedAmount: balance - (Number(wallet.allocatedAmount) || 0) });
+  input.presentation = {
+    ...pointsPresentation({ shop, pointsScope: input.pointsScope, funds, wallet, entity }),
+    walletImpact: { debitedNow: 0, requiredAtLaunch: input.creditsPerRecipient * input.resolvedRecipients.length, balance: funds.balance, unallocatedAmount: funds.unallocatedAmount },
+  };
   return campaign;
 }
 
@@ -292,6 +329,7 @@ async function resourceVersion(tenantId, input) {
       name: campaign.name,
       updatedAt: new Date(campaign.updatedAt).toISOString(),
       recipientCount: campaign.recipientCount ?? 0,
+      durableRecipients: await draftRecipientsVersion(tenantId, campaign._id),
       recipients,
     };
   }
@@ -304,12 +342,14 @@ async function resourceVersion(tenantId, input) {
     status: campaign.status,
     updatedAt: new Date(campaign.updatedAt).toISOString(),
     recipientCount: campaign.recipientCount ?? 0,
+    durableRecipients: await draftRecipientsVersion(tenantId, campaign._id),
     recipients,
   };
 }
 
 function previewFrom(input, campaign) {
   return {
+    ...input.presentation,
     action: campaign ? 'update' : 'create',
     ...(campaign ? { campaignId: String(campaign._id) } : {}),
     name: input.name,
@@ -321,11 +361,16 @@ function previewFrom(input, campaign) {
     shopId: String(input.shopId),
     recipientCount: (input.resolvedRecipients || input.recipients).length,
     creditsPerRecipient: input.creditsPerRecipient,
+    totalBudget: input.creditsPerRecipient * (input.resolvedRecipients || input.recipients).length,
+    deliveryMode: input.schedule?.mode ?? campaign?.schedule?.mode ?? 'now',
+    sendAt: input.schedule?.sendAt ? new Date(input.schedule.sendAt).toISOString() : campaign?.schedule?.sendAt ? new Date(campaign.schedule.sendAt).toISOString() : null,
+    timezone: input.schedule?.timezone ?? campaign?.schedule?.timezone,
   };
 }
 
-function safeResult(campaign) {
+function safeResult(campaign, presentation = {}) {
   return {
+    ...presentation,
     id: String(campaign._id),
     name: campaign.name,
     status: campaign.status,
@@ -333,6 +378,7 @@ function safeResult(campaign) {
     entityId: String(campaign.entityId),
     shopId: String(campaign.shopId || ''),
     recipientCount: campaign.recipientCount ?? 0,
+    creditsPerRecipient: campaign.creditsPerRecipient,
   };
 }
 
@@ -473,7 +519,7 @@ async function saveLinkedDraft({ tenantId, actor, input }) {
     entityId: saved._id,
     after: { status: saved.status, name: saved.name, recipientCount: saved.recipientCount ?? 0 },
   });
-  return safeResult(saved);
+  return safeResult(saved, input.presentation);
 }
 
 export async function preparePointsDraft({ tenantId, actorUserId, input, now }) {
@@ -489,13 +535,14 @@ export async function preparePointsDraft({ tenantId, actorUserId, input, now }) 
       assertDraftWriter(actor);
       planned.campaign = await assertDraftTarget(tenantId, actor.user, requested);
     },
-    validate: async () => hashDraft(requested),
+    validate: async () => draftPayload(tenantId, requested),
     resourceState: async () => resourceVersion(tenantId, requested),
     summary: async () => ({
       action: planned.campaign ? 'update' : 'create',
       name: requested.name,
       recipientCount: (requested.resolvedRecipients || requested.recipients).length,
     }),
+    recoveryProof: async () => captureDraftProof(tenantId, actorUserId, requested, planned.campaign),
   });
   return {
     confirmationId: prepared.confirmationId,
@@ -525,17 +572,30 @@ export async function executePointsDraft({
     authorize: async (actor) => {
       assertDraftWriter(actor);
       await assertDraftTarget(tenantId, actor.user, requested);
+      if (!await draftProof(tenantId, actorUserId, confirmationId)) throw new ApiError(409, 'Prepare a fresh draft preview before saving', 'CONFIRMATION_STALE');
     },
-    validate: async () => hashDraft(requested),
+    validate: async () => draftPayload(tenantId, requested),
     resourceState: async () => resourceVersion(tenantId, requested),
-    reconcile: async () => {
-      const match = await matchingDraft(tenantId, requested);
-      if (match) return { outcome: 'completed', result: safeResult(match) };
+    reconcile: async actor => {
+      assertDraftWriter(actor);
+      const linked = await assertDraftTarget(tenantId, actor.user, requested);
+      const match = linked || await matchingDraft(tenantId, requested);
+      const proof = await draftProof(tenantId, actorUserId, confirmationId);
+      if (!proof) return { outcome: 'uncertain' };
+      if (match) return await proveDraft(tenantId, requested, proof, match)
+        ? { outcome: 'completed', result: { ...safeResult(match, requested.presentation), recipientCount: proof.count } }
+        : { outcome: 'uncertain' };
       const claim = await McpPointsDraftClaim.findOne({ tenantId, logicalKey: nameKey(requested) });
       if (claim && !claim.campaignId) return { outcome: 'uncertain' };
       return { outcome: 'absent' };
     },
-    execute: async (actor) => saveLinkedDraft({ tenantId, actor, input: requested }),
+    execute: async actor => {
+      const result = await saveLinkedDraft({ tenantId, actor, input: requested });
+      const proof = await draftProof(tenantId, actorUserId, confirmationId);
+      const saved = await Campaign.findOne({ tenantId, _id: result.id });
+      if (!await proveDraft(tenantId, requested, proof, saved)) throw new ApiError(409, 'Draft state needs reconciliation', 'IDEMPOTENCY_RECONCILIATION_REQUIRED');
+      return { ...result, recipientCount: proof.count };
+    },
   });
 }
 
@@ -545,6 +605,32 @@ function requireCaller(ctx) {
     throw new ForbiddenError('Campaign drafts are not available for this account');
   }
   return caller;
+}
+
+// Domain capabilities for the single-confirmation orchestrator. These do not
+// manufacture or consume a child confirmation and retain the existing draft
+// validation, funding resolution, name claim and save service.
+export async function planNewPointsDraft({ tenantId, actor, input }) {
+  const requested = parseDraft(input);
+  if (requested.campaignId) throw new ApiError(409, 'Use the existing campaign workflow', 'CAMPAIGN_ALREADY_EXISTS');
+  assertDraftWriter(actor);
+  await assertDraftTarget(tenantId, actor.user, requested);
+  return { ...requested, logicalKey: nameKey(requested) };
+}
+
+export async function saveReservedPointsDraft({ tenantId, actor, input, campaignId }) {
+  await ensureClaims();
+  try { await McpPointsDraftClaim.create({ tenantId, logicalKey: nameKey(input), campaignId }); }
+  catch (error) {
+    if (!duplicateKey(error)) throw error;
+    const claim = await McpPointsDraftClaim.findOne({ tenantId, logicalKey: nameKey(input) });
+    if (String(claim?.campaignId) !== String(campaignId)) throw new ApiError(409, 'A campaign already owns this name; use its existing workflow', 'CAMPAIGN_ALREADY_EXISTS');
+  }
+  const entityId = await spendEntityId(tenantId, actor, input);
+  return savePointsDraft({ tenantId, userId: actor.user.userId, user: actor.user, reservedCampaignId: campaignId,
+    data: { entityId, shopId: input.shopId, name: input.name, pointsScope: input.pointsScope,
+      creditsPerRecipient: input.creditsPerRecipient, message: input.message, schedule: input.schedule,
+      recipients: input.resolvedRecipients } });
 }
 
 export async function preparePointsDraftForCaller(ctx, args) {

@@ -8,24 +8,30 @@ import {
 } from '../src/modules/copilot/copilotMcpCatalog.js';
 
 describe('copilot MCP catalog', () => {
-  it('covers exactly 67 tools matching createShelfMerchMcp registration', () => {
+  it('retains all 67 public MCP tools with explicitly inventoried embedded workflows', () => {
     const mcpSource = readFileSync(
       new URL('../src/modules/mcp/createShelfMerchMcp.js', import.meta.url),
       'utf8',
     );
-    expect(COPILOT_MCP_CATALOG).toHaveLength(67);
-    expect(new Set(COPILOT_MCP_TOOL_NAMES).size).toBe(67);
+    expect(COPILOT_MCP_CATALOG).toHaveLength(72);
+    expect(new Set(COPILOT_MCP_TOOL_NAMES).size).toBe(72);
+    expect(COPILOT_MCP_CATALOG.filter(row => row.embeddedOnly).map(row => row.name).sort()).toEqual([
+      'campaigns_execute_send_points', 'campaigns_prepare_send_points',
+      'swag_configure', 'swag_execute_collection', 'swag_prepare_collection',
+    ]);
+    const publicTools = COPILOT_MCP_CATALOG.filter(row => !row.embeddedOnly);
+    expect(publicTools).toHaveLength(67);
 
-    for (const name of COPILOT_MCP_TOOL_NAMES) {
+    for (const { name } of publicTools) {
       expect(mcpSource, `missing MCP registration for ${name}`).toContain(`'${name}'`);
     }
 
     const counts = catalogCounts();
     // READ + upload_status = 23; PREPARE + upload_prepare = 23; EXECUTE = 21
-    expect(counts.read + counts.upload_status).toBe(23);
-    expect(counts.prepare + counts.upload_prepare).toBe(23);
-    expect(counts.execute).toBe(21);
-    expect(counts.total).toBe(67);
+    expect(counts.read + counts.upload_status).toBe(24);
+    expect(counts.prepare + counts.upload_prepare).toBe(25);
+    expect(counts.execute).toBe(23);
+    expect(counts.total).toBe(72);
   });
 
   it('never marks EXECUTE tools as model-visible', () => {

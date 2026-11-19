@@ -1,0 +1,177 @@
+{
+  "checkedAt": "2026-11-11T10:16:12.512Z",
+  "readOnly": true,
+  "database": "shelfmerch_test",
+  "tenantId": "6ab6449e0df63061043c930f",
+  "walletIds": [
+    "6ae49954d028910e7f6ee68f",
+    "6ae9affeaf292bf5447ad8d8"
+  ],
+  "walletDocumentsFound": 0,
+  "departments": [
+    {
+      "_id": "6ae87442e3da4ced9c7b7019",
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "name": "Marketing",
+      "allocatedAmount": 500,
+      "spentAmount": 0,
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9beb02abda3a9c9aa9399",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Marketing",
+      "allocatedAmount": 7100,
+      "spentAmount": 500,
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9d908e6ce5ead376a5283",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Sales",
+      "allocatedAmount": 10000,
+      "spentAmount": 0,
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9d90de6ce5ead376a5287",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Engineering",
+      "allocatedAmount": 10000,
+      "spentAmount": 0,
+      "deletedAt": null
+    }
+  ],
+  "ledger": [
+    {
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "count": 2,
+      "allocationRows": 1,
+      "cash": 100000
+    },
+    {
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "count": 9,
+      "allocationRows": 5,
+      "cash": 698500
+    }
+  ],
+  "walletSetupAuditSnapshots": [
+    {
+      "id": "6ae49956d028910e7f6ee690",
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "createdAt": "2026-10-30T13:19:18.969Z",
+      "availableFieldNames": [
+        "fundingDocument",
+        "_id",
+        "name",
+        "currency",
+        "totalAmount",
+        "allocatedAmount",
+        "balance",
+        "status",
+        "validFrom",
+        "validTo",
+        "fundingMethod",
+        "ownerUserId",
+        "address",
+        "pinCode",
+        "mobileNumber",
+        "gstin",
+        "tenantId",
+        "deletedAt",
+        "createdAt",
+        "updatedAt",
+        "__v",
+        "unallocatedAmount",
+        "validNextStatuses"
+      ],
+      "isVerifiedCurrentBackup": false
+    },
+    {
+      "id": "6ae9b000af292bf5447ad8d9",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "createdAt": "2026-11-03T09:57:20.233Z",
+      "availableFieldNames": [
+        "name",
+        "fundingMethod",
+        "approvalStatus"
+      ],
+      "isVerifiedCurrentBackup": false
+    }
+  ],
+  "backupLikeCollections": [
+    "reportsnapshots",
+    "categorymigrationbackups",
+    "seoperformancesnapshots"
+  ],
+  "verifiedOriginalWalletBackupAvailable": false,
+  "backupAssessmentLimit": "No verified current original wallet document in the inspected database/audit evidence or repository backup files. Atlas backup/PITR availability has not been verified; requires provider console access. Setup audit entries are historical partial snapshots, not current wallet backups.",
+  "finalPreservationCheck": {
+    "checkedAt": "2026-11-11T10:27:53.941Z",
+    "readOnly": true,
+    "walletDocumentsFound": 0,
+    "checks": {
+      "entities": {
+        "count": 4,
+        "comparedFields": [
+          "_id",
+          "walletId",
+          "allocatedAmount",
+          "spentAmount",
+          "managerUserId",
+          "managerInvitePending",
+          "deletedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "unchanged": true
+      },
+      "wallettransactions": {
+        "count": 11,
+        "comparedFields": [
+          "_id",
+          "walletId",
+          "type",
+          "amount",
+          "balanceAfter",
+          "relatedEntityId",
+          "performedBy",
+          "createdAt"
+        ],
+        "unchanged": true
+      },
+      "roleassignments": {
+        "count": 4,
+        "comparedFields": [
+          "_id",
+          "userId",
+          "role",
+          "scopeType",
+          "scopeId",
+          "assignedEntityIds"
+        ],
+        "unchanged": true
+      },
+      "users": {
+        "count": 4,
+        "comparedFields": [
+          "_id",
+          "status",
+          "deletedAt"
+        ],
+        "unchanged": true
+      },
+      "campaigns": {
+        "count": 2,
+        "comparedFields": [
+          "_id",
+          "entityId",
+          "status"
+        ],
+        "unchanged": true
+      }
+    },
+    "allComparedFieldsUnchanged": true
+  }
+}

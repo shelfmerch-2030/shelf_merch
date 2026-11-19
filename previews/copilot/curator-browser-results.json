@@ -7,6 +7,38 @@
   },
   "desktopSplit": true,
   "mobileTabs": true,
+  "viewportChecks": [
+    {
+      "width": 320,
+      "overflow": false,
+      "tabs": true,
+      "layout": "flex"
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "tabs": true,
+      "layout": "flex"
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "tabs": true,
+      "layout": "flex"
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "tabs": false,
+      "layout": "grid"
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "tabs": false,
+      "layout": "grid"
+    }
+  ],
   "shortlist": true,
   "overflow": false,
   "sourceDrafted": true,

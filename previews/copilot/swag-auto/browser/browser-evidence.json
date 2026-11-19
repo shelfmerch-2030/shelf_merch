@@ -1,0 +1,25 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "frontendRoute": "/ai-test/copilot",
+  "backend": "real application controllers and services, MongoMemoryReplSet",
+  "provider": "mocked (no external AI calls)",
+  "liveWorkspaceData": false,
+  "artworkBrowserPath": "actual PNG file input, real multipart controller upload, real API-owned sandboxed Edge renderer, verified saved mockups, separate final Publish approval",
+  "checks": [
+    "name-first",
+    "verified catalog card with select control",
+    "natural-language exact-name selection",
+    "deselect and select through backend",
+    "catalog pagination",
+    "reload restores authoritative selection",
+    "reload preserves the uploaded logo and one pending Apply review",
+    "real PNG file input and multipart upload, single Apply approval, actual backend browser rendering, persisted original logo and loaded saved mockup",
+    "one separate final Publish approval; the already applied design is saved but not published",
+    "committed publication and natural result",
+    "one Apply execute and one Publish execute despite double clicks; one collection/listing, draft store unchanged",
+    "responsive mobile result"
+  ],
+  "errors": [],
+  "totalCollections": 1,
+  "executeRequests": 2
+}

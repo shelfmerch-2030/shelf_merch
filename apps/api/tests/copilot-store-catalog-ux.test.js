@@ -129,7 +129,7 @@ describe('copilot shop catalog + store UX helpers', () => {
     expect(first.body.activeListingKeys).toEqual([key]);
 
     const remount = await request(app)
-      .post('/api/v1/copilot/writes/shops.catalog_update/execute')
+      .post('/api/v1/copilot/writes/shops.catalog_update/resolve')
       .set(authHeader(token))
       .send({
         shopId: String(shop._id),
@@ -139,6 +139,7 @@ describe('copilot shop catalog + store UX helpers', () => {
         idempotencyKey: 'catalog-show-remount',
       });
     expect(remount.status).toBe(200);
+    expect(remount.body).toMatchObject({ status: 'completed', result: { activeListingKeys: [key] } });
     expect(
       await Shop.countDocuments({ _id: shop._id, tenantId: tenant._id, activeListingKeys: key }),
     ).toBe(1);
@@ -191,7 +192,7 @@ describe('copilot shop catalog + store UX helpers', () => {
     expect(text).not.toMatch(/^- ActiveDry Polo$/m);
   });
 
-  it('persists success artifact so reopen does not keep pending confirm', async () => {
+  it('rejects client success without backend completion and disables an unverifiable confirmation on reopen', async () => {
     const tenant = await makeTenant();
     const admin = await makeUser(tenant, 'company_admin');
     const convo = await CopilotConversation.create({
@@ -223,12 +224,11 @@ describe('copilot shop catalog + store UX helpers', () => {
           result: { id: '507f1f77bcf86cd799439011', name: 'Rewards Store', status: 'live' },
         },
       });
-    expect(persisted.status).toBe(200);
+    expect(persisted.status).toBe(409);
     const reopened = await request(app)
       .get(`/api/v1/copilot/conversations/${convo._id}`)
       .set(authHeader(admin.token));
     expect(reopened.status).toBe(200);
-    expect(reopened.body.messages[0].artifacts[0].kind).toBe('success');
-    expect(reopened.body.messages[0].artifacts[0].title).toMatch(/published/i);
+    expect(reopened.body.messages[0].artifacts[0]).toMatchObject({ kind: 'confirmation', status: 'failed' });
   });
 });

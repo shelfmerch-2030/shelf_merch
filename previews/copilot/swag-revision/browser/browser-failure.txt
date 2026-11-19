@@ -1,0 +1,171 @@
+Error: Browser condition failed: !!document.querySelector('[aria-label="Send message"]:not(:disabled)')
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+Design swag for new employees.
+Nov 17
+I want to design swag.
+Nov 17
+Design swag for new employees.
+ShelfMerch Copilot
+
+What would you like to name your collection?
+
+Refresh Team
+ShelfMerch Copilot
+
+Your collection is named Refresh Team. What would you like to name your collection?
+
+Show products
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Add Corporate Polo
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Ceramic Mug
+ShelfMerch Copilot
+
+Product selected. 2 products selected for Refresh Team. You can add more products or choose Next.
+
+Products shown earlier
+Continue
+ShelfMerch Copilot
+
+Would you like to add your company logo? You can upload it using the + button below, or continue without one.
+
+Upload company-logo.png
+ShelfMerch Copilot
+
+I've received your logo. Would you like me to apply it to your selected products?
+
+Yes
+ShelfMerch Copilot
+
+Please review where your logo will be applied, then confirm below. Uploading or saying yes does not apply it.
+
+Apply your logo?
+Review & confirm
+Collection
+Refresh Team
+Products
+2
+Logo
+company-logo.png
+Application
+2 supported products
+Design details
+
+This saves artwork only. Publishing requires a separate final confirmation.
+
+Slow original explanation
+ShelfMerch Copilot
+
+Late original conversation response
+
+Slow refresh explanation
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.
+    at poll (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-revision.browser-check.js:121:137)
+    at send (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-revision.browser-check.js:130:7)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-revision.browser-check.js:182:5
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+Design swag for new employees.
+Nov 17
+I want to design swag.
+Nov 17
+Design swag for new employees.
+ShelfMerch Copilot
+
+What would you like to name your collection?
+
+Refresh Team
+ShelfMerch Copilot
+
+Your collection is named Refresh Team. What would you like to name your collection?
+
+Show products
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Add Corporate Polo
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Ceramic Mug
+ShelfMerch Copilot
+
+Product selected. 2 products selected for Refresh Team. You can add more products or choose Next.
+
+Products shown earlier
+Continue
+ShelfMerch Copilot
+
+Would you like to add your company logo? You can upload it using the + button below, or continue without one.
+
+Upload company-logo.png
+ShelfMerch Copilot
+
+I've received your logo. Would you like me to apply it to your selected products?
+
+Yes
+ShelfMerch Copilot
+
+Please review where your logo will be applied, then confirm below. Uploading or saying yes does not apply it.
+
+Apply your logo?
+Review & confirm
+Collection
+Refresh Team
+Products
+2
+Logo
+company-logo.png
+Application
+2 supported products
+Design details
+
+This saves artwork only. Publishing requires a separate final confirmation.
+
+Slow original explanation
+ShelfMerch Copilot
+
+Late original conversation response
+
+Slow refresh explanation
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

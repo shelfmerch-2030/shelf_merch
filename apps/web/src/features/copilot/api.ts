@@ -44,16 +44,21 @@ export type CopilotConfirmationArtifact = {
   expiresAt?: string;
   preview?: Record<string, unknown>;
   request?: {
-    name: string;
+    name?: string;
     currencyMode?: "points" | "inr";
     [key: string]: unknown;
   };
-  status?: "pending" | "cancelled" | "failed" | "completed";
+  status?: "pending" | "cancelled" | "failed" | "completed" | "expired" | "consumed" | "unverified";
+  message?: string;
+  progress?: Record<string, unknown>;
+  canResume?: boolean;
 };
 
 export type CopilotSuccessArtifact = {
   kind: "success";
   operation: string;
+  confirmationId?: string;
+  status?: "completed";
   message: string;
   title?: string;
   details?: string[];
@@ -108,6 +113,8 @@ export type CopilotDepartmentBudgetsArtifact = {
 };
 
 export type CopilotArtifact =
+  | { kind: 'swag_step'; swag: { conversationId?: string; revision: number; step: import('./swagApi').SwagStep; mode?: string; selectedProducts?: Array<{ id: string; name: string; imageUrl: string }> } }
+  | { kind: "catalog_page"; catalog: { query: import("./swagApi").SwagCatalogQuery; pagination: import("./swagApi").SwagCatalogPage["pagination"] } }
   | { kind: "curation"; curation: import("./curatorTypes").Curation }
   | { kind: "product"; product: Record<string, unknown> }
   | { kind: "kit"; kit: Record<string, unknown> }
@@ -118,7 +125,7 @@ export type CopilotArtifact =
 
 export type CopilotMessageAttachment = {
   id: string;
-  kind: "purchase_order" | "artwork" | "banner" | "file";
+  kind: "purchase_order" | "artwork" | "banner" | "file" | "swag_artwork";
   ticketId?: string;
   originalName: string;
   mimeType: string;
@@ -126,6 +133,7 @@ export type CopilotMessageAttachment = {
 };
 
 export type CopilotMessage = {
+  uiEventId?: string;
   role: "user" | "assistant";
   content: string;
   artifacts?: CopilotArtifact[];
@@ -133,9 +141,18 @@ export type CopilotMessage = {
   createdAt?: string;
 };
 
+export async function fetchSentSwagArtwork(conversationId: string, attachmentId: string, signal: AbortSignal) {
+  const token = getAccessToken();
+  const response = await fetch(`${API_BASE}/copilot/conversations/${encodeURIComponent(conversationId)}/artwork/${encodeURIComponent(attachmentId)}`, {
+    signal, credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!response.ok || !/^image\/png(?:;|$)/i.test(response.headers.get('content-type') || '')) throw new Error('Logo preview unavailable');
+  return response.blob();
+}
+
 export type CopilotUploadedAttachment = {
   id: string;
-  kind: "purchase_order" | "artwork" | "banner" | "file";
+  kind: "purchase_order" | "artwork" | "banner" | "file" | "swag_artwork";
   status: string;
   ticketId?: string;
   originalName: string;
@@ -221,7 +238,7 @@ export async function cancelCopilotStoreCreateApi(confirmationId: string) {
 }
 
 export async function uploadCopilotAttachmentApi(
-  kind: "purchase_order" | "artwork" | "banner" | "file",
+  kind: "purchase_order" | "artwork" | "banner" | "file" | "swag_artwork",
   file: File,
   conversationId?: string | null,
 ): Promise<CopilotUploadedAttachment> {
@@ -346,10 +363,12 @@ export async function cancelCopilotWriteApi(workflow: string, confirmationId: st
 
 export async function resolveCopilotWriteApi(workflow: string, input: Record<string, unknown>) {
   return apiFetch<{
-    status: "pending" | "cancelled" | "completed" | "consumed";
+    status: "pending" | "cancelled" | "completed" | "consumed" | "expired" | "failed";
     confirmationId: string;
     workflow?: string;
     expiresAt?: string;
+    progress?: Record<string, unknown>;
+    canResume?: boolean;
     result?: Record<string, unknown> & { id?: string; name?: string; status?: string };
   }>(`/copilot/writes/${encodeURIComponent(workflow)}/resolve`, {
     method: "POST",

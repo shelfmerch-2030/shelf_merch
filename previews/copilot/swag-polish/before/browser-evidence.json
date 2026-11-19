@@ -1,0 +1,76 @@
+{
+  "phase": "before",
+  "actualBrowser": "Microsoft Edge headless",
+  "backend": "real controllers, MongoMemoryReplSet and local multipart storage",
+  "provider": "mocked",
+  "liveCustomerDataUsed": false,
+  "executeRequests": 0,
+  "collections": 0,
+  "checks": [
+    "four backend-acknowledged selections, duplicate clicks blocked, original product identities preserved",
+    "desktop selection summary, pointer hover, keyboard focus and reduced-motion inspected",
+    "390px and 320px layouts, long names and pagination retain all four selections",
+    "Skip uses existing no-artwork transition; natural-language removal still works; + Swag purpose uploads PNG and prepares approval without automatic execution"
+  ],
+  "errors": [],
+  "unselected": {
+    "border": "rgb(228, 228, 223)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0s",
+    "width": 160.984375,
+    "left": 1023.921875
+  },
+  "selected": {
+    "border": "rgb(61, 95, 217)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "hovered": {
+    "border": "rgb(61, 95, 217)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "focus": {
+    "border": "rgb(61, 95, 217)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "solid",
+    "outlineWidth": "2px",
+    "transition": "0.16s, 0.16s, 0.16s, 0.16s, 0.16s",
+    "width": 81.8125,
+    "left": 1130.296875
+  },
+  "reduced": {
+    "border": "rgb(61, 95, 217)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "continueStyle": {
+    "width": 254.796875,
+    "left": 960.203125,
+    "summaryLeft": 517
+  }
+}

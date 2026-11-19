@@ -50,7 +50,7 @@ export function CopilotMarkdown({
           ),
           img: () => null,
           table: ({ children }) => (
-            <div className="sm-copilot-md__table-wrap">
+            <div className="sm-copilot-md__table-wrap" tabIndex={0} role="region" aria-label="Response table">
               <table>{children}</table>
             </div>
           ),

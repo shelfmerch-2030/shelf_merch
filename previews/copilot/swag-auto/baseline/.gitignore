@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Env — never commit secrets
+.env
+.env.*
+!.env.example
+mcp-oidc-jwks.json
+mcp-oidc-jwks.public.json
+
+# Build output
+dist/
+build/
+.output/
+.nitro/
+.tanstack/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+
+# Test artifacts
+coverage/
+
+# Local file-storage uploads (runtime/test artifacts)
+apps/api/uploads/
+
+# Local catalog verification builds
+.catalog-review-build/
+.codex-build/

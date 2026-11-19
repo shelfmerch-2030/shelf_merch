@@ -10,6 +10,8 @@ const DEF_BY_NAME = new Map(ALL_TOOL_DEFS.map((tool) => [tool.name, tool]));
 
 function isCatalogEntryActive(entry) {
   if (!entry) return false;
+  // Conversation-only selections are part of the collections rollout, not a new public READ.
+  if (entry.name === 'swag_configure') return isWriteFlagEnabled('collections');
   if (entry.kind === 'read' || entry.kind === 'upload_status') return true;
   if (!entry.writeFlag) return false;
   // Logo/banner upload handoff is needed for create and update branding.

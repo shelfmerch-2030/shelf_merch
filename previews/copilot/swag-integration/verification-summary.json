@@ -1,0 +1,116 @@
+{
+  "reports": [
+    {
+      "name": "api-acceptance-final",
+      "passed": 40,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-dashboard-final",
+      "passed": 48,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-final",
+      "passed": 58,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-financial-final",
+      "passed": 84,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "web-final",
+      "passed": 255,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "totalPassed": 485,
+  "failed": 0,
+  "pending": 0,
+  "uniqueTestFiles": 42,
+  "baselineDirtyAppFiles": 118,
+  "preservedDirtyAppFiles": 107,
+  "editedExistingDirtyAppFiles": [
+    "apps/web/src/features/copilot/CopilotUserMessage.tsx",
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilotDiscovery.js",
+    "apps/api/src/modules/copilot/copilotMcpCatalog.js",
+    "apps/api/src/modules/copilot/copilotToolBindings.js",
+    "apps/api/src/modules/copilot/copilotWrites.service.js",
+    "apps/api/src/modules/mcp/mcpWriteSafety.js",
+    "apps/api/tests/copilot-mcp-catalog.test.js",
+    "apps/api/tests/copilotDiscovery.test.js",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+    "apps/web/src/features/copilot/api.ts"
+  ],
+  "changedFiles": [
+    "apps/api/src/modules/collections/collectionDesign.service.js",
+    "apps/api/src/modules/collections/collections.routes.js",
+    "apps/api/src/modules/copilot/copilotAttachment.model.js",
+    "apps/api/src/modules/copilot/copilotAttachments.service.js",
+    "apps/api/src/modules/copilot/copilotConversation.model.js",
+    "apps/api/src/modules/copilot/copilot.routes.js",
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilotDiscovery.js",
+    "apps/api/src/modules/copilot/copilotMcpCatalog.js",
+    "apps/api/src/modules/copilot/copilotToolBindings.js",
+    "apps/api/src/modules/copilot/copilotTools.js",
+    "apps/api/src/modules/copilot/copilotWrites.service.js",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js",
+    "apps/api/src/modules/mcp/mcpWriteSafety.js",
+    "apps/api/src/modules/shops/shopCatalogSync.js",
+    "apps/api/tests/copilot-swag-design.test.js",
+    "apps/api/tests/copilot-swag-chat.test.js",
+    "apps/api/tests/copilot-mcp-catalog.test.js",
+    "apps/api/tests/copilotDiscovery.test.js",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+    "apps/web/src/features/copilot/SwagSavedPreviews.tsx",
+    "apps/web/src/features/copilot/swagPresentation.ts",
+    "apps/web/src/features/copilot/CopilotSwagDesign.test.tsx",
+    "apps/web/src/features/copilot/CopilotComposer.tsx",
+    "apps/web/src/features/copilot/CopilotUserMessage.tsx",
+    "apps/web/src/features/copilot/attachments.ts",
+    "apps/web/src/features/copilot/api.ts"
+  ],
+  "typecheck": {
+    "passed": false,
+    "existingDiagnostics": 26,
+    "newDiagnostics": 0
+  },
+  "hashes": {
+    "apps/api/src/modules/collections/collectionDesign.service.js": "a05f5c82aea94487b5e1fd16afdd02d0adde74d30680a022bdde4d77fa21c21a",
+    "apps/api/src/modules/collections/collections.routes.js": "2088dbebe334bf3363387e96493d6679a30ad4d4f93dcf699bf37badb6d524fb",
+    "apps/api/src/modules/copilot/copilotAttachment.model.js": "0a0d4be204c75517a0d5a956ca0956345cde522041613d714972ee36f65909de",
+    "apps/api/src/modules/copilot/copilotAttachments.service.js": "5b270d7a5d724caae94c205dd37d6121057084defa3d20cb788aea809314fe7d",
+    "apps/api/src/modules/copilot/copilotConversation.model.js": "015a6b715437d90e5894717711bf2e04aaa3fc74e245295dc73300ef81de5c5d",
+    "apps/api/src/modules/copilot/copilot.routes.js": "fc9505ab1af51d4581b9b0333aec3658d45ded72a0bf875472f4f055aac9e5fa",
+    "apps/api/src/modules/copilot/copilotChat.service.js": "a9c42a8e554a94422bcfeebcd7b3e2baf1f7e6966cb827352f9eb77532556679",
+    "apps/api/src/modules/copilot/copilotDiscovery.js": "dad827a0339cfd7ec2343fc7ea58ecf43097ebded96536a167ee0f55fddf933b",
+    "apps/api/src/modules/copilot/copilotMcpCatalog.js": "10c9e85bbb0a28fd4a330144af97c485ba783c7e65acb7d5bd085656c923f2f3",
+    "apps/api/src/modules/copilot/copilotToolBindings.js": "fc7f4327f76242be845ce39728a2d58d1d451818f9512686d805f84823e810f3",
+    "apps/api/src/modules/copilot/copilotTools.js": "bc9bc3573d61a78aff55ceaab9ea42e7c537e9bcb4355ccf73e9b12f135056d7",
+    "apps/api/src/modules/copilot/copilotWrites.service.js": "0a20886cf1703d8f2abb1216022d31195a01b711e58622275a4206f11b9ab010",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js": "68401b3c4852983d1ebd736cb35f845091915ffc3ab5dbcd5587107a5b159b5b",
+    "apps/api/src/modules/mcp/mcpWriteSafety.js": "87da5ae2123634a2cbdcacc6944499a49d0ad06c07c0397e8919fbd5a58bd61a",
+    "apps/api/src/modules/shops/shopCatalogSync.js": "96628e2682134ff67b503c2053b562ecff75dc78559b4d402d268091388e61f9",
+    "apps/api/tests/copilot-swag-design.test.js": "f695f4a30474a517511ac20f64225384ba14aacd96f64faf3f49eb2d24f46c39",
+    "apps/api/tests/copilot-swag-chat.test.js": "68f63ceee7cfff6c46f6df5873440c394e465f70e46e7d36fb6017318fbf0881",
+    "apps/api/tests/copilot-mcp-catalog.test.js": "4596fd3045ce9e0e3d3adbfe88def10ae1a02468520e181ee18cb7d9b27132ab",
+    "apps/api/tests/copilotDiscovery.test.js": "2c9064cdfabb9c0da1190dd68c529837d73b2633151ab8429811ff5949539b5a",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx": "f16547613e050aef7160331c53014fbf4049be579da58a8a028682df79a83da7",
+    "apps/web/src/features/copilot/SwagSavedPreviews.tsx": "7754587b34b12f0ecf79e58cb6f9dec3f4425d9b798c4663ffa9d3a6974de3c0",
+    "apps/web/src/features/copilot/swagPresentation.ts": "20ac442cad2c3d2973be4bacd9c7efc7448b23759addf10bee22d5f82f2b7ec7",
+    "apps/web/src/features/copilot/CopilotSwagDesign.test.tsx": "b923c3660ae9ce8f4ff89497204483d5b26b40a3cc547927c53f1a1d2a9993ad",
+    "apps/web/src/features/copilot/CopilotComposer.tsx": "1445f95e9c5d5d641a230e532d3420cc6d6e7b7ac72263ce52823cc441b53219",
+    "apps/web/src/features/copilot/CopilotUserMessage.tsx": "840d31d3f4ae582b564e197d0b00a61194fe89a5a944c9dfa308e8ba5804cff9",
+    "apps/web/src/features/copilot/attachments.ts": "6fce7f3333ac048a6a86933cf2c081bbf097ae89a8a18dc794b4869661dbe9b2",
+    "apps/web/src/features/copilot/api.ts": "602d2969f55ce30973515e5e12a6117238e8228c3dff197d55cf6e797da207e8"
+  }
+}

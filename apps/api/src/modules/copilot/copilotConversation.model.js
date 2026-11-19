@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 
 const artifactSchema = new mongoose.Schema(
   {
-    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation'], required: true },
+    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation', 'catalog_page', 'swag_step'], required: true },
+    swag: { type: mongoose.Schema.Types.Mixed },
+    catalog: { type: mongoose.Schema.Types.Mixed },
     curation: { type: mongoose.Schema.Types.Mixed },
     product: { type: mongoose.Schema.Types.Mixed },
     kit: { type: mongoose.Schema.Types.Mixed },
@@ -25,7 +27,7 @@ const artifactSchema = new mongoose.Schema(
 const attachmentRefSchema = new mongoose.Schema(
   {
     id: { type: String, required: true },
-    kind: { type: String, enum: ['purchase_order', 'artwork', 'banner', 'file'], required: true },
+    kind: { type: String, enum: ['purchase_order', 'artwork', 'banner', 'file', 'swag_artwork'], required: true },
     ticketId: { type: String, default: null },
     originalName: { type: String, default: '' },
     mimeType: { type: String, default: '' },
@@ -45,6 +47,7 @@ const toolCallSchema = new mongoose.Schema(
 
 const messageSchema = new mongoose.Schema(
   {
+    uiEventId: { type: String },
     role: { type: String, enum: ['user', 'assistant', 'system', 'tool'], required: true },
     content: { type: String, default: '' },
     toolCallId: { type: String, default: null },
@@ -65,6 +68,7 @@ const conversationSchema = new mongoose.Schema(
     messages: { type: [messageSchema], default: [] },
     archivedAt: { type: Date, default: null },
     curator: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    swag: { type: mongoose.Schema.Types.Mixed, default: undefined },
   },
   { timestamps: true },
 );

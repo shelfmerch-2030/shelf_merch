@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
@@ -26,6 +26,7 @@ let product;
 let adminToken;
 let managerToken;
 let managerUser;
+afterEach(() => vi.useRealTimers());
 
 beforeAll(async () => {
   await connectTestDb();
@@ -121,14 +122,16 @@ describe('campaign lifecycle (§11.1)', () => {
     const launch1 = await request(app)
       .post(`/api/v1/campaigns/${id}/launch`)
       .set('Authorization', `Bearer ${managerToken}`)
-      .set('Idempotency-Key', key);
+      .set('Idempotency-Key', key)
+      .send({ expectedLaunchHash: alloc.body.launchReviewHash });
     expect(launch1.status).toBe(200);
     expect(launch1.body.status).toBe('redemption_open');
 
     const launch2 = await request(app)
       .post(`/api/v1/campaigns/${id}/launch`)
       .set('Authorization', `Bearer ${managerToken}`)
-      .set('Idempotency-Key', key);
+      .set('Idempotency-Key', key)
+      .send({ expectedLaunchHash: alloc.body.launchReviewHash });
     expect(launch2.headers['idempotent-replay']).toBe('true');
 
     const entityAfter = await Entity.findOne({ _id: entity._id, tenantId: tenant._id });
@@ -302,7 +305,7 @@ describe('campaign lifecycle (§11.1)', () => {
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ recipients: [{ name: 'Alice', email: 'alice-sched@test.io' }] });
 
-    await request(app)
+    const alloc = await request(app)
       .post(`/api/v1/campaigns/${id}/allocate-credits`)
       .set('Authorization', `Bearer ${managerToken}`)
       .send({ creditsPerRecipient: 500 });
@@ -317,7 +320,8 @@ describe('campaign lifecycle (§11.1)', () => {
     const launch = await request(app)
       .post(`/api/v1/campaigns/${id}/launch`)
       .set('Authorization', `Bearer ${managerToken}`)
-      .set('Idempotency-Key', `launch-sched-${id}`);
+      .set('Idempotency-Key', `launch-sched-${id}`)
+      .send({ expectedLaunchHash: alloc.body.launchReviewHash });
     expect(launch.status).toBe(200);
     expect(launch.body.status).toBe('launched');
 
@@ -327,11 +331,9 @@ describe('campaign lifecycle (§11.1)', () => {
       (await Recipient.findOne({ _id: recipientBefore._id, tenantId: tenant._id })).creditAmount,
     ).toBe(0);
 
-    // Make due and recover overdue schedule.
-    await Campaign.updateOne(
-      { _id: id, tenantId: tenant._id },
-      { $set: { 'schedule.sendAt': new Date(Date.now() - 1000) } },
-    );
+    // Advance time to the approved schedule; never rewrite an approved send.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(new Date(sendAt).getTime() + 1000));
     const { processDueScheduledCampaigns } = await import(
       '../src/modules/campaigns/campaigns.service.js'
     );

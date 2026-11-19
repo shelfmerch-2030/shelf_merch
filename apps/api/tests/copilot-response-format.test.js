@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatAssistantTextForCards, toolContentForModel } from '../src/modules/copilot/copilotResponseFormat.js';
+import { appendAnthropicToolResults } from '../src/modules/copilot/providers/anthropicChatAdapter.js';
 
 describe('formatAssistantTextForCards', () => {
   it('removes product markdown tables and image URLs when product artifacts exist', () => {
@@ -61,6 +62,8 @@ describe('toolContentForModel', () => {
     expect(search).toContain('catalog product card');
     expect(search).not.toContain('cdn.example.com');
     expect(search).not.toContain('stock');
+    expect(JSON.parse(search).products).toEqual([{ id: '1', name: 'Tee' }]);
+    expect(JSON.parse(search).pagination).toEqual({ page: 1, totalPages: 3, total: 40 });
 
     const detail = toolContentForModel(
       'catalog_get_product',
@@ -69,6 +72,10 @@ describe('toolContentForModel', () => {
     );
     expect(detail).toContain('catalog product card');
     expect(detail).not.toContain('cdn.example.com');
+    expect(JSON.parse(detail).products[0]).toMatchObject({ id: '1', name: 'Tee' });
+    const transcript = [];
+    appendAnthropicToolResults(transcript, [{ toolCallId: 'verified-catalog', content: detail }]);
+    expect(JSON.parse(transcript[0].content[0].content).products[0]).toMatchObject({ id: '1', name: 'Tee' });
   });
 
   it('returns short kit summaries when kit cards were emitted', () => {

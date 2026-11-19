@@ -1,0 +1,32 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "widths": [
+    1440,
+    390
+  ],
+  "backend": "real controllers, MongoMemoryReplSet, local multipart upload and actual deterministic renderer",
+  "provider": "mocked; no live Claude calls",
+  "liveCustomerData": false,
+  "storeStatus": "draft",
+  "lostPublicationAcknowledgement": false,
+  "executeRequests": 2,
+  "collections": 1,
+  "listings": 3,
+  "mockups": [
+    "/uploads/6afed5142be735d1192f0c47/mockup/7b4c698ce4713abf29fd3727.png",
+    "/uploads/6afed5142be735d1192f0c47/mockup/5a0282b6f85ca95ddf8adf32.png",
+    "/uploads/6afed5142be735d1192f0c47/mockup/b0810518068f6833b9080518.png"
+  ],
+  "reviewImages": [
+    "/uploads/6afed5142be735d1192f0c47/mockup/7b4c698ce4713abf29fd3727.png",
+    "/uploads/6afed5142be735d1192f0c47/mockup/5a0282b6f85ca95ddf8adf32.png",
+    "/uploads/6afed5142be735d1192f0c47/mockup/b0810518068f6833b9080518.png"
+  ],
+  "checks": [
+    "composer shows actual PNG on desktop and mobile, removes draft without advancing, then sends one image with optional text and one acknowledgement",
+    "typed Yes prepares only; one authorized click executes; real sandboxed renderer saves 3 product-specific branded mockups",
+    "one publication execute despite rapid clicks; saved review mockups match the committed collection; one historical review and one success at the bottom; original review opens from the keyboard",
+    "reload recovers two distinct chronological receipts, older controls inactive, no blank assistant rows and no replay"
+  ],
+  "errors": []
+}

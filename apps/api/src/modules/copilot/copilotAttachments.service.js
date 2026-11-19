@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { validateArtworkUpload } from '../../middleware/artwork.middleware.js';
 import { ApiError, ForbiddenError } from '../../utils/errors.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { isFileAllowed, DOCUMENT_TYPES } from '../../middleware/upload.middleware.js';
@@ -15,12 +16,14 @@ import {
   SHOP_BANNER_UPLOAD_TYPES,
 } from '../mcp/shopsAssetUpload.js';
 import { CopilotAttachment } from './copilotAttachment.model.js';
+import { CopilotConversation } from './copilotConversation.model.js';
 
 const READY_TTL_MS = 24 * 60 * 60 * 1000;
 const WALLET_WRITE = new Set(rolesForTenantArea('wallets', 'write'));
 const SHOPS_WRITE = new Set(rolesForTenantArea('shops', 'write'));
 
 const KIND_LIMITS = {
+  swag_artwork: { allow: SHOP_LOGO_UPLOAD_TYPES, maxBytes: 5 * 1024 * 1024, field: 'file' },
   purchase_order: { allow: WALLET_PO_UPLOAD_TYPES, maxBytes: 25 * 1024 * 1024, field: 'file' },
   artwork: { allow: SHOP_LOGO_UPLOAD_TYPES, maxBytes: 5 * 1024 * 1024, field: 'file' },
   banner: { allow: SHOP_BANNER_UPLOAD_TYPES, maxBytes: 10 * 1024 * 1024, field: 'file' },
@@ -61,6 +64,9 @@ function ensureImageExtension(name, mimeType) {
 }
 
 function assertKindRole(kind, role) {
+  if (kind === 'swag_artwork' && !rolesForTenantArea('swag', 'write').includes(role)) {
+    throw new ForbiddenError('Swag artwork upload requires design access');
+  }
   if (kind === 'purchase_order' && !WALLET_WRITE.has(role)) {
     throw new ForbiddenError('Purchase order upload requires a company admin');
   }
@@ -127,7 +133,16 @@ export async function uploadCopilotAttachment({
   let storageDriver = null;
   let mimeType = file.mimetype || '';
 
-  if (kind === 'purchase_order') {
+  if (kind === 'swag_artwork') {
+    if (!conversationId || !await CopilotConversation.exists({ _id: conversationId, tenantId, userId, archivedAt: null })) {
+      throw new ForbiddenError('Upload swag artwork in your current design conversation');
+    }
+    validateArtworkUpload(file);
+    const stored = await uploadFile({ tenantId, kind: 'artwork', file });
+    fileUrl = stored.url;
+    storageKey = stored.key || null;
+    storageDriver = stored.driver || null;
+  } else if (kind === 'purchase_order') {
     const prepared = await prepareWalletDocumentUpload({
       tenantId,
       actorUserId: userId,
@@ -226,6 +241,9 @@ export async function resolveAttachmentsForMessage({
 
   const byId = new Map(rows.map((row) => [String(row._id), row]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+  if (ordered.some(row => row.kind === 'swag_artwork' && (String(row.conversationId) !== String(conversationId) || !(row.expiresAt > new Date())))) {
+    throw new ApiError(403, 'This logo is expired or belongs to another conversation. Attach it again here.', 'ATTACHMENT_FORBIDDEN');
+  }
 
   await CopilotAttachment.updateMany(
     { _id: { $in: ordered.map((row) => row._id) }, conversationId: null },
@@ -249,6 +267,7 @@ export async function resolveAttachmentsForMessage({
 export function attachmentPromptSuffix(attachments) {
   if (!attachments?.length) return '';
   const lines = attachments.map((row) => {
+    if (row.kind === 'swag_artwork') return `- Swag artwork "${row.originalName}". swagArtworkAttachmentId: ${row.id}. Uploaded only; not applied or saved to a design. Use swag_configure to select it.`;
     if (row.kind === 'purchase_order') {
       return `- Purchase order "${row.originalName}" (documentTicketId=${row.ticketId}). Uploaded only — does not fund or approve a wallet.`;
     }
@@ -275,6 +294,28 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
+export async function readSentSwagArtwork({ tenantId, userId, conversationId, attachmentId }) {
+  const unavailable = () => new ApiError(404, 'Logo preview unavailable', 'NOT_FOUND');
+  const owned = { tenantId, userId };
+  const sent = await CopilotConversation.exists({ ...owned, _id: conversationId, archivedAt: null,
+    messages: { $elemMatch: { role: 'user', attachments: { $elemMatch: { id: attachmentId, kind: 'swag_artwork' } } } } });
+  if (!sent) throw unavailable();
+  const row = await CopilotAttachment.findOne({ ...owned, _id: attachmentId, conversationId, status: 'uploaded', kind: 'swag_artwork', expiresAt: { $gt: new Date() } });
+  if (!row?.storageKey?.startsWith(`${tenantId}/`) || !row.storageDriver) throw unavailable();
+  try {
+    const image = await readStoredFile({ key: row.storageKey, driver: row.storageDriver });
+    const parts = []; let size = 0;
+    for await (const part of image) {
+      size += part.length;
+      if (size > KIND_LIMITS.swag_artwork.maxBytes) throw unavailable();
+      parts.push(part);
+    }
+    const bytes = Buffer.concat(parts);
+    if (!bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) throw unavailable();
+    return bytes;
+  } catch { throw unavailable(); }
+}
+
 /**
  * Build Anthropic image content blocks from authorized attachment rows.
  * Reads private storage server-side — never exposes storage URLs to the model or client.
@@ -284,7 +325,7 @@ export async function buildAnthropicImageBlocks(attachments = []) {
   for (const row of attachments) {
     const mime = String(row.mimeType || '').toLowerCase();
     if (!VISION_MIME.has(mime)) continue;
-    if (row.kind === 'purchase_order' || row.kind === 'artwork') continue;
+    if (row.kind === 'purchase_order' || row.kind === 'artwork' || row.kind === 'swag_artwork') continue;
     if (!row.storageKey || !row.storageDriver) continue;
     if ((Number(row.sizeBytes) || 0) > MAX_VISION_BYTES) {
       blocks.push({

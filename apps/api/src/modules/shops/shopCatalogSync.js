@@ -73,8 +73,9 @@ export async function bootstrapActiveListingKeys(shop, tenantId) {
 /**
  * Publish a collection to a shop: link shop, record publish date, activate all listings.
  */
-export async function publishCollectionToShop(shopId, tenantId, collection) {
-  const shop = await Shop.findOne({ _id: shopId, tenantId });
+export async function publishCollectionToShop(shopId, tenantId, collection, { session = null } = {}) {
+  const query = Shop.findOne({ _id: shopId, tenantId });
+  const shop = await (session ? query.session(session) : query);
   if (!shop) return null;
 
   ensureListingFields(shop);
@@ -96,14 +97,14 @@ export async function publishCollectionToShop(shopId, tenantId, collection) {
   if (collection.status === 'draft') {
     collection.status = 'ready';
   }
-  await collection.save();
+  await collection.save({ session });
 
   const keys = listingKeysFromCollection(collection);
   const active = new Set(shop.activeListingKeys.map(String));
   for (const k of keys) active.add(k);
   shop.activeListingKeys = [...active];
   syncLegacyCatalogIds(shop, shop.activeListingKeys);
-  await shop.save();
+  await shop.save({ session });
   return shop;
 }
 

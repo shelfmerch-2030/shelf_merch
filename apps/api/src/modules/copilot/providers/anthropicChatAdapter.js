@@ -12,6 +12,85 @@ export function createAnthropicClient({ apiKey = env.ANTHROPIC_API_KEY } = {}) {
   });
 }
 
+/** Never log raw SDK errors: provider messages can echo request/customer data. */
+export function anthropicErrorDetails(err) {
+  const detail = err?.error?.error || err?.error;
+  const message = detail?.message;
+  // This validation error contains only a tool index and provider documentation.
+  const schemaError = typeof message === 'string' && /^tools\.\d+\.(?:custom\.)?input_schema: JSON schema is invalid\. It must match JSON Schema draft 2020-12 \(https:\/\/json-schema\.org\/draft\/2020-12\)\. Learn more about tool use at https:\/\/platform\.claude\.com\/docs\/en\/agents-and-tools\/tool-use\/overview\.$/.test(message);
+  const requestId = err?.requestID || err?.headers?.get?.('request-id') || err?.request_id;
+  return {
+    type: /^[a-z_]+_error$/.test(detail?.type || '') ? detail.type : undefined,
+    message: schemaError ? message : '[Provider message omitted to protect request data]',
+    param: typeof detail?.param === 'string' && /^(?:tools|messages)\.\d+(?:\.[a-z_]+)*$/.test(detail.param) ? detail.param : null,
+    requestId: /^req_[a-zA-Z0-9]+$/.test(requestId || '') ? requestId : undefined,
+  };
+}
+
+/**
+ * Convert JSON Schema / OpenAPI 3.0 draft-04 constructs into JSON Schema Draft 2020-12
+ * as required by Anthropic Messages API tool definitions.
+ */
+export function normalizeJsonSchemaDraft2020(schema) {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (Array.isArray(schema)) return schema.map(normalizeJsonSchemaDraft2020);
+
+  const copy = { ...schema };
+
+  // Draft 2020-12 requires numeric exclusiveMinimum / exclusiveMaximum, not boolean.
+  if (typeof copy.exclusiveMinimum === 'boolean') {
+    if (copy.exclusiveMinimum && typeof copy.minimum === 'number') {
+      copy.exclusiveMinimum = copy.minimum;
+      delete copy.minimum;
+    } else {
+      delete copy.exclusiveMinimum;
+    }
+  }
+  if (typeof copy.exclusiveMaximum === 'boolean') {
+    if (copy.exclusiveMaximum && typeof copy.maximum === 'number') {
+      copy.exclusiveMaximum = copy.maximum;
+      delete copy.maximum;
+    } else {
+      delete copy.exclusiveMaximum;
+    }
+  }
+
+  if (copy.properties && typeof copy.properties === 'object') {
+    const props = {};
+    for (const [key, value] of Object.entries(copy.properties)) {
+      props[key] = normalizeJsonSchemaDraft2020(value);
+    }
+    copy.properties = props;
+  }
+
+  if (copy.items) {
+    copy.items = normalizeJsonSchemaDraft2020(copy.items);
+  }
+
+  if (copy.prefixItems && Array.isArray(copy.prefixItems)) {
+    copy.prefixItems = copy.prefixItems.map(normalizeJsonSchemaDraft2020);
+  }
+
+  if (copy.additionalProperties && typeof copy.additionalProperties === 'object') {
+    copy.additionalProperties = normalizeJsonSchemaDraft2020(copy.additionalProperties);
+  }
+
+  if (copy.patternProperties && typeof copy.patternProperties === 'object') {
+    const patProps = {};
+    for (const [key, value] of Object.entries(copy.patternProperties)) {
+      patProps[key] = normalizeJsonSchemaDraft2020(value);
+    }
+    copy.patternProperties = patProps;
+  }
+
+  if (Array.isArray(copy.allOf)) copy.allOf = copy.allOf.map(normalizeJsonSchemaDraft2020);
+  if (Array.isArray(copy.anyOf)) copy.anyOf = copy.anyOf.map(normalizeJsonSchemaDraft2020);
+  if (Array.isArray(copy.oneOf)) copy.oneOf = copy.oneOf.map(normalizeJsonSchemaDraft2020);
+  if (copy.not && typeof copy.not === 'object') copy.not = normalizeJsonSchemaDraft2020(copy.not);
+
+  return copy;
+}
+
 /** Convert OpenAI-shaped Copilot tools to Anthropic tool definitions. */
 export function toAnthropicTools(openAiTools = []) {
   return openAiTools.map((tool) => {
@@ -19,12 +98,13 @@ export function toAnthropicTools(openAiTools = []) {
     const schema = fn.parameters && typeof fn.parameters === 'object'
       ? fn.parameters
       : { type: 'object', properties: {} };
+    const normalized = normalizeJsonSchemaDraft2020(schema);
     const input_schema = {
-      type: schema.type || 'object',
-      properties: schema.properties || {},
-      ...(Array.isArray(schema.required) ? { required: schema.required } : {}),
-      ...(schema.additionalProperties !== undefined
-        ? { additionalProperties: schema.additionalProperties }
+      type: normalized.type || 'object',
+      properties: normalized.properties || {},
+      ...(Array.isArray(normalized.required) ? { required: normalized.required } : {}),
+      ...(normalized.additionalProperties !== undefined
+        ? { additionalProperties: normalized.additionalProperties }
         : {}),
     };
     return {

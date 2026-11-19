@@ -1,0 +1,10 @@
+{
+  "file": "apps/api/.env",
+  "setting": "SWAG_RENDERER_EXECUTABLE",
+  "executable": "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "originalBytesPreserved": true,
+  "originalBytes": 3901,
+  "beforeHash": "c9f9a45a52dca554644c8d97123cf89b6a3567882998baa8544544f80d280aed",
+  "localOnly": true,
+  "restartRequired": true
+}

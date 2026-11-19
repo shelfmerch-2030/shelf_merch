@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { swagConfigureSchema } from './swagDesignWorkflow.js';
 import { z } from 'zod';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
@@ -19,7 +20,10 @@ const router = Router();
 router.use(authenticate, resolveTenant, requireTenantContext);
 
 const objectId = z.string().regex(/^[a-fA-F0-9]{24}$/);
-const attachmentKind = z.enum(['purchase_order', 'artwork', 'banner', 'file']);
+// Cheap revision-checked conversation interactions must not consume the AI/write confirmation quota.
+const swagInteractionLimit = rateLimit([{ prefix: 'copilot:swag:user', limit: 600, windowSec: 3600,
+  key: req => String(req.user?.userId || req.ip), critical: true }]);
+const attachmentKind = z.enum(['purchase_order', 'artwork', 'banner', 'file', 'swag_artwork']);
 
 const copilotUserLimit = rateLimit([
   {
@@ -51,7 +55,7 @@ const uploadLimit = rateLimit([
 function parseAttachmentKind(req, _res, next) {
   const parsed = attachmentKind.safeParse(String(req.query.kind || req.body?.kind || ''));
   if (!parsed.success) {
-    return next(new ApiError(400, 'kind must be purchase_order, artwork, banner, or file', 'VALIDATION'));
+    return next(new ApiError(400, 'kind must be purchase_order, artwork, banner, file, or swag_artwork', 'VALIDATION'));
   }
   req.attachmentKind = parsed.data;
   next();
@@ -167,6 +171,17 @@ router.post(
 );
 
 router.get('/conversations', asyncHandler(controller.list));
+router.get('/conversations/:id/artwork/:attachmentId', copilotUserLimit,
+  validate({ params: z.object({ id: objectId, attachmentId: objectId }) }), asyncHandler(controller.getSentSwagArtwork));
+
+router.get('/conversations/:id/swag', validate({ params: z.object({ id: objectId }) }), asyncHandler(controller.getSwag));
+router.post('/conversations/:id/swag', swagInteractionLimit, validate({ params: z.object({ id: objectId }),
+  body: swagConfigureSchema.extend({ revision: z.number().int().nonnegative(), interaction: z.enum(['targets', 'resume']).optional(), galleryEventId: z.string().min(1).max(180).optional() }) }), asyncHandler(controller.configureSwag));
+router.get('/conversations/:id/swag/catalog', validate({ params: z.object({ id: objectId }), query: z.object({
+  query: z.string().max(80).optional(), category: z.string().max(80).optional(), page: z.coerce.number().int().min(1).max(10000).optional(), limit: z.coerce.number().int().min(1).max(25).optional(), revision: z.coerce.number().int().nonnegative().optional(),
+}) }), asyncHandler(controller.browseSwag));
+router.post('/conversations/:id/swag/prepare', copilotUserLimit, validate({ params: z.object({ id: objectId }),
+  body: z.object({ revision: z.number().int().nonnegative(), action: z.enum(['save', 'publish', 'apply']) }).strict() }), asyncHandler(controller.prepareSwagReview));
 
 router.get(
   '/conversations/:id',

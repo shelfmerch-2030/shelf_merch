@@ -1,0 +1,275 @@
+{
+  "liveProvider": "anthropic",
+  "isolatedSyntheticCatalog": true,
+  "ordinaryChatMode": true,
+  "noDuplicateCards": true,
+  "officialRecordPricesAndImages": true,
+  "noBusinessWrites": true,
+  "checkedAt": "2026-11-11T05:30:49.057Z",
+  "turns": [
+    {
+      "request": "Suggest 20 creative Diwali gifting ideas for 100 Toast employees under ₹2,000 per person. No mugs, bottles or apparel.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Diwali / Festival",
+        "recipients": 100,
+        "budgetPerRecipient": 2000,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch"
+      },
+      "cards": 20,
+      "groups": [
+        {
+          "name": "Desk Productivity Set",
+          "kind": "combination",
+          "subtotal": 1400,
+          "total": 140000
+        },
+        {
+          "name": "Festive Stationery Collection",
+          "kind": "combination",
+          "subtotal": 1450,
+          "total": 145000
+        },
+        {
+          "name": "Mixed Desk Delights",
+          "kind": "combination",
+          "subtotal": 1280,
+          "total": 128000
+        },
+        {
+          "name": "Diwali Gift Kit",
+          "kind": "existing_kit",
+          "subtotal": 1500,
+          "total": 150000
+        },
+        {
+          "name": "Individual catalog alternatives",
+          "kind": "products"
+        }
+      ],
+      "usage": {
+        "promptTokens": 4667,
+        "completionTokens": 1043,
+        "totalTokens": 5710,
+        "estimatedCostUsd": 0.019764,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "request": "Show me 10 more.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Diwali / Festival",
+        "recipients": 100,
+        "budgetPerRecipient": 2000,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch"
+      },
+      "cards": 10,
+      "groups": [
+        {
+          "name": "Stationery Desk Set",
+          "kind": "combination",
+          "subtotal": 1680,
+          "total": 168000
+        },
+        {
+          "name": "Work Essentials Bundle",
+          "kind": "combination",
+          "subtotal": 1720,
+          "total": 172000
+        },
+        {
+          "name": "Festive Desk Duo",
+          "kind": "combination",
+          "subtotal": 950,
+          "total": 95000
+        }
+      ],
+      "usage": {
+        "promptTokens": 3811,
+        "completionTokens": 1392,
+        "totalTokens": 5203,
+        "estimatedCostUsd": 0.021542,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "request": "Make it more premium. Show 5 more options, keeping the same budget and exclusions.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Diwali / Festival",
+        "recipients": 100,
+        "budgetPerRecipient": 2000,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch",
+        "style": "premium"
+      },
+      "cards": 5,
+      "groups": [
+        {
+          "name": "Suggested catalog products",
+          "kind": "products"
+        }
+      ],
+      "usage": {
+        "promptTokens": 3475,
+        "completionTokens": 366,
+        "totalTokens": 3841,
+        "estimatedCostUsd": 0.01061,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "request": "Now suggest onboarding kits for 50 employees under ₹2,500 instead. Show 5 options.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Welcome / Onboarding",
+        "recipients": 50,
+        "budgetPerRecipient": 2500,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch",
+        "style": "premium"
+      },
+      "cards": 5,
+      "groups": [
+        {
+          "name": "Onboarding Desk Duo I",
+          "kind": "combination",
+          "subtotal": 2200,
+          "total": 110000
+        },
+        {
+          "name": "Onboarding Desk Duo II",
+          "kind": "combination",
+          "subtotal": 2200,
+          "total": 110000
+        },
+        {
+          "name": "Onboarding Welcome Kit",
+          "kind": "existing_kit",
+          "subtotal": 1000,
+          "total": 50000
+        }
+      ],
+      "usage": {
+        "promptTokens": 3494,
+        "completionTokens": 1041,
+        "totalTokens": 4535,
+        "estimatedCostUsd": 0.017398,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "request": "Suggest 5 employee appreciation gifts instead.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Employee appreciation",
+        "recipients": 50,
+        "budgetPerRecipient": 2500,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch",
+        "style": "premium"
+      },
+      "cards": 5,
+      "groups": [
+        {
+          "name": "Executive Desk Duo",
+          "kind": "combination",
+          "subtotal": 2200,
+          "total": 110000
+        },
+        {
+          "name": "Workspace Appreciation Pair",
+          "kind": "combination",
+          "subtotal": 2200,
+          "total": 110000
+        },
+        {
+          "name": "Individual catalog alternatives",
+          "kind": "products"
+        }
+      ],
+      "usage": {
+        "promptTokens": 3594,
+        "completionTokens": 826,
+        "totalTokens": 4420,
+        "estimatedCostUsd": 0.015448,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "request": "Forget the budget. Show 5 executive gifts.",
+      "brief": {
+        "company": "Toast",
+        "occasion": "Executive gifting",
+        "recipients": 50,
+        "currency": "INR",
+        "exclusions": [
+          "mugs",
+          "bottles",
+          "apparel"
+        ],
+        "source": "shelfmerch",
+        "style": "premium",
+        "preferences": [
+          "executive gifts"
+        ]
+      },
+      "cards": 5,
+      "groups": [
+        {
+          "name": "Executive Stationery Set",
+          "kind": "combination",
+          "subtotal": 3090,
+          "total": 154500
+        },
+        {
+          "name": "Executive Work Essentials",
+          "kind": "combination",
+          "subtotal": 2060,
+          "total": 103000
+        }
+      ],
+      "usage": {
+        "promptTokens": 3572,
+        "completionTokens": 875,
+        "totalTokens": 4447,
+        "estimatedCostUsd": 0.015894,
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5"
+      }
+    }
+  ]
+}

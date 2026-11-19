@@ -100,19 +100,19 @@ try {
         conversations.unshift(row); return json(row);
       }
       if (path === '/copilot/conversations') return json({ items: conversations });
-      if (path.endsWith('/messages') && JSON.parse(init.body || '{}').mode === 'curator') {
-        const request = JSON.parse(init.body);
-        window.__curatorExternal = /outside ShelfMerch/.test(request.content) || window.__curatorExternal;
-        const external = window.__curatorExternal;
-        const items = external ? [{ key: 'idea:wellness', kind: 'idea', name: 'A shared wellness experience', description: 'A guided session to help the team recharge.', source: 'inspiration', price: null, currency: null, availability: 'Availability unknown' }] : [
-          { key: 'product:fixture-desk', id: 'fixture-desk', kind: 'product', name: 'Desk focus set ? QA fixture', description: 'Isolated browser test fixture. No live product availability is implied.', source: 'shelfmerch', price: 1200, currency: 'INR', availability: 'In stock' },
-          { key: 'product:fixture-notes', id: 'fixture-notes', kind: 'product', name: 'Notebook ? QA fixture', description: 'Image intentionally unavailable in this test fixture.', source: 'shelfmerch', price: 450, currency: 'INR', availability: 'In stock' },
-        ];
-        const curation = { brief: { company: 'Toast', occasion: 'Welcome / Onboarding', recipients: 10, budgetPerRecipient: 3000, currency: 'INR', exclusions: ['mugs','bottles','apparel'], source: external ? 'external' : 'shelfmerch', style: 'Unique and practical' }, concepts: [{ id: 'qa-concept', name: external ? 'A moment to recharge' : 'First-day focus', rationale: external ? 'An experience that makes appreciation feel personal.' : 'Useful everyday essentials for a thoughtful start.', packaging: 'A reusable presentation box', kind: external ? 'inspiration' : 'catalog_combination', items, knownPerRecipient: external ? 0 : 1650, completePrice: !external, estimatedTotal: external ? null : 16500, overBudget: false }], suggestions: ['Show different products', 'Something more premium within my budget'], externalResearchAvailable: false, imageGenerationAvailable: false };
-        const events = [{ type: 'delta', text: external ? 'Ideas for inspiration ? availability and pricing not verified.' : 'Here are thoughtful options for your team. Select the items that feel right.' }, { type: 'artifacts', artifacts: [{ kind: 'curation', curation }] }, { type: 'done', conversationId: path.split('/')[3], title: 'Welcome gifts for Toast' }];
-        return new Response(events.map(e => `data: ${JSON.stringify(e)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
-      }
       if (path.endsWith('/messages')) {
+        if (window.__giftingAdvisorFixture) {
+          const id = path.split('/')[3];
+          const artifacts = [{ kind: 'curation', curation: { brief: { occasion: 'Welcome / Onboarding', recipients: 50, budgetPerRecipient: 2000, currency: 'INR' }, concepts: [], suggestions: [], externalResearchAvailable: false, imageGenerationAvailable: false,
+            chat: { requestedCount: 2, shownCount: 2, bounded: true, groups: [{ name: 'Team essentials — QA fixture', rationale: 'Isolated browser fixture; not live catalog results.', kind: 'combination', subtotal: 1300, total: 65000, budgetDifference: 700, completePrice: true, artifacts: [
+              { kind: 'product', product: { id: '507f1f77bcf86cd799439011', name: 'Branded cap — QA fixture', primaryImageUrl: '/assets/cap.png', sellingPriceInr: 800, variants: [{ stock: 100, color: 'Green' }] } },
+              { kind: 'product', product: { id: '507f1f77bcf86cd799439012', name: 'Cotton tote — QA fixture', primaryImageUrl: '/assets/tote.png', sellingPriceInr: 500, variants: [{ stock: 100 }] } },
+            ] }] },
+          } }];
+          window.__advisorSaved = { id, title: 'Gifting advisor browser QA', messages: [{ role: 'user', content: JSON.parse(init.body).content }, { role: 'assistant', content: 'Actual card rendering in the existing conversation. Browser fixtures only.', artifacts }] };
+          const events = [{ type: 'delta', text: window.__advisorSaved.messages[1].content }, { type: 'artifacts', artifacts }, { type: 'done', conversationId: id, title: 'Gifting advisor browser QA' }];
+          return new Response(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
+        }
         if (window.__copilotTest.fail) return new Response(JSON.stringify({ error: { message: 'AI provider rate limit — try again shortly' } }), { status: 429 });
         const id = path.split('/')[3];
         const encoder = new TextEncoder();
@@ -131,6 +131,7 @@ try {
       if (path.startsWith('/copilot/conversations/')) {
         const id = path.split('/').pop();
         if (init.method === 'DELETE') { conversations.splice(conversations.findIndex(c => c.id === id), 1); return json({ ok: true }); }
+        if (window.__giftingAdvisorFixture && window.__advisorSaved?.id === id) return json(window.__advisorSaved);
         return json({ id, title: conversations.find(c => c.id === id)?.title, messages });
       }
       if (path === '/tenants/me') return json({ name: 'Husain', slug: 'husain' });
@@ -140,44 +141,73 @@ try {
       return json([]);
     };
   };
-  await call('Page.addScriptToEvaluateOnNewDocument', { source: `window.__copilotDiscoveryProfiles = ${JSON.stringify(discoveryProfiles)}; (${fixture.toString()})()` });
+  await call('Page.addScriptToEvaluateOnNewDocument', { source: `window.__giftingAdvisorFixture = ${process.argv.includes('--gifting-advisor')}; window.__copilotDiscoveryProfiles = ${JSON.stringify(discoveryProfiles)}; (${fixture.toString()})()` });
   await call('Page.navigate', { url: 'http://localhost:8080/husain/copilot' });
   await poll('!!document.querySelector(".sm-copilot-welcome")');
   await pause(500);
-  if (process.argv.includes('--curator')) {
-    await evaluate(`document.querySelector('.sm-curator-entry').click()`);
-    await poll('!!document.querySelector(".sm-curator-active")');
-    await shot('curator-desktop-welcome');
-    const send = async text => {
-      await evaluate(`(() => { const input = document.getElementById('copilot-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, ${JSON.stringify(text)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-      await pause(150); await evaluate(`document.querySelector('[aria-label="Send message"]').click()`);
-      await poll('!!document.querySelector(".sm-curator-concept") && !document.querySelector(".sm-curator-active").getAttribute("aria-busy").includes("true")');
+  if (process.argv.includes('--gifting-advisor')) {
+    await evaluate(`(() => { const input = document.getElementById('copilot-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Suggest welcome gifts for 50 employees under INR 2000 each.'); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await pause(100); await evaluate(`document.querySelector('[aria-label="Send message"]').click()`);
+    await poll(`document.querySelectorAll('.sm-copilot-gift-group .sm-copilot-product').length === 2`);
+    await evaluate(`Promise.all(Array.from(document.querySelectorAll('.sm-copilot-product__img img')).map(image => image.decode()))`);
+    const activeId = await evaluate(`window.__advisorSaved.id`);
+    await evaluate(`document.querySelector('[data-conversation-id="welcome-kits"]').click()`);
+    await poll(`!document.querySelector('.sm-copilot-gift-group')`);
+    await evaluate(`document.querySelector('[data-conversation-id="${activeId}"]').click()`);
+    await poll(`!!document.querySelector('.sm-copilot-gift-group')`);
+    const viewports = [];
+    for (const width of [1440, 1024, 768, 390, 320]) {
+      await call('Emulation.setDeviceMetricsOverride', { width, height: 960, deviceScaleFactor: 1, mobile: width < 900 });
+      await pause(100);
+      const result = await evaluate(`({ width:innerWidth, overflow:document.documentElement.scrollWidth>innerWidth, cards:document.querySelectorAll('.sm-copilot-gift-group .sm-copilot-product').length, subtotal:document.querySelector('.sm-copilot-gift-group__cost').innerText.includes('65,000'), separateUi:!!document.querySelector('[class*="sm-curator"], [data-curator-tab]'), images:Array.from(document.querySelectorAll('.sm-copilot-product__img img')).every(image=>image.complete&&image.naturalWidth>0) })`);
+      if (result.overflow || result.separateUi || !result.subtotal || !result.images || result.cards !== 2) throw Error(JSON.stringify(result));
+      viewports.push(result);
+      if (width === 1440 || width === 390) await shot(`gifting-advisor-chat-${width}`);
+    }
+    const chatMode = await evaluate(`window.__copilotTest.requests.filter(request=>request.path.endsWith('/messages')).every(request=>JSON.parse(request.body).mode==='chat')`);
+    if (!chatMode || errors.length) throw Error(JSON.stringify({ chatMode, errors }));
+    await writeFile(new URL('gifting-advisor-browser-results.json', out), JSON.stringify({ fixtureMode: true, realRoute, historyReopened: true, explicitChatMode: chatMode, viewports, errors }, null, 2));
+    console.log('Gifting advisor inline-chat browser checks passed');
+  }
+  else if (process.argv.includes('--ui-removal')) {
+    const assertNormalChat = async () => {
+      if (!await evaluate(`!!document.querySelector('.sm-copilot-chat') && !!document.getElementById('copilot-input') && !document.querySelector('[class*="sm-curator"], [data-curator-tab]') && !Array.from(document.querySelectorAll('button')).some(b => /Curate Gifts|Normal Copilot/.test(b.textContent))`)) throw Error('Separate curator UI remains');
     };
-    await send('Unique welcome gifts for 10 Toast employees, ?3,000 each. No mugs, bottles or apparel.');
-    await shot('curator-desktop-recommendations');
-    await evaluate(`document.querySelector('.sm-curator-select').click()`);
-    await poll('!!document.querySelector(".sm-curator-shortlist")');
-    await evaluate(`document.querySelector('.sm-curator-results-wrap').scrollTop = document.querySelector('.sm-curator-results-wrap').scrollHeight`);
-    await shot('curator-desktop-shortlist');
-    const shortlist = await evaluate(`document.querySelector('.sm-curator-shortlist').innerText.includes('12,000')`);
-    if (!shortlist) throw Error('Shortlist total missing');
-    await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-    await evaluate(`document.getElementById('curator-chat-tab').click()`); await shot('curator-mobile-conversation');
-    await evaluate(`document.getElementById('curator-results-tab').click(); document.querySelector('.sm-curator-results-wrap').scrollTop = 0`); await shot('curator-mobile-recommendations');
-    const overflow = await evaluate('document.documentElement.scrollWidth > innerWidth');
-    if (overflow) throw Error('Mobile curator overflows');
-    await evaluate(`Array.from(document.querySelectorAll('.sm-curator-sources button')).find(b => b.textContent === 'Beyond ShelfMerch').click()`);
-    await poll(`document.getElementById('copilot-input').value.includes('outside ShelfMerch')`);
+    await assertNormalChat();
+    if (await evaluate(`document.querySelectorAll('[data-category-id]').length`) !== 6) throw Error('Capability categories missing');
+    await shot('ui-removal-desktop-welcome');
+    await evaluate(`document.querySelector('[data-conversation-id="welcome-kits"]').click()`);
+    await poll(`!!document.querySelector('.sm-copilot-transcript')`);
+    await assertNormalChat();
+    const setDraft = text => evaluate(`(() => { const input = document.getElementById('copilot-input'); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, ${JSON.stringify(text)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await setDraft('Remember Toast and our gifting requirements.');
+    await pause(100);
     await evaluate(`document.querySelector('[aria-label="Send message"]').click()`);
-    await poll(`document.body.innerText.includes('Ideas for inspiration')`);
-    await evaluate(`document.getElementById('curator-results-tab').click()`); await shot('curator-mobile-external');
-    await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 960, deviceScaleFactor: 1, mobile: false });
-    await evaluate(`document.querySelector('.sm-curator-results-wrap').scrollTop = 0`); await shot('curator-desktop-external');
-    await evaluate(`document.querySelector('.sm-curator-toolbar button').click()`);
-    await poll('!document.querySelector(".sm-curator-active")');
+    await poll(`document.body.innerText.includes('What is your preferred budget per person') && document.querySelector('[aria-label="AI conversation"]').getAttribute('aria-busy') === 'false'`);
+    const chatMode = await evaluate(`window.__copilotTest.requests.filter(r => r.path.endsWith('/messages')).every(r => JSON.parse(r.body).mode === 'chat')`);
+    if (!chatMode) throw Error('Normal chat sent a curator mode request');
+    await shot('ui-removal-desktop-chat');
+    const viewports = [];
+    for (const width of [320, 390, 768, 1024, 1440]) {
+      await call('Emulation.setDeviceMetricsOverride', { width, height: 844, deviceScaleFactor: 1, mobile: width < 900 });
+      await pause(150);
+      await assertNormalChat();
+      const result = await evaluate(`({ width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth, composerVisible: document.getElementById('copilot-input').getBoundingClientRect().height > 0 })`);
+      if (result.overflow || !result.composerVisible) throw Error(`Normal chat layout failed at ${width}px`);
+      viewports.push(result);
+      if (width === 390) {
+        await shot('ui-removal-mobile-chat');
+        await evaluate(`document.querySelector('[aria-label="Open conversation history"]').click()`);
+        await poll(`!!document.querySelector('[role="dialog"]')`);
+        await shot('ui-removal-mobile-history');
+        await call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' });
+        await call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape' });
+        await poll(`!document.querySelector('[role="dialog"]')`);
+      }
+    }
     if (errors.length) throw Error(JSON.stringify(errors));
-    await writeFile(new URL('curator-browser-results.json', out), JSON.stringify({ fixtureMode: true, productImagesIntentionallyUnavailable: true, realRoute, desktopSplit: true, mobileTabs: true, shortlist, overflow, sourceDrafted: true, normalChatRestored: true, errors }, null, 2));
-    console.log('Curator browser checks passed');
+    await writeFile(new URL('ui-removal-browser-results.json', out), JSON.stringify({ fixtureMode: true, realRoute, curatorUiAbsent: true, capabilityCategories: 6, historyLoaded: true, chatStreamRendered: true, explicitChatMode: chatMode, mobileHistoryOpened: true, viewports, errors }, null, 2));
+    console.log('Normal Copilot UI removal checks passed');
   }
   else if (process.argv.includes('--baseline')) { await shot('before'); console.log(JSON.stringify({ realRoute, errors })); }
   else {

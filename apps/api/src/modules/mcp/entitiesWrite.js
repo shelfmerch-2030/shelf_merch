@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ApiError, ForbiddenError, NotFoundError } from '../../utils/errors.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { writeAudit } from '../../services/audit.service.js';
+import { requireWalletForFinancialWrite } from '../../services/ledger.service.js';
 import { Entity } from '../entities/entity.model.js';
 import { assignManager, createEntity } from '../entities/entities.service.js';
 import { User } from '../users/user.model.js';
@@ -228,9 +229,7 @@ function setupKey(name, budget) {
 }
 
 async function loadWallet(tenantId, walletId) {
-  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
-  if (!wallet) throw new NotFoundError('Wallet not found');
-  return wallet;
+  return requireWalletForFinancialWrite({ tenantId, walletId });
 }
 
 async function findDepartment(tenantId, walletId, name) {

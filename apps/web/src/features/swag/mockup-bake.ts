@@ -627,7 +627,7 @@ export function resolveProductArtworkLayers(
 ): Array<{ artUrl: string; placement: Placement; areaKey: string }> {
   if (!listPrintAreas(product).length) return [];
   const primary = primaryAreaKey(product);
-  const fallback = fallbackArtworkUrl ? resolveMediaUrl(fallbackArtworkUrl) || fallbackArtworkUrl : "";
+  const fallback = product.inheritArtwork !== false && fallbackArtworkUrl ? resolveMediaUrl(fallbackArtworkUrl) || fallbackArtworkUrl : "";
   const map = product.areaPlacements;
   const out: Array<{ artUrl: string; placement: Placement; areaKey: string }> = [];
   const entries = map ? Object.entries(map) : [];
@@ -653,9 +653,9 @@ export function resolveProductArtworkLayers(
 
 /**
  * Collection-card / design preview props.
- * When the artwork step saved art on specific placeholders, preview only those.
- * A shared collection image must not be replayed from a bake that stamped it
- * onto every print area.
+ * Saved product mockups are authoritative for the default appearance, matching
+ * the storefront. Per-area artwork still drives intentional tint/angle previews
+ * and legacy products that have no saved bake.
  */
 export function savedDesignPreview(
   product: UiProduct,
@@ -665,6 +665,13 @@ export function savedDesignPreview(
   const hasAreaArtwork = Object.values(product.areaPlacements || {}).some((pl) =>
     Boolean(pl?.artworkUrl),
   );
+  if (product.inheritArtwork === false && !hasAreaArtwork) return { artworkUrl: undefined, preferBakedMockup: true };
+  if (product.mockupUrl || product.mockupBackUrl) {
+    return {
+      artworkUrl: hasAreaArtwork ? undefined : collectionArtworkUrl?.trim() || undefined,
+      preferBakedMockup: true,
+    };
+  }
   if (!areaCount) return { artworkUrl: undefined, preferBakedMockup: true };
   if (hasAreaArtwork) return { artworkUrl: undefined, preferBakedMockup: false };
   const shared = collectionArtworkUrl?.trim() ? collectionArtworkUrl : undefined;
@@ -839,7 +846,7 @@ export function collectBakeLayers(
     const draftKey = areaPlacementKey(product, idx, areaKey);
     const specific = areaArts[draftKey]?.preview || "";
     const artUrl =
-      specific || (!assigned.size && areaKey === primary ? fallbackArtUrl || "" : "");
+      specific || (!assigned.size && product.inheritArtwork !== false && areaKey === primary ? fallbackArtUrl || "" : "");
     if (!artUrl) return;
     out.push({
       areaKey,

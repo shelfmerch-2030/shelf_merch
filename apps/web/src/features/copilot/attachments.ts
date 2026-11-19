@@ -1,4 +1,4 @@
-export type CopilotAttachmentKind = "purchase_order" | "artwork" | "banner" | "file";
+export type CopilotAttachmentKind = "purchase_order" | "artwork" | "banner" | "file" | "swag_artwork";
 
 export type CopilotAttachmentStatus =
   | "selected"
@@ -22,6 +22,7 @@ export type CopilotAttachmentDraft = {
 };
 
 export const ATTACHMENT_ACCEPT: Record<CopilotAttachmentKind, string> = {
+  swag_artwork: ".png,image/png",
   purchase_order: ".pdf,application/pdf",
   artwork: ".png,image/png",
   banner: ".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/jpg,image/webp",
@@ -54,6 +55,7 @@ export const ATTACHMENT_LIMITS: Record<
   CopilotAttachmentKind,
   { maxBytes: number; label: string; extensions: string[] }
 > = {
+  swag_artwork: { maxBytes: 5 * 1024 * 1024, label: "Swag PNG artwork up to 5 MB (300 DPI required)", extensions: [".png"] },
   purchase_order: {
     maxBytes: 25 * 1024 * 1024,
     label: "PDF purchase orders up to 25 MB",
@@ -99,7 +101,7 @@ export function validateAttachmentFile(
     typeOk = options?.imagesOnly
       ? extOk || imageMimeOk || isReferenceImageFile(file)
       : extOk || imageMimeOk || pdfMimeOk;
-  } else if (kind === "artwork") {
+  } else if (kind === "artwork" || kind === "swag_artwork") {
     typeOk = extOk || (file.type || "") === "image/png";
   } else if (kind === "banner") {
     typeOk = extOk || /image\/(png|jpeg|jpg|webp)/i.test(file.type || "");
@@ -109,6 +111,7 @@ export function validateAttachmentFile(
 
   if (!typeOk) {
     if (kind === "purchase_order") return "Purchase orders must be PDF files.";
+    if (kind === "swag_artwork") return "Swag artwork must be a PNG. The designer's artwork validation applies on upload.";
     if (kind === "artwork") {
       return "Store logo artwork must be a PNG with 300 DPI metadata — use Reference product image for JPG/PNG product photos.";
     }

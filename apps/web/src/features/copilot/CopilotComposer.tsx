@@ -40,6 +40,8 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
+  { id: "swag_artwork", kind: "swag_artwork", label: "Swag design artwork",
+    hint: ATTACHMENT_LIMITS.swag_artwork.label, Icon: FileImage, accept: ATTACHMENT_ACCEPT.swag_artwork },
   {
     id: "reference_image",
     kind: "file",
@@ -90,6 +92,7 @@ export function CopilotComposer({
   onSend,
   busy,
   disabled,
+  sendBlocked = false,
   unavailable = false,
   attachments,
   onAttachmentsChange,
@@ -102,6 +105,7 @@ export function CopilotComposer({
   onSend: (value: string) => void;
   busy: boolean;
   disabled: boolean;
+  sendBlocked?: boolean;
   unavailable?: boolean;
   attachments: CopilotAttachmentDraft[];
   onAttachmentsChange: (rows: CopilotAttachmentDraft[]) => void;
@@ -143,9 +147,11 @@ export function CopilotComposer({
   const uploading = attachments.some((row) => row.status === "uploading" || row.status === "selected");
   const hasFailed = attachments.some((row) => row.status === "failed");
   const readyIds = attachments.filter((row) => row.status === "uploaded" && row.serverId);
+  const attachmentLocked = disabled || busy || sendBlocked;
   const canSend =
     !disabled &&
     !busy &&
+    !sendBlocked &&
     !unavailable &&
     !uploading &&
     !hasFailed &&
@@ -163,6 +169,7 @@ export function CopilotComposer({
     fileList: FileList | File[],
     options?: { imagesOnly?: boolean },
   ) {
+    if (sendBlocked) return;
     const files = Array.from(fileList);
     if (!files.length) {
       setPickerError(
@@ -212,7 +219,7 @@ export function CopilotComposer({
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragOver(false);
-    if (disabled || busy) return;
+    if (attachmentLocked) return;
     const files = event.dataTransfer.files;
     if (!files?.length) return;
     const file = files[0];
@@ -232,9 +239,8 @@ export function CopilotComposer({
     applyFiles(kind, files, { imagesOnly });
   }
 
-  return (
-    <div className="sm-copilot-composer-wrap">
-      {attachments.length || pickerError ? (
+  const composingLogo = attachments.some(row => row.kind === 'swag_artwork');
+  const attachmentRail = attachments.length || pickerError ? (
         <div className="sm-copilot-attach-rail" aria-live="polite">
           {pickerError ? (
             <p className="sm-copilot-attach-error" role="alert">
@@ -243,9 +249,9 @@ export function CopilotComposer({
           ) : null}
           <ul className="sm-copilot-attach-list">
             {attachments.map((row) => (
-              <li key={row.localId} className={`sm-copilot-attach-chip sm-copilot-attach-chip--${row.status}`}>
+              <li key={row.localId} className={`sm-copilot-attach-chip sm-copilot-attach-chip--${row.status}${row.kind === 'swag_artwork' ? ' sm-copilot-logo-draft' : ''}`}>
                 {row.previewUrl ? (
-                  <img src={row.previewUrl} alt="" className="sm-copilot-attach-thumb" />
+                  <img src={row.previewUrl} alt={row.kind === 'swag_artwork' ? 'Company logo draft' : ''} className="sm-copilot-attach-thumb" />
                 ) : (
                   <span className="sm-copilot-attach-glyph" aria-hidden="true">
                     {row.kind === "artwork" || row.kind === "banner" || row.mimeType.startsWith("image/") ? (
@@ -275,6 +281,7 @@ export function CopilotComposer({
                     type="button"
                     className="sm-copilot-attach-action"
                     aria-label={`Retry ${row.originalName}`}
+                    disabled={sendBlocked}
                     onClick={() => onRetryAttachment(row.localId)}
                   >
                     <RefreshCw size={14} aria-hidden="true" />
@@ -285,7 +292,7 @@ export function CopilotComposer({
                   className="sm-copilot-attach-action"
                   aria-label={`Remove ${row.originalName}`}
                   onClick={() => onRemoveAttachment(row.localId)}
-                  disabled={busy}
+                  disabled={busy || sendBlocked}
                 >
                   <X size={14} aria-hidden="true" />
                 </button>
@@ -293,13 +300,15 @@ export function CopilotComposer({
             ))}
           </ul>
         </div>
-      ) : null}
-
+      ) : null;
+  return (
+    <div className="sm-copilot-composer-wrap">
+      {!composingLogo && attachmentRail}
       <div
         className={`sm-copilot-composer-shell${dragOver ? " is-dragover" : ""}`}
         onDragEnter={(event) => {
           event.preventDefault();
-          if (!disabled && !busy) setDragOver(true);
+          if (!attachmentLocked) setDragOver(true);
         }}
         onDragOver={(event) => event.preventDefault()}
         onDragLeave={(event) => {
@@ -308,12 +317,13 @@ export function CopilotComposer({
         onDrop={onDrop}
       >
         <form
-          className="sm-copilot-composer"
+          className={`sm-copilot-composer${composingLogo ? ' sm-copilot-composer--logo' : ''}`}
           onSubmit={(event) => {
             event.preventDefault();
             if (canSend) onSend(draft);
           }}
         >
+          {composingLogo && attachmentRail}
           <div className="sm-copilot-attach-anchor">
             <button
               ref={plusRef}
@@ -322,7 +332,7 @@ export function CopilotComposer({
               aria-label="Add attachment"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              disabled={disabled || busy}
+              disabled={attachmentLocked}
               onClick={() => setMenuOpen((open) => !open)}
             >
               <Plus size={18} aria-hidden="true" />
@@ -374,7 +384,7 @@ export function CopilotComposer({
             onChange={(event) => onDraft(event.target.value)}
             onKeyDown={onKeyDown}
             onPaste={(event) => {
-              if (disabled || busy) return;
+              if (attachmentLocked) return;
               const items = event.clipboardData?.files;
               if (!items?.length) return;
               const file = items[0];
@@ -382,7 +392,7 @@ export function CopilotComposer({
               event.preventDefault();
               applyFiles("file", items, { imagesOnly: true });
             }}
-            placeholder={disabled ? "Chat is currently unavailable" : "Ask ShelfMerch Copilot…"}
+            placeholder={unavailable ? "Chat is currently unavailable" : "Ask ShelfMerch Copilot…"}
             disabled={disabled}
             readOnly={busy}
             aria-describedby="copilot-input-hint"

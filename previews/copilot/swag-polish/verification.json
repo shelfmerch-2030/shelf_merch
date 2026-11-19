@@ -1,0 +1,50 @@
+{
+  "status": "Focused frontend polish verified with isolated fixtures and mocked AI",
+  "passed": 339,
+  "failed": 0,
+  "pending": 0,
+  "results": [
+    {
+      "name": "frontend",
+      "passed": 338,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "browser-after",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "changedFiles": [
+    "apps/web/src/features/copilot/SwagStepMessage.tsx",
+    "apps/web/src/features/copilot/CopilotProductCards.tsx",
+    "apps/web/src/features/copilot/CopilotPage.tsx",
+    "apps/web/src/features/copilot/copilot.css",
+    "apps/web/src/features/copilot/CopilotSwagTimeline.test.tsx",
+    "apps/web/src/features/copilot/CopilotSwagPolish.test.tsx",
+    "apps/api/tests/copilot-swag-polish.browser-check.js"
+  ],
+  "preservedExistingFiles": 2503,
+  "modifiedExistingFiles": 5,
+  "newApplicationTestFiles": 2,
+  "backendSourceUnchanged": true,
+  "existingTypeScriptDiagnostics": 26,
+  "newTypeScriptDiagnostics": 0,
+  "browserExecuteRequests": 0,
+  "browserCollections": 0,
+  "browserWidths": [
+    1440,
+    390,
+    320
+  ],
+  "screenshots": [
+    "01-unselected",
+    "02-selected",
+    "03-hovered",
+    "04-selected-summary",
+    "05-logo-prompt",
+    "06-mobile-cards-summary"
+  ]
+}

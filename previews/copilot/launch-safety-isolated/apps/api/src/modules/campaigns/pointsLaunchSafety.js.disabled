@@ -1,0 +1,130 @@
+import mongoose from 'mongoose';
+import { Campaign } from './campaign.model.js';
+import { Recipient } from './recipient.model.js';
+import { Entity } from '../entities/entity.model.js';
+import { Shop } from '../shops/shop.model.js';
+import { WalletTransaction } from '../wallets/walletTransaction.model.js';
+import { recoveryHash, durableState } from '../../utils/recoveryHash.js';
+import { ApiError } from '../../utils/errors.js';
+
+export const launchLost = () => new ApiError(409, 'Launch ownership was lost', 'LAUNCH_LEASE_LOST');
+export const launchChanged = () => new ApiError(409, 'The approved launch has changed and needs review', 'LAUNCH_MANIFEST_MISMATCH');
+export function recipientIdentity(row) {
+  return { id: String(row._id), campaignId: String(row.campaignId), name: row.name, email: row.email,
+    phone: row.phone || '', contactId: row.contactId ? String(row.contactId) : null, tokenHash: recoveryHash(row.redemptionToken) };
+}
+
+export async function pointsLaunchBinding(tenantId, campaignId, user, session = null) {
+  const campaign = await Campaign.findOne({ tenantId, _id: campaignId }).session(session).lean();
+  if (!campaign) throw launchChanged();
+  const { _id, tenantId: _tenant, status, launchLease, launchApproval, ...config } = durableState(campaign);
+  config.schedule = { mode: campaign.schedule?.mode || 'now', sendAt: campaign.schedule?.sendAt || null, timezone: campaign.schedule?.timezone || 'Asia/Kolkata' };
+  const recipients = await Recipient.find({ tenantId, campaignId }).sort({ _id: 1 }).session(session).lean();
+  const entity = await Entity.findOne({ tenantId, _id: campaign.entityId }).session(session).lean();
+  if (!entity) throw launchChanged();
+  const shop = campaign.shopId ? await Shop.findOne({ tenantId, _id: campaign.shopId }).session(session).lean() : null;
+  if (campaign.shopId && !shop) throw launchChanged();
+  const binding = { config, recipients: recipients.map(recipientIdentity), walletId: String(entity.walletId),
+    fundingScope: user.scopeType === 'entity' ? 'department_budget' : 'organization_unallocated',
+    shop: shop ? { id: String(shop._id), name: shop.name, status: shop.status, currencyMode: shop.currencyMode, pointsConversionEnabled: shop.pointsConversionEnabled } : null };
+  return { version: 1, hash: recoveryHash(binding), ...binding };
+}
+
+export function leaseFilter(campaign, lease) {
+  return { tenantId: campaign.tenantId, _id: campaign._id, 'launchLease.owner': lease.owner,
+    'launchLease.fence': lease.fence, 'launchLease.expiresAt': { $gt: new Date() } };
+}
+
+// Touching the campaign in the same transaction as the ledger serializes takeover
+// against debit and state persistence. No stale transaction can commit later.
+export async function touchLaunch(campaign, lease, session = null) {
+  const owned = await Campaign.updateOne(leaseFilter(campaign, lease), { $set: { 'launchLease.expiresAt': new Date(Date.now() + 30000) } }, { session });
+  if (owned.matchedCount !== 1) throw launchLost();
+}
+
+export async function withPointsLaunch(campaign, lease, user, expectedHash, persist) {
+  const session = await mongoose.startSession();
+  try {
+    let committed;
+    await session.withTransaction(async () => {
+      await touchLaunch(campaign, lease, session);
+      const current = await Campaign.findOne({ tenantId: campaign.tenantId, _id: campaign._id }).select('+launchApproval').session(session);
+      const binding = await pointsLaunchBinding(campaign.tenantId, campaign._id, user, session);
+      const approved = current.launchApproval;
+      if ((expectedHash && expectedHash !== binding.hash) || (approved && approved.hash !== binding.hash)) throw launchChanged();
+      const debit = await WalletTransaction.findOne({ tenantId: campaign.tenantId, idempotencyKey: `campaign_spend:${campaign._id}` }).session(session);
+      if (debit && (debit.type !== 'campaign_spend' || String(debit.walletId) !== binding.walletId || debit.amount !== -Math.round(current.totalBudget)
+        || String(debit.relatedEntityId || '') !== (binding.fundingScope === 'department_budget' ? String(current.entityId) : ''))) {
+        throw new ApiError(409, 'The recorded debit does not match this launch', 'LAUNCH_DEBIT_MISMATCH');
+      }
+      if (['launched', 'redemption_open'].includes(current.status) && current.paymentMode === 'wallet' && current.totalBudget > 0 && !debit) {
+        throw new ApiError(409, 'This launch has no verified debit', 'LAUNCH_DEBIT_MISMATCH');
+      }
+      current.launchApproval = approved || binding;
+      // Lock all confirmed rows against concurrent edits during the transaction.
+      await Recipient.updateMany({ tenantId: campaign.tenantId, campaignId: campaign._id, _id: { $in: binding.recipients.map(row => row.id) } },
+        { $set: { launchBindingHash: binding.hash } }, { session });
+      await persist(session, current);
+      committed = current;
+    });
+    committed.$session(null);
+    return committed;
+  } catch (error) {
+    if (error?.name === 'DocumentNotFoundError') throw launchLost();
+    throw error;
+  } finally { campaign.$session(null); await session.endSession(); }
+}
+
+export async function assertPointsLaunch(campaign, lease, user) {
+  if (campaign.type !== 'points') return;
+  const fresh = await Campaign.findOne(leaseFilter(campaign, lease)).select('+launchApproval');
+  if (!fresh) throw launchLost();
+  if (!['launched', 'redemption_open'].includes(fresh.status)) throw launchChanged();
+  if (!fresh.launchApproval || (await pointsLaunchBinding(campaign.tenantId, campaign._id, user)).hash !== fresh.launchApproval.hash) throw launchChanged();
+  return fresh;
+}
+
+// Recipient claims are serialized with the execution fence, and the caller sends
+// only to the identity returned by this exact-match claim. A claimed delivery is
+// never retried merely because its acknowledgement was lost.
+export async function claimPointsInvitation(campaign, lease, user, recipient) {
+  const session = await mongoose.startSession();
+  try {
+    let claimed;
+    await session.withTransaction(async () => {
+      await touchLaunch(campaign, lease, session);
+      const fresh = await Campaign.findOne({ tenantId: campaign.tenantId, _id: campaign._id }).select('+launchApproval').session(session);
+      if (!['launched', 'redemption_open'].includes(fresh.status)) throw launchChanged();
+      const binding = await pointsLaunchBinding(campaign.tenantId, campaign._id, user, session);
+      if (!fresh.launchApproval || fresh.launchApproval.hash !== binding.hash) throw launchChanged();
+      const expected = fresh.launchApproval.recipients.find(row => row.id === String(recipient._id));
+      if (!expected || recoveryHash(expected) !== recoveryHash(recipientIdentity(recipient))) throw launchChanged();
+      claimed = await Recipient.findOneAndUpdate({ tenantId: campaign.tenantId, _id: recipient._id, name: expected.name, email: expected.email,
+        phone: expected.phone, contactId: expected.contactId, invitedAt: null, inviteClaimedAt: null, launchBindingHash: fresh.launchApproval.hash },
+      { $set: { inviteClaimedAt: new Date() } }, { session, returnDocument: 'after' });
+    });
+    return claimed;
+  } finally { await session.endSession(); }
+}
+
+export async function dispatchPointsInvitation(campaign, lease, user, recipient, send) {
+  const session = await mongoose.startSession();
+  try {
+    // The claim was committed separately. Hold ownership through notification
+    // submission, so takeover cannot race the check/send boundary. Never use a
+    // retried transaction callback around an external side effect.
+    session.startTransaction();
+    await touchLaunch(campaign, lease, session);
+    const fresh = await Campaign.findOne({ tenantId: campaign.tenantId, _id: campaign._id }).select('+launchApproval').session(session);
+    if (!['launched', 'redemption_open'].includes(fresh.status)) throw launchChanged();
+    if (!fresh.launchApproval || fresh.launchApproval.hash !== (await pointsLaunchBinding(campaign.tenantId, campaign._id, user, session)).hash) throw launchChanged();
+    await send();
+    await touchLaunch(campaign, lease, session);
+    if (recipient) await Recipient.updateOne({ tenantId: campaign.tenantId, _id: recipient._id, inviteClaimedAt: recipient.inviteClaimedAt, invitedAt: null },
+      { $set: { invitedAt: new Date() } }, { session });
+    await session.commitTransaction();
+  } catch (error) {
+    if (session.inTransaction()) await session.abortTransaction();
+    throw error;
+  } finally { await session.endSession(); }
+}

@@ -12,6 +12,42 @@ describe('curator constraints and provenance', () => {
     expect(curatorSource('Show me products not from ShelfMerch')).toBe('external');
     expect(curatorSource('Show more unusual products', 'external')).toBe('external');
     expect(curatorSource('Switch to ShelfMerch catalog', 'external')).toBe('shelfmerch');
+    expect(curatorSource('No external products please', 'external')).toBe('shelfmerch');
+    expect(curatorSource('Outside of ShelfMerch please')).toBe('external');
+    expect(curatorSource('Only ShelfMerch, no external gifts', 'external')).toBe('shelfmerch');
+  });
+  it('recalculates a total budget when recipients change and accepts a new per-person budget', () => {
+    const brief = mergeBrief({}, {}, 'Welcome gifts for 10 employees, total budget ₹30,000');
+    expect(brief.budgetPerRecipient).toBe(3000);
+    const revised = mergeBrief(brief, {}, 'For 20 employees');
+    expect(revised.budgetPerRecipient).toBe(1500);
+    expect(mergeBrief(revised, {}, '₹2,000 each')).toMatchObject({ budgetPerRecipient: 2000 });
+    expect(mergeBrief(revised, { budgetPerRecipient: 2000 }, 'Make it 2000 each').totalBudget).toBeUndefined();
+  });
+  it('allows an explicitly removed exclusion without adding it again', () => {
+    expect(mergeBrief({ exclusions: ['mugs', 'bags'] }, { exclusions: ['bags'] }, 'No longer exclude mugs', true).exclusions).toEqual(['bags']);
+  });
+  it('includes active curated kits, excludes unavailable kits and keeps customer-safe fields', async () => {
+    const items = await readCuratorCandidates({ brief: { source: 'shelfmerch', currency: 'INR', budgetPerRecipient: 3000 }, queries: [], role: 'company_admin', read: async name => ({ result: { items: name === 'kits_list_curated' ? [
+      { id: 'active', name: 'Desk kit', status: 'active', priceInr: 2000, products: [{ name: 'Lamp', stockLabel: 'In stock' }] },
+      { id: 'empty', name: 'Unavailable kit', status: 'active', priceInr: 1000, products: [{ name: 'Lamp', stockLabel: 'Out of stock' }] },
+      { id: 'unknown', name: 'Unknown price kit', status: 'active', priceInr: 0 },
+    ] : name === 'catalog_search' ? [{ id: 'p', name: 'Lamp', sellingPriceInr: 1200, sku: 'INTERNAL', variants: [{ stock: 99999 }] }] : [] } }) });
+    expect(items.map(i => i.id)).toEqual(['p', 'active', 'unknown']);
+    expect(items.find(i => i.id === 'unknown').price).toBeNull();
+    expect(JSON.stringify(items)).not.toMatch(/99999|INTERNAL/);
+  });
+  it('gives distinct external ideas distinct selection keys across refinements', () => {
+    const make = name => buildConcepts({ concepts: [{ name: 'Theme', ideas: [{ name, description: 'A thoughtful gift' }] }] }, [], { source: 'external' })[0].items[0].key;
+    expect(make('Cooking class')).not.toBe(make('Wellness class'));
+  });
+  it('retains kit candidates even when product searches fill the candidate limit', async () => {
+    let page = 0;
+    const items = await readCuratorCandidates({ brief: { source: 'shelfmerch' }, queries: ['desk', 'wellness'], role: 'company_admin', read: async name => ({ result: { items: name === 'catalog_search'
+      ? Array.from({ length: 12 }, (_, i) => ({ id: `p${page++}:${i}`, name: 'Desk item', sellingPriceInr: 100 }))
+      : name === 'kits_list_curated' ? [{ id: 'kit', name: 'Welcome kit', status: 'active', priceInr: 1000 }] : [] } }) });
+    expect(items).toHaveLength(CURATOR_LIMITS.candidates);
+    expect(items.some(item => item.id === 'kit')).toBe(true);
   });
   it('does not call any catalog reader for external inspiration', async () => {
     let called = false;

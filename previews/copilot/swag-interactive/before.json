@@ -1,0 +1,538 @@
+﻿[
+    {
+        "hash":  "0A6FBF051DAB6D2608356F8699D64B9FA74A03BCD7E1B4DC550DBDB3DC4ADFD9",
+        "path":  "apps/api/src/modules/campaigns/allocationRecovery.js"
+    },
+    {
+        "hash":  "5418C959D2901CA3C2C2DC4F5C359DBC1810A71FA6E84DFF631DB0348BD5F03A",
+        "path":  "apps/api/src/modules/campaigns/pointsApprovalGuard.js"
+    },
+    {
+        "hash":  "6141C927D4C61169E22F9BC54123AA5A13A110862E95BF378E37E51981B81BF4",
+        "path":  "apps/api/src/modules/campaigns/pointsLaunch.service.js"
+    },
+    {
+        "hash":  "7CF8B0019416271FE2DB0C66C6707E059CF89497B4EB9467715F707589551003",
+        "path":  "apps/api/src/modules/campaigns/pointsScope.d.ts"
+    },
+    {
+        "hash":  "F005C47C112E77A396555F0D528E14E8A223C71EEE75232F35F88D6EAEB8C4A3",
+        "path":  "apps/api/src/modules/campaigns/pointsScope.js"
+    },
+    {
+        "hash":  "A05F5C82AEA94487B5E1FD16AFDD02D0ADDE74D30680A022BDDE4D77FA21C21A",
+        "path":  "apps/api/src/modules/collections/collectionDesign.service.js"
+    },
+    {
+        "hash":  "80E1B4E46294AC803E398AC019CA92C5AE45AEE2E572557E6A4BB4429BB794F3",
+        "path":  "apps/api/src/modules/copilot/copilotWriteState.service.js"
+    },
+    {
+        "hash":  "60921A272E266A35E15716FB05AB87DBEA3610162995C1B8047A41AF6487BD2D",
+        "path":  "apps/api/src/modules/copilot/giftingAdvisor.js"
+    },
+    {
+        "hash":  "04FC81DB68DF90FE09C8F9B00BBA2AFAC524807E5D8A8C69C76CC121AA6A403F",
+        "path":  "apps/api/src/modules/copilot/giftingAdvisor.service.js"
+    },
+    {
+        "hash":  "F6A4386E1E8AB65BDB1E603288E92D89562475CB06C93257B89478B0242DC83C",
+        "path":  "apps/api/src/modules/copilot/giftingCatalogRead.js"
+    },
+    {
+        "hash":  "20B96DC3DE8E4F26DF65B12FA2F48B012E5A840882CB74B80E2AFF4A7552A7E3",
+        "path":  "apps/api/src/modules/copilot/sendPointsWorkflow.js"
+    },
+    {
+        "hash":  "68401B3C4852983D1EBD736CB35F845091915FFC3AB5DBCD5587107A5B159B5B",
+        "path":  "apps/api/src/modules/copilot/swagDesignWorkflow.js"
+    },
+    {
+        "hash":  "07537B02E80D41EC877A694BA5591E59D031A4778A6986968DDF118E8F80B2AD",
+        "path":  "apps/api/src/modules/mcp/pointsDraftRecovery.js"
+    },
+    {
+        "hash":  "F42544351E1A01BAE6AA9C465EC5AA1E2B86282107E832EBDACA70D713D16CC0",
+        "path":  "apps/api/src/modules/mcp/pointsPresentation.js"
+    },
+    {
+        "hash":  "EAE47C49F66D342C8C5FC26D3D71A111E4818303A53925A244BC5E0644C8D56B",
+        "path":  "apps/api/src/utils/recoveryHash.js"
+    },
+    {
+        "hash":  "623EF7347BB83D983816C82A5BAAF7E18A95A89D430C2498EA9EEEA7C92505C8",
+        "path":  "apps/api/tests/combined-send-points.test.js"
+    },
+    {
+        "hash":  "242E3DA06B00F4A5553F44BFEE023F6097F3062A12CFD7EEDA13B79177DBDC73",
+        "path":  "apps/api/tests/copilot-anthropic-schema-live.test.js"
+    },
+    {
+        "hash":  "BE0E2F91414B4A4B85AED87FFC049FDD4DB024C176220BDEDB152FA564679A14",
+        "path":  "apps/api/tests/copilot-budget-confirmation.test.js"
+    },
+    {
+        "hash":  "F6F894AC7166A9D901B35A26E258470EB5E765805B35CD10741EC9F392B385A5",
+        "path":  "apps/api/tests/copilot-gifting-advisor-live.test.js"
+    },
+    {
+        "hash":  "FF1076EEB18DD5200A845941951FA8638547449858C6E897648A541335DF030B",
+        "path":  "apps/api/tests/copilot-gifting-advisor.test.js"
+    },
+    {
+        "hash":  "5650E56D13ED6BF9CAFED2CFB3BA1FA5C8338D06C254E2355C889BDC3EB6F6AE",
+        "path":  "apps/api/tests/copilot-send-points-readiness.test.js"
+    },
+    {
+        "hash":  "67DD4D3AEE40F94E8352174AC0D67819183375ABD8F6E9DE87BFEBA757AE47B2",
+        "path":  "apps/api/tests/copilot-store-currency-guidance.test.js"
+    },
+    {
+        "hash":  "68F63CEEE7CFFF6C46F6DF5873440C394E465F70E46E7D36FB6017318FBF0881",
+        "path":  "apps/api/tests/copilot-swag-chat.test.js"
+    },
+    {
+        "hash":  "F695F4A30474A517511AC20F64225384BA14AACD96F64FAF3F49EB2D24F46C39",
+        "path":  "apps/api/tests/copilot-swag-design.test.js"
+    },
+    {
+        "hash":  "B9ACEE8E84F56A0AA3BB10745104A49F7031AB39270926369A22F4F87DB223D5",
+        "path":  "apps/api/tests/copilot-ui-removal-live.test.js"
+    },
+    {
+        "hash":  "1053DD8D1137ACF6D2D46BD69D2434B6D818965CBBF171F54D19E0B64FEF2952",
+        "path":  "apps/api/tests/copilot-write-state.test.js"
+    },
+    {
+        "hash":  "9F60A0E3A1BC5C22249E6AEF571355320D916D36559C5ADC60456D8900A6EB48",
+        "path":  "apps/api/tests/curator-live-smoke.test.js"
+    },
+    {
+        "hash":  "B70399819B336D52AA90AE33AF6D35A29246139F75D7120A63CCA5F8140BAC70",
+        "path":  "apps/api/tests/financial-wallet-integrity.test.js"
+    },
+    {
+        "hash":  "F6A275AA37795DBFE07193582A6E5D60474C80EFA6DEEA5175D1E06353897B89",
+        "path":  "apps/api/tests/points-invitation-notify.test.js"
+    },
+    {
+        "hash":  "479E5E50C824449227A53A30554AEB3D79E4747AAE3B0A30EECAC6F3FF30E7E9",
+        "path":  "apps/api/tests/points-launch-acceptance.test.js"
+    },
+    {
+        "hash":  "7B5960792452F9A9182D8052D1FB1B3165989926856BA510838C37172C776EFC",
+        "path":  "apps/api/tests/send-points-recovery-prerequisites.test.js"
+    },
+    {
+        "hash":  "37E052558136AC436916708C6B9A7839886879756B8A367848DEE637C55879DD",
+        "path":  "apps/web/public/images/in-office-swag/swag-corner.jpeg"
+    },
+    {
+        "hash":  "121479BC5B352403B6BF7A8EC02F2DAFAE5380CAE24BE49F7F707FE182613B1E",
+        "path":  "apps/web/public/images/in-office-swag/swag-shelf.jpeg"
+    },
+    {
+        "hash":  "C37AE45956D3B6577A01D847F653DE903AB20AFB4AFEFBB8790096D2C59CF8FF",
+        "path":  "apps/web/public/images/in-office-swag/swag-wall.jpeg"
+    },
+    {
+        "hash":  "DC72D5390B506B9FC36BA184DCAD5A5844CBCD89E812F03DABB57989FEA02EBE",
+        "path":  "apps/web/public/images/landing/hero-cap-tote-accent-v1.webp"
+    },
+    {
+        "hash":  "5F711A02887B29D70CBF1B6AF584BF5529D1CBC08BD8D881A4D45CCBD960FA9A",
+        "path":  "apps/web/src/components/landing/header-office-link.css"
+    },
+    {
+        "hash":  "55FCC69E9B1A04212ABD163841B36B8B8B111553F5595DBCADA0FC052CD2A3F2",
+        "path":  "apps/web/src/features/copilot/CopilotCombinedPoints.test.tsx"
+    },
+    {
+        "hash":  "FF834CF766F48B22DEB2F02A8792E274F771A532CB2FEBBF52B7CC17AE82969A",
+        "path":  "apps/web/src/features/copilot/CopilotGiftingChat.test.tsx"
+    },
+    {
+        "hash":  "89FF6F2FB554D16D61E54DEF9A5779C3F1474088E2E604A9658590CB4044121B",
+        "path":  "apps/web/src/features/copilot/CopilotPresentation.test.tsx"
+    },
+    {
+        "hash":  "0A23C62C927C1B4B29DD73A1FCAA72704151D55B1C825BD76ABA3AB8C4EC68F3",
+        "path":  "apps/web/src/features/copilot/CopilotSendPoints.test.tsx"
+    },
+    {
+        "hash":  "4D979555399E9DE7E8CF55183C7DDF86A09A1B4BC829DE5D345E85E24FD81C36",
+        "path":  "apps/web/src/features/copilot/CopilotSendPointsOutcome.test.tsx"
+    },
+    {
+        "hash":  "B923C3660AE9CE8F4FF89497204483D5B26B40A3CC547927C53F1A1D2A9993AD",
+        "path":  "apps/web/src/features/copilot/CopilotSwagDesign.test.tsx"
+    },
+    {
+        "hash":  "840D31D3F4AE582B564E197D0B00A61194FE89A5A944C9DFA308E8BA5804CFF9",
+        "path":  "apps/web/src/features/copilot/CopilotUserMessage.tsx"
+    },
+    {
+        "hash":  "7754587B34B12F0ECF79E58CB6F9DEC3F4425D9B798C4663FFA9D3A6974DE3C0",
+        "path":  "apps/web/src/features/copilot/SwagSavedPreviews.tsx"
+    },
+    {
+        "hash":  "89A2FBF9916994E6F9CF66CD11E3C9E8F137E30FFDD9DC39CE4F1E4456A8EA51",
+        "path":  "apps/web/src/features/copilot/actionPresentation.ts"
+    },
+    {
+        "hash":  "723132D4E7E497E6EA0F0039209122310DAE598C34C58ABF2A027EF20ED61D19",
+        "path":  "apps/web/src/features/copilot/curatorTypes.test.ts"
+    },
+    {
+        "hash":  "48313A25ACA96355BCABE66AAF3B1BDB0E96A49D01A58111716E6F58BD2240A8",
+        "path":  "apps/web/src/features/copilot/sendPointsOutcomeMessage.ts"
+    },
+    {
+        "hash":  "20AC442CAD2C3D2973BE4BACD9C7EFC7448B23759ADDF10BEE22D5F82F2B7EC7",
+        "path":  "apps/web/src/features/copilot/swagPresentation.ts"
+    },
+    {
+        "hash":  "9796FFC8979F397F093F4EA3980FC9C45E5491AFEA29536EC7FF0C4983C7AE5F",
+        "path":  "apps/web/src/features/marketing/InOfficeSwagStorePage.tsx"
+    },
+    {
+        "hash":  "8DD90E776CEA5D9648C38B7CA128FE77DDFA6023BEE31D5DCDC89CFCAAEE2BF8",
+        "path":  "apps/web/src/features/marketing/in-office-swag-store.css"
+    },
+    {
+        "hash":  "207F79ED67E98F4DE1D0C551DB20B0158D102154B39BFD224EDD2FE820E2D926",
+        "path":  "apps/web/src/features/shops/tabs/ShopLayoutTab.test.tsx"
+    },
+    {
+        "hash":  "4F3D9B2D7AA92C8E2E7D6FA412063587C4B4DEB58D39C5A61300AD0981EBC693",
+        "path":  "apps/web/src/seo/usePublicSeo.test.tsx"
+    },
+    {
+        "hash":  "191B0A48955E732477DD8A45D7E437286CAAE5DDE260B13D3DCF1EF9AA59D3B2",
+        "path":  "apps/web/src/services/pointsLaunchApproval.test.ts"
+    },
+    {
+        "hash":  "5D88E22A31EDBFBE19542F526F389E60E7BF3EA9DEADAD4DB4B354AD66414B69",
+        "path":  "apps/api/src/jobs/scheduledCampaign.worker.js"
+    },
+    {
+        "hash":  "24BA2EEC207C6257A2A9D4F10752E7827775BD1ABD65723B03FF7C33FCA5B977",
+        "path":  "apps/api/src/modules/campaigns/campaign.model.js"
+    },
+    {
+        "hash":  "8D77414ADF3051DB91726782674846508B03E528277CE441C1AFFD6AD8B8C61D",
+        "path":  "apps/api/src/modules/campaigns/campaignOperation.js"
+    },
+    {
+        "hash":  "EA61AB34D077F00A9E03E67BAACBA9D3F1B920C849F30FA0A9156A03CDF84C37",
+        "path":  "apps/api/src/modules/campaigns/campaigns.controller.js"
+    },
+    {
+        "hash":  "834325ABA998BE2CD5257A5E86A70CF57F52DA436481B64E574561A809A9D74C",
+        "path":  "apps/api/src/modules/campaigns/campaigns.service.js"
+    },
+    {
+        "hash":  "1A41948026718433A196ADA1B79D0EE05EFC6FD65E99936AF87CB353C40D087A",
+        "path":  "apps/api/src/modules/campaigns/campaigns.validation.js"
+    },
+    {
+        "hash":  "3E3A60006A588D2F51A94278BF0D519509FB3A539847A7C6EC0577BA22F80146",
+        "path":  "apps/api/src/modules/campaigns/recipient.model.js"
+    },
+    {
+        "hash":  "2088DBEBE334BF3363387E96493D6679A30AD4D4F93DCF699BF37BADB6D524FB",
+        "path":  "apps/api/src/modules/collections/collections.routes.js"
+    },
+    {
+        "hash":  "B820CE08DC0EFA770AED4C2DF89D902D1106752B6B2B4BE859E4155AFBC0239D",
+        "path":  "apps/api/src/modules/copilot/copilot.controller.js"
+    },
+    {
+        "hash":  "FC9505AB1AF51D4581B9B0333AEC3658D45DED72A0BF875472F4F055AAC9E5FA",
+        "path":  "apps/api/src/modules/copilot/copilot.routes.js"
+    },
+    {
+        "hash":  "0A0D4BE204C75517A0D5A956CA0956345CDE522041613D714972EE36F65909DE",
+        "path":  "apps/api/src/modules/copilot/copilotAttachment.model.js"
+    },
+    {
+        "hash":  "5B270D7A5D724CAAE94C205DD37D6121057084DEFA3D20CB788AEA809314FE7D",
+        "path":  "apps/api/src/modules/copilot/copilotAttachments.service.js"
+    },
+    {
+        "hash":  "A9C42A8E554A94422BCFEEBCD7B3E2BAF1F7E6966CB827352F9EB77532556679",
+        "path":  "apps/api/src/modules/copilot/copilotChat.service.js"
+    },
+    {
+        "hash":  "015A6B715437D90E5894717711BF2E04AAA3FC74E245295DC73300EF81DE5C5D",
+        "path":  "apps/api/src/modules/copilot/copilotConversation.model.js"
+    },
+    {
+        "hash":  "13E0386018E2E7B803CDA3080F5A2BC837BD4DE6A8219E601719318E81BEED88",
+        "path":  "apps/api/src/modules/copilot/copilotCurator.service.js"
+    },
+    {
+        "hash":  "DAD827A0339CFD7EC2343FC7EA58ECF43097EBDED96536A167EE0F55FDDF933B",
+        "path":  "apps/api/src/modules/copilot/copilotDiscovery.js"
+    },
+    {
+        "hash":  "10C9E85BBB0A28FD4A330144AF97C485BA783C7E65ACB7D5BD085656C923F2F3",
+        "path":  "apps/api/src/modules/copilot/copilotMcpCatalog.js"
+    },
+    {
+        "hash":  "FC7F4327F76242BE845CE39728A2D58D1D451818F9512686D805F84823E810F3",
+        "path":  "apps/api/src/modules/copilot/copilotToolBindings.js"
+    },
+    {
+        "hash":  "BC9BC3573D61A78AFF55CEAAB9EA42E7C537E9BCB4355CCF73E9B12F135056D7",
+        "path":  "apps/api/src/modules/copilot/copilotTools.js"
+    },
+    {
+        "hash":  "0A20886CF1703D8F2ABB1216022D31195A01B711E58622275A4206F11B9AB010",
+        "path":  "apps/api/src/modules/copilot/copilotWrites.service.js"
+    },
+    {
+        "hash":  "A56038EFC2FFB619BCBFD9012FC70741D2CE2C38FD90E0A71277B72AE8AB16A4",
+        "path":  "apps/api/src/modules/copilot/curator.js"
+    },
+    {
+        "hash":  "498564350C8104BFA6EEB4B059B6CF1D85A4B2A68FD9B458179DBC96164808F8",
+        "path":  "apps/api/src/modules/copilot/providers/anthropicChatAdapter.js"
+    },
+    {
+        "hash":  "F5707EDF9D6334AF473067492808CAB5202FAEC3ED7F042DFDDB391C73ADF54E",
+        "path":  "apps/api/src/modules/entities/entities.service.js"
+    },
+    {
+        "hash":  "4411867C04CADBA87278EA1D61E01FA802B7787C3742188C765624ED0804E133",
+        "path":  "apps/api/src/modules/mcp/budgetsWrite.js"
+    },
+    {
+        "hash":  "44BBD101F4641CC8C7CE44E12518CA91893FD630E5EDD2E7FFDB8052A5715DDF",
+        "path":  "apps/api/src/modules/mcp/campaignsDraftWrite.js"
+    },
+    {
+        "hash":  "C2082E3B353618D60D9DD238B98F92B404BEA9C6AFB3BDC9D574641A80F58E7B",
+        "path":  "apps/api/src/modules/mcp/campaignsSendWrite.js"
+    },
+    {
+        "hash":  "4D8BC019EF4992F942142DEDA4B63014CB719707B62C9ECF6E77717DB39928F9",
+        "path":  "apps/api/src/modules/mcp/entitiesRead.js"
+    },
+    {
+        "hash":  "0EC96E80C4518D7A5C651A5EA6F85E98CDA04780C1C2842177AC037C5BF2F853",
+        "path":  "apps/api/src/modules/mcp/entitiesWrite.js"
+    },
+    {
+        "hash":  "95C46859846380C747A124EEED38A5AF435CBDAF884DBB574CA4A007777776B4",
+        "path":  "apps/api/src/modules/mcp/mcpWriteConfirmation.model.js"
+    },
+    {
+        "hash":  "87DA5AE2123634A2CBDCACC6944499A49D0AD06C07C0397E8919FBD5A58BD61A",
+        "path":  "apps/api/src/modules/mcp/mcpWriteSafety.js"
+    },
+    {
+        "hash":  "D1E6146239C539D5FB518F1E141FCEE5E8A6F140F66DBFFA93179E61247FB6EB",
+        "path":  "apps/api/src/modules/mcp/pointsGiftsRead.js"
+    },
+    {
+        "hash":  "296029BC3BA8FFBDD579208F1973DE87C6C2FE445570A81B39183E417BC39743",
+        "path":  "apps/api/src/modules/mcp/shopsAssetUpload.js"
+    },
+    {
+        "hash":  "8BF1A55B24F70677AA09580E8D2E2087227B6BAE9C6F68DC2EA8555B9DC9E364",
+        "path":  "apps/api/src/modules/mcp/shopsRead.js"
+    },
+    {
+        "hash":  "DA1F986EBB7FA2705FBF11D5ECF6239FE674273DD08A461B206AC768852C527D",
+        "path":  "apps/api/src/modules/mcp/shopsWrite.js"
+    },
+    {
+        "hash":  "7EA8C964CF5F287E3F8B63C2AE13F0FB09F5D152E24B5422801A64EAC700F68D",
+        "path":  "apps/api/src/modules/mcp/walletVisibility.js"
+    },
+    {
+        "hash":  "78F647A95512D6F8E36CFD4FBBD782884C52CFABD264D2BEC3FB5BDE9E323AB7",
+        "path":  "apps/api/src/modules/mcp/walletsRead.js"
+    },
+    {
+        "hash":  "E697D8131786A052A66ECF8E7D06C8F7C40D1226A877D9D1830E501AA6ECE3CB",
+        "path":  "apps/api/src/modules/notifications/notifications.service.js"
+    },
+    {
+        "hash":  "4480CA4B8E1F93333E195CFDDB21DCAF10CD6FCC0D53CA730543F9A46BA01CEC",
+        "path":  "apps/api/src/modules/payments/payments.service.js"
+    },
+    {
+        "hash":  "E5D763A328EB6DE26F3E1FC6990D84D69D93174AAA3B9F9EA0143746747CF781",
+        "path":  "apps/api/src/modules/redemptions/redemptions.service.js"
+    },
+    {
+        "hash":  "96628E2682134FF67B503C2053B562ECFF75DC78559B4D402D268091388E61F9",
+        "path":  "apps/api/src/modules/shops/shopCatalogSync.js"
+    },
+    {
+        "hash":  "455A1D5EAE9DC3D8293AF1D0A716514CE03099114592D0A7B4D3A7A34F93D399",
+        "path":  "apps/api/src/modules/wallets/wallets.service.js"
+    },
+    {
+        "hash":  "E700593B23703983B24C8F4AFB1B6C01D0D22FB11532BCCC5A31AE1015FD3B17",
+        "path":  "apps/api/src/services/ledger.service.js"
+    },
+    {
+        "hash":  "7EA2BF8242716C818EAE1EBCF629369FFF580D15D53E8A547F42542A8BF0B4CB",
+        "path":  "apps/api/tests/campaigns-redemption.test.js"
+    },
+    {
+        "hash":  "662E0396DA5B0FC30666C3290798E119FAED052CF3EE64F8A4532587FDDAC089",
+        "path":  "apps/api/tests/copilot-anthropic-provider.test.js"
+    },
+    {
+        "hash":  "6184FC1AECD92131A5EA5905E3BC3E46A1AFBBB6DF10A4051D2BA1386254FAD3",
+        "path":  "apps/api/tests/copilot-curator-integration.test.js"
+    },
+    {
+        "hash":  "0823AAE43DF5B3301DA7EAF1B7BB6CC2463471F6B327DC7785EAB764F7F37FFB",
+        "path":  "apps/api/tests/copilot-curator.test.js"
+    },
+    {
+        "hash":  "4596FD3045CE9E0E3D3ADBFE88DEF10AE1A02468520E181EE18CB7D9B27132AB",
+        "path":  "apps/api/tests/copilot-mcp-catalog.test.js"
+    },
+    {
+        "hash":  "86191E1D50DE1931E071B85AB6FDA904187D1F2D5D9293EB12F502D2A8C6D1DC",
+        "path":  "apps/api/tests/copilot-store-catalog-ux.test.js"
+    },
+    {
+        "hash":  "807D149D05BF611359FD9BC50EB544A05B7DF94DE37CE56EA78858FAEC15BAED",
+        "path":  "apps/api/tests/copilot-store-update-publish.test.js"
+    },
+    {
+        "hash":  "D2416997E0DA84EFEE0A051661D3FE9E196FB496A4149442D2117C697B8A33B1",
+        "path":  "apps/api/tests/copilot-writes-registry.test.js"
+    },
+    {
+        "hash":  "2C9064CDFABB9C0DA1190DD68C529837D73B2633151AB8429811FF5949539B5A",
+        "path":  "apps/api/tests/copilotDiscovery.test.js"
+    },
+    {
+        "hash":  "AEDA6AEA34AFF1A4B63D1B4B13ADD6003EF715EE1D37CC11BB2109E46D27B189",
+        "path":  "apps/api/tests/mcp-slack-notifications.test.js"
+    },
+    {
+        "hash":  "4855804A474BC619DB13926C126CAB82D93B4FFA4B52DC71EA404E86B663236D",
+        "path":  "apps/api/tests/mcp-write-safety.test.js"
+    },
+    {
+        "hash":  "F6849F21AF54D78FE5FE4DE05FA560702101B82DED4E891FC42FA01D1B750EF5",
+        "path":  "apps/api/tests/write-recovery.test.js"
+    },
+    {
+        "hash":  "71AB6E9B3CCD33645B88499B2812A763163CF18423203D2583AEF0F13DBE6787",
+        "path":  "apps/api/vitest.config.js"
+    },
+    {
+        "hash":  "D35B1D953D17C7236776880488233C7802B1770FDBE1CE40C3DD64BDCACAFFDB",
+        "path":  "apps/web/public/sitemap-static.xml"
+    },
+    {
+        "hash":  "3A4E63165F69A4347F4835C0EA3993BD004F07D30A80737E136CF762B4D76050",
+        "path":  "apps/web/src/app/router.tsx"
+    },
+    {
+        "hash":  "9B5B7A72D3CC43ABCE403D92630EB07444B02265E73D10B414983DFF1DE2CE29",
+        "path":  "apps/web/src/components/LandingPage.tsx"
+    },
+    {
+        "hash":  "ACACB96C647379EF60E288EA53C8FEBB798CA909FA4E22C8BB388383DC622B78",
+        "path":  "apps/web/src/components/landing-home.css"
+    },
+    {
+        "hash":  "4901FD23BE3B1A9B4AD17A618048576CA461B7C7EC7D49AE035ABCE935755CA2",
+        "path":  "apps/web/src/components/landing/Header.tsx"
+    },
+    {
+        "hash":  "26F355BD5C979FB8E46693303D5A0EE183B9F5D8653CA9DEDA1C15266952C99E",
+        "path":  "apps/web/src/features/campaigns/controllers/useSendPointsController.ts"
+    },
+    {
+        "hash":  "DF80149DC390F39318CE3E3FAA50ACD460997C0E33916EDCCDCBE32A8ABD8509",
+        "path":  "apps/web/src/features/copilot/CopilotBalanceCard.tsx"
+    },
+    {
+        "hash":  "1445F95E9C5D5D641A230E532D3420CC6D6E7B7AC72263CE52823CC441B53219",
+        "path":  "apps/web/src/features/copilot/CopilotComposer.tsx"
+    },
+    {
+        "hash":  "ED0D4A52D8E31B66BF5210F345CBF6A31D726518B429AD7C3CD552D559CC5F8D",
+        "path":  "apps/web/src/features/copilot/CopilotConfirmationCard.test.tsx"
+    },
+    {
+        "hash":  "F16547613E050AEF7160331C53014FBF4049BE579DA58A8A028682DF79A83DA7",
+        "path":  "apps/web/src/features/copilot/CopilotConfirmationCard.tsx"
+    },
+    {
+        "hash":  "14BF720271A98516BC46B4E8A96F0B2CB22EBEC03B38CE9E58CABC5B807E982A",
+        "path":  "apps/web/src/features/copilot/CopilotHistory.test.tsx"
+    },
+    {
+        "hash":  "8CC326682EC47C520BF9466E214D62FF7E58FC5DB2B49CCE9ED2CE6F8C145479",
+        "path":  "apps/web/src/features/copilot/CopilotHistory.tsx"
+    },
+    {
+        "hash":  "EF430969FA470C1CC7F541A95757491681817EA27BE2745E4144CB972D6F61FF",
+        "path":  "apps/web/src/features/copilot/CopilotMarkdown.tsx"
+    },
+    {
+        "hash":  "8AF1DBF4C705527316AA79497584699F2098C7D5669ED5AA9D0A9CCE9A9D13AA",
+        "path":  "apps/web/src/features/copilot/CopilotPage.test.tsx"
+    },
+    {
+        "hash":  "2295E75A28D4BCB41A00B83F2D03F59B50E40BAFE5D70D6A1C8DA36374E02666",
+        "path":  "apps/web/src/features/copilot/CopilotPage.tsx"
+    },
+    {
+        "hash":  "E4150784C164BD59C8F4DF383994CD447027E0CB0B079997D63E67D29BF24E22",
+        "path":  "apps/web/src/features/copilot/CopilotProductCards.test.tsx"
+    },
+    {
+        "hash":  "DEF3E1AD430EDE8ECD5277A3BD1E60339EFEC03F34DF4407D8FFD8808DCCDDE6",
+        "path":  "apps/web/src/features/copilot/CopilotProductCards.tsx"
+    },
+    {
+        "hash":  "180D09DD808E7236A64CD4FE3CCFB834F6080B85F294F69AAAB1EE5009EFEF66",
+        "path":  "apps/web/src/features/copilot/CopilotWelcome.tsx"
+    },
+    {
+        "hash":  "602D2969F55CE30973515E5E12A6117238E8228C3DFF197D55CF6E797DA207E8",
+        "path":  "apps/web/src/features/copilot/api.ts"
+    },
+    {
+        "hash":  "6FCE7F3333AC048A6A86933CF2C081BBF097AE89A8A18DC794B4869661DBE9B2",
+        "path":  "apps/web/src/features/copilot/attachments.ts"
+    },
+    {
+        "hash":  "4AFA9D2585F79E486E20DC52E436C9EDB64E066FA09B147C9EED4EE04FBBB20A",
+        "path":  "apps/web/src/features/copilot/copilot.css"
+    },
+    {
+        "hash":  "67DE8CCF601995760C830B25FE5B52F4407495EA3EA3FAC23C35C7DDF655F2DB",
+        "path":  "apps/web/src/features/copilot/curatorTypes.ts"
+    },
+    {
+        "hash":  "79D762BA86CCDA9DDCE9AF57BC31D18E05E678824B0E9D4ED077335B361EA02E",
+        "path":  "apps/web/src/lib/storeCurrency.ts"
+    },
+    {
+        "hash":  "052FF8FCD2EE765F60295A54BFF23B0EF574B6A45E9632EED3A746521EF300C0",
+        "path":  "apps/web/src/seo/publicPages.json"
+    },
+    {
+        "hash":  "C59333949B5C2CF911C6935023C1DAD81B45D3E261828BE432294452B5DF4B19",
+        "path":  "apps/web/src/seo/usePublicSeo.ts"
+    },
+    {
+        "hash":  "A7682F33ECBDD133117C30F05141C5237265C761CC5ED3A9CAC7F4E6F8B02F2D",
+        "path":  "apps/web/src/services/mutations-api.ts"
+    }
+]

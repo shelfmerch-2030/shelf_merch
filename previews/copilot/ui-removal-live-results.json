@@ -1,0 +1,33 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "isolatedTestDatabase": true,
+  "normalChat": true,
+  "streamingDeltasReceived": true,
+  "persistedConversation": true,
+  "historyContextRetained": true,
+  "savedGiftingBriefRetained": true,
+  "turns": [
+    {
+      "promptTokens": 8667,
+      "completionTokens": 43,
+      "totalTokens": 8710,
+      "estimatedCostUsd": 0.017764,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "toolCallCount": 0,
+      "latencyMs": 1450
+    },
+    {
+      "promptTokens": 8752,
+      "completionTokens": 34,
+      "totalTokens": 8786,
+      "estimatedCostUsd": 0.017844,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "toolCallCount": 0,
+      "latencyMs": 1313
+    }
+  ],
+  "checkedAt": "2026-11-10T11:39:08.137Z"
+}

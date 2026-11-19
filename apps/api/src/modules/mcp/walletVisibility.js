@@ -1,13 +1,11 @@
-import { Entity } from '../entities/entity.model.js';
+import { resolveSpendWalletForEntity } from '../../services/ledger.service.js';
 
 export function hidesOrganizationWallet(user) {
   return user?.scopeType === 'entity' || user?.role === 'entity_manager';
 }
 
 export async function departmentRemaining(tenantId, entityId) {
-  const entity = await Entity.findOne({ _id: entityId, tenantId })
-    .select('allocatedAmount spentAmount')
-    .lean();
+  const { entity } = await resolveSpendWalletForEntity({ tenantId, entityId });
   const allocated = Number(entity?.allocatedAmount) || 0;
   const spent = Number(entity?.spentAmount) || 0;
   return Math.max(0, allocated - spent);

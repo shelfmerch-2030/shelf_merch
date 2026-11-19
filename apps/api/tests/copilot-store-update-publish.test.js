@@ -291,9 +291,9 @@ describe('copilot store update + publish writes (in-memory only)', () => {
     const afterFirst = await Shop.findOne({ _id: shop._id, tenantId: tenant._id });
     const updatedAtAfterFirst = afterFirst.updatedAt.getTime();
 
-    // Remounted confirmation card generates a new idempotency key and retries.
+    // Remounted confirmation cards recover by reading proof, never by retrying a WRITE.
     const remount = await request(app)
-      .post('/api/v1/copilot/writes/shops.update/execute')
+      .post('/api/v1/copilot/writes/shops.update/resolve')
       .set(authHeader(token))
       .send({
         shopId: String(shop._id),
@@ -302,8 +302,9 @@ describe('copilot store update + publish writes (in-memory only)', () => {
         idempotencyKey: 'store-update-remount-retry',
       });
     expect(remount.status).toBe(200);
-    expect(remount.body.name).toBe('Rename Target');
-    expect(remount.body.id).toBe(first.body.id);
+    expect(remount.body.status).toBe('completed');
+    expect(remount.body.result.name).toBe('Rename Target');
+    expect(remount.body.result.id).toBe(first.body.id);
     expect(await Shop.countDocuments({ tenantId: tenant._id, name: 'Rename Target' })).toBe(1);
     const afterRemount = await Shop.findOne({ _id: shop._id, tenantId: tenant._id });
     expect(afterRemount.updatedAt.getTime()).toBe(updatedAtAfterFirst);

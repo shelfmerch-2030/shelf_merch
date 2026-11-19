@@ -1,0 +1,129 @@
+{
+  "status": "Verified for controlled local testing; browser used a mocked AI provider and isolated data",
+  "totalPassed": 704,
+  "failed": 0,
+  "pending": 0,
+  "uniqueTestFiles": 61,
+  "changedFiles": [
+    "apps/web/src/features/copilot/swagApi.ts",
+    "apps/web/src/features/copilot/CopilotSwagInteractive.test.tsx",
+    "apps/web/src/features/copilot/CopilotProductCards.tsx",
+    "apps/web/src/features/copilot/CopilotPage.tsx",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+    "apps/web/src/features/copilot/copilot.css",
+    "apps/web/src/features/copilot/api.ts",
+    "apps/api/tests/copilot-swag.browser-check.js",
+    "apps/api/tests/copilot-swag-interactive.test.js",
+    "apps/api/tests/copilot-swag-design.test.js",
+    "apps/api/tests/copilot-swag-chat.test.js",
+    "apps/api/tests/copilot-swag-artwork.browser-check.js",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js",
+    "apps/api/src/modules/copilot/copilotWriteState.service.js",
+    "apps/api/src/modules/copilot/copilotConversation.model.js",
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilot.routes.js",
+    "apps/api/src/modules/copilot/copilot.controller.js",
+    "apps/web/src/features/copilot/swagTimeline.ts",
+    "apps/web/src/features/copilot/SwagStepMessage.tsx",
+    "apps/web/src/features/copilot/CopilotSwagTimeline.test.tsx",
+    "apps/api/src/modules/copilot/swagTimeline.js"
+  ],
+  "preservedBaselineFiles": 2486,
+  "existingTypeScriptDiagnostics": 26,
+  "newTypeScriptDiagnostics": 0,
+  "rendererBundleHash": "70878e71d532ea28441462a73fb09d6e1877d14e7edba9676f759889c2b23de3",
+  "liveCustomerDataUsed": false,
+  "liveClaudeTested": false,
+  "results": [
+    {
+      "report": "artwork-final",
+      "passed": 31,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "artwork-browser-final",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "image-consistency-final",
+      "passed": 6,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "acceptance-final",
+      "passed": 81,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "catalog-final",
+      "passed": 37,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-dashboard-final",
+      "passed": 48,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-state-final",
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-attachments-final",
+      "passed": 8,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-reads-final",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-domains-final",
+      "passed": 9,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-provider-final",
+      "passed": 20,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-financial-final",
+      "passed": 84,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-redemption-final",
+      "passed": 23,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "web-final",
+      "passed": 334,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "browser-test",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ]
+}

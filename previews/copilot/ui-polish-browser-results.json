@@ -1,0 +1,387 @@
+{
+  "fixtureOnly": true,
+  "mounted": true,
+  "keyboardTab": true,
+  "keyboardDisclosure": true,
+  "checks": [
+    {
+      "width": 1440,
+      "dark": false,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 608,
+          "height": 198.375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 187.109375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 361.109375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 118.578125,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    },
+    {
+      "width": 1440,
+      "dark": true,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 608,
+          "height": 198.375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 187.109375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 361.109375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 118.578125,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        },
+        {
+          "width": 608,
+          "height": 125.984375,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    },
+    {
+      "width": 390,
+      "dark": false,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 348,
+          "height": 194.375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 256.234375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 557.625,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 114.578125,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    },
+    {
+      "width": 390,
+      "dark": true,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 348,
+          "height": 194.375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 256.234375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 557.625,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 114.578125,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        },
+        {
+          "width": 348,
+          "height": 121.984375,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    },
+    {
+      "width": 320,
+      "dark": false,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 278,
+          "height": 245.109375,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 430.828125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 588.875,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 145.828125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 153.234375,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 170.03125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 170.03125,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    },
+    {
+      "width": 320,
+      "dark": true,
+      "documentOverflow": false,
+      "cards": [
+        {
+          "width": 278,
+          "height": 245.109375,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 430.828125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 588.875,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 145.828125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 153.234375,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 170.03125,
+          "overflow": false
+        },
+        {
+          "width": 278,
+          "height": 170.03125,
+          "overflow": false
+        }
+      ],
+      "terminalCount": 6,
+      "buttons": [
+        {
+          "label": "Cancel",
+          "height": 40
+        },
+        {
+          "label": "Confirm",
+          "height": 40
+        }
+      ],
+      "ticketVisible": false,
+      "technicalTitle": false,
+      "stateBadges": [
+        "Review & confirm",
+        "Cancelled",
+        "Failed",
+        "Expired",
+        "Unverified"
+      ],
+      "writes": []
+    }
+  ],
+  "errors": []
+}

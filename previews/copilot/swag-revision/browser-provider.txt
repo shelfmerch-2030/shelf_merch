@@ -1,0 +1,17 @@
+  const slowRequests=[];
+  vi.mocked(streamOpenAiCompletion).mockImplementation(async ({messages})=>{
+    const last=messages.at(-1);
+    const conversation=await CopilotConversation.findOne({tenantId:tenant._id,userId:account.user._id}).sort({createdAt:-1});
+    const answer=text=>({text,toolCalls:[],finishReason:'stop',usage:{}});
+    const configure=args=>({text:'',finishReason:'tool_calls',usage:{},toolCalls:[{id:`fixture-${Date.now()}`,name:'swag_configure',arguments:JSON.stringify(args)}]});
+    if(last.role==='user'&&/^Slow /i.test(last.content)){
+      let release;const gate=new Promise(resolve=>{release=resolve;});slowRequests.push({content:last.content,release});await gate;
+      return answer(last.content.startsWith('Slow refresh')?'Obsolete pre-refresh response':'Late original conversation response');
+    }
+    if(last.role==='user'&&last.content==='Tell me the current design status')return answer('Your logo is still uploaded. No artwork has been applied.');
+    if(last.role==='user'&&!conversation.swag&&/design.*swag/i.test(last.content))return configure({});
+    if(last.role==='user')return configure({revision:conversation.swag?.revision||0,name:String(last.content).replace(/[.!]$/,'')});
+    const result=JSON.parse(last.content);
+    if(result.conversationId)return answer('What would you like to name your collection?');
+    return answer('Here are verified product options.');
+  });

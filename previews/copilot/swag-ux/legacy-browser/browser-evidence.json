@@ -1,0 +1,25 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "frontendRoute": "/ai-test/copilot",
+  "backend": "real application controllers and services, MongoMemoryReplSet",
+  "provider": "mocked (no external AI calls)",
+  "liveWorkspaceData": false,
+  "artworkBrowserPath": "skip artwork; upload/editor covered separately by isolated regressions",
+  "checks": [
+    "name-first",
+    "verified catalog card with select control",
+    "natural-language exact-name selection",
+    "deselect and select through backend",
+    "catalog pagination",
+    "reload restores authoritative selection",
+    "skip artwork without designer handoff",
+    "one explicit publication preview, no collection before confirmation",
+    "committed publication and natural result",
+    "double-click submitted once, one collection/listing, draft store unchanged",
+    "responsive mobile result",
+    "actual collection, saved design, management and Copilot components load all three saved mockup URLs; v2 replaces v1; storefront home resolver agrees"
+  ],
+  "errors": [],
+  "totalCollections": 1,
+  "executeRequests": 1
+}

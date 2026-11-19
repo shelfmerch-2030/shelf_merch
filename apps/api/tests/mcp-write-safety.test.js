@@ -160,19 +160,17 @@ describe('MCP write safety foundation', () => {
     });
     expect(effects).toBe(1);
 
-    const reconciled = await execute(prepared, {
+    await expect(execute(prepared, {
       idempotencyKey: 'second-key-reconcile',
       reconcile: async () => ({ outcome: 'completed', result: { applied: true, email: SECRET_EMAIL } }),
       handlers: { execute: async () => { effects += 1; return { applied: true }; } },
-    });
-    expect(reconciled.applied).toBe(true);
-    expect(reconciled.email).toBe('[redacted]');
+    })).rejects.toMatchObject({ code: 'CONFIRMATION_REUSED' });
     expect(effects).toBe(1);
 
     const audits = JSON.stringify(await AuditLog.find({ tenantId: tenant._id }).lean());
     expect(audits).toContain('mcp_write.confirmed');
     expect(audits).toContain('mcp_write.successful');
-    expect(audits).toContain('mcp_write.reconciled');
+    expect(audits).not.toContain('mcp_write.reconciled');
   });
 
   it('allows only one of several concurrent executions', async () => {

@@ -1,0 +1,34 @@
+{
+  "fixtureOnly": true,
+  "direct": {
+    "url": "http://localhost:8080/ai-test/copilot",
+    "title": "ShelfMerch Copilot | ShelfMerch",
+    "canonical": null,
+    "robots": "noindex, nofollow"
+  },
+  "refresh": {
+    "url": "http://localhost:8080/ai-test/copilot",
+    "title": "ShelfMerch Copilot | ShelfMerch",
+    "canonical": null,
+    "robots": "noindex, nofollow"
+  },
+  "publicPage": {
+    "url": "http://localhost:8080/about",
+    "title": "About Shelf Merch | Built to Make Brand Moments Real",
+    "canonical": "https://shelfmerch.io/about",
+    "robots": "index, follow"
+  },
+  "clientNavigation": {
+    "url": "http://localhost:8080/another-tenant/copilot",
+    "title": "ShelfMerch Copilot | ShelfMerch",
+    "canonical": null,
+    "robots": "noindex, nofollow"
+  },
+  "notFound": {
+    "url": "http://localhost:8080/ai-test/copilot/not-a-route",
+    "title": "Page not found | ShelfMerch",
+    "canonical": null,
+    "robots": "noindex, follow"
+  },
+  "errors": []
+}

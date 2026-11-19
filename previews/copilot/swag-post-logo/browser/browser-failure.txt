@@ -1,0 +1,109 @@
+Error: Browser condition failed: Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==="Add attachment"&&!b.disabled)
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design swag.
+Nov 16
+I want to design swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Team Swag
+ShelfMerch Copilot
+
+Great, your collection is named Team Swag. Would you like to see some products, or search for something specific?
+
+Show products
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Add Ceramic Mug
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Classic Crew Neck
+ShelfMerch Copilot
+
+2 products added. Choose more, or continue to your logo.
+
+Products shown earlier
+Continue
+ShelfMerch Copilot
+
+Would you like to add your company logo? You can upload it using the + button below, or continue without one.
+
+Skip for now
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.
+    at poll (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-post-logo.browser-check.js:114:137)
+    at click (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-post-logo.browser-check.js:116:7)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-post-logo.browser-check.js:146:5
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design swag.
+Nov 16
+I want to design swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Team Swag
+ShelfMerch Copilot
+
+Great, your collection is named Team Swag. Would you like to see some products, or search for something specific?
+
+Show products
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Add Ceramic Mug
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Classic Crew Neck
+ShelfMerch Copilot
+
+2 products added. Choose more, or continue to your logo.
+
+Products shown earlier
+Continue
+ShelfMerch Copilot
+
+Would you like to add your company logo? You can upload it using the + button below, or continue without one.
+
+Skip for now
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

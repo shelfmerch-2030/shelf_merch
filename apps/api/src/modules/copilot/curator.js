@@ -21,14 +21,15 @@ export const conceptPlanSchema = z.object({
 }).strict();
 
 export function curatorSource(content, previous = 'shelfmerch') {
-  if (/\b(?:outside|beyond|not (?:from|on)|other than)\s+shelf\s?merch\b|\bexternal\b|\bother brands\b/i.test(content)) return 'external';
+  if (/\b(?:no|avoid|exclude)\s+external\b|\b(?:back to|switch to|only)\s+(?:the\s+)?shelf\s?merch\b/i.test(content)) return 'shelfmerch';
+  if (/\b(?:outside(?: of)?|beyond|not (?:from|on)|other than)\s+shelf\s?merch\b|\bexternal\b|\bother brands\b|\b(?:not|non)[ -]shelf\s?merch\b/i.test(content)) return 'external';
   if (/\b(?:use|show|from|only|back to|switch to)\s+(?:the\s+)?shelf\s?merch\b|\bshelf\s?merch (?:catalog|only)\b/i.test(content)) return 'shelfmerch';
   return previous;
 }
 const aliases = {
   mugs: ['mug', 'mugs', 'cup', 'cups'], bottles: ['bottle', 'bottles', 'flask', 'flasks', 'tumbler', 'tumblers'],
-  apparel: ['apparel', 'clothing', 't-shirt', 'tee', 'shirt', 'hoodie', 'jacket', 'socks', 'cap', 'polo', 'sweatshirt'],
-  bags: ['bag', 'bags', 'backpack', 'backpacks', 'tote', 'totes', 'pouch'],
+  apparel: ['apparel', 'clothing', 't-shirt', 't-shirts', 'tee', 'tees', 'shirt', 'shirts', 'hoodie', 'hoodies', 'jacket', 'jackets', 'socks', 'cap', 'caps', 'polo', 'polos', 'sweatshirt', 'sweatshirts'],
+  bags: ['bag', 'bags', 'backpack', 'backpacks', 'tote', 'totes', 'pouch', 'pouches'],
 };
 export function exclusionTerms(exclusions = []) {
   return [...new Set(exclusions.flatMap(value => {
@@ -45,7 +46,8 @@ export function excluded(item, exclusions) {
 }
 export function mergeBrief(previous = {}, patch = {}, content = '', replace = false) {
   const brief = { ...previous, ...patch };
-  brief.exclusions = replace && /\b(?:allow|include|remove|instead|change|stop excluding|no longer|only exclude)\b/i.test(content) ? patch.exclusions || [] : [...new Set([...(previous.exclusions || []), ...(patch.exclusions || [])])].slice(0, 12);
+  const replacingExclusions = replace && /\b(?:allow|include|remove|instead|change|stop excluding|no longer|only exclude)\b/i.test(content);
+  brief.exclusions = replacingExclusions ? patch.exclusions || [] : [...new Set([...(previous.exclusions || []), ...(patch.exclusions || [])])].slice(0, 12);
   brief.source = curatorSource(content, previous.source || 'shelfmerch');
   // Deterministic preservation of explicit common constraints, even if extraction misses them.
   const recipients = content.match(/\b(?:for|to)\s+(\d[\d,]*)\s+(?:(?:[A-Z][\w-]*)\s+)?(?:employees?|people|recipients?|staff|new hires?)\b/i);
@@ -53,18 +55,18 @@ export function mergeBrief(previous = {}, patch = {}, content = '', replace = fa
   const company = content.match(/\b(?:at|from)\s+([A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*){0,2})(?=[,.]|\s+(?:with|under|for|employees)|$)/) || content.match(/\b\d+\s+([A-Z][\w&.-]*)\s+employees\b/);
   if (company) brief.company = company[1];
   const money = content.match(/(?:₹|INR\s*|Rs\.?\s*)([\d,]+(?:\.\d+)?)/i);
-  if (patch.totalBudget && !patch.budgetPerRecipient && brief.recipients) brief.budgetPerRecipient = patch.totalBudget / brief.recipients;
+  if (patch.budgetPerRecipient && !patch.totalBudget) delete brief.totalBudget;
   if (money) {
     const amount = Number(money[1].replaceAll(',', ''));
-    if (amount > 0) { brief.currency = 'INR'; if (/\btotal(?: budget)?\b|\boverall\b/i.test(content) && !/per (?:employee|person|recipient)|each/i.test(content)) { brief.totalBudget = amount; if (brief.recipients) brief.budgetPerRecipient = amount / brief.recipients; } else brief.budgetPerRecipient = amount; }
+    if (amount > 0) { brief.currency = 'INR'; if (/\btotal(?: budget)?\b|\boverall\b/i.test(content) && !/per (?:employee|person|recipient)|each/i.test(content)) { brief.totalBudget = amount; } else { brief.budgetPerRecipient = amount; delete brief.totalBudget; } }
   }
   if (/\bwelcome|onboarding|new hires?\b/i.test(content)) brief.occasion = 'Welcome / Onboarding';
   const no = content.match(/\b(?:avoid|no|exclude|excluding|without)\s+([^.!?]+)/i);
-  if (no) {
+  if (no && !replacingExclusions) {
     const found = Object.entries(aliases).filter(([key, terms]) => [key, ...terms].some(t => new RegExp(`\\b${t}\\b`, 'i').test(no[1]))).map(([key]) => key);
     brief.exclusions = [...new Set([...brief.exclusions, ...found])];
   }
-  if (brief.totalBudget && brief.recipients && !brief.budgetPerRecipient) brief.budgetPerRecipient = brief.totalBudget / brief.recipients;
+  if (brief.totalBudget && brief.recipients) brief.budgetPerRecipient = brief.totalBudget / brief.recipients;
   return brief;
 }
 export function missingBrief(brief) {
@@ -73,9 +75,11 @@ export function missingBrief(brief) {
 export function eligibleCandidate(item, brief) {
   if (!item?.id || !item.name || excluded(item, brief.exclusions)) return false;
   if (item.kind === 'kit' && brief.exclusions?.length && !(item.products || []).length) return false;
-  if (item.kind === 'kit' && item.status && item.status !== 'live') return false;
+  if (item.kind === 'kit' && brief.exclusions?.length && item.products?.some(p => !p.name || /^item$/i.test(p.name.trim()))) return false;
+  if (item.kind === 'kit' && item.status && !(item.curated || item.type === 'curated' ? ['active', 'live'] : ['live']).includes(item.status)) return false;
+  if (item.availability === 'Out of stock' || item.products?.some(p => p.stockLabel === 'Out of stock')) return false;
   if (item.variants?.length && item.variants.every(v => typeof v.stock === 'number' && v.stock <= 0)) return false;
-  const price = item.sellingPriceInr ?? item.priceInr;
+  const price = item.price ?? item.sellingPriceInr ?? item.priceInr;
   return !(brief.currency === 'INR' && Number.isFinite(price) && price > brief.budgetPerRecipient);
 }
 function cleanIdea(value) {
@@ -86,7 +90,7 @@ export function buildConcepts(plan, candidates, brief) {
   return plan.concepts.slice(0, 3).map((concept, index) => {
     const external = brief.source === 'external';
     const items = external
-      ? concept.ideas.filter(idea => !excluded(idea, brief.exclusions)).map((idea, n) => ({ key: `idea:${index}:${n}`, kind: 'idea', source: 'inspiration', name: cleanIdea(idea.name), description: cleanIdea(idea.description), currency: null, price: null, availability: 'Availability unknown' })).filter(i => i.name)
+      ? concept.ideas.filter(idea => !excluded(idea, brief.exclusions)).map(idea => ({ key: `idea:${encodeURIComponent(cleanIdea(idea.name))}:${encodeURIComponent(cleanIdea(idea.description))}`, kind: 'idea', source: 'inspiration', name: cleanIdea(idea.name), description: cleanIdea(idea.description), currency: null, price: null, availability: 'Availability unknown' })).filter(i => i.name)
       : [...new Set(concept.itemIds)].map(id => byId.get(id)).filter(item => item && eligibleCandidate(item, brief));
     const known = items.filter(i => i.currency === 'INR' && Number.isFinite(i.price));
     const perRecipient = known.reduce((sum, i) => sum + i.price, 0);

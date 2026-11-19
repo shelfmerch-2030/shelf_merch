@@ -1,0 +1,328 @@
+{
+  "viewports": [
+    {
+      "width": 1910,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "76px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 46.890625,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "76px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 46.890625,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 1120,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "59.36px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 24,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "54.272px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 24,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 900,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "47.7px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 24,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 861,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "46px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": 24,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 860,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "46px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": null,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "46px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "19px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": null,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "44px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "18px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": null,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    },
+    {
+      "width": 320,
+      "overflow": false,
+      "font": "Arial, Helvetica, sans-serif",
+      "headingFont": "\"Hanken Grotesk\", system-ui, sans-serif",
+      "headingSize": "44px",
+      "navBackground": "rgb(243, 243, 243)",
+      "navRadius": "6px",
+      "bodySize": "18px",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-corner.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-wall.jpeg"
+        },
+        {
+          "loaded": true,
+          "src": "/images/in-office-swag/swag-shelf.jpeg"
+        }
+      ],
+      "desktopHeaderFits": true,
+      "navGap": null,
+      "ctaLinks": [
+        "/request-demo",
+        "/request-demo"
+      ],
+      "occasionRows": 4,
+      "title": "In-Office Swag Stores | Shelf Merch"
+    }
+  ],
+  "navFromHome": true,
+  "mobileMenuClosedOnNavigation": true,
+  "ctaNavigation": true,
+  "runtimeErrors": []
+}

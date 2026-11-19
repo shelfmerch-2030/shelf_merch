@@ -1,0 +1,76 @@
+{
+  "phase": "after",
+  "actualBrowser": "Microsoft Edge headless",
+  "backend": "real controllers, MongoMemoryReplSet and local multipart storage",
+  "provider": "mocked",
+  "liveCustomerDataUsed": false,
+  "executeRequests": 0,
+  "collections": 0,
+  "checks": [
+    "four backend-acknowledged selections, duplicate clicks blocked, original product identities preserved",
+    "desktop selection summary, pointer hover, keyboard focus and reduced-motion inspected",
+    "390px and 320px layouts, long names and pagination retain all four selections",
+    "Skip uses existing no-artwork transition; natural-language removal still works; + Swag purpose uploads PNG and prepares approval without automatic execution"
+  ],
+  "errors": [],
+  "unselected": {
+    "border": "rgb(228, 228, 223)",
+    "borderWidth": "1px",
+    "background": "rgb(255, 255, 255)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0.18s, 0.18s, 0.18s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "selected": {
+    "border": "rgb(228, 228, 223)",
+    "borderWidth": "1px",
+    "background": "color(srgb 0.977176 0.981176 0.995529)",
+    "shadow": "none",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0.18s, 0.18s, 0.18s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "hovered": {
+    "border": "color(srgb 0.699608 0.704314 0.709804)",
+    "borderWidth": "1px",
+    "background": "color(srgb 0.977176 0.981176 0.995529)",
+    "shadow": "rgba(16, 16, 20, 0.043) 0px 3px 10px 0px",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0.18s, 0.18s, 0.18s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "focus": {
+    "border": "rgb(228, 228, 223)",
+    "borderWidth": "1px",
+    "background": "color(srgb 0.954353 0.962353 0.991059)",
+    "shadow": "none",
+    "outline": "solid",
+    "outlineWidth": "2px",
+    "transition": "0.18s, 0.18s",
+    "width": 69.75,
+    "left": 1134.25
+  },
+  "reduced": {
+    "border": "color(srgb 0.699608 0.704314 0.709804)",
+    "borderWidth": "1px",
+    "background": "color(srgb 0.977176 0.981176 0.995529)",
+    "shadow": "rgba(16, 16, 20, 0.043) 0px 3px 10px 0px",
+    "outline": "none",
+    "outlineWidth": "3px",
+    "transition": "0s",
+    "width": 168.5,
+    "left": 1046.5
+  },
+  "continueStyle": {
+    "width": 80.046875,
+    "left": 517,
+    "summaryLeft": 517
+  }
+}

@@ -1,5 +1,6 @@
 import * as campaignsService from './campaigns.service.js';
 import { writeAudit } from '../../services/audit.service.js';
+import { ApiError } from '../../utils/errors.js';
 
 export async function list(req, res) {
   res.json(await campaignsService.listCampaigns({ tenantId: req.tenantId, user: req.user }));
@@ -79,6 +80,10 @@ export async function allocateCredits(req, res) {
 }
 
 export async function launch(req, res) {
+  const reviewed = await campaignsService.getCampaign({ tenantId: req.tenantId, campaignId: req.params.id, user: req.user });
+  if (reviewed.type === 'points' && !req.body?.expectedLaunchHash) {
+    throw new ApiError(409, 'Review the campaign before launching', 'LAUNCH_APPROVAL_REQUIRED');
+  }
   const campaign = await campaignsService.launchCampaign({
     tenantId: req.tenantId,
     campaignId: req.params.id,
@@ -86,6 +91,7 @@ export async function launch(req, res) {
     paymentMode: req.body?.paymentMode,
     razorpayOrderId: req.body?.razorpay_order_id,
     razorpayPaymentId: req.body?.razorpay_payment_id,
+    expectedLaunchHash: req.body?.expectedLaunchHash,
   });
   writeAudit({ req, action: 'campaign.launch', entityType: 'Campaign', entityId: campaign._id, after: { status: campaign.status } });
   res.json(campaign);

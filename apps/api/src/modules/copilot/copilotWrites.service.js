@@ -1,6 +1,11 @@
 import { ApiError, ForbiddenError } from '../../utils/errors.js';
+import { swagPrepareSchema, swagExecuteSchema, prepareSwagForCaller, executeSwagForCaller } from './swagDesignWorkflow.js';
+import { sendPointsPrepareSchema, sendPointsExecuteSchema, prepareSendPointsForCaller, executeSendPointsForCaller } from './sendPointsWorkflow.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { McpWriteConfirmation } from '../mcp/mcpWriteConfirmation.model.js';
+import { CopilotConversation } from './copilotConversation.model.js';
+import { recordCopilotWriteOutcome } from './copilotWriteState.service.js';
+import { readMcpWriteOutcome } from '../mcp/mcpWriteSafety.js';
 import {
   prepareShopCreateForCaller,
   executeShopCreateForCaller,
@@ -42,6 +47,7 @@ import {
 import {
   prepareBudgetAllocationForCaller,
   executeBudgetAllocationForCaller,
+  resolveBudgetAllocationForCaller,
   budgetPrepareInputSchema,
   budgetExecuteInputSchema,
 } from '../mcp/budgetsWrite.js';
@@ -119,6 +125,9 @@ import { isWriteFlagEnabled, anyWriteDomainEnabled, writeDomainsStatus } from '.
  * EXECUTE is only reachable via authenticated HTTP confirm — never the model.
  */
 export const COPILOT_WRITE_WORKFLOWS = {
+  'swag.collection': { writeFlag: 'collections', operation: 'swag.collection', entityTypeOnExecute: 'Collection',
+    prepareSchema: swagPrepareSchema, executeSchema: swagExecuteSchema,
+    prepare: prepareSwagForCaller, execute: executeSwagForCaller, validationMessage: 'Collection design details are not valid' },
   'shops.create': {
     writeFlag: 'storeCreate',
     operation: 'shops.create',
@@ -197,6 +206,7 @@ export const COPILOT_WRITE_WORKFLOWS = {
     executeSchema: budgetExecuteInputSchema,
     prepare: prepareBudgetAllocationForCaller,
     execute: executeBudgetAllocationForCaller,
+    resolve: resolveBudgetAllocationForCaller,
     validationMessage: 'Budget allocation details are not valid',
   },
   'wallets.topup': {
@@ -248,6 +258,12 @@ export const COPILOT_WRITE_WORKFLOWS = {
     prepare: preparePointsDraftForCaller,
     execute: executePointsDraftForCaller,
     validationMessage: 'Points draft details are not valid',
+  },
+  'campaigns.send_points': {
+    writeFlag: 'sendPoints', operation: 'campaigns.send_points', entityTypeOnExecute: 'Campaign',
+    prepareSchema: sendPointsPrepareSchema, executeSchema: sendPointsExecuteSchema,
+    prepare: prepareSendPointsForCaller, execute: executeSendPointsForCaller,
+    validationMessage: 'Resolve the store, funding, exact recipients and per-recipient amount before sending',
   },
   'campaigns.allocate_credits': {
     writeFlag: 'sendPoints',
@@ -386,7 +402,31 @@ export async function executeCopilotWrite(req, workflowId, body) {
   if (!parsed.success) {
     throw new ApiError(400, wf.validationMessage || 'Details are not valid', 'VALIDATION');
   }
-  const result = await wf.execute(toolCtxFromReq(req), parsed.data);
+  // A previously displayed invalid workflow must receive a fresh PREPARE, not
+  // become executable merely because a caller changes the route identifier.
+  const invalidArtifact = await CopilotConversation.exists({
+    tenantId: req.tenantId,
+    userId: req.user.userId,
+    messages: { $elemMatch: { artifacts: { $elemMatch: {
+      kind: 'confirmation',
+      confirmationId: parsed.data.confirmationId,
+      operation: { $ne: workflowId },
+    } } } },
+  });
+  if (invalidArtifact) {
+    throw new ApiError(409, 'This preview used an invalid workflow. Prepare the change again.', 'CONFIRMATION_STALE');
+  }
+  let result;
+  try {
+    result = await wf.execute(toolCtxFromReq(req), parsed.data);
+  } catch (error) {
+    await recordCopilotWriteOutcome({ tenantId: req.tenantId, userId: req.user.userId, workflow: workflowId,
+      confirmationId: parsed.data.confirmationId,
+      state: error?.code === 'CONFIRMATION_EXPIRED' ? 'expired' : 'failed', errorCode: error?.code || 'MCP_WRITE_FAILED' });
+    throw error;
+  }
+  await recordCopilotWriteOutcome({ tenantId: req.tenantId, userId: req.user.userId, workflow: workflowId,
+    confirmationId: parsed.data.confirmationId, state: 'completed', result });
   writeAudit({
     req,
     action: `copilot.${workflowId}.execute`,
@@ -420,39 +460,17 @@ export async function resolveCopilotWrite(req, workflowId, body) {
   if (!confirmation) {
     throw new ApiError(404, 'This confirmation is not valid', 'CONFIRMATION_INVALID');
   }
-  if (confirmation.status === 'rejected') {
-    return { status: 'cancelled', confirmationId, workflow: workflowId };
+  const outcome = await readMcpWriteOutcome({ tenantId: req.tenantId, actorUserId: req.user.userId,
+    operation: wf.operation, confirmationId });
+  if (outcome.state !== 'pending') {
+    await recordCopilotWriteOutcome({ tenantId: req.tenantId, userId: req.user.userId,
+      workflow: workflowId, confirmationId, ...outcome });
   }
-  if (confirmation.status === 'pending') {
-    return {
-      status: 'pending',
-      confirmationId,
-      workflow: workflowId,
-      expiresAt: confirmation.expiresAt ? new Date(confirmation.expiresAt).toISOString() : undefined,
-    };
-  }
-
-  // Consumed: attempt a non-writing reconcile via execute (idempotent / already-applied path).
-  const idempotencyKey = String(body?.idempotencyKey || `reconcile:${confirmationId}`).trim();
-  const parsed = wf.executeSchema.safeParse({
-    ...(body || {}),
-    confirmationId,
-    idempotencyKey,
-  });
-  if (!parsed.success) {
-    return { status: 'consumed', confirmationId, workflow: workflowId };
-  }
-  try {
-    const result = await wf.execute(toolCtxFromReq(req), parsed.data);
-    return {
-      status: 'completed',
-      confirmationId,
-      workflow: workflowId,
-      result,
-    };
-  } catch {
-    return { status: 'consumed', confirmationId, workflow: workflowId };
-  }
+  return { status: outcome.state, confirmationId, workflow: workflowId,
+    ...(outcome.state === 'completed' ? { result: outcome.result } : {}),
+    ...(outcome.errorCode ? { errorCode: outcome.errorCode } : {}),
+    ...(workflowId === 'campaigns.send_points' && outcome.progress ? { progress: outcome.progress, canResume: Boolean(outcome.canResume) } : {}),
+    expiresAt: confirmation.expiresAt ? new Date(confirmation.expiresAt).toISOString() : undefined };
 }
 
 /** Cancel = reject pending confirmation so EXECUTE cannot succeed later. */
@@ -475,8 +493,15 @@ export async function cancelCopilotWrite(req, workflowId, body) {
     throw new ForbiddenError('This confirmation was already used');
   }
   if (confirmation.status === 'pending') {
-    confirmation.status = 'rejected';
-    await confirmation.save();
+    const rejected = await McpWriteConfirmation.findOneAndUpdate(
+      { _id: confirmation._id, tenantId: req.tenantId, status: 'pending' },
+      { $set: { status: 'rejected' } },
+      { returnDocument: 'after' },
+    );
+    if (!rejected) {
+      const current = await McpWriteConfirmation.findOne({ _id: confirmation._id, tenantId: req.tenantId });
+      if (current?.status !== 'rejected') throw new ForbiddenError('This confirmation was already used');
+    }
   }
   writeAudit({
     req,
@@ -485,6 +510,8 @@ export async function cancelCopilotWrite(req, workflowId, body) {
     entityId: confirmationId,
     after: { status: 'cancelled' },
   });
+  await recordCopilotWriteOutcome({ tenantId: req.tenantId, userId: req.user.userId,
+    workflow: workflowId, confirmationId, state: 'cancelled' });
   return { status: 'cancelled', confirmationId, workflow: workflowId };
 }
 

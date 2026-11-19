@@ -30,7 +30,6 @@ export function CopilotWelcome({
   onPrompt,
   onAction,
   onReload,
-  onCurate,
 }: {
   categories: CopilotCategory[];
   selectedCategoryId: string | null;
@@ -38,7 +37,6 @@ export function CopilotWelcome({
   onPrompt: (prompt: string) => void;
   onAction?: (action: CopilotAction) => void;
   onReload?: () => void;
-  onCurate?: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const initial = useRef(true);
@@ -84,13 +82,6 @@ export function CopilotWelcome({
           ? "Choose a task to draft a message. You can edit it before sending."
           : "Discover merchandise, manage gifting and explore your ShelfMerch workspace."}
       </p>
-      {!selected && onCurate ? (
-        <button type="button" className="sm-curator-entry" onClick={onCurate}>
-          <Gift size={19} aria-hidden="true" />
-          <span><strong>Curate Gifts</strong><small>Discover thoughtful gifts for your team.</small></span>
-          <ArrowRight size={17} aria-hidden="true" />
-        </button>
-      ) : null}
       {!categories.length ? (
         <div className="sm-copilot-discovery__empty" role="status">
           <p>Your capabilities couldn’t be loaded. You can still write a message below.</p>

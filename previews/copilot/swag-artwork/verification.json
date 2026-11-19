@@ -1,0 +1,94 @@
+{
+  "status": "Image fix verified; automatic artwork application blocked",
+  "changedFiles": [
+    "apps/web/src/features/swag/mockup-bake.ts",
+    "apps/web/src/features/swag/savedMockupConsistency.test.tsx",
+    "apps/api/tests/swag-mockup-consistency.test.js",
+    "apps/api/tests/copilot-swag.browser-check.js"
+  ],
+  "alteredBaselineFiles": [
+    "apps/api/tests/copilot-swag.browser-check.js",
+    "apps/web/src/features/swag/mockup-bake.ts"
+  ],
+  "preservedBaselineFiles": 2492,
+  "totalPassed": 575,
+  "failed": 0,
+  "pending": 0,
+  "uniqueTestFiles": 50,
+  "existingTypeScriptDiagnostics": 26,
+  "newTypeScriptDiagnostics": 0,
+  "results": [
+    {
+      "report": "image-consistency-final",
+      "passed": 6,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "acceptance-final",
+      "passed": 62,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "catalog-final",
+      "passed": 37,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-dashboard-final",
+      "passed": 48,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-state-final",
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-attachments-final",
+      "passed": 8,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-reads-final",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-domains-final",
+      "passed": 9,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-copilot-provider-final",
+      "passed": 20,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "api-financial-final",
+      "passed": 84,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "web-final",
+      "passed": 279,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "browser-test",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ]
+}

@@ -76,6 +76,25 @@ beforeEach(async () => {
 });
 
 describe('copilot attachments', () => {
+  it('serves sent artwork bytes only to the actor in the owning conversation before expiry', async () => {
+    const tenant = await makeTenant();
+    const owner = await makeUser(tenant, 'company_admin');
+    const other = await makeUser(tenant, 'company_admin');
+    const conversation = await CopilotConversation.create({ tenantId: tenant._id, userId: owner.user._id });
+    const second = await CopilotConversation.create({ tenantId: tenant._id, userId: owner.user._id });
+    const image = makeLogoPng();
+    const upload = await request(app).post(`/api/v1/copilot/attachments?kind=swag_artwork&conversationId=${conversation._id}`)
+      .set(authHeader(owner.token)).attach('file', image, 'logo.png').expect(201);
+    const endpoint = `/api/v1/copilot/conversations/${conversation._id}/artwork/${upload.body.id}`;
+    await request(app).get(endpoint).set(authHeader(owner.token)).expect(404);
+    await CopilotConversation.updateOne({ _id: conversation._id }, { $push: { messages: { role: 'user', attachments: [{ id: upload.body.id, kind: 'swag_artwork' }] } } });
+    const preview = await request(app).get(endpoint).set(authHeader(owner.token)).expect(200).expect('Content-Type', /image\/png/).expect('Cache-Control', 'private, no-store');
+    expect(preview.body).toEqual(image);
+    await request(app).get(endpoint).set(authHeader(other.token)).expect(404);
+    await request(app).get(`/api/v1/copilot/conversations/${second._id}/artwork/${upload.body.id}`).set(authHeader(owner.token)).expect(404);
+    await CopilotAttachment.updateOne({ _id: upload.body.id }, { expiresAt: new Date(Date.now() - 1000) });
+    await request(app).get(endpoint).set(authHeader(owner.token)).expect(404);
+  });
   it('uploads a purchase order without changing wallet balances', async () => {
     const tenant = await makeTenant();
     const wallet = await makeFundedWallet(tenant);

@@ -25,7 +25,7 @@ function redirectIfAuthed(args?: { request?: Request }) {
 
 const tenantChildren: RouteObject[] = [
   { index: true, lazy: page(() => import("@/features/dashboard/DashboardPage"), "DashboardPage") },
-  { path: "copilot", lazy: page(() => import("@/features/copilot/CopilotPage"), "CopilotPage") },
+  { path: "copilot", handle: { privateTitle: "ShelfMerch Copilot | ShelfMerch" }, lazy: page(() => import("@/features/copilot/CopilotPage"), "CopilotPage") },
   { path: "orders", lazy: page(() => import("@/features/orders/OrdersPage"), "OrdersPage") },
   { path: "wallets", lazy: page(() => import("@/features/wallets/WalletsPage"), "WalletsPage") },
   {
@@ -279,6 +279,10 @@ export const appRouter = createBrowserRouter([
         lazy: page(() => import("@/components/LandingPage")),
       },
       { path: "about", lazy: page(() => import("@/features/marketing/AboutPage"), "AboutPage") },
+      {
+        path: "in-office-swag-store",
+        lazy: page(() => import("@/features/marketing/InOfficeSwagStorePage")),
+      },
       { path: "about/index.html", loader: () => redirect("/about") },
       {
         path: "careers",

@@ -3,8 +3,18 @@ import { COPILOT_WRITE_WORKFLOWS } from '../src/modules/copilot/copilotWrites.se
 import { workflowsFromCatalog } from '../src/modules/copilot/copilotMcpCatalog.js';
 import { activeCopilotTools, listOpenAiToolsForRole, runCopilotTool } from '../src/modules/copilot/copilotTools.js';
 import { env } from '../src/config/env.js';
+import { buildCopilotToolDefinitions } from '../src/modules/copilot/copilotToolBindings.js';
 
 describe('copilot write registry', () => {
+  it('serializes every PREPARE confirmation using the catalog workflow rather than its MCP operation', () => {
+    const definitions = buildCopilotToolDefinitions();
+    for (const workflow of workflowsFromCatalog()) {
+      const definition = definitions.find(tool => tool.name === workflow.prepareTool);
+      const [artifact] = definition.artifacts({ confirmationId: 'synthetic-confirmation', preview: {}, request: {} });
+      expect(artifact.operation).toBe(workflow.id);
+      expect(COPILOT_WRITE_WORKFLOWS[artifact.operation].operation).toBe(workflow.mcpOperation);
+    }
+  });
   it('registers every catalog prepare/execute workflow', () => {
     const workflows = workflowsFromCatalog();
     expect(Object.keys(COPILOT_WRITE_WORKFLOWS).sort()).toEqual(

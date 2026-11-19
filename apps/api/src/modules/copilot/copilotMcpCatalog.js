@@ -1,5 +1,5 @@
 /**
- * Authoritative Embedded Copilot ↔ MCP tool inventory (67 tools).
+ * Embedded inventory: 67 public MCP tools plus embedded Send Points and swag workflows.
  * Handlers are bound in copilotTools / copilotWrites — this file is metadata only.
  */
 
@@ -16,6 +16,12 @@ function tool(entry) {
 
 /** @type {Array<Record<string, unknown>>} */
 export const COPILOT_MCP_CATALOG = [
+  tool({ name: 'swag_configure', kind: 'read', domain: 'collections', area: 'swag', handler: 'configureSwagForCaller', module: 'swagDesignWorkflow', writeFlag: 'collections', embeddedOnly: true, copilotStatus: 'integrated' }),
+  tool({ name: 'swag_prepare_collection', kind: 'prepare', domain: 'collections', area: 'swag', handler: 'prepareSwagForCaller', module: 'swagDesignWorkflow', writeFlag: 'collections', mcpOperation: 'swag.collection', workflow: 'swag.collection', embeddedOnly: true, copilotStatus: 'integrated' }),
+  tool({ name: 'swag_execute_collection', kind: 'execute', domain: 'collections', area: 'swag', handler: 'executeSwagForCaller', module: 'swagDesignWorkflow', writeFlag: 'collections', mcpOperation: 'swag.collection', workflow: 'swag.collection', embeddedOnly: true, modelVisible: false, copilotStatus: 'integrated' }),
+  // Embedded orchestration only; the independent public MCP stages remain intact.
+  tool({ name: 'campaigns_prepare_send_points', kind: 'prepare', domain: 'gifting', area: 'campaignOps', handler: 'prepareSendPointsForCaller', module: 'sendPointsWorkflow', writeFlag: 'sendPoints', mcpOperation: 'campaigns.send_points', workflow: 'campaigns.send_points', embeddedOnly: true, copilotStatus: 'integrated' }),
+  tool({ name: 'campaigns_execute_send_points', kind: 'execute', domain: 'gifting', area: 'campaignOps', handler: 'executeSendPointsForCaller', module: 'sendPointsWorkflow', writeFlag: 'sendPoints', mcpOperation: 'campaigns.send_points', workflow: 'campaigns.send_points', embeddedOnly: true, modelVisible: false, copilotStatus: 'integrated' }),
   // —— READ (23) ——
   tool({ name: 'catalog_search', kind: 'read', domain: 'catalog', area: 'catalog', handler: 'searchCatalog', module: 'catalogSearch', copilotStatus: 'integrated' }),
   tool({ name: 'catalog_get_product', kind: 'read', domain: 'catalog', area: 'catalog', handler: 'getCatalogProduct', module: 'catalogRead', copilotStatus: 'integrated' }),

@@ -1,0 +1,103 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "widths": [
+    1440,
+    390
+  ],
+  "backend": "real controllers and MongoMemoryReplSet; local upload and actual renderer inspection",
+  "provider": "mocked with controlled delays",
+  "liveCustomerData": false,
+  "collections": 0,
+  "executeRequests": 0,
+  "conversationIds": [
+    "6afe9f20e550c247dcf9b0f7",
+    "6afe9f28e550c247dcf9b0fd"
+  ],
+  "firstRevision": 8,
+  "secondRevision": 6,
+  "pendingApprovals": 1,
+  "selectionChecks": [
+    {
+      "viewport": "desktop",
+      "label": "Add Corporate Polo",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 227,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "desktop",
+      "label": "Add Zip Hoodie",
+      "delayed": false,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 470,
+      "count": "2 products selected"
+    },
+    {
+      "viewport": "desktop",
+      "label": "Remove Zip Hoodie",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 470,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Add Corporate Polo",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 607,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Add Zip Hoodie",
+      "delayed": false,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 641,
+      "count": "2 products selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Remove Zip Hoodie",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 609,
+      "count": "1 product selected"
+    }
+  ],
+  "checks": [
+    "desktop aligned footer with one persisted pagination turn and retained selection",
+    "desktop naming has no controls; typed Yes shows cards once and conversation order survives reload",
+    "card and natural-language selection, upload and immediate reload without state or step mutation",
+    "mobile aligned footer with one persisted pagination turn and retained selection",
+    "mobile naming has no controls; typed Yes shows cards once, and product selection continues to artwork",
+    "different conversation starts, names and continues while original response is pending; late response is stored only in its own history",
+    "refresh during a slow provider response; a newer post-refresh request supersedes old prose, with unchanged revision, attachment and single pending approval"
+  ],
+  "errors": []
+}

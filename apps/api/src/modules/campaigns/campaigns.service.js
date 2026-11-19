@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import mongoose from 'mongoose';
 import { nanoid } from 'nanoid';
 import { Campaign } from './campaign.model.js';
 import { Recipient } from './recipient.model.js';
@@ -24,11 +25,14 @@ import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { assertCampaignSpendPayment } from '../payments/payments.service.js';
 import { scheduleSlackBusinessNotification, evaluateEntityLowBudgetAlert } from '../integrations/slack/slackNotify.service.js';
 import { SLACK_EVENT_TYPES } from '../integrations/slack/slack.events.js';
-import { withCampaignOperation } from './campaignOperation.js';
+import { withCampaignOperation, CampaignOperation } from './campaignOperation.js';
+import { allocationRecovery } from './allocationRecovery.js';
+import { pointsLaunchManifest, commitPointsLaunch, dispatchPointsDeliveries, launchFence } from './pointsLaunch.service.js';
 
 function withCampaignMeta(campaign) {
   const obj = campaign.toObject ? campaign.toObject() : campaign;
-  return { ...obj, validNextStatuses: validNextStatuses('campaign', obj.status) };
+  const { launchApproval, deliveryRevision, ...publicCampaign } = obj;
+  return { ...publicCampaign, validNextStatuses: validNextStatuses('campaign', obj.status) };
 }
 
 function isExternalPay(paymentMode) {
@@ -37,10 +41,10 @@ function isExternalPay(paymentMode) {
 
 const INCOMPLETE_CAMPAIGN_STATUSES = ['draft', 'recipients_uploaded', 'credits_allocated', 'approved'];
 
-export async function assertWalletCanSpend({ tenantId, entityId, amount, user }) {
+export async function assertWalletCanSpend({ tenantId, entityId, amount, user, session = null }) {
   const budget = Math.round(amount ?? 0);
+  const { entity, wallet } = await ledger.resolveSpendWalletForEntity({ tenantId, entityId, session });
   if (budget <= 0) return;
-  const { entity, wallet } = await ledger.resolveSpendWalletForEntity({ tenantId, entityId });
 
   const entityAvailable = Math.max(0, entity.allocatedAmount - entity.spentAmount);
 
@@ -130,7 +134,9 @@ export async function getCampaign({ tenantId, campaignId, user }) {
     const allowed = (user.assignedEntityIds ?? []).map(String);
     if (!allowed.includes(String(campaign.entityId))) throw new ForbiddenError();
   }
-  return withCampaignMeta(campaign);
+  return { ...withCampaignMeta(campaign), ...(campaign.type === 'points' ? {
+    launchReviewHash: (await pointsLaunchManifest(tenantId, campaignId, user)).hash,
+  } : {}) };
 }
 
 export const HIDDEN_CAMPAIGN_NAME = '__storefront_self_serve__';
@@ -226,6 +232,7 @@ export async function createCampaign({ tenantId, userId, user, data }) {
   const entity = await Entity.findOne({ _id: data.entityId, tenantId });
   if (!entity) throw new NotFoundError('Entity not found');
   assertEntityAccess(user, entity._id);
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: entity._id });
 
   if (data.shopId) {
     const shop = await Shop.findOne({ _id: data.shopId, tenantId });
@@ -280,16 +287,22 @@ export async function updateCampaign({ tenantId, campaignId, user, patch }) {
   for (const key of Object.keys(rest)) {
     if (rest[key] === undefined) delete rest[key];
   }
+  if (campaign.type === 'points' && rest.schedule) {
+    rest.schedule = { ...(campaign.schedule?.toObject?.() || campaign.schedule), ...rest.schedule };
+  }
   Object.assign(campaign, rest);
   await campaign.save();
-  return withCampaignMeta(campaign);
+  return { ...withCampaignMeta(campaign), ...(campaign.type === 'points' ? {
+    launchReviewHash: (await pointsLaunchManifest(tenantId, campaignId, user)).hash,
+  } : {}) };
 }
 
 /** Save or update an incomplete points send wizard draft. */
-export async function savePointsDraft({ tenantId, userId, user, data }) {
+export async function savePointsDraft({ tenantId, userId, user, data, reservedCampaignId }) {
   const entity = await Entity.findOne({ _id: data.entityId, tenantId });
   if (!entity) throw new NotFoundError('Entity not found');
   assertEntityAccess(user, entity._id);
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: entity._id });
 
   const shop = await Shop.findOne({ _id: data.shopId, tenantId });
   if (!shop) throw new NotFoundError('Shop not found');
@@ -307,6 +320,7 @@ export async function savePointsDraft({ tenantId, userId, user, data }) {
     }
   } else {
     campaign = await Campaign.create({
+      ...(reservedCampaignId ? { _id: reservedCampaignId } : {}),
       tenantId,
       entityId: data.entityId,
       name: data.name,
@@ -383,7 +397,7 @@ async function upsertRecipientsFromList({ tenantId, campaign, rows }) {
       const contact = await Contact.findOne({ tenantId, email: row.email.toLowerCase() });
       contactId = contact?._id ?? null;
     }
-    const recipient = await Recipient.findOneAndUpdate(
+    const upsert = session => Recipient.findOneAndUpdate(
       { tenantId, campaignId: campaign._id, email: row.email.toLowerCase() },
       {
         $set: {
@@ -400,8 +414,19 @@ async function upsertRecipientsFromList({ tenantId, campaign, rows }) {
           redemptionStatus: 'invited',
         },
       },
-      { upsert: true, new: true },
+      { upsert: true, new: true, session },
     );
+    let recipient;
+    if (campaign.type === 'points') {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const editable = await Campaign.updateOne({ tenantId, _id: campaign._id, 'launchApproval.hash': { $exists: false } }, { $inc: { __v: 1 } }, { session });
+          if (editable.matchedCount !== 1) throw new ApiError(409, 'Approved launch details require review before editing', 'CAMPAIGN_LAUNCH_LOCKED');
+          recipient = await upsert(session);
+        });
+      } finally { await session.endSession(); }
+    } else recipient = await upsert(null);
     created.push(recipient);
   }
   return created;
@@ -428,7 +453,7 @@ async function applyImportRecipients({
   if (!['draft', 'recipients_uploaded'].includes(campaign.status)) {
     throw new ApiError(422, 'Recipients cannot be changed after credits are allocated', 'CAMPAIGN_LOCKED');
   }
-
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
   const rows = await upsertRecipientsFromList({ tenantId, campaign, rows: recipients });
   campaign.recipientCount = await Recipient.countDocuments({ tenantId, campaignId: campaign._id });
   if (campaign.status === 'draft') {
@@ -560,15 +585,21 @@ async function applyAllocateCredits({
   paymentMode = 'wallet',
   razorpayOrderId,
   razorpayPaymentId,
+  session = null,
 }) {
-  const campaign = await Campaign.findOne({ _id: campaignId, tenantId });
+  const campaign = await Campaign.findOne({ _id: campaignId, tenantId }).session(session);
   if (!campaign) throw new NotFoundError('Campaign not found');
   if (user?.scopeType === 'entity') {
     const allowed = (user.assignedEntityIds ?? []).map(String);
     if (!allowed.includes(String(campaign.entityId))) throw new ForbiddenError();
   }
 
-  const count = await Recipient.countDocuments({ tenantId, campaignId: campaign._id });
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
+  if (campaign.type === 'points') {
+    const editable = await Campaign.updateOne({ tenantId, _id: campaign._id, 'launchApproval.hash': { $exists: false } }, { $inc: { __v: 1 } }, { session });
+    if (editable.matchedCount !== 1) throw new ApiError(409, 'Approved launch details require review before editing', 'CAMPAIGN_LAUNCH_LOCKED');
+  }
+  const count = await Recipient.countDocuments({ tenantId, campaignId: campaign._id }).session(session);
   if (count === 0) throw new ApiError(422, 'Upload recipients before allocating credits', 'NO_RECIPIENTS');
 
   const perRecipient = Math.round(Number(creditsPerRecipient) || 0);
@@ -622,14 +653,17 @@ async function applyAllocateCredits({
   await Recipient.updateMany(
     { tenantId, campaignId: campaign._id },
     { creditAmount: deferCredits ? 0 : perRecipient },
+    { session },
   );
 
   if (campaign.status === 'recipients_uploaded') {
     transitionState('campaign', campaign, 'credits_allocated', { userId: user.userId });
     transitionState('campaign', campaign, 'approved', { userId: user.userId });
   }
-  await campaign.save();
-  return withCampaignMeta(campaign);
+  await campaign.save({ session });
+  return { ...withCampaignMeta(campaign), ...(campaign.type === 'points' ? {
+    launchReviewHash: (await pointsLaunchManifest(tenantId, campaignId, user, session)).hash,
+  } : {}) };
 }
 
 async function buildInviteContext(campaign, tenantId) {
@@ -700,7 +734,7 @@ async function acquireCampaignLaunch(campaign) {
     { returnDocument: 'after' },
   );
   if (!claimed) return null;
-  return { owner };
+  return { owner, fence: claimed.launchLease.fence };
 }
 
 async function releaseCampaignLaunch(campaignId, tenantId, owner) {
@@ -866,6 +900,14 @@ export async function deliverScheduledCampaign({ tenantId, campaignId, userId = 
     throw new ApiError(422, 'Campaign is not ready for scheduled delivery', 'NOT_LAUNCHED');
   }
 
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
+  if (campaign.type === 'points') {
+    const approved = await Campaign.findOne({ tenantId, _id: campaignId }).select('+launchApproval');
+    if (!approved.launchApproval) throw new ApiError(409, 'Historical launch needs explicit approval review before delivery', 'LAUNCH_REVIEW_REQUIRED');
+    if (campaign.schedule.sendAt && campaign.schedule.sendAt > new Date()) return withCampaignMeta(campaign);
+    const result = await dispatchPointsDeliveries({ tenantId, campaignId });
+    return withCampaignMeta(result);
+  }
   // Credit points now (held at 0 from allocate when scheduled).
   if (campaign.type === 'points' && campaign.creditsPerRecipient > 0) {
     await Recipient.updateMany(
@@ -986,7 +1028,18 @@ export async function importRecipients(input) {
 }
 
 export async function allocateCredits(input) {
-  if (!input?.idempotencyKey) return applyAllocateCredits(input);
+  const campaign = await Campaign.findOne({ tenantId: input.tenantId, _id: input.campaignId }).select('type');
+  const apply = async session => {
+    if (session || campaign?.type !== 'points') return applyAllocateCredits({ ...input, session });
+    const own = await mongoose.startSession();
+    try {
+      let result;
+      await own.withTransaction(async () => { result = await applyAllocateCredits({ ...input, session: own }); });
+      return result;
+    } finally { await own.endSession(); }
+  };
+  if (!input?.idempotencyKey) return apply(null);
+  const atomicRecovery = campaign?.type === 'points' && (!input.paymentMode || input.paymentMode === 'wallet') ? allocationRecovery(input) : null;
   return withCampaignOperation({
     tenantId: input.tenantId,
     operation: 'allocate_credits',
@@ -997,8 +1050,21 @@ export async function allocateCredits(input) {
       totalBudget: input.totalBudget ?? null,
     }),
     reconcile: () => reconcileAllocation(input),
-    execute: () => applyAllocateCredits(input),
+    execute: apply,
+    atomicRecovery,
   });
+}
+
+// A completed atomic receipt is proof of application. Only a versioned atomic
+// receipt with the exact unchanged pre-state can prove a safe same-key resume.
+export async function inspectCreditAllocationRecovery(input) {
+  const fingerprint = operationFingerprint({ campaignId: String(input.campaignId), creditsPerRecipient: input.creditsPerRecipient, totalBudget: input.totalBudget ?? null });
+  const row = await CampaignOperation.findOne({ tenantId: input.tenantId, operation: 'allocate_credits', key: input.idempotencyKey, fingerprint });
+  if (!row || row.recoveryProof?.version !== 1) return { outcome: 'uncertain' };
+  if (row.status === 'completed') return { outcome: 'completed', result: row.result };
+  if (row.status === 'failed' && !row.retryable) return { outcome: 'uncertain' };
+  if (row.leaseOwner && row.leaseExpiresAt > new Date()) return { outcome: 'uncertain' };
+  return allocationRecovery(input).inspect(row.recoveryProof);
 }
 
 async function notifyLaunchSlack({ tenantId, campaign, user }) {
@@ -1054,12 +1120,18 @@ export async function launchCampaign({
   paymentMode = 'wallet',
   razorpayOrderId,
   razorpayPaymentId,
+  expectedLaunchHash,
+  launchGuard,
 }) {
   const campaign = await Campaign.findOne({ _id: campaignId, tenantId });
   if (!campaign) throw new NotFoundError('Campaign not found');
   if (user?.scopeType === 'entity') {
     const allowed = (user.assignedEntityIds ?? []).map(String);
     if (!allowed.includes(String(campaign.entityId))) throw new ForbiddenError();
+  }
+  await ledger.resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
+  if (campaign.type === 'points' && !expectedLaunchHash) {
+    expectedLaunchHash = (await pointsLaunchManifest(tenantId, campaignId, user)).hash;
   }
   const launchLease = await acquireCampaignLaunch(campaign);
   if (!launchLease) {
@@ -1077,12 +1149,35 @@ export async function launchCampaign({
 
   const launchHeartbeat = setInterval(() => {
     Campaign.updateOne(
-      { _id: campaign._id, tenantId, 'launchLease.owner': launchLease.owner },
+      launchFence(campaign, launchLease),
       { $set: { 'launchLease.expiresAt': new Date(Date.now() + LAUNCH_LEASE_MS) } },
     ).catch(() => {});
   }, 10_000);
   if (typeof launchHeartbeat.unref === 'function') launchHeartbeat.unref();
   try {
+  if (campaign.type === 'points') {
+    const ctx = await buildInviteContext(campaign, tenantId);
+    const payloadFor = recipient => ({ type: 'redemption_invite', tenantId,
+      email: recipient.email.trim().toLowerCase(), title: ctx.inviteTitle, body: ctx.inviteBody,
+      link: `/redeem/${recipient.redemptionToken}`, meta: { recipientName: recipient.name, senderName: ctx.fromLabel,
+        message: ctx.customMessage, giftName: ctx.giftName, companyName: ctx.companyName, campaignType: 'points',
+        fulfillmentMode: campaign.fulfillmentMode, pointsScope: campaign.pointsScope ?? 'shop',
+        shopName: ctx.shop?.name ?? '', shopLogoUrl: ctx.shop?.logoUrl ?? '',
+        shopBannerTheme: ctx.shop?.bannerConfig?.theme ?? '', shopBannerPreset: ctx.shop?.bannerConfig?.preset ?? '',
+        shopCurrencyMode: ctx.shop?.currencyMode ?? 'points' } });
+    const committed = await commitPointsLaunch({ campaign, lease: launchLease, user,
+      expectedHash: expectedLaunchHash, payloadFor, paymentMode, razorpayOrderId, razorpayPaymentId, launchGuard });
+    if (committed.$locals.didLaunch) recordUsage(tenantId, 'campaigns.launched');
+    if ((committed.schedule?.mode || 'now') === 'now' && !committed.isSample) {
+      const delivered = await dispatchPointsDeliveries({ tenantId, campaignId, lease: launchLease });
+      await notifyLaunchSlack({ tenantId, campaign: delivered, user });
+      return withCampaignMeta(delivered);
+    }
+    // The durable poller recovers scheduled work; enqueueing is only a wakeup.
+    if (committed.schedule?.mode === 'scheduled') await enqueueScheduledCampaignDelivery({ tenantId, campaignId, sendAt: committed.schedule.sendAt });
+    await notifyLaunchSlack({ tenantId, campaign: committed, user });
+    return withCampaignMeta(committed);
+  }
   if (campaign.status === 'launched' || campaign.status === 'redemption_open') {
     const reloaded = await Campaign.findOne({ _id: campaign._id, tenantId });
     const mode = reloaded.schedule?.mode ?? 'now';

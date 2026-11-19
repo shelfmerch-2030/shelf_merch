@@ -15,6 +15,12 @@ export type CuratorConcept = {
 export type Curation = {
   brief: GiftingBrief; concepts: CuratorConcept[]; suggestions: string[];
   generatedAt?: string; externalResearchAvailable: boolean; imageGenerationAvailable: boolean;
+  chat?: { groups: ChatGiftGroup[]; requestedCount: number; shownCount: number; bounded: boolean };
+};
+export type ChatGiftGroup = {
+  name: string; rationale: string; kind: "combination" | "products" | "existing_kit";
+  artifacts: Array<{ kind: "product"; product: Record<string, unknown> } | { kind: "kit"; kit: Record<string, unknown> }>;
+  subtotal?: number; total?: number | null; completePrice?: boolean; missingPrices?: number; budgetDifference?: number | null;
 };
 export function shortlistSummary(items: CuratorItem[], brief: GiftingBrief) {
   const totals: Record<string, number> = {};

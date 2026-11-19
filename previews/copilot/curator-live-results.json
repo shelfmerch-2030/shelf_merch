@@ -1,0 +1,36 @@
+{
+  "liveProvider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "isolatedTestCatalog": true,
+  "catalogConcepts": 1,
+  "externalFollowup": true,
+  "preservedToastAndConstraints": true,
+  "externalCatalogReads": 0,
+  "turns": [
+    {
+      "promptTokens": 2505,
+      "completionTokens": 397,
+      "totalTokens": 2902,
+      "estimatedCostUsd": 0.00898,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5"
+    },
+    {
+      "promptTokens": 2567,
+      "completionTokens": 1030,
+      "totalTokens": 3597,
+      "estimatedCostUsd": 0.015434,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5"
+    },
+    {
+      "promptTokens": 2625,
+      "completionTokens": 1137,
+      "totalTokens": 3762,
+      "estimatedCostUsd": 0.01662,
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5"
+    }
+  ],
+  "checkedAt": "2026-11-10T11:12:47.298Z"
+}

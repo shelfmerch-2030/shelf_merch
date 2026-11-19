@@ -107,6 +107,7 @@ export const allocateCreditsSchema = z.object({
 
 export const launchCampaignSchema = z
   .object({
+    expectedLaunchHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     paymentMode: z.enum(['wallet', 'upi', 'card']).optional().default('wallet'),
     razorpay_order_id: z.string().min(1).optional(),
     razorpay_payment_id: z.string().min(1).optional(),

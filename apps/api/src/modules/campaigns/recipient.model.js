@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../plugins/tenantScope.plugin.js';
 import { softDeletePlugin } from '../../plugins/softDelete.plugin.js';
+import { pointsApprovalGuard } from './pointsApprovalGuard.js';
 
 export const REDEMPTION_STATUSES = [
   'invited',
@@ -16,9 +17,10 @@ const recipientSchema = new mongoose.Schema(
     campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true, index: true },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact', default: null },
     name: { type: String, required: true },
-    email: { type: String, required: true, lowercase: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
     phone: { type: String, default: '' },
     creditAmount: { type: Number, default: 0 },
+    launchIdentityHash: { type: String, select: false },
     redemptionToken: { type: String, unique: true, index: true },
     // NOTE: named redemptionStatus (not status) intentionally — driven by the
     // "redemption" state machine via the service layer.
@@ -38,6 +40,7 @@ const recipientSchema = new mongoose.Schema(
 
 recipientSchema.plugin(tenantScopePlugin);
 recipientSchema.plugin(softDeletePlugin);
+recipientSchema.plugin(pointsApprovalGuard, { recipient: true });
 recipientSchema.index({ tenantId: 1, campaignId: 1, email: 1 }, { unique: true });
 
 export const Recipient = mongoose.model('Recipient', recipientSchema);

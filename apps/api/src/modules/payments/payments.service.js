@@ -6,6 +6,9 @@ import {
   verifyWebhookSignature as verifyRazorpayWebhookSignature,
 } from '../../services/razorpay.service.js';
 import { Payment } from './payment.model.js';
+import { Recipient } from '../campaigns/recipient.model.js';
+import { Campaign } from '../campaigns/campaign.model.js';
+import { requireWalletForFinancialWrite, resolveSpendWalletForEntity } from '../../services/ledger.service.js';
 import { Wallet } from '../wallets/wallet.model.js';
 import { transitionState } from '../../services/stateMachine.service.js';
 import { notify } from '../notifications/notifications.service.js';
@@ -39,8 +42,7 @@ export async function createRazorpayOrder({
 }) {
   if (amountInr < 1) throw new ApiError(422, 'Amount must be at least ₹1', 'INVALID_AMOUNT');
 
-  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
-  if (!wallet) throw new NotFoundError('Wallet not found');
+  const wallet = await requireWalletForFinancialWrite({ tenantId, walletId });
 
   const isCampaignSpend = purpose === 'campaign_spend';
   if (!isCampaignSpend && wallet.fundingDocument.approvalStatus === 'pending') {
@@ -297,6 +299,10 @@ export async function assertCampaignSpendPayment({
 /** Razorpay order for redemption checkout (points + UPI top-up). */
 export async function createCampaignCheckoutOrder({ tenantId, recipientId, amountInr }) {
   if (amountInr < 1) throw new ApiError(422, 'Amount must be at least ₹1', 'INVALID_AMOUNT');
+  const recipient = await Recipient.findOne({ _id: recipientId, tenantId }).select('campaignId').lean();
+  const campaign = recipient ? await Campaign.findOne({ _id: recipient.campaignId, tenantId }).select('entityId').lean() : null;
+  if (!campaign) throw new NotFoundError('Campaign not found');
+  await resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
 
   const amountPaise = Math.round(amountInr * 100);
   const receipt = razorpayReceipt('r', recipientId);

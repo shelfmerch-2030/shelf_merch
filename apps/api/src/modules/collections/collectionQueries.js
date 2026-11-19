@@ -53,6 +53,7 @@ export function mergeProductRefsPreservingDesign(existingRefs, incomingRefs) {
     const prev = byProduct.get(String(incoming.catalogProductId));
     if (!prev) return incoming;
     const next = { ...incoming };
+    if (next.inheritArtwork === undefined && prev.inheritArtwork === false) next.inheritArtwork = false;
     if (isBlankDesignValue(next.mockupUrl) && prev.mockupUrl) next.mockupUrl = prev.mockupUrl;
     if (isBlankDesignValue(next.mockupBackUrl) && prev.mockupBackUrl) {
       next.mockupBackUrl = prev.mockupBackUrl;

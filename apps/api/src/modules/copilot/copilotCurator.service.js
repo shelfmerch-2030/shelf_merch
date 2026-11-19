@@ -26,9 +26,18 @@ function stock(item) {
   if (item.products?.some(p => p.stockLabel === 'Out of stock')) return 'Out of stock';
   return 'Availability unknown';
 }
-function candidate(item, kind, curated = false) {
+export function candidate(item, kind, curated = false) {
   const price = kind === 'product' ? item.sellingPriceInr : item.priceInr ?? item.approxValueInr;
-  return { ...item, key: `${kind}:${item.id}`, kind, source: 'shelfmerch', curated: Boolean(curated || item.curated || item.type === 'curated'), price: typeof price === 'number' && Number.isFinite(price) ? price : null, currency: typeof price === 'number' && Number.isFinite(price) ? 'INR' : null, imageUrl: item.primaryImageUrl || item.imageUrl || '', availability: stock(item) };
+  // Kit READ summaries default absent prices to zero; do not imply a free gift.
+  const knownPrice = typeof price === 'number' && Number.isFinite(price) && (kind === 'product' ? price >= 0 : price > 0);
+  return { key: `${kind}:${item.id}`, id: item.id, name: item.name, kind, source: 'shelfmerch',
+    curated: Boolean(curated || item.curated || item.type === 'curated'), status: item.status,
+    category: item.category, subcategory: item.subcategory, childCategory: item.childCategory,
+    description: String(item.description || '').slice(0, 240),
+    price: knownPrice ? price : null, currency: knownPrice ? 'INR' : null,
+    imageUrl: item.primaryImageUrl || item.imageUrl || '', availability: stock(item),
+    ...(item.products ? { products: item.products.map(p => ({ name: p.name, quantity: p.quantity, stockLabel: p.stockLabel })) } : {}),
+  };
 }
 
 /** New orchestration only; delegates READs to the existing authenticated tool bindings. */
@@ -39,22 +48,24 @@ export async function readCuratorCandidates({ brief, queries, role, toolCtx, pre
   for (const query of searchTerms) {
     onTool?.('catalog_search', 'running');
     const { result } = await read('catalog_search', toolCtx, { ...(query ? { query } : {}), limit: CURATOR_LIMITS.pageSize, page: different && !query ? 2 : 1, ...(brief.currency === 'INR' && brief.budgetPerRecipient ? { maxSellingPriceInr: Math.floor(brief.budgetPerRecipient) } : {}) }, role);
-    all.push(...(result?.items || []).map(p => candidate(p, 'product')));
+    all.push(...(result?.items || []).slice(0, CURATOR_LIMITS.pageSize).map(p => candidate(p, 'product')));
     onTool?.('catalog_search', 'done');
   }
   // Existing kit readers already scope workspace kits and curate platform visibility.
   for (const name of ['kits_list_curated', 'kits_list']) {
     onTool?.(name, 'running');
     const { result } = await read(name, toolCtx, { limit: 4, ...(name === 'kits_list' ? { status: 'live', type: 'customized' } : brief.currency === 'INR' && brief.budgetPerRecipient ? { maxPriceInr: brief.budgetPerRecipient } : {}) }, role);
-    all.push(...(result?.items || []).map(k => candidate(k, 'kit', name === 'kits_list_curated')));
+    all.push(...(result?.items || []).slice(0, 4).map(k => candidate(k, 'kit', name === 'kits_list_curated')));
     onTool?.(name, 'done');
   }
-  return [...new Map(all.map(item => [item.key, item])).values()]
-    .filter(item => eligibleCandidate(item, brief) && (!different || !previousKeys.includes(item.key)))
-    .slice(0, CURATOR_LIMITS.candidates);
+  const eligible = [...new Map(all.map(item => [item.key, item])).values()]
+    .filter(item => eligibleCandidate(item, brief) && (!different || !previousKeys.includes(item.key)));
+  // Reserve room for kits; a full product page must not crowd out both kit readers.
+  const kits = eligible.filter(item => item.kind === 'kit').slice(0, 8);
+  return [...eligible.filter(item => item.kind === 'product').slice(0, CURATOR_LIMITS.candidates - kits.length), ...kits];
 }
 
-export async function streamCuratorTurn({ conversation, content, tenantId, userId, role, toolCtx, onEvent, signal, providerStatus, complete: injectedComplete }) {
+export async function streamCuratorTurn({ conversation, modelMessages = conversation.messages, content, tenantId, userId, role, toolCtx, onEvent, signal, providerStatus, complete: injectedComplete }) {
   const started = Date.now();
   let promptTokens = 0, completionTokens = 0, modelCalls = 0, readCalls = 0, success = false;
   const client = injectedComplete ? null : providerStatus.provider === 'anthropic' ? createAnthropicClient() : createOpenAiClient();
@@ -70,7 +81,7 @@ export async function streamCuratorTurn({ conversation, content, tenantId, userI
   };
   try {
     onEvent?.({ type: 'tool', name: 'curator_brief', status: 'running' });
-    const plan = parsePlan(await complete(BRIEF_TOOL, { existingBrief: conversation.curator?.brief || {}, conversation: boundedCuratorHistory(conversation.messages), latestRequest: content.slice(0, 3000) }), 'curator_update_brief', briefPlanSchema);
+    const plan = parsePlan(await complete(BRIEF_TOOL, { existingBrief: conversation.curator?.brief || {}, conversation: boundedCuratorHistory(modelMessages), latestRequest: content.slice(0, 3000) }), 'curator_update_brief', briefPlanSchema);
     const brief = mergeBrief(conversation.curator?.brief, plan.brief, content, plan.replaceExclusions);
     const missing = missingBrief(brief);
     const different = /\bdifferent|alternatives?|something else|show (?:me )?more|other options\b/i.test(content);
@@ -80,7 +91,7 @@ export async function streamCuratorTurn({ conversation, content, tenantId, userI
       const candidates = await readCuratorCandidates({ brief, queries: plan.queries, role, toolCtx, previousKeys: conversation.curator?.seenKeys || [], different, onTool: (name, status) => { if (status === 'running') readCalls += 1; onEvent?.({ type: 'tool', name, status }); } });
       candidateCount = candidates.length;
       if (brief.source === 'external' || candidates.length) {
-        const compact = candidates.map(({ key, name, kind, category, description, price, currency, products }) => ({ key, name, kind, category, description: String(description || '').slice(0, 120), price, currency, ...(kind === 'kit' ? { contents: (products || []).slice(0, 8).map(p => p.name) } : {}) }));
+        const compact = candidates.map(({ key, name, kind, category, description, price, currency, products }) => ({ key, name: String(name || '').slice(0, 160), kind, category: String(category || '').slice(0, 80), description: String(description || '').slice(0, 120), price, currency, ...(kind === 'kit' ? { contents: (products || []).slice(0, 8).map(p => String(p.name || '').slice(0, 120)) } : {}) }));
         const conceptPlan = parsePlan(await complete(CONCEPT_TOOL, { brief, request: content.slice(0, 1800), candidates: compact, instruction: brief.source === 'external' ? 'Give thoughtful concept-only ideas. No verified external search is available. Do not claim current trends.' : 'Use only these keys. Do not add products, prices, images or links. Prefer practical coherent combinations within budget.' }), 'curator_concepts', conceptPlanSchema);
         concepts = buildConcepts(conceptPlan, candidates, brief);
       }

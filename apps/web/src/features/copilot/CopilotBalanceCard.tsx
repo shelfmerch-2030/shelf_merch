@@ -46,6 +46,9 @@ export function CopilotWalletBalanceCard({
   artifact: CopilotWalletBalanceArtifact;
 }) {
   const wallet = artifact.wallet;
+  if (!wallet) {
+    return <div className="sm-copilot-balance" role="status">Wallet balance is unavailable in this saved conversation. Ask Copilot to refresh it.</div>;
+  }
   const available = formatInr(wallet.unallocatedAmount);
   return (
     <div className="sm-copilot-balance" aria-label="Wallet balance">
@@ -87,7 +90,10 @@ export function CopilotDepartmentBudgetsCard({
 }: {
   artifact: CopilotDepartmentBudgetsArtifact;
 }) {
-  const totalRemaining = artifact.departments.reduce(
+  if (!artifact.departments?.length) {
+    return <div className="sm-copilot-balance" role="status">Department budget data is unavailable in this saved conversation. Ask Copilot to refresh it.</div>;
+  }
+  const totalRemaining = (artifact.departments || []).reduce(
     (sum, row) => sum + (Number(row.remainingAmount) || 0),
     0,
   );

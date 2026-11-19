@@ -27,6 +27,25 @@ function renderComposer(
 afterEach(cleanup);
 
 describe("Copilot composer keyboard", () => {
+  it("keeps the draft editable while a pending selection blocks submission", () => {
+    const { props, rerender } = renderComposer({ sendBlocked: true });
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("placeholder", "Ask ShelfMerch Copilot…");
+    expect(input).toBeEnabled();
+    expect(input).not.toHaveAttribute("readonly");
+    fireEvent.change(input, { target: { value: "Draft during selection" } });
+    expect(props.onDraft).toHaveBeenCalledWith("Draft during selection");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add attachment" })).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onSend).not.toHaveBeenCalled();
+
+    rerender(<CopilotComposer {...props} draft="Draft during selection" sendBlocked={false} />);
+    expect(input).toHaveValue("Draft during selection");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onSend).toHaveBeenCalledExactlyOnceWith("Draft during selection");
+  });
+
   it("sends on Enter while preserving Shift+Enter and IME composition", () => {
     const onSend = vi.fn();
     renderComposer({ onSend });
@@ -55,6 +74,23 @@ describe("Copilot composer keyboard", () => {
 });
 
 describe("Copilot composer attachments", () => {
+  it("places the Swag PNG inside the composer and waits for upload before enabling Send", () => {
+    const attachment: CopilotAttachmentDraft = { localId: 'logo', kind: 'swag_artwork', status: 'uploading',
+      file: new File(['image'], 'logo.png', { type: 'image/png' }), originalName: 'logo.png', mimeType: 'image/png',
+      previewUrl: 'blob:logo', sizeBytes: 5 };
+    const { props, rerender } = renderComposer({ attachments: [attachment], draft: '' });
+    const preview = screen.getByRole('img', { name: 'Company logo draft' });
+    expect(preview).toHaveAttribute('src', 'blob:logo');
+    expect(preview.closest('form')).toBe(screen.getByRole('textbox').closest('form'));
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    rerender(<CopilotComposer {...props} attachments={[{ ...attachment, status: 'uploaded', serverId: 'uploaded-logo' }]} />);
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove logo.png' }));
+    expect(props.onRemoveAttachment).toHaveBeenCalledExactlyOnceWith('logo');
+    rerender(<CopilotComposer {...props} attachments={[]} />);
+    expect(screen.queryByRole('img', { name: 'Company logo draft' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  });
   it("shows the plus button and opens/closes the attachment menu", () => {
     renderComposer();
     const plus = screen.getByRole("button", { name: "Add attachment" });

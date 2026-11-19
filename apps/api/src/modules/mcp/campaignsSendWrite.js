@@ -5,9 +5,12 @@ import { assertEntityAccess } from '../../middleware/abac.middleware.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { Campaign } from '../campaigns/campaign.model.js';
 import { Recipient } from '../campaigns/recipient.model.js';
+import { Shop } from '../shops/shop.model.js';
+import { pointsPresentation, pointsPresentationFields } from './pointsPresentation.js';
 import { allocateCreditsSchema } from '../campaigns/campaigns.validation.js';
 import {
   allocateCredits,
+  inspectCreditAllocationRecovery,
   assertWalletCanSpend,
   launchCampaign,
 } from '../campaigns/campaigns.service.js';
@@ -16,12 +19,15 @@ import * as ledger from '../../services/ledger.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
 import { maskWalletImpact, visibleFunds } from './walletVisibility.js';
+import { allocationStateHash } from '../campaigns/allocationRecovery.js';
+import { McpWriteConfirmation } from './mcpWriteConfirmation.model.js';
+import { pointsLaunchManifest, PointsDelivery, validatePointsDebit } from '../campaigns/pointsLaunch.service.js';
 
 const SEND_ROLES = new Set(rolesForTenantArea('campaignOps', 'write'));
 
 const creditSchema = z.object({
   campaignId: z.string().trim().regex(/^[a-fA-F0-9]{24}$/),
-  creditsPerRecipient: allocateCreditsSchema.shape.creditsPerRecipient,
+  creditsPerRecipient: allocateCreditsSchema.shape.creditsPerRecipient.describe('Whole INR per recipient, minimum ₹250; never a displayed Points amount. ₹250 is 500 Points in a points store, or 250 Credits in an INR store.'),
 }).strict();
 
 const launchSchema = z.object({
@@ -34,7 +40,7 @@ export const CREDIT_PREPARE_DESCRIPTION = [
   'Amount is INR per recipient: whole number, minimum ₹250. Wallet debit is recipient count times that INR amount (shipping is included; no extra fee is charged).',
   'A company admin debit comes from the organization wallet unallocated balance and does not reduce a department allocation. A department manager debit comes from that department remaining budget.',
   'For a department manager, balance and unallocatedAmount in this preview are that department remaining budget. They are not the organization wallet total, organization allocated total, or organization unallocated cash.',
-  'Points stores convert at ₹1 = 2 Points. INR stores convert at ₹1 = 1 Credit. Points stay on the selected store.',
+  'creditsPerRecipient is INR, not displayed Points: 500 Points in a points store means ₹250 per recipient. Points stores display ₹1 = 2 Points; INR stores display ₹1 = 1 Credit. Redemption scope is separate: shop pools within the selected store; stadium pools tenant-wide. Read the returned currencyMode and pointsScope, never assume every campaign is store-specific.',
   'This step does not debit the wallet, create Contacts, or send invitations.',
 ].join(' ');
 
@@ -49,6 +55,7 @@ export const CREDIT_EXECUTE_DESCRIPTION = [
 export const LAUNCH_PREPARE_DESCRIPTION = [
   'Preview launching an approved Send Points campaign from the organization or department wallet.',
   'Delivery follows the draft schedule: immediately, at sendAt, or manual invite links (self).',
+  'Amounts are INR-backed credits, not displayed Points. Use returned currencyMode for conversion (₹1 = 2 Points or 1 Credit), and pointsScope for selected-store (shop) versus tenant-wide (stadium) redemption. Wallet deduction happens at launch, including scheduled campaigns; scheduled recipient delivery waits until sendAt.',
   'UPI and card checkout stay on the ShelfMerch hosted payment page. This tool only launches wallet-funded campaigns.',
   'Nothing is debited or sent by this preview. Ask for explicit confirmation before campaigns_execute_launch.',
   'For a department manager, walletImpact balance and unallocatedAmount are that department remaining budget. They are not organization wallet cash or unallocated cash.',
@@ -88,6 +95,7 @@ export const creditPrepareOutputSchema = z.object({
   confirmationId: z.string(),
   expiresAt: z.string(),
   preview: z.object({
+    ...pointsPresentationFields,
     campaignId: z.string(),
     status: z.string(),
     recipientCount: z.number(),
@@ -97,6 +105,7 @@ export const creditPrepareOutputSchema = z.object({
   }),
 });
 export const creditExecuteOutputSchema = z.object({
+  ...pointsPresentationFields,
   campaignId: z.string(),
   status: z.string(),
   recipientCount: z.number(),
@@ -109,6 +118,7 @@ export const launchPrepareOutputSchema = z.object({
   confirmationId: z.string(),
   expiresAt: z.string(),
   preview: z.object({
+    ...pointsPresentationFields,
     campaignId: z.string(),
     status: z.string(),
     recipientCount: z.number(),
@@ -116,10 +126,19 @@ export const launchPrepareOutputSchema = z.object({
     totalBudget: z.number(),
     invitations: z.number(),
     deliveryMode: z.enum(['now', 'scheduled', 'self']).optional(),
+    sendAt: z.string().nullable().optional(),
+    timezone: z.string().optional(),
     walletImpact: walletImpactSchema,
   }),
 });
 export const launchExecuteOutputSchema = z.object({
+  ...pointsPresentationFields,
+  creditsPerRecipient: z.number().optional(),
+  deliveryMode: z.enum(['now', 'scheduled', 'self']).optional(),
+  sendAt: z.string().nullable().optional(),
+  timezone: z.string().optional(),
+  walletDebited: z.boolean().optional(),
+  debitedAmountInr: z.number().optional(),
   campaignId: z.string(),
   status: z.string(),
   recipientCount: z.number(),
@@ -170,13 +189,25 @@ function assertSender(actor, entityId) {
 
 async function loadCampaign(tenantId, campaignId) {
   const campaign = await Campaign.findOne({ _id: campaignId, tenantId })
-    .select('name type status entityId creditsPerRecipient recipientCount totalBudget paymentMode schedule fulfillmentMode isSample');
+    .select('name type status entityId shopId pointsScope creditsPerRecipient recipientCount totalBudget paymentMode schedule fulfillmentMode isSample');
   if (!campaign) throw new NotFoundError('Campaign not found');
   return campaign;
 }
 
 function deliveryMode(campaign) {
   return campaign.schedule?.mode || 'now';
+}
+
+function sendContextSnapshot(campaign, actor) {
+  return {
+    entityId: String(campaign.entityId),
+    shopId: String(campaign.shopId || ''),
+    pointsScope: campaign.pointsScope ?? 'shop',
+    fundingScope: actor.user.scopeType,
+    deliveryMode: deliveryMode(campaign),
+    sendAt: campaign.schedule?.sendAt ? new Date(campaign.schedule.sendAt).toISOString() : null,
+    timezone: campaign.schedule?.timezone || null,
+  };
 }
 
 function assertPointsWalletCampaign(campaign) {
@@ -203,10 +234,15 @@ function statusAfterLaunch(campaign) {
 }
 
 async function walletView(tenantId, entityId) {
-  const { wallet } = await ledger.resolveSpendWalletForEntity({ tenantId, entityId });
+  const { wallet, entity } = await ledger.resolveSpendWalletForEntity({ tenantId, entityId });
   const balance = Number(wallet.balance) || 0;
   const allocatedAmount = Number(wallet.allocatedAmount) || 0;
-  return { wallet, balance, allocatedAmount, unallocatedAmount: balance - allocatedAmount };
+  return { wallet, entity, balance, allocatedAmount, unallocatedAmount: balance - allocatedAmount };
+}
+
+async function sendPresentation(tenantId, campaign, walletView, funds) {
+  const shop = campaign.shopId ? await Shop.findOne({ tenantId, _id: campaign.shopId }).select('name currencyMode') : null;
+  return { ...pointsPresentation({ shop, pointsScope: campaign.pointsScope, funds, wallet: walletView.wallet, entity: walletView.entity }), campaignName: campaign.name };
 }
 
 function spendKey(campaignId) {
@@ -238,6 +274,7 @@ async function presentCredit(tenantId, campaignId, actor) {
   const wallet = await walletView(tenantId, campaign.entityId);
   const funds = await visibleFunds(actor?.user, tenantId, campaign.entityId, wallet);
   return {
+    ...await sendPresentation(tenantId, campaign, wallet, funds),
     campaignId: String(campaign._id),
     status: campaign.status,
     recipientCount: campaign.recipientCount,
@@ -263,15 +300,25 @@ async function presentLaunch(tenantId, campaignId, actor) {
     invitedAt: null,
     inviteClaimedAt: { $ne: null },
   });
+  const debit = await existingDebit(tenantId, campaignId);
+  const unresolvedJobs = await PointsDelivery.countDocuments({ tenantId, campaignId,
+    state: { $in: ['submitting', 'unresolved', 'blocked'] } });
   return {
+    ...await sendPresentation(tenantId, campaign, wallet, funds),
     campaignId: String(campaign._id),
     status: campaign.status,
     recipientCount: campaign.recipientCount,
     totalBudget: campaign.totalBudget,
+    creditsPerRecipient: campaign.creditsPerRecipient,
+    deliveryMode: deliveryMode(campaign),
+    sendAt: campaign.schedule?.sendAt ? new Date(campaign.schedule.sendAt).toISOString() : null,
+    timezone: campaign.schedule?.timezone,
+    walletDebited: Boolean(debit),
+    ...(debit ? { debitedAmountInr: Math.abs(debit.amount) } : {}),
     balance: funds.balance,
     unallocatedAmount: funds.unallocatedAmount,
     invitationsSent,
-    invitationsUnresolved: Boolean(campaign.schedule?.invitesUnresolved) || claimedUnsent > 0,
+    invitationsUnresolved: Boolean(campaign.schedule?.invitesUnresolved) || claimedUnsent > 0 || unresolvedJobs > 0,
   };
 }
 
@@ -287,6 +334,11 @@ async function prepareCreditState(tenantId, actor, requested) {
   const same = campaign.creditsPerRecipient === requested.creditsPerRecipient
     && campaign.totalBudget === totalBudget
     && ['credits_allocated', 'approved', 'launched', 'redemption_open'].includes(campaign.status);
+  if (same && ['credits_allocated', 'approved'].includes(campaign.status)) {
+    const expectedCredit = campaign.schedule?.mode === 'scheduled' ? 0 : requested.creditsPerRecipient;
+    const mismatched = await Recipient.countDocuments({ tenantId, campaignId: campaign._id, creditAmount: { $ne: expectedCredit } });
+    if (mismatched || campaign.recipientCount !== recipientCount) throw new ApiError(409, 'Allocation needs reconciliation', 'IDEMPOTENCY_RECONCILIATION_REQUIRED');
+  }
   if (!same && campaign.status !== 'recipients_uploaded') {
     throw new ApiError(409, 'Credits can no longer be changed for this campaign', 'CAMPAIGN_LOCKED');
   }
@@ -318,6 +370,8 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
     validate: async () => requested,
     resourceState: async () => ({
       campaignId: String(planned.state.campaign._id),
+      allocationState: planned.allocationState = await allocationStateHash({ tenantId, campaignId: planned.state.campaign._id }),
+      ...sendContextSnapshot(planned.state.campaign, planned.actor),
       status: planned.state.campaign.status,
       creditsPerRecipient: planned.state.campaign.creditsPerRecipient,
       totalBudget: planned.state.campaign.totalBudget,
@@ -331,6 +385,7 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
       recipientCount: planned.state.recipientCount,
       totalBudget: planned.state.totalBudget,
     }),
+    recoveryProof: async () => ({ version: 1, allocationState: planned.allocationState }),
   });
   const state = planned.state;
   const funds = await visibleFunds(planned.actor?.user, tenantId, state.campaign.entityId, state.wallet);
@@ -338,6 +393,7 @@ export async function prepareCreditAllocation({ tenantId, actorUserId, input, no
     confirmationId: prepared.confirmationId,
     expiresAt: prepared.expiresAt,
     preview: {
+      ...await sendPresentation(tenantId, state.campaign, state.wallet, funds),
       campaignId: String(state.campaign._id),
       status: state.same ? state.campaign.status : 'approved',
       recipientCount: state.recipientCount,
@@ -376,28 +432,34 @@ export async function executeCreditAllocation({
       assertPointsWalletCampaign(campaign);
     },
     validate: async () => requested,
-    resourceState: async () => creditSnapshot(tenantId, requested.campaignId),
+    resourceState: async actor => creditSnapshot(tenantId, requested.campaignId, actor),
+    allowProvenResume: true,
     reconcile: async (actor) => {
-      const campaign = await Campaign.findOne({ _id: requested.campaignId, tenantId })
-        .select('status creditsPerRecipient totalBudget recipientCount');
-      if (!campaign) return { outcome: 'uncertain' };
-      const count = await Recipient.countDocuments({ tenantId, campaignId: campaign._id });
-      const applied = campaign.creditsPerRecipient === requested.creditsPerRecipient
-        && campaign.totalBudget === requested.creditsPerRecipient * count
-        && ['credits_allocated', 'approved', 'launched', 'redemption_open'].includes(campaign.status);
-      if (applied) return { outcome: 'completed', result: await presentCredit(tenantId, campaign._id, actor) };
-      if (campaign.status === 'recipients_uploaded') return { outcome: 'absent' };
-      return { outcome: 'uncertain' };
+      const campaign = await loadCampaign(tenantId, requested.campaignId);
+      assertSender(actor, campaign.entityId);
+      assertPointsWalletCampaign(campaign);
+      const decision = await inspectCreditAllocationRecovery({ tenantId, campaignId: requested.campaignId, user: actor.user,
+        creditsPerRecipient: requested.creditsPerRecipient, idempotencyKey: `credits:${confirmationId}` });
+      if (decision.outcome === 'completed') {
+        const result = await presentCredit(tenantId, campaign._id, actor);
+        // Preserve the exact operation result even if later stages changed status.
+        return { outcome: 'completed', result: { ...result, status: decision.result.status, recipientCount: decision.result.recipientCount,
+          creditsPerRecipient: decision.result.creditsPerRecipient, totalBudget: decision.result.totalBudget } };
+      }
+      return decision;
     },
     execute: async (actor) => {
       const state = await prepareCreditState(tenantId, actor, requested);
       if (!state.same) {
+        const confirmation = await McpWriteConfirmation.findOne({ tenantId, actorUserId, operation: 'campaigns.allocate_credits', confirmationId }).select('recoveryProof');
+        if (!confirmation?.recoveryProof?.allocationState) throw new ApiError(409, 'Prepare a fresh allocation preview', 'CONFIRMATION_STALE');
         await allocateCredits({
           tenantId,
           campaignId: requested.campaignId,
           user: actor.user,
           creditsPerRecipient: requested.creditsPerRecipient,
           idempotencyKey: `credits:${confirmationId}`,
+          confirmedStateHash: confirmation.recoveryProof.allocationState,
         });
       }
       const result = await presentCredit(tenantId, requested.campaignId, actor);
@@ -456,6 +518,8 @@ export async function prepareLaunch({ tenantId, actorUserId, input, now }) {
       const state = planned.state;
       return {
         campaignId: String(state.campaign._id),
+        launchManifest: planned.launchHash = (await pointsLaunchManifest(tenantId, state.campaign._id, planned.actor.user)).hash,
+        ...sendContextSnapshot(state.campaign, planned.actor),
         status: state.campaign.status,
         totalBudget: state.campaign.totalBudget,
         balance: state.wallet.balance,
@@ -468,6 +532,7 @@ export async function prepareLaunch({ tenantId, actorUserId, input, now }) {
       campaignId: requested.campaignId,
       totalBudget: planned.state.campaign.totalBudget,
     }),
+    recoveryProof: async () => ({ version: 1, launchHash: planned.launchHash }),
   });
   const state = planned.state;
   const funds = await visibleFunds(planned.actor?.user, tenantId, state.campaign.entityId, state.wallet);
@@ -489,12 +554,15 @@ export async function prepareLaunch({ tenantId, actorUserId, input, now }) {
     confirmationId: prepared.confirmationId,
     expiresAt: prepared.expiresAt,
     preview: {
+      ...await sendPresentation(tenantId, state.campaign, state.wallet, funds),
       campaignId: String(state.campaign._id),
       status: state.launched ? state.campaign.status : statusAfterLaunch(state.campaign),
       recipientCount: state.campaign.recipientCount,
       creditsPerRecipient: state.campaign.creditsPerRecipient,
       totalBudget: state.campaign.totalBudget,
       deliveryMode: deliveryMode(state.campaign),
+      sendAt: state.campaign.schedule?.sendAt ? new Date(state.campaign.schedule.sendAt).toISOString() : null,
+      timezone: state.campaign.schedule?.timezone,
       invitations: deliveryMode(state.campaign) === 'now' ? state.campaign.recipientCount : 0,
       walletImpact: impact,
     },
@@ -510,6 +578,8 @@ export async function executeLaunch({
   now,
 }) {
   const requested = parseLaunch(input);
+  const proof = await McpWriteConfirmation.findOne({ tenantId, actorUserId, operation: 'campaigns.launch', confirmationId }).select('recoveryProof');
+  const expectedLaunchHash = proof?.recoveryProof?.version === 1 ? proof.recoveryProof.launchHash : null;
   return executeMcpWrite({
     tenantId,
     actorUserId,
@@ -524,11 +594,17 @@ export async function executeLaunch({
       assertPointsWalletCampaign(campaign);
     },
     validate: async () => requested,
-    resourceState: async () => launchSnapshot(tenantId, requested.campaignId),
+    resourceState: async actor => launchSnapshot(tenantId, requested.campaignId, actor),
     reconcile: async (actor) => {
-      const campaign = await Campaign.findOne({ _id: requested.campaignId, tenantId }).select('status totalBudget schedule');
+      const accessible = await loadCampaign(tenantId, requested.campaignId);
+      assertSender(actor, accessible.entityId);
+      assertPointsWalletCampaign(accessible);
+      if (!expectedLaunchHash || (await pointsLaunchManifest(tenantId, requested.campaignId, actor.user)).hash !== expectedLaunchHash) return { outcome: 'uncertain' };
+      const campaign = await Campaign.findOne({ _id: requested.campaignId, tenantId }).select('+launchApproval');
       if (!campaign) return { outcome: 'uncertain' };
+      if (!campaign.launchApproval || campaign.launchApproval.hash !== expectedLaunchHash) return { outcome: 'uncertain' };
       const debit = await existingDebit(tenantId, campaign._id);
+      validatePointsDebit(debit, campaign, campaign.launchApproval);
       const launched = ['launched', 'redemption_open'].includes(campaign.status);
       if (launched && (campaign.totalBudget === 0 || debit)) {
         const mode = campaign.schedule?.mode || 'now';
@@ -546,6 +622,7 @@ export async function executeLaunch({
       return { outcome: 'absent' };
     },
     execute: async (actor) => {
+      if (!expectedLaunchHash) throw new ApiError(409, 'Prepare a fresh launch confirmation', 'CONFIRMATION_STALE');
       const state = await prepareLaunchState(tenantId, actor, requested);
       if (!state.launched && !state.debit) {
         await assertWalletCanSpend({
@@ -560,6 +637,7 @@ export async function executeLaunch({
         campaignId: requested.campaignId,
         user: actor.user,
         paymentMode: 'wallet',
+        expectedLaunchHash,
       });
       const result = await presentLaunch(tenantId, requested.campaignId, actor);
       await writeAudit({
@@ -581,12 +659,14 @@ export async function executeLaunch({
 }
 
 
-async function creditSnapshot(tenantId, campaignId) {
+async function creditSnapshot(tenantId, campaignId, actor) {
   const campaign = await loadCampaign(tenantId, campaignId);
   const recipientCount = await Recipient.countDocuments({ tenantId, campaignId: campaign._id });
   const wallet = await walletView(tenantId, campaign.entityId);
   return {
     campaignId: String(campaign._id),
+    allocationState: await allocationStateHash({ tenantId, campaignId }),
+    ...sendContextSnapshot(campaign, actor),
     status: campaign.status,
     creditsPerRecipient: campaign.creditsPerRecipient,
     totalBudget: campaign.totalBudget,
@@ -596,12 +676,14 @@ async function creditSnapshot(tenantId, campaignId) {
   };
 }
 
-async function launchSnapshot(tenantId, campaignId) {
+async function launchSnapshot(tenantId, campaignId, actor) {
   const campaign = await loadCampaign(tenantId, campaignId);
   const wallet = await walletView(tenantId, campaign.entityId);
   const debit = await existingDebit(tenantId, campaign._id);
   return {
     campaignId: String(campaign._id),
+    launchManifest: (await pointsLaunchManifest(tenantId, campaignId, actor.user)).hash,
+    ...sendContextSnapshot(campaign, actor),
     status: campaign.status,
     totalBudget: campaign.totalBudget,
     balance: wallet.balance,

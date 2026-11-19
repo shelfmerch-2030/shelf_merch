@@ -11,13 +11,6 @@ import {
 import { CopilotIcon } from "./CopilotIcon";
 import type { CopilotConversationSummary } from "./api";
 
-function dateLabel(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Saved conversation"
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 export function CopilotHistory({
   conversations,
   activeId,
@@ -156,14 +149,14 @@ export function CopilotHistory({
           </button>
         </div>
       ) : null}
-      <div className="sm-copilot-history__list" aria-busy={loading} hidden={collapsed}>
-        <p className="sm-copilot-eyebrow">Your conversations</p>
-        {loading ? (
+      <div className="sm-copilot-history__list" aria-busy={loading && !conversations.length} hidden={collapsed}>
+        {loading && !conversations.length ? (
           <p className="sm-copilot-history__status" role="status">
             <LoaderCircle size={16} className="sm-copilot-spin" aria-hidden="true" />
             Loading conversations…
           </p>
-        ) : error ? (
+        ) : null}
+        {error ? (
           <div className="sm-copilot-history__empty">
             <p>{error}</p>
             <button type="button" className="sm-copilot-text-button" onClick={onReload}>
@@ -171,7 +164,8 @@ export function CopilotHistory({
               Try again
             </button>
           </div>
-        ) : filtered.length ? (
+        ) : null}
+        {filtered.length ? (
           filtered.map((row) => (
             <button
               key={row.id}
@@ -183,14 +177,10 @@ export function CopilotHistory({
               disabled={locked}
               title={row.title}
             >
-              <MessageSquare size={17} strokeWidth={1.5} aria-hidden="true" />
-              <span>
-                <strong>{row.title || "Untitled conversation"}</strong>
-                <time dateTime={row.updatedAt}>{dateLabel(row.updatedAt)}</time>
-              </span>
+              <span>{row.title || "Untitled conversation"}</span>
             </button>
           ))
-        ) : (
+        ) : !loading && !error ? (
           <div className="sm-copilot-history__empty">
             <MessageSquare size={22} strokeWidth={1.4} aria-hidden="true" />
             <strong>{query.trim() ? "No matching conversations" : "A fresh start"}</strong>
@@ -200,7 +190,7 @@ export function CopilotHistory({
                 : "Your conversations will appear here after your first message."}
             </p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

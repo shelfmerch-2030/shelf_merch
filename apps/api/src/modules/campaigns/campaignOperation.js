@@ -16,6 +16,8 @@ const campaignOperationSchema = new mongoose.Schema(
     leaseOwner: { type: String, default: '' },
     leaseExpiresAt: { type: Date, default: null },
     fence: { type: Number, default: 0 },
+    recoveryProof: { type: mongoose.Schema.Types.Mixed, default: null },
+    retryable: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -37,7 +39,7 @@ function reconciliationRequired() {
   return new ApiError(409, 'This operation needs reconciliation before it can be retried', 'IDEMPOTENCY_RECONCILIATION_REQUIRED');
 }
 
-async function finish(reservation, fields) {
+async function finish(reservation, fields, session = null) {
   return CampaignOperation.findOneAndUpdate(
     {
       _id: reservation._id,
@@ -47,7 +49,7 @@ async function finish(reservation, fields) {
       leaseOwner: reservation.leaseOwner,
     },
     { $set: fields },
-    { returnDocument: 'after' },
+    { returnDocument: 'after', session },
   );
 }
 
@@ -65,7 +67,41 @@ async function runExecute(reservation, execute) {
   }
 }
 
-async function recover(existing, { tenantId, operation, key, fingerprint, reconcile, execute }) {
+// Allocation alone opts into this contract. The fenced receipt, recipient stamps
+// and campaign update commit together; an expired executor cannot commit later.
+async function runAtomic(reservation, execute, recovery, initial = false) {
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const owned = await finish(reservation, { leaseExpiresAt: new Date(Date.now() + LEASE_MS) }, session);
+      if (!owned) throw reconciliationRequired();
+      const decision = await recovery.inspect(reservation.recoveryProof, session);
+      if (decision.outcome === 'completed' && !initial) result = decision.result;
+      else if (decision.outcome === 'absent' || (initial && decision.outcome === 'completed')) result = await execute(session);
+      else throw reconciliationRequired();
+      if (!await finish(reservation, { status: 'completed', result, errorCode: '', retryable: false }, session)) throw reconciliationRequired();
+    });
+    return result;
+  } catch (error) {
+    // Unknown commit outcomes never authorize a replay. A committed transaction
+    // includes its completed receipt and can subsequently be read without writing.
+    if (error?.code !== 'IDEMPOTENCY_RECONCILIATION_REQUIRED') {
+      const retryable = Boolean(!error?.hasErrorLabel?.('UnknownTransactionCommitResult')
+        && (error?.status >= 500 || error?.hasErrorLabel?.('TransientTransactionError')));
+      await finish(reservation, { status: 'failed', retryable, errorCode: /^[A-Z0-9_]+$/.test(error?.code || '') ? error.code : 'CAMPAIGN_OPERATION_FAILED',
+        leaseOwner: '', leaseExpiresAt: null });
+    }
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function recover(existing, { tenantId, operation, key, fingerprint, reconcile, execute, atomicRecovery }) {
+  if (existing.status === 'failed' && !(atomicRecovery && existing.retryable && existing.recoveryProof?.version === 1)) {
+    throw new ApiError(422, 'The operation could not be completed', existing.errorCode || 'CAMPAIGN_OPERATION_FAILED');
+  }
   const now = new Date();
   const leaseOpen = Boolean(existing.leaseOwner) && existing.leaseExpiresAt && existing.leaseExpiresAt > now;
   if (leaseOpen) throw inFlight();
@@ -74,7 +110,7 @@ async function recover(existing, { tenantId, operation, key, fingerprint, reconc
     {
       _id: existing._id,
       tenantId,
-      status: 'pending',
+      status: existing.status,
       fingerprint,
       fence: existing.fence ?? 0,
       $or: [
@@ -84,7 +120,7 @@ async function recover(existing, { tenantId, operation, key, fingerprint, reconc
       ],
     },
     {
-      $set: { leaseOwner: owner, leaseExpiresAt: new Date(now.getTime() + LEASE_MS) },
+      $set: { status: 'pending', leaseOwner: owner, leaseExpiresAt: new Date(now.getTime() + LEASE_MS) },
       $inc: { fence: 1 },
     },
     { returnDocument: 'after' },
@@ -94,6 +130,7 @@ async function recover(existing, { tenantId, operation, key, fingerprint, reconc
     if (raced?.status === 'completed' && raced.fingerprint === fingerprint) return raced.result;
     throw inFlight();
   }
+  if (atomicRecovery) return runAtomic(acquired, execute, atomicRecovery);
   const decision = typeof reconcile === 'function' ? await reconcile() : { outcome: 'uncertain' };
   if (decision?.outcome === 'completed') {
     const saved = await finish(acquired, { status: 'completed', result: decision.result, errorCode: '' });
@@ -104,16 +141,16 @@ async function recover(existing, { tenantId, operation, key, fingerprint, reconc
   throw reconciliationRequired();
 }
 
-export async function withCampaignOperation({ tenantId, operation, key, fingerprint, reconcile, execute }) {
+export async function withCampaignOperation({ tenantId, operation, key, fingerprint, reconcile, execute, atomicRecovery }) {
   await CampaignOperation.syncIndexes();
   const existing = await CampaignOperation.findOne({ tenantId, operation, key });
   if (existing) {
     if (existing.fingerprint !== fingerprint) throw mismatch();
     if (existing.status === 'completed') return existing.result;
-    if (existing.status === 'failed') {
+    if (existing.status === 'failed' && !atomicRecovery) {
       throw new ApiError(422, 'The operation could not be completed', existing.errorCode || 'CAMPAIGN_OPERATION_FAILED');
     }
-    return recover(existing, { tenantId, operation, key, fingerprint, reconcile, execute });
+    return recover(existing, { tenantId, operation, key, fingerprint, reconcile, execute, atomicRecovery });
   }
   let reservation;
   try {
@@ -126,6 +163,7 @@ export async function withCampaignOperation({ tenantId, operation, key, fingerpr
       leaseOwner: randomBytes(16).toString('hex'),
       leaseExpiresAt: new Date(Date.now() + LEASE_MS),
       fence: 1,
+      recoveryProof: atomicRecovery ? await atomicRecovery.capture() : null,
     });
   } catch (error) {
     if (error?.code === 11000 || error?.cause?.code === 11000) {
@@ -133,9 +171,9 @@ export async function withCampaignOperation({ tenantId, operation, key, fingerpr
       if (!raced) throw error;
       if (raced.fingerprint !== fingerprint) throw mismatch();
       if (raced.status === 'completed') return raced.result;
-      return recover(raced, { tenantId, operation, key, fingerprint, reconcile, execute });
+      return recover(raced, { tenantId, operation, key, fingerprint, reconcile, execute, atomicRecovery });
     }
     throw error;
   }
-  return runExecute(reservation, execute);
+  return atomicRecovery ? runAtomic(reservation, execute, atomicRecovery, true) : runExecute(reservation, execute);
 }

@@ -33,3 +33,6 @@ apps/api/uploads/
 # Local catalog verification builds
 .catalog-review-build/
 .codex-build/
+
+# Private renderer generated from existing dashboard sources
+apps/api/renderer/

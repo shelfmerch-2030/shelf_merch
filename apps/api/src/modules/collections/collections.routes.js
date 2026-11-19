@@ -2,7 +2,7 @@ import { artworkUpload, validateArtworkUpload } from '../../middleware/artwork.m
 import { Router } from 'express';
 import { z } from 'zod';
 import { uploader, DOCUMENT_TYPES } from '../../middleware/upload.middleware.js';
-import crypto from 'node:crypto';
+import { createCollectionDesign, updateCollectionDesign } from './collectionDesign.service.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { resolveTenant, requireTenantContext } from '../../middleware/tenant.middleware.js';
@@ -14,7 +14,7 @@ import { Shop } from '../shops/shop.model.js';
 import { uploadFile } from '../../services/storage.service.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { NotFoundError, ApiError } from '../../utils/errors.js';
-import { collectionsForShopFilter, isCollectionLinkedToAnyShop, mergeProductRefsPreservingDesign } from './collectionQueries.js';
+import { collectionsForShopFilter, isCollectionLinkedToAnyShop } from './collectionQueries.js';
 import { publishCollectionToShop, unpublishCollectionFromShop, syncCollectionPublishTargets, unlinkCollectionFromAllShops } from '../shops/shopCatalogSync.js';
 import { Order } from '../orders/order.model.js';
 
@@ -114,19 +114,8 @@ router.post(
         throw new ApiError(400, 'This product is already in this shop', 'PRODUCT_ALREADY_IN_SHOP');
       }
     }
-    const collection = await Collection.create({
-      tenantId: req.tenantId,
-      shopId,
-      shopIds: shopId ? [shopId] : [],
-      code: `C${crypto.randomInt(100_000_000, 999_999_999)}`,
-      name: req.body.name,
-      productRefs: req.body.productRefs,
-      preferredColors: req.body.preferredColors || [],
-      artworkUrl,
-      status: artworkUrl ? 'ready' : 'draft',
-      createdBy: req.user.userId,
-      isShopSpecific: req.body.isShopSpecific || false,
-    });
+    const collection = await createCollectionDesign({ tenantId: req.tenantId,
+      createdBy: req.user.userId, input: { ...req.body, shopId, artworkUrl } });
     if (shopId && req.body.productRefs?.length) {
       await publishCollectionToShop(shopId, req.tenantId, collection);
     }
@@ -164,24 +153,7 @@ router.patch(
       collection.shopIds = nextIds;
       if (!collection.shopId) collection.shopId = shop._id;
     }
-    if (req.body.name || req.body.productRefs) {
-      // Drafts and ready-but-unpublished collections can still be refined in the
-      // swag editor (artwork save promotes status to ready before Publish).
-      // Once linked to a shop, content edits stay locked.
-      const linkedToShop = isCollectionLinkedToAnyShop(collection);
-      const canEditContents = collection.status === 'draft'
-        || (collection.status === 'ready' && !linkedToShop);
-      if (!canEditContents) {
-        throw new ApiError(400, 'Only draft collections can be edited', 'COLLECTION_NOT_DRAFT');
-      }
-      if (req.body.name) collection.name = req.body.name;
-      if (req.body.productRefs) {
-        collection.productRefs = mergeProductRefsPreservingDesign(
-          collection.productRefs,
-          req.body.productRefs,
-        );
-      }
-    }
+    updateCollectionDesign(collection, req.body);
     if (req.body.status) collection.status = req.body.status;
     await collection.save();
     if (linkedShopId) {

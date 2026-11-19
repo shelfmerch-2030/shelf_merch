@@ -81,8 +81,11 @@ export async function bakeCollectionDesignMockups({
     })
     .filter((m): m is MockupUploadItem => m !== null);
 
-  const brandableCount = draft.picked.reduce((n, i) => {
-    return n + (listPrintAreas(catalog[i]).length > 0 ? 1 : 0);
+  const brandableCount = draft.picked.reduce((n, i, idx) => {
+    const product = catalog[i];
+    const expectsDesign = product?.inheritArtwork !== false
+      || collectBakeLayers(product, draft.placements, draft.areaArts || {}, idx, fallbackArt).length > 0;
+    return n + (listPrintAreas(product).length > 0 && expectsDesign ? 1 : 0);
   }, 0);
   if (brandableCount > 0 && mockups.length < brandableCount) {
     throw new Error(

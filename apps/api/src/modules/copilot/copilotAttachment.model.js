@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const ATTACHMENT_KINDS = ['purchase_order', 'artwork', 'banner', 'file'];
+const ATTACHMENT_KINDS = ['purchase_order', 'artwork', 'banner', 'file', 'swag_artwork'];
 const ATTACHMENT_STATUSES = ['uploaded', 'removed', 'expired'];
 
 const copilotAttachmentSchema = new mongoose.Schema(

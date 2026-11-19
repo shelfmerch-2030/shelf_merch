@@ -230,11 +230,13 @@ export default function LandingPage() {
             <div>
               <span className="lh-label">MERCH. GIFTING. RECOGNITION.</span>
               <h1 id="lh-title">
-                Every gift,<em>one shelf.</em>
+                <span>The AI-powered</span>{" "}
+                <span>platform for</span>{" "}
+                <em>corporate swag</em>
               </h1>
               <p>
-                Run your company's swag, onboarding kits and employee gifting from one platform,
-                designed, printed and delivered anywhere in India.
+                Curate branded merchandise with AI, launch your company swag store, and manage
+                onboarding kits and employee gifts in one place. We handle fulfilment worldwide.
               </p>
               <div className="lh-actions">
                 <Link className="lh-button lh-button-white" to="/request-demo">
@@ -284,12 +286,6 @@ export default function LandingPage() {
                 </span>
                 <span className="lh-hero-tag lh-hero-tag-brand">Custom branding</span>
                 <span className="lh-hero-tag lh-hero-tag-delivery">Delivered with care</span>
-                <span className="lh-hero-star lh-hero-star-one" aria-hidden="true">
-                  ✳
-                </span>
-                <span className="lh-hero-star lh-hero-star-two" aria-hidden="true">
-                  ✳
-                </span>
               </div>
             </div>
           </div>

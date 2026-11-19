@@ -1,0 +1,221 @@
+{
+  "checks": [],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/status",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/tenants/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/shops",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/contacts",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/kits",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/collections",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/catalog/products",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/campaigns",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/orders",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/wallets",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/entities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/tenants/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/shops",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/contacts",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/kits",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/collections",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/catalog/products",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/campaigns",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/orders",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/wallets",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/entities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/tenants/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/shops",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/contacts",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/kits",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/collections",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/catalog/products",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/campaigns",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/orders",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/wallets",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/entities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/tenants/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/shops",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/contacts",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/kits",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/collections",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/catalog/products",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/campaigns",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/orders",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/wallets",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/entities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    }
+  ],
+  "origin": "http://127.0.0.1:51729",
+  "cwd": "D:\\Shelf Merch\\SMIO\\shelf_merch_swag_org_account\\apps\\api",
+  "viteExitCode": 3221226505
+}

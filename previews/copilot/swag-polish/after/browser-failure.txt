@@ -1,0 +1,94 @@
+Error: TypeError: Cannot read properties of null (reading 'getBoundingClientRect')
+    at <anonymous>:1:286
+    at <anonymous>:1:318
+    at evaluate (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-polish.browser-check.js:112:42)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-polish.browser-check.js:158:27
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design swag.
+Nov 16
+I want to design swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Polish check
+ShelfMerch Copilot
+
+Great, your collection is named Polish check. Would you like to see some products, or search for something specific?
+
+Show products
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Add Ceramic Mug
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Classic Crew Neck
+ShelfMerch Copilot
+
+2 products added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Classic Profile Mug
+ShelfMerch Copilot
+
+3 products added. Choose more, or continue to your logo.
+
+Products shown earlier
+Add Corporate Polo
+ShelfMerch Copilot
+
+4 products added. Choose more, or continue to your logo.
+
+Ceramic Mug
+₹500 incl. GST
+Availability unknown
+Details
+✓ Added
+Classic Crew Neck
+₹600 incl. GST
+Availability unknown
+Details
+✓ Added
+Classic Profile Mug
+₹700 incl. GST
+Availability unknown
+Details
+✓ Added
+Corporate Polo
+₹800 incl. GST
+Availability unknown
+Details
+✓ Added
+Show more products
+4 products selected
+Ceramic Mug
+×
+Classic Crew Neck
+×
+Classic Profile Mug
+×
+Corporate Polo
+×
+Continue
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

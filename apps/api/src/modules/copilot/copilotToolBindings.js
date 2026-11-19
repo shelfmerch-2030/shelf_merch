@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { configureSwagForCaller, prepareSwagForCaller, swagConfigureSchema, swagPrepareSchema } from './swagDesignWorkflow.js';
+import { SEND_POINTS_DESCRIPTION, prepareSendPointsForCaller, sendPointsPrepareSchema } from './sendPointsWorkflow.js';
+import { catalogByName, workflowsFromCatalog } from './copilotMcpCatalog.js';
 import { CATALOG_INVENTORY_RULE, catalogSearchInputSchema, searchCatalog } from '../mcp/catalogSearch.js';
 import {
   catalogGetProductInputSchema,
@@ -25,6 +28,7 @@ import { ordersSearchInputSchema, ordersGetInputSchema, getOrderForCaller, searc
 import {
   giftsSearchInputSchema,
   pointsSummaryInputSchema,
+  POINTS_SUMMARY_DESCRIPTION,
   searchGiftsForCaller,
   summarizePointsForCaller,
 } from '../mcp/pointsGiftsRead.js';
@@ -183,7 +187,7 @@ import { ForbiddenError, NotFoundError } from '../../utils/errors.js';
 export function zodParams(schema) {
   if (typeof z.toJSONSchema === 'function') {
     try {
-      const json = z.toJSONSchema(schema, { target: 'openapi-3.0' });
+      const json = z.toJSONSchema(schema, { target: 'jsonSchema2020-12' });
       const { $schema, ...rest } = json;
       return rest;
     } catch {
@@ -208,11 +212,19 @@ export function confirmationArtifact(operation, result) {
   };
 }
 
+/** Never upgrade old MCP operation ids into executable Copilot workflows. */
+export function serializeConfirmationArtifact(artifact) {
+  const value = artifact.toObject?.() || artifact;
+  if (value.kind !== 'confirmation' || value.status !== 'pending') return value;
+  if (workflowsFromCatalog().some(workflow => workflow.id === value.operation)) return value;
+  return { ...value, status: 'failed', message: 'This preview uses an unsupported workflow. Ask Copilot to prepare the change again.' };
+}
+
 function asText(description) {
   return Array.isArray(description) ? description.join(' ') : String(description || '');
 }
 
-function prepareTool({ name, area, description, parameters, schema, run, operation }) {
+function prepareTool({ name, area, description, parameters, schema, run }) {
   return {
     name,
     area,
@@ -223,10 +235,10 @@ function prepareTool({ name, area, description, parameters, schema, run, operati
     async run(ctx, args) {
       const request = schema ? schema.parse(args ?? {}) : args ?? {};
       const prepared = await run(ctx, request);
-      return { ...prepared, request };
+      return { ...prepared, request, workflow: catalogByName(name).workflow };
     },
     artifacts(result) {
-      return [confirmationArtifact(operation, result)];
+      return [confirmationArtifact(catalogByName(name).workflow, result)];
     },
   };
 }
@@ -307,16 +319,22 @@ const WALLET_SETUP_PARAMETERS = {
 
 export function buildCopilotToolDefinitions() {
   const reads = [
+    { name: 'swag_configure', area: 'swag', action: 'write',
+      description: 'Read or edit ONLY current conversation swag selections, never a saved collection. Empty input reads state. Changes require its revision. Resolve exact catalog IDs and store IDs first. Artwork is optional. listSaved lists authorized saved collections; collectionId reloads verified editor state. Returned editorPath opens the existing designer after a confirmed save.',
+      parameters: zodParams(swagConfigureSchema), run: configureSwagForCaller },
     {
       name: 'catalog_search',
       area: 'catalog',
       description: ['Search the ShelfMerch selling catalog for real inventory.', CATALOG_INVENTORY_RULE].join(' '),
       parameters: zodParams(catalogSearchInputSchema),
-      async run(_ctx, args) {
-        return searchCatalog(catalogSearchInputSchema.parse(args ?? {}));
+      async run(ctx, args) {
+        const query = catalogSearchInputSchema.parse(args ?? {});
+        if (ctx?.swagDesignActive) query.limit = Math.min(query.limit || 6, 6);
+        return { ...await searchCatalog(query), catalogQuery: query };
       },
       artifacts(result) {
-        return (result?.items ?? []).map((item) => ({ kind: 'product', product: item }));
+        return [...(result?.items ?? []).map((item) => ({ kind: 'product', product: item })),
+          ...(result?.pagination ? [{ kind: 'catalog_page', catalog: { query: result.catalogQuery || {}, pagination: result.pagination } }] : [])];
       },
     },
     {
@@ -561,7 +579,7 @@ export function buildCopilotToolDefinitions() {
     {
       name: 'points_summary',
       area: 'campaigns',
-      description: 'Summarize points / credits available for gifting in this workspace.',
+      description: `${POINTS_SUMMARY_DESCRIPTION} This is not organization cash available to spend. For spendable funding read wallet_list_balances or entities_list.`,
       parameters: zodParams(pointsSummaryInputSchema),
       async run(ctx) {
         return summarizePointsForCaller(ctx);
@@ -579,6 +597,10 @@ export function buildCopilotToolDefinitions() {
   ];
 
   const writes = [
+    prepareTool({ name: 'swag_prepare_collection', area: 'swag',
+      description: 'Prepare ONE explicit confirmation: action apply uses the existing automatic artwork renderer, save saves for later, and publish publishes the entire collection to selected stores. Requires conversationId and revision from swag_configure. Uploaded logos must first be applied through action apply, or placed and saved in the designer when automation is unsupported. PREPARE never applies artwork or publishes; EXECUTE requires a user confirmation click. Subset publication is not supported on the current collection; never silently publish all products when one was requested.',
+      schema: swagPrepareSchema, run: prepareSwagForCaller }),
+    executeGateTool({ name: 'swag_execute_collection', area: 'swag', description: 'UI confirmation only: save or publish the exact approved design.' }),
     prepareTool({
       name: 'shops_prepare_create',
       area: 'shops',
@@ -749,6 +771,9 @@ export function buildCopilotToolDefinitions() {
       run: preparePointsDraftForCaller,
       operation: 'campaigns.points_draft',
     }),
+    prepareTool({ name: 'campaigns_prepare_send_points', area: 'campaignOps', description: SEND_POINTS_DESCRIPTION,
+      schema: sendPointsPrepareSchema, run: prepareSendPointsForCaller }),
+    executeGateTool({ name: 'campaigns_execute_send_points', area: 'campaignOps', description: 'Execute only through the explicit Confirm & Send Points button.' }),
     executeGateTool({
       name: 'campaigns_execute_points_draft',
       area: 'campaignOps',

@@ -22,6 +22,9 @@ RUN npm ci --ignore-scripts
 # ---- build-web: compile the SPA ----
 FROM deps-build AS build-web
 COPY apps/web ./apps/web
+# Both the SPA and private renderer import shared API helpers/SEO sources.
+COPY apps/api ./apps/api
+COPY scripts/build-swag-renderer.mjs ./scripts/build-swag-renderer.mjs
 ARG VITE_API_URL=/api/v1
 ARG VITE_USE_MOCKS=false
 ARG VITE_SHOP_REDEEM_DOMAIN=store
@@ -29,6 +32,7 @@ ENV VITE_API_URL=$VITE_API_URL \
     VITE_USE_MOCKS=$VITE_USE_MOCKS \
     VITE_SHOP_REDEEM_DOMAIN=$VITE_SHOP_REDEEM_DOMAIN
 RUN npm run build -w @shelfmerch/web
+RUN node scripts/build-swag-renderer.mjs
 
 # ---- deps: production node_modules only ----
 FROM node:20-alpine AS deps
@@ -50,6 +54,11 @@ COPY apps/api ./apps/api
 COPY apps/web/src/seo ./apps/web/src/seo
 # SPA assets — Express serves these when NODE_ENV=production (see apps/api/src/app.js).
 COPY --from=build-web /app/apps/web/dist ./apps/web/dist
+# Platform-neutral bundle of the exact dashboard renderer. Automatic artwork is
+# opt-in: SWAG_RENDERER_EXECUTABLE must name a separately approved installed
+# Chromium browser that can run with its sandbox enabled. No browser download,
+# native Canvas module or --no-sandbox fallback is performed by the application.
+COPY --from=build-web /app/apps/api/renderer ./apps/api/renderer
 # Email preset banners are read from disk at send time (not via the SPA dist).
 COPY apps/web/public ./apps/web/public
 # Local-storage fallback dir must be writable by the app user.

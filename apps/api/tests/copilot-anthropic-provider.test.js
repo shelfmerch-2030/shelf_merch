@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
+import { zodParams } from '../src/modules/copilot/copilotToolBindings.js';
+import { WRITE_FLAG_KEYS } from '../src/modules/copilot/copilotWriteFlags.js';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
 import { env } from '../src/config/env.js';
@@ -12,6 +16,8 @@ import {
 import {
   toAnthropicMessages,
   toAnthropicTools,
+  normalizeJsonSchemaDraft2020,
+  anthropicErrorDetails,
   streamAnthropicCompletion,
   appendAnthropicAssistantToolTurn,
   appendAnthropicToolResults,
@@ -130,6 +136,40 @@ describe('Copilot Anthropic provider selection', () => {
 });
 
 describe('Claude tool translation', () => {
+  it('emits numeric exclusive bounds rather than the OpenAPI boolean rejected by Claude', () => {
+    const schema = z.object({ amount: z.number().positive() });
+    const legacy = z.toJSONSchema(schema, { target: 'openapi-3.0' });
+    expect(legacy.properties.amount).toMatchObject({ minimum: 0, exclusiveMinimum: true });
+    expect(zodParams(schema).properties.amount).toMatchObject({ exclusiveMinimum: 0 });
+    const original = structuredClone(legacy);
+    const [tool] = toAnthropicTools([{ function: { name: 'test', parameters: legacy } }]);
+    expect(tool.input_schema.properties.amount).toEqual({ type: 'number', exclusiveMinimum: 0 });
+    expect(legacy).toEqual(original);
+  });
+
+  it('preserves positive bounds on all affected PREPARE tools with writes enabled', () => {
+    const previous = Object.fromEntries(Object.values(WRITE_FLAG_KEYS).map(key => [key, env[key]]));
+    try {
+      for (const key of Object.values(WRITE_FLAG_KEYS)) env[key] = 'true';
+      const tools = toAnthropicTools(listOpenAiToolsForRole('company_admin'));
+      for (const name of ['wallets_prepare_topup', 'wallets_prepare_payment_order']) {
+        expect(tools.find(t => t.name === name).input_schema.properties.amount.exclusiveMinimum).toBe(0);
+      }
+      expect(tools.find(t => t.name === 'entities_prepare_setup').input_schema.properties.departments.items.properties.budget.exclusiveMinimum).toBe(0);
+      expect(tools.some(t => t.name.includes('_execute_'))).toBe(false);
+    } finally { Object.assign(env, previous); }
+  });
+
+  it('extracts the actual nested Anthropic SDK schema error without exposing raw request data', () => {
+    const message = 'tools.32.custom.input_schema: JSON schema is invalid. It must match JSON Schema draft 2020-12 (https://json-schema.org/draft/2020-12). Learn more about tool use at https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview.';
+    const error = new Anthropic.BadRequestError(400, { type: 'error', error: { type: 'invalid_request_error', message } }, undefined, new Headers({ 'request-id': 'req_test123' }));
+    expect(anthropicErrorDetails(error)).toEqual({ type: 'invalid_request_error', message, param: null, requestId: 'req_test123' });
+    error.error.error.message = 'customer conversation sk-ant-secret token-secret';
+    error.error.error.param = 'customer-secret';
+    error.request = { body: 'customer conversation', headers: { 'x-api-key': 'sk-ant-secret' } };
+    expect(JSON.stringify(anthropicErrorDetails(error))).not.toMatch(/customer|sk-ant-secret|token-secret/);
+  });
+
   it('maps OpenAI tool schemas into Anthropic input_schema tools', () => {
     const tools = listOpenAiToolsForRole('company_admin');
     const anthropicTools = toAnthropicTools(tools);
@@ -152,6 +192,78 @@ describe('Claude tool translation', () => {
     expect(registeredToolNames()).toEqual(
       expect.arrayContaining(['shops_prepare_create', 'shops_execute_create']),
     );
+  });
+
+  it('normalizes OpenAPI 3.0 boolean exclusiveMinimum/Maximum to JSON Schema Draft 2020-12 numbers', () => {
+    const legacySchema = {
+      type: 'object',
+      properties: {
+        amount: {
+          type: 'number',
+          minimum: 0,
+          exclusiveMinimum: true,
+        },
+        maxBudget: {
+          type: 'integer',
+          maximum: 1000,
+          exclusiveMaximum: true,
+        },
+        nested: {
+          type: 'object',
+          properties: {
+            subAmount: {
+              type: 'number',
+              minimum: 10,
+              exclusiveMinimum: true,
+            },
+          },
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'number',
+            minimum: 5,
+            exclusiveMinimum: true,
+          },
+        },
+      },
+    };
+
+    const normalized = normalizeJsonSchemaDraft2020(legacySchema);
+    expect(normalized.properties.amount).toEqual({
+      type: 'number',
+      exclusiveMinimum: 0,
+    });
+    expect(normalized.properties.maxBudget).toEqual({
+      type: 'integer',
+      exclusiveMaximum: 1000,
+    });
+    expect(normalized.properties.nested.properties.subAmount).toEqual({
+      type: 'number',
+      exclusiveMinimum: 10,
+    });
+    expect(normalized.properties.items.items).toEqual({
+      type: 'number',
+      exclusiveMinimum: 5,
+    });
+  });
+
+  it('ensures all active Copilot tools for company_admin match JSON Schema Draft 2020-12 without boolean exclusive bounds', () => {
+    env.EMBEDDED_COPILOT_WRITE_WALLET_TOPUP = 'true';
+    env.EMBEDDED_COPILOT_WRITE_WALLET_SETUP = 'true';
+    env.EMBEDDED_COPILOT_WRITE_BUDGETS = 'true';
+    env.EMBEDDED_COPILOT_WRITE_ENTITIES = 'true';
+
+    const tools = listOpenAiToolsForRole('company_admin');
+    const anthropicTools = toAnthropicTools(tools);
+
+    for (const tool of anthropicTools) {
+      const serialized = JSON.stringify(tool.input_schema);
+      expect(serialized).not.toContain('"exclusiveMinimum":true');
+      expect(serialized).not.toContain('"exclusiveMaximum":true');
+      expect(serialized).not.toContain('"exclusiveMinimum":false');
+      expect(serialized).not.toContain('"exclusiveMaximum":false');
+    }
   });
 
   it('converts multi-turn history including tool_use/tool_result blocks', () => {

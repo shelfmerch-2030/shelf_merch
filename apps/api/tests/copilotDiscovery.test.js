@@ -1,7 +1,17 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { discoveryForUser, DISCOVERY_ACTIONS } from '../src/modules/copilot/copilotDiscovery.js';
 import { COPILOT_TOOLS } from '../src/modules/copilot/copilotTools.js';
+import { catalogByName } from '../src/modules/copilot/copilotMcpCatalog.js';
+import { COPILOT_WRITE_WORKFLOWS } from '../src/modules/copilot/copilotWrites.service.js';
+import { WRITE_FLAG_KEYS } from '../src/modules/copilot/copilotWriteFlags.js';
+import { env } from '../src/config/env.js';
+let previousFlags;
+beforeEach(() => {
+  previousFlags = Object.fromEntries(Object.values(WRITE_FLAG_KEYS).map(key => [key, env[key]]));
+  for (const key of Object.values(WRITE_FLAG_KEYS)) env[key] = 'false';
+});
+afterEach(() => Object.assign(env, previousFlags));
 
 const admin = { role: 'company_admin', scopeType: 'tenant' };
 const manager = { role: 'entity_manager', scopeType: 'entity' };
@@ -11,7 +21,11 @@ describe('authenticated Copilot discovery', () => {
   it('provides six categories, available read actions and clearly pending writes without prompts', () => {
     const result = discoveryForUser(admin);
     expect(result.categories).toHaveLength(6);
-    expect(result.categories.every(category => category.actions.length > 0 && category.actions.length <= 6)).toBe(true);
+    // Six categories are stable; registered READ/WRITE actions can grow within them.
+    expect(result.categories.every(category => category.actions.length > 0)).toBe(true);
+    for (const category of result.categories) {
+      expect(new Set(category.actions.map(action => action.id)).size).toBe(category.actions.length);
+    }
     expect(actions(result).find(action => action.id === 'stores_list')).toMatchObject({ availability: 'available' });
     for (const pending of actions(result).filter(action => action.availability === 'integration_pending')) {
       expect(pending).not.toHaveProperty('prompt');
@@ -54,7 +68,17 @@ describe('authenticated Copilot discovery', () => {
   it('only labels writes as pending when their exact tools exist in the MCP registry', () => {
     const registry = readFileSync(new URL('../src/modules/mcp/createShelfMerchMcp.js', import.meta.url), 'utf8');
     for (const action of DISCOVERY_ACTIONS.filter(action => action.write)) {
-      for (const name of action.tools) expect(registry, `${action.id}: missing MCP tool ${name}`).toContain(`'${name}'`);
+      for (const name of action.tools) {
+        const meta = catalogByName(name);
+        if (meta?.embeddedOnly) {
+          expect(['gifting_points', 'collections_manage']).toContain(action.id);
+          if (meta.name === 'swag_configure') {
+            expect(meta.kind).toBe('read'); // Conversation selections only; no Collection/business writes.
+            continue;
+          }
+          expect(COPILOT_WRITE_WORKFLOWS[meta.workflow].operation).toBe(action.id === 'gifting_points' ? 'campaigns.send_points' : 'swag.collection');
+        } else expect(registry, `${action.id}: missing MCP tool ${name}`).toContain(`'${name}'`);
+      }
     }
   });
   it('requires both actual write tools and an explicit rollout gate before future writes become available', () => {

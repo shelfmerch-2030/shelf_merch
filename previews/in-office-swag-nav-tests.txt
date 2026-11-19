@@ -1,0 +1,13 @@
+
+> @shelfmerch/web@0.1.0 test
+> vitest run src/components/landing/CatalogDropdown.test.tsx src/features/catalog/views/CatalogCategoryView.test.tsx
+
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/web
+
+
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+   Start at  17:48:04
+   Duration  5.67s (transform 813ms, setup 39ms, import 1.85s, tests 1.98s, environment 1.27s)
+

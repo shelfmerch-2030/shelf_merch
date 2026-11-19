@@ -105,12 +105,12 @@ export function toolContentForModel(toolName, payload, artifacts = []) {
   if (payload?.error) return JSON.stringify(payload).slice(0, 24_000);
   const hasCards = artifactsIncludeCards(artifacts);
   if (hasCards && PRODUCT_CARD_TOOLS.has(toolName)) {
-    if (toolName === 'catalog_search' && payload?.pagination) {
-      return catalogSearchSummary(payload);
-    }
-    if (toolName === 'catalog_get_product') {
-      return catalogProductSummary();
-    }
+    const items = toolName === 'catalog_search' ? payload?.items || [] : [payload];
+    return JSON.stringify({ message: toolName === 'catalog_search' && payload?.pagination ? catalogSearchSummary(payload) : catalogProductSummary(),
+      // Keep selection identities in the provider transcript, without duplicating card imagery/prose.
+      products: items.map(item => ({ id: item.id, name: item.name, sku: item.sku, sellingPriceInr: item.sellingPriceInr })),
+      ...(payload?.pagination ? { pagination: payload.pagination } : {}),
+      selection: 'Use these verified ids or exact product names with swag_configure. Never ask the user for an internal id.' });
   }
   if (hasCards && KIT_CARD_TOOLS.has(toolName)) {
     const heading = toolName.includes('curated') ? 'Curated kits' : 'Workspace kits';

@@ -129,7 +129,13 @@ export const SHOPS_PREPARE_CREATE_DESCRIPTION = [
   'Points conversion is ₹1 = 2 Points; INR mode is ₹1 = 1 Credit.',
   'When categories are omitted, applies the same default builder categories as the dashboard (Food & Beverages, Work Essentials, Merch).',
   'When bannerConfig is omitted, seeds the same default black merchandise-pattern banner as the dashboard (theme dark, preset solid-pattern).',
-  'Logo and custom banner images are optional. To upload, use shops_prepare_asset_upload then pass logoTicketId / bannerTicketId; otherwise skip branding.',
+  'Logo and custom banner images are optional.',
+  'Banner selection is not required before creation. Use the default when omitted; after creation, a company admin can open the store → Layout → Top banner → Edit banner, choose Banner library, Solid colour or Custom banner, then Save changes. Do not delay prepare or confirmation for an optional banner choice.',
+  'In the Embedded ShelfMerch Copilot: if the user attached a logo using the + button (Store logo artwork), the logoTicketId is already available in the [Attachments] context — use it directly in this call. Do NOT ask the user to visit an external upload page.',
+  'If the user wants a logo but has NOT yet attached one, ask them to use the + button in chat and choose "Store logo artwork". Wait for the attachment before calling this tool.',
+  'For custom banners attached via + (Store banner artwork), use the bannerTicketId from the attachment similarly.',
+  'If no logo or banner was provided and the user does not want one, omit logoTicketId and bannerTicketId.',
+  'In external MCP / ChatGPT contexts only: use shops_prepare_asset_upload to get a browser upload link, then pass the resulting logoTicketId / bannerTicketId here.',
   'Confirmation creates and publishes the new store using the same services as dashboard creation. At least one category is required. Explain that the store will be live before asking for confirmation; no separate publish prompt is needed.',
   'Company admins only. Returns a one-use confirmation. Saving requires shops_execute_create.',
 ].join(' ');
@@ -148,7 +154,7 @@ export const SHOPS_PREPARE_UPDATE_DESCRIPTION = [
   'Company admins only. Entity managers can read stores but cannot edit them. Do not collect store changes from an entity manager.',
   'Preview a company store name, slug, domain, categories, logo, or banner change without saving it.',
   'Status and currency mode are rejected (currency is permanent after create).',
-  'Optional logoTicketId / bannerTicketId from shops_prepare_asset_upload are accepted; confirmation hashing uses resolved media URLs.',
+  'Optional logoTicketId / bannerTicketId: in the Embedded Copilot use the ticketId from an artwork or banner chat attachment; in external MCP contexts use shops_prepare_asset_upload. Confirmation hashing uses resolved media URLs.',
   'The confirmation is bound to the current store record and expires.',
 ].join(' ');
 

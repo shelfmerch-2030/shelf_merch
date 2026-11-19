@@ -23,6 +23,35 @@ const props = () => ({
 });
 
 describe("Copilot history navigation", () => {
+  it("shows only the conversation title in each row and marks the active chat", () => {
+    render(<CopilotHistory {...props()} />);
+    const active = screen.getByRole("button", { name: "Welcome kits" });
+    expect(active).toHaveAttribute("aria-current", "true");
+    expect(active.querySelector("svg, time")).toBeNull();
+    expect(screen.getByRole("button", { name: "Department budget" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("preserves loaded rows, scroll and search while refreshing or displaying a refresh error", () => {
+    const actions = props();
+    const view = render(<CopilotHistory {...actions} />);
+    const list = document.querySelector(".sm-copilot-history__list") as HTMLElement;
+    list.scrollTop = 130;
+    fireEvent.click(screen.getByRole("button", { name: "Search saved conversations" }));
+    const search = screen.getByRole("searchbox");
+    fireEvent.change(search, { target: { value: "budget" } });
+    view.rerender(<CopilotHistory {...actions} loading />);
+    expect(screen.getByRole("button", { name: /Department budget/ })).toBeEnabled();
+    expect(screen.queryByText(/Loading conversations/)).toBeNull();
+    view.rerender(<CopilotHistory {...actions} error="Could not refresh history" />);
+    expect(screen.getByText("Could not refresh history")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Department budget/ })).toBeEnabled();
+    expect(screen.getByRole("searchbox")).toBe(search);
+    expect(search).toHaveValue("budget");
+    expect(document.querySelector(".sm-copilot-history__list")).toBe(list);
+    expect(list.scrollTop).toBe(130);
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(actions.onReload).toHaveBeenCalledOnce();
+  });
   it("filters saved conversations locally and restores the list when search closes", () => {
     const actions = props();
     render(<CopilotHistory {...actions} />);

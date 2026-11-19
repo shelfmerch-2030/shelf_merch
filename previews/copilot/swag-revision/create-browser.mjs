@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const file='apps/api/tests/copilot-swag-revision.browser-check.js';if(fs.existsSync(file))throw Error('Browser test already exists');
+let source=fs.readFileSync('apps/api/tests/copilot-swag-post-logo.browser-check.js','utf8');
+const start=source.indexOf("    await send('I want to design swag.');"),end=source.indexOf('  } catch (error) {',start);
+source=source.slice(0,start)+fs.readFileSync('previews/copilot/swag-revision/browser-steps.txt','utf8')+'\n'+source.slice(end);
+const mockStart=source.indexOf('  vi.mocked(streamOpenAiCompletion).mockImplementation'),mockEnd=source.indexOf('  const output =',mockStart);
+source=source.slice(0,mockStart)+fs.readFileSync('previews/copilot/swag-revision/browser-provider.txt','utf8')+'\n'+source.slice(mockEnd);
+source=source.replace("it('verifies natural post-logo approval, real saved mockups and separately confirmed publishing in Edge'","it('verifies upload refresh, virtual revision zero, delayed replies and rapid conversation switching in Edge'");
+source=source.replace('../../previews/copilot/swag-post-logo/browser','../../previews/copilot/swag-revision/browser');fs.writeFileSync(file,source);
+fs.writeFileSync('previews/copilot/swag-revision/vitest-browser.config.mjs',"import base from '../../../apps/api/vitest.config.js';\nexport default {...base,test:{...base.test,include:['tests/copilot-swag-revision.browser-check.js']}};\n");

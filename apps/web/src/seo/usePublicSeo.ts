@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useMatches } from "react-router";
 import { shopSlugFromHostname } from "@/lib/shopRedeemUrl";
 import catalog from "@/seo/publicPages.json";
 import { resolveSpaSeo } from "../../../api/src/modules/seo/resolvePublicSeo.js";
@@ -32,18 +32,25 @@ function removeMeta(attr: "name" | "property", key: string) {
 /** Keeps the document head aligned after client-side navigations. Does not emit analytics. */
 export function usePublicSeo() {
   const { pathname } = useLocation();
+  // Matched private pages can own their title without duplicating tenant URL rules.
+  const privateTitle = useMatches().reduce<string | undefined>((title, match) =>
+    (match.handle as { privateTitle?: string } | undefined)?.privateTitle ?? title, undefined);
 
   useEffect(() => {
     if (shopSlugFromHostname()) return;
-    const seo = resolveSpaSeo(catalog, pathname) as SeoDocument;
+    const seo = (privateTitle ? { mode: "private", title: privateTitle, robots: "noindex, nofollow" }
+      : resolveSpaSeo(catalog, pathname)) as SeoDocument;
     if (seo.mode === "preserve") return;
 
     if (seo.mode === "private") {
+      const previousTitle = document.title;
+      if (seo.title) document.title = seo.title;
       upsertMeta("name", "robots", seo.robots || "noindex, nofollow");
       document.head.querySelector('link[rel="canonical"]')?.remove();
       removeMeta("property", "og:url");
       document.getElementById("seo-jsonld")?.remove();
-      return;
+      // Do not leave a page-specific title behind on another private route.
+      return seo.title ? () => { if (document.title === seo.title) document.title = previousTitle; } : undefined;
     }
 
     document.title = seo.title || document.title;
@@ -83,5 +90,5 @@ export function usePublicSeo() {
     } else {
       existing?.remove();
     }
-  }, [pathname]);
+  }, [pathname, privateTitle]);
 }

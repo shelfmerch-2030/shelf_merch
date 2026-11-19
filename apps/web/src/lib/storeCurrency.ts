@@ -1,5 +1,6 @@
 /** Store currency modes supported by shops. */
 export type ShopCurrencyMode = "points" | "inr";
+export { defaultPointsScope } from "../../../api/src/modules/campaigns/pointsScope.js";
 
 /** Fixed conversion: ₹1 = 2 points. */
 export const POINTS_PER_RUPEE = 2;

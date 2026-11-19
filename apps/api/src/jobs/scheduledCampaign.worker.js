@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq';
 import { ensureRedisReady, getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
+import { recoverPointsDeliveries } from '../modules/campaigns/pointsLaunch.service.js';
 import {
   deliverScheduledCampaign,
   processDueScheduledCampaigns,
@@ -16,6 +17,7 @@ const EVERY_MS = 5_000;
 
 async function runDueScheduled() {
   try {
+    await recoverPointsDeliveries();
     const results = await processDueScheduledCampaigns({ limit: 50 });
     const ok = results.filter((r) => r.ok).length;
     const failed = results.filter((r) => !r.ok);

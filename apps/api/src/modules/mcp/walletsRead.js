@@ -37,6 +37,8 @@ export const walletBalancesInputSchema = z.object({});
 
 export const walletBalancesOutputSchema = z.object({
   items: z.array(walletBalanceSchema),
+  availability: z.literal('unavailable').optional(),
+  message: z.string().optional(),
   scope: z.enum(['organization', 'department']).optional(),
 });
 
@@ -96,7 +98,11 @@ function readerOrThrow(ctx) {
 export async function listBalancesForCaller(ctx) {
   const reader = readerOrThrow(ctx);
   if (hidesOrganizationWallet(reader.user)) return { items: [], scope: 'department' };
-  return listWalletBalancesRead({ tenantId: reader.tenantId });
+  const result = await listWalletBalancesRead({ tenantId: reader.tenantId });
+  return result.items.length ? result : {
+    ...result, availability: 'unavailable',
+    message: 'No eligible organization wallet is available. This is not a verified zero balance. Historical department allocations are not spendable without their parent wallet.',
+  };
 }
 
 function stamp(value) {
@@ -182,7 +188,7 @@ export function walletBalancesText(output) {
   if (output.scope === 'department') {
     return 'Wallets.\nOrganization wallet balances are not available for this account. Department allocated, spent, and remaining amounts are on entities_list.';
   }
-  if (!output.items.length) return 'Wallets.\nNo wallets.';
+  if (!output.items.length) return `Wallets.\n${output.message || 'No eligible wallet is available. This is not a verified zero balance.'}`;
   const lines = output.items.map(
     (wallet) =>
       `${wallet.name} [${wallet.currency}] ${wallet.status} balance ${wallet.balance} allocated ${wallet.allocatedAmount} unallocated ${wallet.unallocatedAmount}${wallet.fundingPending ? ' funding pending' : ''}`,

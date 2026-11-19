@@ -6,6 +6,7 @@ import { Wallet } from '../wallets/wallet.model.js';
 import { employeeReaderFromContext } from './employeesRead.js';
 import { rolesForTenantArea } from '../../middleware/tenantAccess.middleware.js';
 import { listSuggestedDepartments } from './departmentSuggestions.js';
+import { isWalletFinanciallyAvailable } from '../../services/ledger.service.js';
 
 const READ_ROLES = new Set(rolesForTenantArea('wallets', 'read'));
 
@@ -16,6 +17,7 @@ export const ENTITIES_LIST_DESCRIPTION = [
   'suggestedDepartments mirrors the Allocate Budget wizard quick-add list (Marketing, Sales, HR, Admin, Customer Success, Engineering, Finance, Operations).',
   'Use alreadyExists on each suggestion to tell suggested names apart from departments that already exist.',
   'Manager email, phone, and invitation links are not included.',
+  'departments contains only budgets with an eligible parent wallet. unavailableDepartments preserves historical orphan/ineligible records without spendable amounts; never treat those as available budget.',
 ].join(' ');
 
 export const entitiesListInputSchema = z.object({
@@ -49,6 +51,11 @@ const suggestionSchema = z.object({
 
 export const entitiesListOutputSchema = z.object({
   departments: z.array(departmentSchema),
+  unavailableDepartments: z.array(z.object({
+    entityId: z.string(), name: z.string(), walletId: z.string(),
+    availability: z.literal('unavailable'), reason: z.string(),
+    historicalAllocatedAmount: z.number(), historicalSpentAmount: z.number(),
+  })).optional(),
   suggestedDepartments: z.array(suggestionSchema),
 });
 
@@ -120,13 +127,21 @@ export async function listDepartments({ tenantId, user, walletId }) {
   const entities = await Entity.find(filter).sort({ createdAt: 1 }).lean();
   const walletIds = [...new Set(entities.map((entity) => String(entity.walletId)))];
   const wallets = walletIds.length
-    ? await Wallet.find({ tenantId, _id: { $in: walletIds } }).select('name').lean()
+    ? await Wallet.find({ tenantId, _id: { $in: walletIds } }).select('name status deletedAt').lean()
     : [];
-  const names = new Map(wallets.map((wallet) => [String(wallet._id), wallet.name || '']));
-  const departments = entities.map((entity) => present(entity, names.get(String(entity.walletId))));
+  const eligible = new Map(wallets.filter(isWalletFinanciallyAvailable).map((wallet) => [String(wallet._id), wallet]));
+  const departments = entities.filter(entity => eligible.has(String(entity.walletId)))
+    .map((entity) => present(entity, eligible.get(String(entity.walletId)).name));
+  const unavailableDepartments = entities.filter(entity => !eligible.has(String(entity.walletId))).map(entity => ({
+    entityId: String(entity._id), name: entity.name, walletId: String(entity.walletId),
+    availability: 'unavailable', reason: 'Parent wallet is missing, deleted or ineligible. Historical amounts are not spendable funds.',
+    historicalAllocatedAmount: Number(entity.allocatedAmount) || 0,
+    historicalSpentAmount: Number(entity.spentAmount) || 0,
+  }));
   return {
     departments,
-    suggestedDepartments: listSuggestedDepartments(departments.map((row) => row.name)),
+    ...(unavailableDepartments.length ? { unavailableDepartments } : {}),
+    suggestedDepartments: listSuggestedDepartments(entities.map((row) => row.name)),
   };
 }
 
@@ -142,7 +157,8 @@ export function entitiesListText(output) {
   const suggestionLine = available.length
     ? `Suggested departments not yet created: ${available.join(', ')}.`
     : 'All suggested departments already exist (or none are available).';
-  return `${existing}\n${suggestionLine}`;
+  const unavailable = (output?.unavailableDepartments || []).map(row => `${row.name}: budget unavailable because its parent wallet is unavailable. Historical allocation ${row.historicalAllocatedAmount}; not spendable.`).join('\n');
+  return [existing, unavailable, suggestionLine].filter(Boolean).join('\n');
 }
 
 export function entitiesReadError(error, fallback) {

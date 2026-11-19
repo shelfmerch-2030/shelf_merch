@@ -12,7 +12,7 @@ import {
   readWalletLedgerView,
 } from '../../services/ledger.service.js';
 import { employeeReaderFromContext } from './employeesRead.js';
-import { executeMcpWrite, prepareMcpWrite } from './mcpWriteSafety.js';
+import { executeMcpWrite, prepareMcpWrite, readMcpWriteCompletion } from './mcpWriteSafety.js';
 
 const WRITE_ROLES = new Set(rolesForTenantArea('wallets', 'write'));
 
@@ -55,6 +55,7 @@ export const budgetPrepareOutputSchema = z.object({
   expiresAt: z.string(),
   preview: z.object({
     walletId: z.string(),
+    walletName: z.string(),
     currency: z.string(),
     netChange: z.number(),
     before: moneySchema,
@@ -276,6 +277,7 @@ export async function prepareBudgetAllocation({ tenantId, actorUserId, input, no
     expiresAt: prepared.expiresAt,
     preview: {
       walletId: String(planned.wallet._id),
+      walletName: planned.wallet.name,
       currency: planned.wallet.currency || 'INR',
       netChange,
       before,
@@ -376,6 +378,23 @@ export async function executeBudgetAllocationForCaller(ctx, args) {
     input: args,
     confirmationId: args?.confirmationId,
     idempotencyKey: args?.idempotencyKey,
+  });
+}
+
+export async function resolveBudgetAllocationForCaller(ctx, args) {
+  const caller = requireCaller(ctx);
+  const payload = parseAllocation(args);
+  return readMcpWriteCompletion({
+    tenantId: caller.tenantId,
+    actorUserId: caller.user.userId,
+    operation: 'wallets.allocate',
+    confirmationId: args.confirmationId,
+    payload,
+    authorize: async (actor) => {
+      assertBudgetWriter(actor);
+      await loadWallet(caller.tenantId, payload.walletId);
+      await loadDepartments(caller.tenantId, payload.walletId, payload.allocations);
+    },
   });
 }
 

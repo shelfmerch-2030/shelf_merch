@@ -8,6 +8,10 @@ import { listingKey } from '../shops/listingKeys.js';
 export const CATALOG_SELECT =
   'name brand group category subcategory description keyFeatures sizeGuide basePriceInr primaryImageUrl imageUrls maskImageUrl baseImageUrl maskBackImageUrl baseBackImageUrl maskLeftImageUrl baseLeftImageUrl maskRightImageUrl baseRightImageUrl variants printAreas physicalDimensions dpi';
 
+function productArtworkUrl(collection, ref) {
+  return ref?.inheritArtwork === false ? ref.placements?.find(placement => placement.artworkUrl)?.artworkUrl || '' : collection?.artworkUrl || '';
+}
+
 /** One storefront row per Branded Swag design (collection × productRef). */
 export function mapBrandedListing(col, ref, base) {
   const catalogProductId = String(ref.catalogProductId);
@@ -39,7 +43,8 @@ export function mapBrandedListing(col, ref, base) {
     // Admin-assigned catalog taxonomy — never invent from collection ref group.
     subcategory: base.subcategory || '',
     category: base.category || '',
-    artworkUrl: col.artworkUrl || '',
+    artworkUrl: productArtworkUrl(col, ref),
+    ...(typeof ref.inheritArtwork === 'boolean' ? { inheritArtwork: ref.inheritArtwork } : {}),
     mockupUrl: ref.mockupUrl || '',
     mockupBackUrl: ref.mockupBackUrl || '',
     placement: ref.placement ?? null,
@@ -164,7 +169,7 @@ export function resolveBrandedListingSnapshot(collections, listing) {
     name: ref?.name || '',
     brand: ref?.brand || '',
     mockupUrl: ref?.mockupUrl || '',
-    artworkUrl: col?.artworkUrl || '',
+    artworkUrl: productArtworkUrl(col, ref),
     placement: ref?.placement ?? null,
     placements: Array.isArray(ref?.placements) ? ref.placements : [],
   };
