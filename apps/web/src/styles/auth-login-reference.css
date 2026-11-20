@@ -223,6 +223,20 @@
   border-radius: 12px;
   font-size: 16px;
 }
+.auth-login-reference.auth-simple--verify .auth-otp-box {
+  min-width: 0;
+  height: 44px;
+  border-color: #d5d9e2;
+  background: #eaf0fc;
+}
+.auth-login-reference.auth-simple--verify .auth-otp-box:focus {
+  border-color: var(--ink);
+  background: #fff;
+}
+.auth-login-reference.auth-simple--verify .auth-simple-secondary {
+  margin-top: 12px;
+  border-radius: 12px;
+}
 .auth-reference-divider {
   display: flex;
   align-items: center;
