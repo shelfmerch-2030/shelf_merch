@@ -148,6 +148,9 @@ export function VerifyEmailPage() {
 
   return (
     <AuthLayout
+      className="auth-simple--verify"
+      variant="welcome"
+      showDivider={false}
       title="Verify your email"
       subtitle={`Enter the 6-digit code we sent to ${emailMasked || "your email"}.`}
       footerLink={{ hint: "Wrong account?", label: "Back to signup", to: "/signup" }}
@@ -182,16 +185,14 @@ export function VerifyEmailPage() {
             )}
           </button>
 
-          <div className="auth-resend-row">
-            <button
-              type="button"
-              className="auth-simple-secondary"
-              disabled={busy || resendIn > 0}
-              onClick={onResend}
-            >
-              {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="auth-simple-secondary"
+            disabled={busy || resendIn > 0}
+            onClick={onResend}
+          >
+            {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
+          </button>
         </fieldset>
       </form>
     </AuthLayout>
