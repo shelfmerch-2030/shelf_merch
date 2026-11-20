@@ -1,0 +1,32 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "widths": [
+    1440,
+    390
+  ],
+  "backend": "real controllers, MongoMemoryReplSet, local multipart upload and actual deterministic renderer",
+  "provider": "mocked; no live Claude calls",
+  "liveCustomerData": false,
+  "storeStatus": "live",
+  "lostPublicationAcknowledgement": true,
+  "executeRequests": 2,
+  "collections": 1,
+  "listings": 3,
+  "mockups": [
+    "/uploads/6afee75a107235914aae1887/mockup/e4622055e11314d3a315eecc.png",
+    "/uploads/6afee75a107235914aae1887/mockup/ab32be423349ae74b856613c.png",
+    "/uploads/6afee75a107235914aae1887/mockup/300b9199e0c3f634b4912ca7.png"
+  ],
+  "reviewImages": [
+    "/uploads/6afee75a107235914aae1887/mockup/e4622055e11314d3a315eecc.png",
+    "/uploads/6afee75a107235914aae1887/mockup/ab32be423349ae74b856613c.png",
+    "/uploads/6afee75a107235914aae1887/mockup/300b9199e0c3f634b4912ca7.png"
+  ],
+  "checks": [
+    "composer shows actual PNG on desktop and mobile; sent image has no colored wrapper or filename; one acknowledgement",
+    "typed Yes prepares only; one authorized click executes; real sandboxed renderer saves 3 product-specific branded mockups",
+    "one execution despite rapid clicks; committed success appears once at the bottom with verified links and no redundant completed review",
+    "reload recovers two distinct chronological receipts with original approval text, requests and preview data intact; no completed disclosures, blank assistant rows or replay"
+  ],
+  "errors": []
+}

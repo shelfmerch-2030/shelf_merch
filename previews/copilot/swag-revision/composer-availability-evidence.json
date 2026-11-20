@@ -1,0 +1,82 @@
+{
+    "browser":  "Microsoft Edge headless",
+    "verified":  {
+                     "pendingAdd":  {
+                                        "placeholder":  "Ask ShelfMerch Copilot…",
+                                        "disabled":  false,
+                                        "readOnly":  false,
+                                        "draft":  "Draft while selecting",
+                                        "unavailableBanner":  false,
+                                        "sendDisabled":  true,
+                                        "continueDisabled":  true
+                                    },
+                     "acknowledgedAdd":  {
+                                             "placeholder":  "Ask ShelfMerch Copilot…",
+                                             "disabled":  false,
+                                             "readOnly":  false,
+                                             "draft":  "Draft while selecting",
+                                             "unavailableBanner":  false,
+                                             "sendDisabled":  false,
+                                             "continueDisabled":  false
+                                         },
+                     "pendingRemove":  {
+                                           "placeholder":  "Ask ShelfMerch Copilot…",
+                                           "disabled":  false,
+                                           "readOnly":  false,
+                                           "draft":  "Draft while selecting",
+                                           "unavailableBanner":  false,
+                                           "sendDisabled":  true,
+                                           "continueDisabled":  true
+                                       },
+                     "acknowledgedRemove":  {
+                                                "placeholder":  "Ask ShelfMerch Copilot…",
+                                                "disabled":  false,
+                                                "readOnly":  false,
+                                                "draft":  "Draft while selecting",
+                                                "unavailableBanner":  false,
+                                                "sendDisabled":  false,
+                                                "continueDisabled":  false
+                                            },
+                     "pendingFailedAdd":  {
+                                              "placeholder":  "Ask ShelfMerch Copilot…",
+                                              "disabled":  false,
+                                              "readOnly":  false,
+                                              "draft":  "Draft while selecting",
+                                              "unavailableBanner":  false,
+                                              "sendDisabled":  true,
+                                              "continueDisabled":  true
+                                          },
+                     "recoveredFailure":  {
+                                              "placeholder":  "Ask ShelfMerch Copilot…",
+                                              "disabled":  false,
+                                              "readOnly":  false,
+                                              "draft":  "Draft while selecting",
+                                              "unavailableBanner":  false,
+                                              "sendDisabled":  false,
+                                              "continueDisabled":  false
+                                          },
+                     "healthyPlaceholders":  [
+                                                 "Ask ShelfMerch Copilot…"
+                                             ],
+                     "providerUnavailable":  {
+                                                 "placeholder":  "Chat is currently unavailable",
+                                                 "disabled":  false,
+                                                 "readOnly":  false,
+                                                 "draft":  "Draft while offline",
+                                                 "unavailableBanner":  true,
+                                                 "sendDisabled":  true,
+                                                 "continueDisabled":  null
+                                             }
+                 },
+    "baseline":  {
+                     "pendingAdd":  {
+                                        "placeholder":  "Chat is currently unavailable",
+                                        "disabled":  true,
+                                        "readOnly":  false,
+                                        "draft":  "",
+                                        "unavailableBanner":  false,
+                                        "sendDisabled":  true,
+                                        "continueDisabled":  true
+                                    }
+                 }
+}

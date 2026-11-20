@@ -1,0 +1,26 @@
+Error: Browser condition failed: !!document.getElementById('copilot-input')
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+workspace
+ShelfMerch Copilot
+
+We couldn’t connect to Copilot. Please try again.
+
+Try again
+Back to dashboard
+    at poll (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-artwork.browser-check.js:109:137)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-artwork.browser-check.js:129:5
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+workspace
+ShelfMerch Copilot
+
+We couldn’t connect to Copilot. Please try again.
+
+Try again
+Back to dashboard

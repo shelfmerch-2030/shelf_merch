@@ -300,7 +300,8 @@ export function DesignedProductThumb({
 
   // Only use the bake that matches the active view — never fall back to the other side.
   const viewBaked = view === "back" ? bakedBack : view === "front" ? bakedFront : "";
-  const allLayers = resolveProductArtworkLayers(product, artworkUrl);
+  const sharedArtworkUrl = product.inheritArtwork === false ? undefined : artworkUrl;
+  const allLayers = resolveProductArtworkLayers(product, sharedArtworkUrl);
   const layers =
     availableViews.length > 1
       ? allLayers.filter((l) => {
@@ -313,8 +314,8 @@ export function DesignedProductThumb({
     // Shared collection artwork is front-only; never overlay it onto non-front views.
     (view !== "front"
       ? ""
-      : artworkUrl
-        ? resolveMediaUrl(artworkUrl)
+      : sharedArtworkUrl
+        ? resolveMediaUrl(sharedArtworkUrl)
         : "");
   const printAreaBase = resolveMediaUrl(pickPrintArea(product, layers[0]?.areaKey)?.mockupImageUrl);
   // Never fall back to the opposite garment view — that made "Back" look like Front on the shop.

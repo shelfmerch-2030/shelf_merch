@@ -1,0 +1,51 @@
+import { ApiError } from '../../utils/errors.js';
+import { recoveryHash, durableState } from '../../utils/recoveryHash.js';
+
+const locked = () => new ApiError(409, 'An approved launch cannot be edited', 'CAMPAIGN_LAUNCH_LOCKED');
+const identity = new Set(['name', 'email', 'phone', 'contactId', 'campaignId', 'redemptionToken', 'deletedAt']);
+const mutableCampaign = new Set(['status', 'launchLease', 'launchApproval', 'createdAt', 'updatedAt', '__v']);
+const deliveryMarkers = new Set(['schedule.invitesSentAt', 'schedule.inviteClaimedAt', 'schedule.invitesUnresolved']);
+function protectedPath(path, recipient) {
+  if (recipient) return identity.has(path.split('.')[0]);
+  return !mutableCampaign.has(path.split('.')[0]) && !deliveryMarkers.has(path);
+}
+function unfrozen(recipient) {
+  return recipient ? { launchBindingHash: { $in: [null, ''] } } : { 'launchApproval.hash': { $exists: false } };
+}
+
+// Match predicates are part of the actual write, protecting a writer that read
+// an editable document just before launch froze it. Delivery/redemption markers
+// retain their existing update paths.
+export function launchImmutabilityPlugin(schema, { recipient = false } = {}) {
+  schema.pre('save', async function () {
+    if (this.isNew || !this.modifiedPaths().some(path => protectedPath(path, recipient) && !['createdAt', '_id', 'tenantId'].includes(path))) return;
+    const filter = { _id: this._id, tenantId: this.tenantId };
+    const frozen = recipient ? { launchBindingHash: { $nin: [null, ''] } } : { 'launchApproval.hash': { $exists: true }, type: 'points' };
+    const previous = await this.constructor.findOne(filter).session(this.$session()).lean();
+    if (!recipient) {
+      const config = value => {
+        const { status, launchLease, launchApproval, ...rest } = durableState(value);
+        rest.schedule = { mode: value.schedule?.mode, sendAt: value.schedule?.sendAt, timezone: value.schedule?.timezone };
+        return rest;
+      };
+      if (previous && recoveryHash(config(previous)) === recoveryHash(config(this.toObject()))) return;
+    }
+    if (await this.constructor.exists({ ...filter, ...frozen }).session(this.$session())) throw locked();
+    if (recipient || this.type === 'points') this.$where = { ...this.$where, ...unfrozen(recipient) };
+  });
+  for (const op of ['updateOne', 'updateMany', 'findOneAndUpdate', 'replaceOne', 'findOneAndReplace', 'deleteOne', 'deleteMany', 'findOneAndDelete']) {
+    schema.pre(op, async function () {
+      const update = this.getUpdate();
+      const deletion = op.toLowerCase().includes('delete');
+      const replacement = op.toLowerCase().includes('replace') || Array.isArray(update);
+      const paths = Object.entries(update || {}).flatMap(([key, value]) => key === '$setOnInsert' ? [] : key.startsWith('$') ? Object.keys(value || {}) : [key]);
+      paths.push(...Object.values(update?.$rename || {}));
+      if (!deletion && !replacement && !paths.some(path => protectedPath(path, recipient))) return;
+      const frozen = recipient ? { launchBindingHash: { $nin: [null, ''] } } : { type: 'points', 'launchApproval.hash': { $exists: true } };
+      if (await this.model.exists({ tenantId: this.getFilter().tenantId, $and: [this.getFilter(), frozen] }).session(this.getOptions().session || null)) throw locked();
+      // Other campaign types retain the existing behavior.
+      const guard = recipient ? unfrozen(true) : { $or: [{ type: { $ne: 'points' } }, unfrozen(false)] };
+      this.where({ $and: [...(this.getFilter().$and || []), guard] });
+    });
+  }
+}

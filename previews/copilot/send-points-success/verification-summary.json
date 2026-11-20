@@ -1,0 +1,11 @@
+﻿{
+    "snapshottedAppFiles":  116,
+    "copilotPassed":  176,
+    "changedExistingAppFiles":  [
+                                    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+                                    "apps/web/src/features/copilot/copilot.css"
+                                ],
+    "copilotFailed":  0,
+    "preservedAppFiles":  114,
+    "copilotPending":  0
+}

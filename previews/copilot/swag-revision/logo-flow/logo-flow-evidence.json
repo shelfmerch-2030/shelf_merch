@@ -1,0 +1,18 @@
+{
+  "mockups": [
+    "/uploads/6afec7369e58b66dc95ae5ef/mockup/93827dead22d199e7aa1f1ab.png",
+    "/uploads/6afec7369e58b66dc95ae5ef/mockup/452a266bff5afb3bbdf0cb01.png"
+  ],
+  "displayed": [
+    "/uploads/6afec7369e58b66dc95ae5ef/mockup/93827dead22d199e7aa1f1ab.png",
+    "/uploads/6afec7369e58b66dc95ae5ef/mockup/452a266bff5afb3bbdf0cb01.png"
+  ],
+  "executeRequests": 1,
+  "provider": "mocked",
+  "checks": [
+    "invalid file rejected, delayed upload leaves composer healthy, switching conversations discards the original unsent draft",
+    "composer shows actual PNG on desktop and mobile, removes draft without advancing, then sends one image with optional text and one acknowledgement",
+    "typed Yes prepares only; one authorized click executes; real sandboxed renderer saves two product-specific branded mockups"
+  ],
+  "errors": []
+}

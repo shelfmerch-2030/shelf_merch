@@ -9,7 +9,7 @@
   "scripts": {
     "dev:api": "npm run dev -w @shelfmerch/api",
     "dev:web": "npm run dev -w @shelfmerch/web",
-    "build": "npm run build -w @shelfmerch/web",
+    "build": "npm run build:swag-renderer && npm run build -w @shelfmerch/web",
     "build:web": "npm run build -w @shelfmerch/web",
     "start": "npm run start -w @shelfmerch/api",
     "start:worker": "npm run worker -w @shelfmerch/api",
@@ -17,10 +17,10 @@
     "worker": "npm run worker -w @shelfmerch/api",
     "test": "npm test -w @shelfmerch/api && npm test -w @shelfmerch/web",
     "test:api": "npm test -w @shelfmerch/api",
-    "test:web": "npm test -w @shelfmerch/web"
+    "test:web": "npm test -w @shelfmerch/web",
+    "build:swag-renderer": "node scripts/build-swag-renderer.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4"
   }
 }
-

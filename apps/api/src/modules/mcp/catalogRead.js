@@ -57,13 +57,14 @@ const DETAIL_FIELDS =
   'sku name brand category subcategory childCategory basePriceInr gstRate moq description primaryImageUrl imageUrls variants';
 
 /** Same visibility rules as catalog search, narrowed to one id. */
+export function catalogProductEligibilityFilters() {
+  return [{ status: 'active' }, { 'source.kindOverride': { $ne: 'kit' } }, tenantCatalogFilter()];
+}
 export function catalogProductMongoFilter(productId) {
   return {
     $and: [
       { _id: productId },
-      { status: 'active' },
-      { 'source.kindOverride': { $ne: 'kit' } },
-      tenantCatalogFilter(),
+      ...catalogProductEligibilityFilters(),
     ],
   };
 }

@@ -1,0 +1,739 @@
+{
+  "checkedAt": "2026-11-11T09:52:58.467Z",
+  "readOnly": true,
+  "database": "shelfmerch_test",
+  "tenantId": "6ab6449e0df63061043c930f",
+  "tenantSlug": "husain",
+  "walletDocuments": [],
+  "referencedWalletGroups": [
+    {
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "classification": "missing-wallet",
+      "entityIds": [
+        "6ae87442e3da4ced9c7b7019"
+      ],
+      "transactionCount": 2,
+      "allocationTransactionCount": 1,
+      "cashFromLedger": 100000,
+      "grossAllocatedFromLedger": 500,
+      "spentFromLedger": 0,
+      "outstandingFromLedger": 500,
+      "transactionIds": [
+        "6ae49972d028910e7f6ee697",
+        "6ae87448e3da4ced9c7b701c"
+      ]
+    },
+    {
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "classification": "missing-wallet",
+      "entityIds": [
+        "6ae9beb02abda3a9c9aa9399",
+        "6ae9d908e6ce5ead376a5283",
+        "6ae9d90de6ce5ead376a5287"
+      ],
+      "transactionCount": 9,
+      "allocationTransactionCount": 5,
+      "cashFromLedger": 698500,
+      "grossAllocatedFromLedger": 27100,
+      "spentFromLedger": 500,
+      "outstandingFromLedger": 26600,
+      "transactionIds": [
+        "6ae9b0a1af292bf5447ad8e3",
+        "6ae9beb62abda3a9c9aa939c",
+        "6ae9d77de6ce5ead376a5263",
+        "6ae9d913e6ce5ead376a528a",
+        "6ae9d913e6ce5ead376a528b",
+        "6aeb01d7fbe611a1583a3035",
+        "6aec52dd60c03788532a1c0d",
+        "6aec5d8360c03788532a1c5b",
+        "6af42bd6e4f7696b7b53b37d"
+      ]
+    }
+  ],
+  "departments": [
+    {
+      "_id": "6ae87442e3da4ced9c7b7019",
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "name": "Marketing",
+      "allocatedAmount": 500,
+      "spentAmount": 0,
+      "managerUserId": "6ae87443e3da4ced9c7b701a",
+      "managerInvitePending": true,
+      "tenantId": "6ab6449e0df63061043c930f",
+      "deletedAt": null,
+      "createdAt": "2026-11-02T11:30:10.060Z",
+      "updatedAt": "2026-11-02T11:30:16.184Z",
+      "classification": "missing-wallet",
+      "ledgerAllocated": 500,
+      "ledgerSpent": 0,
+      "transactionIds": [
+        "6ae87448e3da4ced9c7b701c"
+      ],
+      "assignmentIds": [
+        "6ae87443e3da4ced9c7b701b"
+      ]
+    },
+    {
+      "_id": "6ae9beb02abda3a9c9aa9399",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Marketing",
+      "allocatedAmount": 7100,
+      "spentAmount": 500,
+      "managerUserId": "6ae9beb12abda3a9c9aa939a",
+      "managerInvitePending": false,
+      "tenantId": "6ab6449e0df63061043c930f",
+      "deletedAt": null,
+      "createdAt": "2026-11-03T11:00:00.191Z",
+      "updatedAt": "2026-11-11T08:48:22.327Z",
+      "classification": "missing-wallet",
+      "ledgerAllocated": 7100,
+      "ledgerSpent": 500,
+      "transactionIds": [
+        "6ae9beb62abda3a9c9aa939c",
+        "6ae9d77de6ce5ead376a5263",
+        "6aec5d8360c03788532a1c5b",
+        "6af42bd6e4f7696b7b53b37d"
+      ],
+      "assignmentIds": [
+        "6ae9beb12abda3a9c9aa939b"
+      ]
+    },
+    {
+      "_id": "6ae9d908e6ce5ead376a5283",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Sales",
+      "allocatedAmount": 10000,
+      "spentAmount": 0,
+      "managerUserId": "6ae9d909e6ce5ead376a5284",
+      "managerInvitePending": true,
+      "tenantId": "6ab6449e0df63061043c930f",
+      "deletedAt": null,
+      "createdAt": "2026-11-03T12:52:24.356Z",
+      "updatedAt": "2026-11-03T12:52:35.573Z",
+      "classification": "missing-wallet",
+      "ledgerAllocated": 10000,
+      "ledgerSpent": 0,
+      "transactionIds": [
+        "6ae9d913e6ce5ead376a528a"
+      ],
+      "assignmentIds": [
+        "6ae9d909e6ce5ead376a5285"
+      ]
+    },
+    {
+      "_id": "6ae9d90de6ce5ead376a5287",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "name": "Engineering",
+      "allocatedAmount": 10000,
+      "spentAmount": 0,
+      "managerUserId": "6ae9d90ee6ce5ead376a5288",
+      "managerInvitePending": true,
+      "tenantId": "6ab6449e0df63061043c930f",
+      "deletedAt": null,
+      "createdAt": "2026-11-03T12:52:29.441Z",
+      "updatedAt": "2026-11-03T12:52:36.034Z",
+      "classification": "missing-wallet",
+      "ledgerAllocated": 10000,
+      "ledgerSpent": 0,
+      "transactionIds": [
+        "6ae9d913e6ce5ead376a528b"
+      ],
+      "assignmentIds": [
+        "6ae9d90ee6ce5ead376a5289"
+      ]
+    }
+  ],
+  "affectedRoleAssignments": [
+    {
+      "_id": "6ae87443e3da4ced9c7b701b",
+      "userId": "6ae87443e3da4ced9c7b701a",
+      "role": "entity_manager",
+      "scopeType": "entity",
+      "scopeId": "6ae87442e3da4ced9c7b7019",
+      "assignedEntityIds": [
+        "6ae87442e3da4ced9c7b7019"
+      ]
+    },
+    {
+      "_id": "6ae9beb12abda3a9c9aa939b",
+      "userId": "6ae9beb12abda3a9c9aa939a",
+      "role": "entity_manager",
+      "scopeType": "entity",
+      "scopeId": "6ae9beb02abda3a9c9aa9399",
+      "assignedEntityIds": [
+        "6ae9beb02abda3a9c9aa9399"
+      ]
+    },
+    {
+      "_id": "6ae9d909e6ce5ead376a5285",
+      "userId": "6ae9d909e6ce5ead376a5284",
+      "role": "entity_manager",
+      "scopeType": "entity",
+      "scopeId": "6ae9d908e6ce5ead376a5283",
+      "assignedEntityIds": [
+        "6ae9d908e6ce5ead376a5283"
+      ]
+    },
+    {
+      "_id": "6ae9d90ee6ce5ead376a5289",
+      "userId": "6ae9d90ee6ce5ead376a5288",
+      "role": "entity_manager",
+      "scopeType": "entity",
+      "scopeId": "6ae9d90de6ce5ead376a5287",
+      "assignedEntityIds": [
+        "6ae9d90de6ce5ead376a5287"
+      ]
+    }
+  ],
+  "linkedManagerAccounts": [
+    {
+      "_id": "6ae87443e3da4ced9c7b701a",
+      "status": "invited",
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9beb12abda3a9c9aa939a",
+      "status": "active",
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9d909e6ce5ead376a5284",
+      "status": "invited",
+      "deletedAt": null
+    },
+    {
+      "_id": "6ae9d90ee6ce5ead376a5288",
+      "status": "invited",
+      "deletedAt": null
+    }
+  ],
+  "transactions": [
+    {
+      "_id": "6ae49972d028910e7f6ee697",
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "type": "fund_in",
+      "amount": 100000,
+      "balanceAfter": 100000,
+      "relatedEntityId": null,
+      "performedBy": "6ab52042e6ef5278066d80b0",
+      "createdAt": "2026-10-30T13:19:46.572Z"
+    },
+    {
+      "_id": "6ae87448e3da4ced9c7b701c",
+      "walletId": "6ae49954d028910e7f6ee68f",
+      "type": "allocation_to_entity",
+      "amount": 500,
+      "balanceAfter": 100000,
+      "relatedEntityId": "6ae87442e3da4ced9c7b7019",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-02T11:30:16.050Z"
+    },
+    {
+      "_id": "6ae9b0a1af292bf5447ad8e3",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "fund_in",
+      "amount": 500000,
+      "balanceAfter": 500000,
+      "relatedEntityId": null,
+      "performedBy": "6ab52042e6ef5278066d80b0",
+      "createdAt": "2026-11-03T10:00:01.871Z"
+    },
+    {
+      "_id": "6ae9beb62abda3a9c9aa939c",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "allocation_to_entity",
+      "amount": 5000,
+      "balanceAfter": 500000,
+      "relatedEntityId": "6ae9beb02abda3a9c9aa9399",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-03T11:00:06.187Z"
+    },
+    {
+      "_id": "6ae9d77de6ce5ead376a5263",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "allocation_to_entity",
+      "amount": 2000,
+      "balanceAfter": 500000,
+      "relatedEntityId": "6ae9beb02abda3a9c9aa9399",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-03T12:45:49.768Z"
+    },
+    {
+      "_id": "6ae9d913e6ce5ead376a528a",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "allocation_to_entity",
+      "amount": 10000,
+      "balanceAfter": 500000,
+      "relatedEntityId": "6ae9d908e6ce5ead376a5283",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-03T12:52:35.441Z"
+    },
+    {
+      "_id": "6ae9d913e6ce5ead376a528b",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "allocation_to_entity",
+      "amount": 10000,
+      "balanceAfter": 500000,
+      "relatedEntityId": "6ae9d90de6ce5ead376a5287",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-03T12:52:35.902Z"
+    },
+    {
+      "_id": "6aeb01d7fbe611a1583a3035",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "fund_in",
+      "amount": 200000,
+      "balanceAfter": 700000,
+      "relatedEntityId": null,
+      "performedBy": "6ab52042e6ef5278066d80b0",
+      "createdAt": "2026-11-04T09:58:47.917Z"
+    },
+    {
+      "_id": "6aec52dd60c03788532a1c0d",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "campaign_spend",
+      "amount": -1000,
+      "balanceAfter": 699000,
+      "relatedEntityId": null,
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-05T09:56:45.099Z"
+    },
+    {
+      "_id": "6aec5d8360c03788532a1c5b",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "campaign_spend",
+      "amount": -500,
+      "balanceAfter": 698500,
+      "relatedEntityId": "6ae9beb02abda3a9c9aa9399",
+      "performedBy": "6ae9beb12abda3a9c9aa939a",
+      "createdAt": "2026-11-05T10:42:11.308Z"
+    },
+    {
+      "_id": "6af42bd6e4f7696b7b53b37d",
+      "walletId": "6ae9affeaf292bf5447ad8d8",
+      "type": "allocation_to_entity",
+      "amount": 100,
+      "balanceAfter": 698500,
+      "relatedEntityId": "6ae9beb02abda3a9c9aa9399",
+      "performedBy": "6ab6449e0df63061043c9310",
+      "createdAt": "2026-11-11T08:48:22.204Z"
+    }
+  ],
+  "linkedRecords": {
+    "campaigns": {
+      "count": 2,
+      "documents": [
+        {
+          "_id": "6aec510260c03788532a1bfd",
+          "entityId": "6ae9beb02abda3a9c9aa9399",
+          "status": "redemption_open"
+        },
+        {
+          "_id": "6aec5cc960c03788532a1c4d",
+          "entityId": "6ae9beb02abda3a9c9aa9399",
+          "status": "redemption_open"
+        }
+      ]
+    },
+    "mcpentityclaims": {
+      "count": 4,
+      "documents": [
+        {
+          "_id": "6ae87441e3da4ced9c7b7018",
+          "entityId": "6ae87442e3da4ced9c7b7019"
+        },
+        {
+          "_id": "6ae9beaf2abda3a9c9aa9398",
+          "entityId": "6ae9beb02abda3a9c9aa9399"
+        },
+        {
+          "_id": "6ae9d908e6ce5ead376a5282",
+          "entityId": "6ae9d908e6ce5ead376a5283"
+        },
+        {
+          "_id": "6ae9d90de6ce5ead376a5286",
+          "entityId": "6ae9d90de6ce5ead376a5287"
+        }
+      ]
+    },
+    "mcpwalletclaims": {
+      "count": 1,
+      "documents": [
+        {
+          "_id": "6ae9affdaf292bf5447ad8d7",
+          "walletId": "6ae9affeaf292bf5447ad8d8"
+        }
+      ]
+    },
+    "mcpwalletdocumenttickets": {
+      "count": 0,
+      "documents": []
+    },
+    "budgetallocationnotices": {
+      "count": 6,
+      "documents": [
+        {
+          "_id": "6ae87449e3da4ced9c7b701d",
+          "transactionId": "6ae87448e3da4ced9c7b701c"
+        },
+        {
+          "_id": "6ae9beb72abda3a9c9aa939d",
+          "transactionId": "6ae9beb62abda3a9c9aa939c"
+        },
+        {
+          "_id": "6ae9d77ee6ce5ead376a5264",
+          "transactionId": "6ae9d77de6ce5ead376a5263"
+        },
+        {
+          "_id": "6ae9d914e6ce5ead376a528c",
+          "transactionId": "6ae9d913e6ce5ead376a528a"
+        },
+        {
+          "_id": "6ae9d914e6ce5ead376a528d",
+          "transactionId": "6ae9d913e6ce5ead376a528b"
+        },
+        {
+          "_id": "6af42bd7e4f7696b7b53b37e",
+          "transactionId": "6af42bd6e4f7696b7b53b37d"
+        }
+      ]
+    },
+    "auditlogs": {
+      "count": 8,
+      "documents": [
+        {
+          "_id": "6ae49956d028910e7f6ee690",
+          "action": "wallet.setup",
+          "entityType": "Wallet",
+          "entityId": "6ae49954d028910e7f6ee68f"
+        },
+        {
+          "_id": "6ae87449e3da4ced9c7b701e",
+          "action": "entities.setup",
+          "entityType": "Wallet",
+          "entityId": "6ae49954d028910e7f6ee68f"
+        },
+        {
+          "_id": "6ae9b000af292bf5447ad8d9",
+          "action": "wallet.setup",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        },
+        {
+          "_id": "6ae9beb82abda3a9c9aa939e",
+          "action": "entities.setup",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        },
+        {
+          "_id": "6ae9d77ee6ce5ead376a5265",
+          "action": "wallet.allocate",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        },
+        {
+          "_id": "6ae9d915e6ce5ead376a528e",
+          "action": "entities.setup",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        },
+        {
+          "_id": "6aeb01abfbe611a1583a3031",
+          "action": "wallet.fund",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        },
+        {
+          "_id": "6af42bd7e4f7696b7b53b37f",
+          "action": "wallet.allocate",
+          "entityType": "Wallet",
+          "entityId": "6ae9affeaf292bf5447ad8d8"
+        }
+      ]
+    },
+    "copilotconversations": {
+      "count": 2,
+      "documents": [
+        {
+          "_id": "6af4274096751fceb2ceb5be"
+        },
+        {
+          "_id": "6af42b61e4f7696b7b53b366"
+        }
+      ]
+    },
+    "orders": {
+      "count": 0,
+      "documents": []
+    },
+    "recipients": {
+      "count": 3,
+      "documents": [
+        {
+          "_id": "6aec5103bb26d9511103f951",
+          "campaignId": "6aec510260c03788532a1bfd"
+        },
+        {
+          "_id": "6aec5103bb26d9511103f952",
+          "campaignId": "6aec510260c03788532a1bfd"
+        },
+        {
+          "_id": "6aec5cc9bb26d9511103fa8b",
+          "campaignId": "6aec5cc960c03788532a1c4d"
+        }
+      ]
+    },
+    "payments": {
+      "count": 0,
+      "documents": []
+    }
+  },
+  "tenantFinancialConfirmationsNotAttributableToSpecificWallet": [
+    {
+      "_id": "6ae873e5e3da4ced9c7b7014",
+      "operation": "entities.setup",
+      "expiresAt": "2026-11-02T11:38:36.913Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6ae886d9a39e25f324f98828",
+      "operation": "entities.setup",
+      "expiresAt": "2026-11-02T12:59:28.540Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6ae9afd9af292bf5447ad8d3",
+      "operation": "wallets.setup",
+      "expiresAt": "2026-11-03T10:06:41.106Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6ae9be4d2abda3a9c9aa9394",
+      "operation": "entities.setup",
+      "expiresAt": "2026-11-03T11:08:21.182Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6ae9c1142abda3a9c9aa93cd",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-03T11:20:11.829Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6ae9d74fe6ce5ead376a525f",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-03T12:55:03.078Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6ae9d8cee6ce5ead376a527e",
+      "operation": "entities.setup",
+      "expiresAt": "2026-11-03T13:01:25.990Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6aeaeeaddfd46f011ad70e7c",
+      "operation": "wallets.topup",
+      "expiresAt": "2026-11-04T08:47:00.984Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6aeaeee0dfd46f011ad70e7e",
+      "operation": "wallets.topup",
+      "expiresAt": "2026-11-04T08:47:52.164Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6aeb0172fbe611a1583a302d",
+      "operation": "wallets.topup",
+      "expiresAt": "2026-11-04T10:07:05.786Z",
+      "status": "consumed"
+    },
+    {
+      "_id": "6aec2d523969910a076f436a",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-05T07:26:33.582Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6af427fd96751fceb2ceb5d5",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-11T08:41:57.270Z",
+      "status": "pending"
+    },
+    {
+      "_id": "6af42b75e4f7696b7b53b369",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-11T08:56:44.491Z",
+      "status": "rejected"
+    },
+    {
+      "_id": "6af42bcee4f7696b7b53b378",
+      "operation": "wallets.allocate",
+      "expiresAt": "2026-11-11T08:58:13.224Z",
+      "status": "consumed"
+    }
+  ],
+  "walletSetupAuditSnapshots": [
+    {
+      "_id": "6ae49956d028910e7f6ee690",
+      "action": "wallet.setup",
+      "entityId": "6ae49954d028910e7f6ee68f",
+      "after": {
+        "_id": "6ae49954d028910e7f6ee68f",
+        "name": "ABCD",
+        "currency": "INR",
+        "totalAmount": 0,
+        "allocatedAmount": 0,
+        "balance": 0,
+        "status": "wallet_created",
+        "fundingMethod": "po_upload"
+      },
+      "createdAt": "2026-10-30T13:19:18.969Z"
+    },
+    {
+      "_id": "6ae9b000af292bf5447ad8d9",
+      "action": "wallet.setup",
+      "entityId": "6ae9affeaf292bf5447ad8d8",
+      "after": {
+        "name": "MCP QA Budget Test",
+        "fundingMethod": "po_upload"
+      },
+      "createdAt": "2026-11-03T09:57:20.233Z"
+    }
+  ],
+  "databaseIndexKeys": {
+    "wallets": [
+      {
+        "key": {
+          "_id": 1
+        },
+        "unique": true
+      },
+      {
+        "key": {
+          "tenantId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1,
+          "status": 1
+        },
+        "unique": false
+      }
+    ],
+    "entities": [
+      {
+        "key": {
+          "_id": 1
+        },
+        "unique": true
+      },
+      {
+        "key": {
+          "walletId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1,
+          "walletId": 1
+        },
+        "unique": false
+      }
+    ],
+    "roleassignments": [
+      {
+        "key": {
+          "_id": 1
+        },
+        "unique": true
+      },
+      {
+        "key": {
+          "tenantId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "userId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "userId": 1,
+          "tenantId": 1
+        },
+        "unique": false
+      }
+    ],
+    "wallettransactions": [
+      {
+        "key": {
+          "_id": 1
+        },
+        "unique": true
+      },
+      {
+        "key": {
+          "walletId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1,
+          "walletId": 1,
+          "createdAt": -1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1,
+          "idempotencyKey": 1
+        },
+        "unique": true
+      }
+    ],
+    "mcpentityclaims": [
+      {
+        "key": {
+          "_id": 1
+        },
+        "unique": true
+      },
+      {
+        "key": {
+          "tenantId": 1
+        },
+        "unique": false
+      },
+      {
+        "key": {
+          "tenantId": 1,
+          "logicalKey": 1
+        },
+        "unique": true
+      }
+    ]
+  },
+  "followupCheckedAt": "2026-11-11T09:54:22.981Z"
+}

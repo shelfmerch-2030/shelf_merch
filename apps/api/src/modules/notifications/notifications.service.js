@@ -1,7 +1,8 @@
 import { Notification } from './notification.model.js';
 import { getNotificationQueue } from '../../jobs/queues.js';
 import { ensureRedisReady } from '../../config/redis.js';
-import { env } from '../../config/env.js';
+import { env, emailConfigured } from '../../config/env.js';
+import { ApiError } from '../../utils/errors.js';
 import { logger } from '../../config/logger.js';
 import { sendSms } from '../../services/msg91.service.js';
 import {
@@ -29,13 +30,14 @@ export async function deliverNotification({
   body = '',
   link = '',
   meta = null,
-}) {
+}, { requireEmailAcknowledgement = false } = {}) {
   if (userId) {
     await Notification.create({ tenantId, userId, type, title, body, link });
   }
+  let emailResult;
   if (email) {
     if (type === 'surprise_gift' && meta) {
-      await sendSurpriseGiftEmail({
+      emailResult = await sendSurpriseGiftEmail({
         to: email,
         recipientName: meta.recipientName ?? '',
         senderName: meta.senderName ?? title,
@@ -44,7 +46,7 @@ export async function deliverNotification({
         companyName: meta.companyName ?? 'your company',
       });
     } else if (type === 'redemption_invite' && meta) {
-      await sendRedemptionInviteEmail({
+      emailResult = await sendRedemptionInviteEmail({
         to: email,
         recipientName: meta.recipientName ?? '',
         senderName: meta.senderName ?? title,
@@ -61,13 +63,17 @@ export async function deliverNotification({
         shopCurrencyMode: meta.shopCurrencyMode ?? 'points',
       });
     } else {
-      await sendNotificationEmail({ to: email, title, body, link });
+      emailResult = await sendNotificationEmail({ to: email, title, body, link });
     }
+  }
+  if (requireEmailAcknowledgement && emailResult?.success !== true) {
+    throw new ApiError(503, 'Invitation submission was not acknowledged', 'INVITATION_ACK_UNCERTAIN');
   }
   if (phone && !EMAIL_ONLY_NOTIFICATION_TYPES.has(type)) {
     const message = [title, body, link].filter(Boolean).join(' — ');
     await sendSms(phone, message);
   }
+  return emailResult;
 }
 
 /**
@@ -77,7 +83,18 @@ export async function deliverNotification({
  * Falls back to async inline delivery when Redis/worker is unavailable;
  * tests still await delivery so assertions stay deterministic.
  */
-export async function notify(payload) {
+export async function notify(payload, { durableInvitation = false } = {}) {
+  // PointsDelivery owns the durable submission permit. Bypass the Redis queue
+  // and its uncertain-enqueue fallback: one direct attempt, errors propagate.
+  if (durableInvitation) {
+    if (payload.type !== 'redemption_invite' || !payload.email || payload.userId || payload.phone) {
+      throw new ApiError(422, 'Invalid durable points invitation', 'INVITATION_PAYLOAD_INVALID');
+    }
+    if (env.NODE_ENV !== 'test' && !emailConfigured()) {
+      throw new ApiError(503, 'Invitation email delivery is not configured', 'INVITATION_DELIVERY_UNAVAILABLE');
+    }
+    return deliverNotification(payload, { requireEmailAcknowledgement: true });
+  }
   if (payload.userId) {
     await Notification.create({
       tenantId: payload.tenantId ?? null,

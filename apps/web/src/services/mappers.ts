@@ -92,6 +92,7 @@ export type UiProduct = {
     printWPct?: number;
   };
   /** Per print-area placements keyed by area key (Area 1, Area 2, …). */
+  inheritArtwork?: boolean;
   areaPlacements?: Record<
     string,
     {
@@ -502,6 +503,7 @@ export function mapProductRef(ref: ApiProduct, catalogById?: Map<string, UiProdu
     mockupBackUrl: resolveMediaUrl(ref.mockupBackUrl),
     placement: mapPlacement((ref as { placement?: unknown }).placement),
     areaPlacements: mapAreaPlacements(ref),
+    ...(typeof ref.inheritArtwork === 'boolean' ? { inheritArtwork: ref.inheritArtwork } : {}),
     printAreas: fromCatalog?.printAreas,
     physicalDimensions: fromCatalog?.physicalDimensions,
     dpi: fromCatalog?.dpi,

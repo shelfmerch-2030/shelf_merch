@@ -1,0 +1,66 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { configureSwagState, getSwagState, prepareSwagReview, type SwagPatch, type SwagState } from "./swagApi";
+
+export function useSwagConversation(id: string | null, enabled: boolean) {
+  const [state, setState] = useState<SwagState | null>(null);
+  const [pendingEpoch, setPendingEpoch] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const current = useRef({ id, enabled, epoch: 0 });
+  if (current.current.id !== id || current.current.enabled !== enabled) current.current = { id, enabled, epoch: current.current.epoch + 1 };
+  const epoch = current.current.epoch;
+  const mounted = useRef(true);
+  const reads = useRef(0);
+  const value = useRef(state); value.current = state;
+  const action = useRef<{ epoch: number } | null>(null);
+  const refresh = useCallback(async (target = current.current.id) => {
+    const context = current.current;
+    if (!target || context.id !== target || !context.enabled) return;
+    const request = ++reads.current;
+    const isCurrent = () => mounted.current && current.current.epoch === context.epoch && reads.current === request;
+    try {
+      const result = await getSwagState(target);
+      // Hydration/focus is read-only. Adopting editor changes is an explicit,
+      // revision-checked action; it must not race a response or pending approval.
+      if (isCurrent()) setState(previous => previous?.conversationId === target
+        && (!result.state || previous.revision > result.state.revision) ? previous : result.state);
+    } catch (err) {
+      if (isCurrent()) setError(err instanceof Error ? err.message : "Could not refresh the design");
+    }
+  }, []);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { setState(null); setError(null); setErrorCode(null); void refresh(id); }, [id, enabled, refresh]);
+  useEffect(() => {
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refresh]);
+  async function run<T>(fn: (target: string, revision: number) => Promise<T>, expectedRevision?: number): Promise<T | undefined> {
+    const target = id;
+    const revision = expectedRevision ?? state?.revision;
+    const isCurrent = () => mounted.current && current.current.id === target && current.current.enabled && current.current.epoch === epoch;
+    if (!target || !isCurrent() || value.current?.conversationId !== target || revision === undefined || action.current?.epoch === epoch) return;
+    const request = { epoch }; action.current = request; ++reads.current;
+    setPendingEpoch(epoch); setError(null); setErrorCode(null);
+    try {
+      const result = await fn(target, revision);
+      return isCurrent() ? result : undefined;
+    } catch (err) {
+      if (isCurrent()) {
+        setError(err instanceof Error ? err.message : "Could not update the design. Check its current state before trying again.");
+        setErrorCode(err && typeof err === 'object' && 'code' in err ? String(err.code) : null);
+        await refresh(target); // Read only; never replay a mutation or execution.
+      }
+    } finally {
+      if (action.current === request) action.current = null;
+      if (isCurrent()) setPendingEpoch(previous => previous === epoch ? null : previous);
+    }
+  }
+  async function change(patch: SwagPatch) {
+    const result = await run((target, revision) => configureSwagState(target, revision, patch));
+    if (result) { ++reads.current; value.current = result.state; setState(result.state); }
+    return result?.state;
+  }
+  const prepare = (mode: "save" | "publish" | "apply", expectedRevision?: number) => run((target, revision) => prepareSwagReview(target, revision, mode), expectedRevision);
+  return { state: enabled && state?.conversationId === id ? state : null, busy: pendingEpoch === epoch, error, errorCode, refresh, change, prepare };
+}

@@ -1,0 +1,60 @@
+{
+  "syntheticImages": true,
+  "actualBrowser": "Microsoft Edge",
+  "results": [
+    {
+      "version": "v1",
+      "expected": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1"
+      ],
+      "storefrontHome": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1"
+      ],
+      "images": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v1",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v1"
+      ]
+    },
+    {
+      "version": "v2",
+      "expected": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2"
+      ],
+      "storefrontHome": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2"
+      ],
+      "images": [
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-0-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-1-v2",
+        "/synthetic-hoodie.png?asset=saved-fixture-2-v2"
+      ]
+    }
+  ]
+}

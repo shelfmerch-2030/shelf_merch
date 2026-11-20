@@ -1,0 +1,182 @@
+Batch 1: tests/copilot-anthropic-provider.test.js, tests/copilot-attachment-vision.test.js, tests/copilot-attachments.test.js, tests/copilot-curator-integration.test.js, tests/copilot-curator.test.js
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api
+
+(node:20028) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:20028) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:20028) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:20028) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:20028) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:20028) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+Batch 2: tests/copilot-gifting-advisor-live.test.js, tests/copilot-gifting-advisor.test.js, tests/copilot-mcp-catalog.test.js, tests/copilot-quota.test.js, tests/copilot-reads-complete.test.js
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api
+
+(node:9156) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:9156) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  4 passed | 1 skipped (5)
+      Tests  28 passed | 1 skipped (29)
+   Start at  10:54:29
+   Duration  11.25s (transform 1.63s, setup 0ms, import 6.86s, tests 2.80s, environment 1ms)
+
+Batch 3: tests/copilot-response-format.test.js, tests/copilot-store-catalog-ux.test.js, tests/copilot-store-create.test.js, tests/copilot-store-update-publish.test.js, tests/copilot-ui-removal-live.test.js
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api
+
+(node:38180) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:38180) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  4 passed | 1 skipped (5)
+      Tests  26 passed | 1 skipped (27)
+   Start at  10:54:41
+   Duration  15.26s (transform 1.86s, setup 0ms, import 9.53s, tests 4.11s, environment 1ms)
+
+Batch 4: tests/copilot-wallet-reconcile.test.js, tests/copilot-whatsapp-image-name.test.js, tests/copilot-writes-domains.test.js, tests/copilot-writes-registry.test.js, tests/copilot.test.js
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api
+
+(node:44572) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "PasswordResetToken". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"tenantId":1} for model "ZohoIntegration". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "SignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: Duplicate schema index on {"expiresAt":1} for model "ShopSignupPending". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+(node:44572) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  5 passed (5)
+      Tests  27 passed (27)
+   Start at  10:54:57
+   Duration  11.36s (transform 1.71s, setup 0ms, import 6.61s, tests 3.16s, environment 1ms)
+
+Batch 5: tests/copilotDiscovery.test.js
+
+ RUN  v4.1.10 D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api
+
+(node:5764) [MONGOOSE] Warning: `errors` is a reserved schema pathname and may break some functionality. You are allowed to use it, but use at your own risk. To disable this warning pass `suppressReservedKeysWarning` as a schema option.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  10:55:09
+   Duration  2.83s (transform 728ms, setup 0ms, import 1.76s, tests 13ms, environment 0ms)
+

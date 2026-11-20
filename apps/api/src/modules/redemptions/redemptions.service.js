@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { resolveSpendWalletForEntity } from '../../services/ledger.service.js';
 import jwt from 'jsonwebtoken';
 import { Recipient } from '../campaigns/recipient.model.js';
 import { Campaign } from '../campaigns/campaign.model.js';
@@ -388,6 +389,10 @@ async function debitPointsCreditPool({
   allowPartial = false,
 }) {
   const recipients = await findActivePointsRecipients({ tenantId, email, shopId, pointsScope });
+  const campaigns = await Campaign.find({ tenantId, _id: { $in: recipients.map(row => row.campaignId) } }).select('entityId').lean();
+  // Validate the entire pool before changing the first recipient's credit.
+  for (const campaign of campaigns) await resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
+  if (new Set(recipients.map(row => String(row.campaignId))).size !== campaigns.length) throw new NotFoundError('Campaign not found');
   const available = recipients.reduce((sum, r) => sum + Number(r.creditAmount || 0), 0);
   const targetDebit = allowPartial ? Math.min(spendAmount, available) : spendAmount;
 
@@ -776,6 +781,7 @@ export async function createSurpriseOrdersForCampaign({ tenantId, campaign }) {
   if (campaign.fulfillmentMode !== 'surprise' || !isKitFulfillment(campaign)) {
     throw new ApiError(422, 'Campaign is not a surprise kit send', 'NOT_SURPRISE_CAMPAIGN');
   }
+  await resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
 
   const kit = await Kit.findOne({ _id: campaign.kitId, tenantId });
   if (!kit) throw new NotFoundError('Kit not found');
@@ -897,6 +903,7 @@ export async function createSingleLocationOrderForCampaign({ tenantId, campaign 
   if (campaign.fulfillmentMode !== 'single' || !isKitFulfillment(campaign)) {
     throw new ApiError(422, 'Campaign is not a single-location kit send', 'NOT_SINGLE_LOCATION_CAMPAIGN');
   }
+  await resolveSpendWalletForEntity({ tenantId, entityId: campaign.entityId });
 
   const location = campaign.singleLocation;
   if (
@@ -1101,6 +1108,7 @@ export async function submitRedemption(
     };
   }
 
+  await resolveSpendWalletForEntity({ tenantId: recipient.tenantId, entityId: campaign.entityId });
   // Heal: order may exist from a prior attempt that failed after create (e.g. later unique collision).
   if (campaign.type !== 'points') {
     const prior = await Order.findOne({ recipientId: recipient._id, tenantId: recipient.tenantId });

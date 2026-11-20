@@ -1,0 +1,334 @@
+{
+  "verificationDate": "2026-11-13",
+  "timezone": "Asia/Calcutta",
+  "implementationChangedDuringResumption": false,
+  "implementationFiles": [
+    {
+      "path": "apps/api/src/modules/copilot/sendPointsWorkflow.js",
+      "sha256": "20b96dc3de8e4f26df65b12fa2f48b012e5a840882cb74b80e2aff4a7552a7e3"
+    },
+    {
+      "path": "apps/api/src/modules/campaigns/campaigns.service.js",
+      "sha256": "834325aba998be2cd5257a5e86a70cf57f52da436481b64e574561a809a9d74c"
+    },
+    {
+      "path": "apps/api/src/modules/campaigns/pointsLaunch.service.js",
+      "sha256": "6141c927d4c61169e22f9bc54123aa5a13a110862e95bf378e37e51981b81bf4"
+    },
+    {
+      "path": "apps/api/src/modules/mcp/campaignsDraftWrite.js",
+      "sha256": "44bbd101f4641cc8c7ce44e12518ca91893fd630e5edd2e7ffdb8052a5715ddf"
+    },
+    {
+      "path": "apps/api/src/modules/mcp/mcpWriteSafety.js",
+      "sha256": "39443b1029f1b4bd122e0051a7e3e6a472536ddf92233623152ae49cba741310"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotMcpCatalog.js",
+      "sha256": "2b9e557d9a12a1592cf9ca983f83360f5f3be1b038afdf86b145adaed1c03040"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotToolBindings.js",
+      "sha256": "20b8cf874f029e9affcbdc255eb178eb41e69e5ad9ecb7ce0ba72db4b30371f2"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotWrites.service.js",
+      "sha256": "15565036b482ebbde162ab0625a35c5bd6d89d9b8bd145916927c63169857d53"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotChat.service.js",
+      "sha256": "c623a52fe986dd6176225273b1014679588ae40e28debb58329cc2a0f4601458"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotDiscovery.js",
+      "sha256": "7991edbd5ec5457874c55817ce1fa53488f78412c2cf928f1d8008ad3bd97de7"
+    },
+    {
+      "path": "apps/api/src/modules/copilot/copilotWriteState.service.js",
+      "sha256": "80e1b4e46294ac803e398ac019ca92c5ae45aee2e572557e6a4bb4429bb794f3"
+    },
+    {
+      "path": "apps/web/src/features/copilot/actionPresentation.ts",
+      "sha256": "89a2fbf9916994e6f9cf66cd11e3c9e8f137e30ffdd9dc39ce4f1e4456a8ea51"
+    },
+    {
+      "path": "apps/web/src/features/copilot/api.ts",
+      "sha256": "20f25316985e409ef4d56d8467154bc2b32f9c9766a6b2ba6145d2cef4e82332"
+    },
+    {
+      "path": "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+      "sha256": "2b59d2329e742f6a9d606f65b148df476fa1d3ffc819edd2d21568cfff802a79"
+    },
+    {
+      "path": "apps/api/tests/combined-send-points.test.js",
+      "sha256": "623ef7347bb83d983816c82a5baaf7e18a95a89d430c2498ea9eeea7c92505c8"
+    },
+    {
+      "path": "apps/api/tests/copilot-mcp-catalog.test.js",
+      "sha256": "da134b469b086f22ca75f03b29fcc6ea00e8543a7a0f4795918b86687335dc18"
+    },
+    {
+      "path": "apps/api/tests/copilotDiscovery.test.js",
+      "sha256": "13b290525ea3d1377f17e1c1976e201ef78a178d1e3e2306a11aa6856426725d"
+    },
+    {
+      "path": "apps/web/src/features/copilot/CopilotCombinedPoints.test.tsx",
+      "sha256": "55fcc69e9b1a04212abd163841b36b8b8b111553f5595dbcada0fc052cd2a3f2"
+    }
+  ],
+  "preservation": {
+    "snapshottedFiles": 303,
+    "unchangedFiles": 291,
+    "intendedModifiedFiles": [
+      "apps/api/src/modules/campaigns/campaigns.service.js",
+      "apps/api/src/modules/copilot/copilotChat.service.js",
+      "apps/api/src/modules/copilot/copilotToolBindings.js",
+      "apps/api/src/modules/copilot/copilotWrites.service.js",
+      "apps/api/src/modules/mcp/campaignsDraftWrite.js",
+      "apps/api/src/modules/mcp/mcpWriteSafety.js",
+      "apps/api/tests/copilotDiscovery.test.js",
+      "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+      "apps/web/src/features/copilot/api.ts",
+      "apps/api/src/modules/campaigns/pointsLaunch.service.js",
+      "apps/api/src/modules/copilot/copilotWriteState.service.js",
+      "apps/web/src/features/copilot/actionPresentation.ts"
+    ],
+    "unexpectedChanges": [],
+    "scope": "Files recorded in the pre-implementation dirty-file snapshot"
+  },
+  "tests": [
+    {
+      "report": "combined-final.json",
+      "files": 4,
+      "passed": 52,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "staged-final.json",
+      "files": 4,
+      "passed": 75,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "launch-ledger-final.json",
+      "files": 5,
+      "passed": 85,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "wallet-final.json",
+      "files": 5,
+      "passed": 43,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "write-state-final.json",
+      "files": 3,
+      "passed": 34,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "notification-read-final.json",
+      "files": 4,
+      "passed": 22,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "redemption-final.json",
+      "files": 1,
+      "passed": 15,
+      "failed": 0,
+      "pending": 0,
+      "pool": "threads",
+      "supersedes": "redemption-incomplete.json"
+    },
+    {
+      "report": "recovery-notices-final.json",
+      "files": 2,
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "report": "web-final.json",
+      "files": 15,
+      "passed": 160,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "apiPassed": 343,
+  "frontendPassed": 160,
+  "totalPassed": 503,
+  "uniqueTestFiles": 43,
+  "failed": 0,
+  "pending": 0,
+  "typecheck": {
+    "passed": false,
+    "diagnostics": [
+      {
+        "file": "src/components/KitAcceptPortal.tsx",
+        "line": 27,
+        "code": 2741,
+        "message": "Property 'price' is missing in type '{ id: string; g: string; brand: string; nm: string; sw: number; photoUrl: string; baseImageUrl: string; maskImageUrl: undefined; imgUrl: string; mockupUrl: string | undefined; placement: { xPct: number; yPct: number; ... 4 more ...; printWPct?: number; } | undefined; printAreas: { ...; }[] | undefined; imageUrls: st...' but required in type 'UiProduct'."
+      },
+      {
+        "file": "src/features/kits/KitDetailDialog.tsx",
+        "line": 32,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/KitPreviewDialog.tsx",
+        "line": 315,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/controllers/useKitDetailController.ts",
+        "line": 70,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/views/SendKitView.tsx",
+        "line": 1845,
+        "code": 2322,
+        "message": "Type 'KitPackagingChoice' is not assignable to type '\"box\" | \"none\"'."
+      },
+      {
+        "file": "src/features/shops/tabs/ShopLayoutTab.test.tsx",
+        "line": 12,
+        "code": 2352,
+        "message": "Conversion of type '{ id: string; name: string; currency: string; currencyMode: \"inr\"; pointsConversionEnabled: false; live: true; categories: string[]; logoUrl: string; bannerConfig: { theme: string; preset: string; }; }' to type 'UiShop' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 32,
+        "code": 2783,
+        "message": "'id' is specified more than once, so this usage will be overwritten."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 33,
+        "code": 2783,
+        "message": "'nm' is specified more than once, so this usage will be overwritten."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 156,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placements: Record<string, Placement>; placementEpoch: number; art: ArtFile; areaArts: { \"polo::right\": ArtFile; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 174,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placementEpoch: number; art: ArtFile; areaArts: { \"polo::right\": ArtFile; \"tee::front\": ArtFile; }; placements: { \"polo::right\": { xPct: number; yPct: number; wPct: number; rot: number; }; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 186,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placements: Record<string, Placement>; placementEpoch: number; art: ArtFile; areaArts: { \"tee::front\": ArtFile; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 188,
+        "code": 7053,
+        "message": "Element implicitly has an 'any' type because expression of type '\"polo::right\"' can't be used to index type '{ \"tee::front\": ArtFile; }'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 131,
+        "code": 2345,
+        "message": "Argument of type 'UiPrintArea' is not assignable to parameter of type 'PlaceholderInches'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 145,
+        "code": 18048,
+        "message": "'area.xIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 146,
+        "code": 18048,
+        "message": "'area.yIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 147,
+        "code": 18048,
+        "message": "'area.widthIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 148,
+        "code": 18048,
+        "message": "'area.heightIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1078,
+        "code": 2300,
+        "message": "Duplicate identifier 'mockupUrl'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1081,
+        "code": 2300,
+        "message": "Duplicate identifier 'placement'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1101,
+        "code": 2300,
+        "message": "Duplicate identifier 'mockupUrl'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1102,
+        "code": 2300,
+        "message": "Duplicate identifier 'placement'."
+      },
+      {
+        "file": "src/services/mutations-api.ts",
+        "line": 1507,
+        "code": 2339,
+        "message": "Property 'inviteStatus' does not exist on type '{ name: string; email: string; mobile: string; role: string; invite: boolean; }'."
+      },
+      {
+        "file": "src/services/mutations-api.ts",
+        "line": 1510,
+        "code": 2339,
+        "message": "Property 'inviteStatus' does not exist on type '{ name: string; email: string; mobile: string; role: string; invite: boolean; }'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 89,
+        "code": 2339,
+        "message": "Property 'requestTimeout' does not exist on type 'HttpServer'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 90,
+        "code": 2339,
+        "message": "Property 'headersTimeout' does not exist on type 'HttpServer'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 91,
+        "code": 2339,
+        "message": "Property 'timeout' does not exist on type 'HttpServer'."
+      }
+    ],
+    "unchangedFromLaunchSafetyVerification": true
+  }
+}

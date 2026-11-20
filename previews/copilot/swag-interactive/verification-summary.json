@@ -1,0 +1,168 @@
+{
+  "browser": {
+    "actualBrowser": "Microsoft Edge headless",
+    "frontendRoute": "/ai-test/copilot",
+    "backend": "real application controllers and services, MongoMemoryReplSet",
+    "provider": "mocked (no external AI calls)",
+    "liveWorkspaceData": false,
+    "artworkBrowserPath": "skip artwork; upload/editor covered separately by isolated regressions",
+    "checks": [
+      "name-first",
+      "verified catalog card with select control",
+      "natural-language exact-name selection",
+      "deselect and select through backend",
+      "catalog pagination",
+      "reload restores authoritative selection",
+      "skip artwork without designer handoff",
+      "one explicit publication preview, no collection before confirmation",
+      "committed publication and natural result",
+      "double-click submitted once, one collection/listing, draft store unchanged",
+      "responsive mobile result"
+    ],
+    "errors": [],
+    "totalCollections": 1,
+    "executeRequests": 1
+  },
+  "reports": [
+    {
+      "name": "acceptance-final",
+      "passed": 62,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "catalog-final",
+      "passed": 37,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-dashboard-final",
+      "passed": 48,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-state-final",
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-attachments-final",
+      "passed": 8,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-reads-final",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-domains-final",
+      "passed": 9,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-copilot-provider-final",
+      "passed": 20,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "api-financial-final",
+      "passed": 84,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "web-final",
+      "passed": 269,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "browser-test",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "totalPassed": 559,
+  "failed": 0,
+  "pending": 0,
+  "uniqueTestFiles": 48,
+  "baselineDirtyAppFiles": 134,
+  "preservedDirtyAppFiles": 121,
+  "editedExistingDirtyAppFiles": [
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js",
+    "apps/api/tests/copilot-swag-chat.test.js",
+    "apps/api/tests/copilot-swag-design.test.js",
+    "apps/api/src/modules/copilot/copilot.controller.js",
+    "apps/api/src/modules/copilot/copilot.routes.js",
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilotConversation.model.js",
+    "apps/api/src/modules/copilot/copilotToolBindings.js",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+    "apps/web/src/features/copilot/CopilotPage.tsx",
+    "apps/web/src/features/copilot/CopilotProductCards.tsx",
+    "apps/web/src/features/copilot/api.ts",
+    "apps/web/src/features/copilot/copilot.css"
+  ],
+  "changedFiles": [
+    "apps/api/src/modules/copilot/copilotResponseFormat.js",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js",
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilot.controller.js",
+    "apps/api/src/modules/copilot/copilot.routes.js",
+    "apps/api/src/modules/copilot/copilotConversation.model.js",
+    "apps/api/src/modules/copilot/copilotToolBindings.js",
+    "apps/api/src/modules/mcp/catalogRead.js",
+    "apps/api/tests/copilot-response-format.test.js",
+    "apps/api/tests/copilot-swag-chat.test.js",
+    "apps/api/tests/copilot-swag-design.test.js",
+    "apps/api/tests/copilot-swag-interactive.test.js",
+    "apps/api/tests/copilot-swag.browser-check.js",
+    "apps/web/src/features/copilot/CopilotProductCards.tsx",
+    "apps/web/src/features/copilot/CopilotPage.tsx",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx",
+    "apps/web/src/features/copilot/copilot.css",
+    "apps/web/src/features/copilot/api.ts",
+    "apps/web/src/features/copilot/swagApi.ts",
+    "apps/web/src/features/copilot/useSwagConversation.ts",
+    "apps/web/src/features/copilot/SwagWorkflowPanel.tsx",
+    "apps/web/src/features/copilot/CopilotSwagInteractive.test.tsx"
+  ],
+  "typecheck": {
+    "passed": false,
+    "existingDiagnostics": 26,
+    "newDiagnostics": 0
+  },
+  "hashes": {
+    "apps/api/src/modules/copilot/copilotResponseFormat.js": "1cca8f3a143875638a604ad39b07f985f487b9e912445803af5b7e8aab7f4ed6",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js": "7885f547c5f23d69d0d6546788e2821760fdef41d561e5b43e4cbcad96dbe151",
+    "apps/api/src/modules/copilot/copilotChat.service.js": "01217d15543a919e234ef1510d22d3a72915987ce9aa96e40a7620747900d2c6",
+    "apps/api/src/modules/copilot/copilot.controller.js": "79e672b65ff3ee12bd337804ecc7cb6819f2e9fe2aba43dcb70d8f009aa67db9",
+    "apps/api/src/modules/copilot/copilot.routes.js": "fb001569dab30af3349ddd56dc75d5995fe3e20c281e8ff49382f65a78504381",
+    "apps/api/src/modules/copilot/copilotConversation.model.js": "d7e329bd4cad3653abe72b1691b3f1fbd23fcefecfd296d27fd1949ccdb05bfc",
+    "apps/api/src/modules/copilot/copilotToolBindings.js": "cc72fad52f12d9c9298414e43de1959867ce88d284801a926ef4e0401009153c",
+    "apps/api/src/modules/mcp/catalogRead.js": "a3c839d63f1dd8aef6895a7765e36ea3f50d948c98ada8a66985f063b38ffca6",
+    "apps/api/tests/copilot-response-format.test.js": "bf3f61f60f661c6ecf6fec3617c11c70531e51a9c2679bd892dd5207353807ee",
+    "apps/api/tests/copilot-swag-chat.test.js": "f04dbfc15deb6a0ae3bb7a7406e791053984684db9eda7662e07e5c0f335ff24",
+    "apps/api/tests/copilot-swag-design.test.js": "3c4df5a7c82e2ab0c467d9ada9a47f043674a5686c35eb8bec06ef75638d7e3b",
+    "apps/api/tests/copilot-swag-interactive.test.js": "2481401a7b6dd184f562311714af6d69e428b3aeb5c9d3fa362c41969a943398",
+    "apps/api/tests/copilot-swag.browser-check.js": "a85b9e3022b04652a2b78658a432b1babdd2f4d85224ab7682a935fccf9e7bc2",
+    "apps/web/src/features/copilot/CopilotProductCards.tsx": "0b819ac19bdb747db10e0d4c86cb359c5a8c1d1290795386ea285e91e8de3a5f",
+    "apps/web/src/features/copilot/CopilotPage.tsx": "7d18b4a78e52b9f1d29489cd645526d481bd5930587bb99c71309395049503f0",
+    "apps/web/src/features/copilot/CopilotConfirmationCard.tsx": "297d5d37814eadb6ff9a04a1486b60844a2a79291d423cacfa7468b7e5affe17",
+    "apps/web/src/features/copilot/copilot.css": "01eeb4104155209ef1a97436e2d170e2f710f619eff72c35cc63b8948e1a1782",
+    "apps/web/src/features/copilot/api.ts": "42d18a9e3652e8a45e4970c671924161dd573b2c91e1b60fa639f34fe6387c52",
+    "apps/web/src/features/copilot/swagApi.ts": "e8751d247a238ca2c2283fd7e69416681af2300d290b1176a91cdbcf951ca3cc",
+    "apps/web/src/features/copilot/useSwagConversation.ts": "8fcca1c4306ebbac5eab7317816876e0ea43036e6fe70778737490f9cd323eb1",
+    "apps/web/src/features/copilot/SwagWorkflowPanel.tsx": "68e3d109bc88ad813b623d6a3f20bb2ec11481c16b2f4b60b74153affd0d2736",
+    "apps/web/src/features/copilot/CopilotSwagInteractive.test.tsx": "b8f16a33e9fb9e7e2a4c23986e7f3ad5e14999a6ed18093b680c682422375009"
+  }
+}

@@ -15,6 +15,11 @@ export default defineConfig({
       EMAIL_USER: '',
       EMAIL_PASSWORD: '',
       EMAIL_FROM: '',
+      // Mutation regressions must never use SMS credentials from a developer .env.
+      MSG91_AUTH_KEY: '',
+      MSG91_OTP_TEMPLATE_ID: '',
+      // Keep synthetic PO uploads on disk; never write to a configured cloud bucket.
+      STORAGE_DRIVER: 'local',
     },
     // Files share one DB — run sequentially. One worker avoids MongoMemory
     // replica-set respawn/OOM mid-suite. super-admin-layer is a second vitest

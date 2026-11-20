@@ -1,0 +1,158 @@
+{
+  "checks": [
+    "name-first",
+    "verified catalog card with select control",
+    "natural-language exact-name selection",
+    "deselect and select through backend"
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/notifications",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/status",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/tenants/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/shops",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/contacts",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/kits",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/collections",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/catalog/products",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/campaigns",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/orders",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/wallets",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/entities",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/users",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag/catalog",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag",
+      "method": "POST"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494/swag/catalog",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/copilot/conversations/6afa9f3bc29ba54194952494",
+      "method": "GET"
+    }
+  ],
+  "origin": "http://127.0.0.1:55277",
+  "cwd": "D:\\Shelf Merch\\SMIO\\shelf_merch_swag_org_account\\apps\\api",
+  "viteExitCode": null
+}

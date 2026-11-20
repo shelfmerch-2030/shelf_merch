@@ -138,12 +138,12 @@ export async function listEntities({ tenantId, user, walletId }) {
   }
 
   const walletsToRepair = walletId
-    ? await Wallet.find({ tenantId, _id: walletId }).select('_id').lean()
-    : await Wallet.find({ tenantId }).select('_id').lean();
+    ? await Wallet.find({ tenantId, _id: walletId }).select('_id status deletedAt').lean()
+    : await Wallet.find({ tenantId }).select('_id status deletedAt').lean();
   await Promise.all(
     walletsToRepair.map((w) => ledger.repairWalletCaches({ tenantId, walletId: w._id })),
   );
-
+  filter.walletId = { $in: walletsToRepair.filter(ledger.isWalletFinanciallyAvailable).map(wallet => wallet._id) };
   return Entity.find(filter).sort({ createdAt: 1 }).populate('managerUserId', 'name email phone status');
 }
 
@@ -155,8 +155,7 @@ export async function getEntity({ tenantId, entityId }) {
 }
 
 export async function createEntity({ tenantId, data, userId }) {
-  const wallet = await Wallet.findOne({ _id: data.walletId, tenantId });
-  if (!wallet) throw new NotFoundError('Wallet not found');
+  const wallet = await ledger.requireWalletForFinancialWrite({ tenantId, walletId: data.walletId });
 
   const entity = await Entity.create({
     tenantId,

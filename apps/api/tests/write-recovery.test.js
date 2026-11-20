@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import mongoose from 'mongoose';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { makeEntity, makeFundedWallet, makeShop, makeTenant, makeUser } from './helpers.js';
@@ -18,12 +18,14 @@ import { Kit } from '../src/modules/kits/kit.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
 import * as ledger from '../src/services/ledger.service.js';
+import * as launchSafety from '../src/modules/campaigns/pointsLaunch.service.js';
 
 let tenant;
 let actor;
 
 beforeAll(connectTestDb);
 afterAll(disconnectTestDb);
+afterEach(() => vi.restoreAllMocks());
 
 beforeEach(async () => {
   await clearTestDb();
@@ -285,17 +287,10 @@ describe('campaign launch recovery', () => {
 
   it('sends missing invites after a debit without debiting or refunding again', async () => {
     const { wallet, campaign, recipient } = await approvedPointsCampaign();
-    await ledger.createTransaction({
-      tenantId: tenant._id,
-      walletId: wallet._id,
-      type: 'campaign_spend',
-      amount: -1000,
-      description: 'Campaign launch: Launch once',
-      idempotencyKey: `campaign_spend:${campaign._id}`,
-      performedBy: actor.user._id,
-    });
-    campaign.status = 'redemption_open';
-    await campaign.save();
+    // Generate real atomic launch evidence, then crash before post-commit delivery.
+    const crash = vi.spyOn(launchSafety, 'dispatchPointsDeliveries').mockRejectedValueOnce(new Error('Synthetic postcommit crash'));
+    await expect(launchCampaign({ tenantId: tenant._id, campaignId: campaign._id, user: actorUser() })).rejects.toThrow('Synthetic postcommit crash');
+    crash.mockRestore();
     const launched = await launchCampaign({
       tenantId: tenant._id,
       campaignId: campaign._id,
@@ -320,16 +315,9 @@ describe('campaign launch recovery', () => {
 
   it('does not resend an invite whose delivery is already uncertain and does not refund', async () => {
     const { wallet, campaign, recipient } = await approvedPointsCampaign();
-    await ledger.createTransaction({
-      tenantId: tenant._id,
-      walletId: wallet._id,
-      type: 'campaign_spend',
-      amount: -1000,
-      description: 'Campaign launch: Launch once',
-      idempotencyKey: `campaign_spend:${campaign._id}`,
-    });
-    campaign.status = 'redemption_open';
-    await campaign.save();
+    const crash = vi.spyOn(launchSafety, 'dispatchPointsDeliveries').mockRejectedValueOnce(new Error('Synthetic postcommit crash'));
+    await expect(launchCampaign({ tenantId: tenant._id, campaignId: campaign._id, user: actorUser() })).rejects.toThrow('Synthetic postcommit crash');
+    crash.mockRestore();
     await Recipient.updateOne(
       { _id: recipient._id, tenantId: tenant._id },
       { $set: { inviteClaimedAt: new Date(Date.now() - 60_000) } },

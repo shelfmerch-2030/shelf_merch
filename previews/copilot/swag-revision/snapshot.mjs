@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const dir=path.dirname(fileURLToPath(import.meta.url));
+const files=execFileSync('rg',['--files','apps','-g','!node_modules','-g','!dist'],{encoding:'utf8'}).trim().split(/\r?\n/).map(f=>f.replaceAll('\\','/'));
+const target=path.join(dir,'before.json');
+if(fs.existsSync(target))throw Error('Preservation snapshot already exists');
+fs.writeFileSync(target,JSON.stringify(Object.fromEntries(files.map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')])) ,null,2));
+console.log(`Preserved baseline hashes for ${files.length} application files`);

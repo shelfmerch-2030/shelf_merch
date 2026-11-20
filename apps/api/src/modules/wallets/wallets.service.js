@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { Wallet } from './wallet.model.js';
 import { WalletTransaction } from './walletTransaction.model.js';
+import { Payment } from '../payments/payment.model.js';
+import { McpWalletClaim } from '../mcp/mcpWalletClaim.model.js';
 import { BudgetAllocationNotice } from './budgetAllocationNotice.model.js';
 import { Entity } from '../entities/entity.model.js';
 import * as entitiesService from '../entities/entities.service.js';
@@ -27,7 +29,7 @@ function withMeta(wallet) {
 }
 
 export async function listWallets({ tenantId }) {
-  const wallets = await Wallet.find({ tenantId }).sort({ createdAt: -1 });
+  const wallets = (await Wallet.find({ tenantId }).sort({ createdAt: -1 })).filter(ledger.isWalletFinanciallyAvailable);
   const repaired = await Promise.all(
     wallets.map((w) => ledger.repairWalletCaches({ tenantId, walletId: w._id })),
   );
@@ -99,8 +101,7 @@ export async function getWalletForCaller({ tenantId, walletId, user }) {
 }
 
 export async function getWallet({ tenantId, walletId }) {
-  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
-  if (!wallet) throw new NotFoundError('Wallet not found');
+  await ledger.requireWalletForFinancialWrite({ tenantId, walletId });
   await ledger.repairWalletCaches({ tenantId, walletId });
   return Wallet.findOne({ _id: walletId, tenantId });
 }
@@ -209,6 +210,7 @@ async function removeOrphanDraft({ tenantId, name }) {
   if (!orphan) return;
   const txnCount = await WalletTransaction.countDocuments({ tenantId, walletId: orphan._id });
   if (txnCount > 0) return;
+  await assertNoWalletDependencies({ tenantId, wallet: orphan });
   await orphan.softDelete();
 }
 
@@ -438,6 +440,8 @@ export async function allocate({ tenantId, walletId, userId, allocations }) {
   const pending = [];
   const replayed = [];
   for (const line of ordered) {
+    const entity = await Entity.findOne({ tenantId, _id: line.entityId, walletId }).select('_id');
+    if (!entity) throw new ApiError(422, 'Department is not linked to this wallet', 'ENTITY_WALLET_MISMATCH');
     if (line.idempotencyKey) {
       const found = await WalletTransaction.findOne({ tenantId, idempotencyKey: line.idempotencyKey });
       if (found) {
@@ -571,7 +575,7 @@ export async function listWalletBalancesRead({ tenantId }) {
     .select('name currency status balance allocatedAmount fundingDocument.approvalStatus')
     .sort({ createdAt: -1 })
     .lean();
-  return { items: rows.map(walletBalanceItem) };
+  return { items: rows.filter(ledger.isWalletFinanciallyAvailable).map(walletBalanceItem) };
 }
 
 async function queryWalletTransactions({ tenantId, walletId, query, pageOptions }) {
@@ -736,20 +740,40 @@ export async function listWalletTransactionsRead({ tenantId, walletId, query }) 
 
 /** §7.4 /activate — only allowed once every setup step is complete. */
 /** Remove a wallet that was created but never funded (wizard rollback). */
+async function assertNoWalletDependencies({ tenantId, wallet, session = null }) {
+  const walletId = wallet._id;
+  // Keep operations sequential: this helper also runs inside a MongoDB transaction.
+  const entity = await Entity.findOne({ tenantId, walletId }).setOptions({ includeDeleted: true }).select('_id').session(session);
+  const payment = await Payment.findOne({ tenantId, relatedType: 'wallet_funding', relatedId: walletId }).setOptions({ includeDeleted: true }).select('_id').session(session);
+  const claim = await McpWalletClaim.findOne({ tenantId, walletId }).select('_id').session(session);
+  if (entity || payment || claim || wallet.fundingDocument?.approvalStatus === 'pending'
+      || wallet.fundingDocument?.requestedAmount > 0 || wallet.fundingDocument?.plannedAllocations?.length) {
+    throw new ApiError(422, 'Wallet has linked departments, financial dependencies or pending funding', 'WALLET_NOT_DELETABLE');
+  }
+}
+
 export async function deleteIncompleteWallet({ tenantId, walletId }) {
-  const wallet = await getWallet({ tenantId, walletId });
-  if (wallet.status !== 'draft') {
-    throw new ApiError(422, 'Only incomplete draft wallets can be removed', 'WALLET_NOT_DELETABLE');
-  }
-  if (wallet.balance !== 0 || wallet.allocatedAmount !== 0) {
-    throw new ApiError(422, 'Wallet has funds or allocations', 'WALLET_NOT_DELETABLE');
-  }
-  const txnCount = await WalletTransaction.countDocuments({ tenantId, walletId });
-  if (txnCount > 0) {
-    throw new ApiError(422, 'Wallet has ledger activity', 'WALLET_NOT_DELETABLE');
-  }
-  await wallet.softDelete();
-  return wallet;
+  const session = await mongoose.startSession();
+  try {
+    let wallet;
+    await session.withTransaction(async () => {
+      wallet = await ledger.requireWalletForFinancialWrite({ tenantId, walletId, session });
+      if (wallet.status !== 'draft') {
+        throw new ApiError(422, 'Only incomplete draft wallets can be removed', 'WALLET_NOT_DELETABLE');
+      }
+      if (wallet.balance !== 0 || wallet.allocatedAmount !== 0) {
+        throw new ApiError(422, 'Wallet has funds or allocations', 'WALLET_NOT_DELETABLE');
+      }
+      const txnCount = await WalletTransaction.countDocuments({ tenantId, walletId }).session(session);
+      if (txnCount > 0) {
+        throw new ApiError(422, 'Wallet has ledger activity', 'WALLET_NOT_DELETABLE');
+      }
+      await assertNoWalletDependencies({ tenantId, wallet, session });
+      wallet.deletedAt = new Date();
+      await wallet.save({ session });
+    });
+    return wallet;
+  } finally { await session.endSession(); }
 }
 
 export async function activate({ tenantId, walletId, userId }) {

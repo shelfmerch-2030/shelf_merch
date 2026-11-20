@@ -20,6 +20,7 @@ import { SlackNotificationReceipt } from '../src/modules/integrations/slack/slac
 import { flushPendingSlackNotifications } from '../src/modules/integrations/slack/slackNotify.service.js';
 import { encryptToken } from '../src/utils/tokenEncryption.js';
 import * as envModule from '../src/config/env.js';
+import * as launchSafety from '../src/modules/campaigns/pointsLaunch.service.js';
 
 vi.mock('../src/modules/notifications/notifications.service.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -175,19 +176,16 @@ describe('MCP Slack notifications', () => {
 
   it('sends the points message when a crashed launch is recovered before the notification was claimed', async () => {
     await connectSlack();
-    const campaign = await Campaign.create({
-      tenantId: tenant._id,
-      entityId: entity._id,
-      name: 'Recovered points',
-      type: 'points',
-      status: 'redemption_open',
-      paymentMode: 'wallet',
-      totalBudget: 250,
-      recipientCount: 1,
-      schedule: { mode: 'now', invitesSentAt: new Date() },
-      createdBy: admin.user._id,
-    });
+    const campaign = await approvedPointsCampaign();
     const user = { userId: admin.user._id, role: 'company_admin', scopeType: 'tenant', assignedEntityIds: [] };
+    const original = launchSafety.dispatchPointsDeliveries;
+    const crash = vi.spyOn(launchSafety, 'dispatchPointsDeliveries').mockImplementationOnce(async (...args) => {
+      await original(...args);
+      throw new Error('Synthetic crash before Slack notice');
+    });
+    try {
+      await expect(launchCampaign({ tenantId: tenant._id, campaignId: campaign._id, user })).rejects.toThrow('Synthetic crash before Slack notice');
+    } finally { crash.mockRestore(); }
     await launchCampaign({ tenantId: tenant._id, campaignId: campaign._id, user });
     await launchCampaign({ tenantId: tenant._id, campaignId: campaign._id, user });
     const posts = await postedEvents();
@@ -279,18 +277,9 @@ describe('MCP Slack notifications', () => {
     expect(await postedEvents()).toEqual([]);
 
     await SlackConnection.updateOne({ tenantId: tenant._id }, { $set: { status: 'disconnected', 'notifications.pointsDistributed': true } });
-    const second = await Campaign.create({
-      tenantId: tenant._id,
-      entityId: entity._id,
-      name: 'Second points',
-      type: 'points',
-      status: 'redemption_open',
-      paymentMode: 'wallet',
-      totalBudget: 250,
-      recipientCount: 1,
-      schedule: { mode: 'now', invitesSentAt: new Date() },
-      createdBy: admin.user._id,
-    });
+    // Retry the verified launch after disconnect, without inventing an unverified
+    // historical campaign/debit merely to exercise Slack preferences.
+    const second = campaign;
     await launchCampaign({
       tenantId: tenant._id,
       campaignId: second._id,

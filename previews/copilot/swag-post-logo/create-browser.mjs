@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const file='apps/api/tests/copilot-swag-post-logo.browser-check.js';
+if(fs.existsSync(file))throw Error('Browser test already exists');
+let source=fs.readFileSync('apps/api/tests/copilot-swag-polish.browser-check.js','utf8');
+const start=source.indexOf('    const continueLabel ='),end=source.indexOf('  } catch (error) {',start);
+source=source.slice(0,start)+fs.readFileSync('previews/copilot/swag-post-logo/browser-steps.txt','utf8')+'\n'+source.slice(end);
+source=source.replace("import { Collection }", "import { Shop } from '../src/modules/shops/shop.model.js';\nimport { Collection }");
+source=source.replace("it('verifies focused product selection, card states and composer-only logo upload in real Edge'", "it('verifies natural post-logo approval, real saved mockups and separately confirmed publishing in Edge'");
+source=source.replace("  const phase = process.env.SWAG_POLISH_PHASE || 'after';\r\n  const after = phase === 'after';", "  const store = await Shop.create({tenantId:tenant._id,name:'AI Store',slug:'isolated-post-logo-store',status:'draft'});");
+source=source.replace('`../../previews/copilot/swag-polish/${phase}`',"'../../previews/copilot/swag-post-logo/browser'");
+fs.writeFileSync(file,source);
+fs.writeFileSync('previews/copilot/swag-post-logo/vitest-browser.config.mjs',"import base from '../../../apps/api/vitest.config.js';\nexport default {...base,test:{...base.test,include:['tests/copilot-swag-post-logo.browser-check.js']}};\n");

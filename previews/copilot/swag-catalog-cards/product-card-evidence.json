@@ -1,0 +1,143 @@
+{
+  "cardEvidence": {
+    "before": {
+      "columns": 4,
+      "width": 169,
+      "photoWidth": 167,
+      "photoHeight": 125,
+      "nameSize": 13,
+      "priceSize": 12,
+      "priceWeight": "500",
+      "photoFit": "contain",
+      "price": "₹500 incl. GST",
+      "stock": "In stock",
+      "details": "/ai-test/catalog/6afede7b8f2cbef7df6a3b69",
+      "buttonHeight": 36,
+      "overflow": false
+    },
+    "desktop": {
+      "columns": 3,
+      "width": 223,
+      "photoWidth": 221,
+      "photoHeight": 221,
+      "nameSize": 15,
+      "priceSize": 15,
+      "priceWeight": "700",
+      "photoFit": "contain",
+      "price": "₹500 incl. GST",
+      "stock": "In stock",
+      "details": "/ai-test/catalog/6afede7b8f2cbef7df6a3b69",
+      "buttonHeight": 44,
+      "overflow": false
+    },
+    "mobile": {
+      "columns": 2,
+      "width": 147,
+      "photoWidth": 145,
+      "photoHeight": 145,
+      "nameSize": 15,
+      "priceSize": 15,
+      "priceWeight": "700",
+      "photoFit": "contain",
+      "price": "₹500 incl. GST",
+      "stock": "In stock",
+      "details": "/ai-test/catalog/6afede7b8f2cbef7df6a3b69",
+      "buttonHeight": 44,
+      "overflow": false
+    },
+    "narrowMobile": {
+      "columns": 1,
+      "width": 237,
+      "photoWidth": 235,
+      "photoHeight": 235,
+      "nameSize": 15,
+      "priceSize": 15,
+      "priceWeight": "700",
+      "photoFit": "contain",
+      "price": "₹500 incl. GST",
+      "stock": "In stock",
+      "details": "/ai-test/catalog/6afede7b8f2cbef7df6a3b69",
+      "buttonHeight": 44,
+      "overflow": false
+    }
+  },
+  "selectionChecks": [
+    {
+      "viewport": "desktop",
+      "label": "Add Corporate Polo",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 609,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "desktop",
+      "label": "Add Zip Hoodie",
+      "delayed": false,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 569,
+      "count": "2 products selected"
+    },
+    {
+      "viewport": "desktop",
+      "label": "Remove Zip Hoodie",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 569,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Add Corporate Polo",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 652,
+      "count": "1 product selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Add Zip Hoodie",
+      "delayed": false,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 685,
+      "count": "2 products selected"
+    },
+    {
+      "viewport": "mobile",
+      "label": "Remove Zip Hoodie",
+      "delayed": true,
+      "sameDocument": true,
+      "stableNodes": true,
+      "unchangedMessages": true,
+      "scrollDelta": 0,
+      "peakScrollDelta": 0,
+      "scrollStart": 653,
+      "count": "1 product selected"
+    }
+  ],
+  "checks": [
+    "desktop aligned footer with one persisted pagination turn and retained selection",
+    "mobile aligned footer with one persisted pagination turn and retained selection"
+  ],
+  "errors": []
+}

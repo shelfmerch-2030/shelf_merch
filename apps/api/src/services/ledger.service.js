@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Wallet } from '../modules/wallets/wallet.model.js';
+import { Wallet, WALLET_STATUSES } from '../modules/wallets/wallet.model.js';
 import { WalletTransaction } from '../modules/wallets/walletTransaction.model.js';
 import { Entity } from '../modules/entities/entity.model.js';
 import { ApiError, InsufficientFundsError, NotFoundError } from '../utils/errors.js';
@@ -33,6 +33,20 @@ const CASH_TYPES = new Set([
   'adjustment',
 ]);
 
+/** Setup states remain eligible: allocations are part of the existing setup flow. */
+export function isWalletFinanciallyAvailable(wallet) {
+  return Boolean(wallet && !wallet.deletedAt && WALLET_STATUSES.includes(wallet.status));
+}
+
+export async function requireWalletForFinancialWrite({ tenantId, walletId, session = null }) {
+  const wallet = await Wallet.findOne({ _id: walletId, tenantId }).session(session);
+  if (!wallet) throw new NotFoundError('Wallet not found');
+  if (!isWalletFinanciallyAvailable(wallet)) {
+    throw new ApiError(422, 'Wallet is unavailable for financial operations', 'WALLET_UNAVAILABLE');
+  }
+  return wallet;
+}
+
 async function withSession(session, fn) {
   if (session) return fn(session);
   const own = await mongoose.startSession();
@@ -52,6 +66,10 @@ function duplicateKey(err) {
 }
 
 let ledgerIndexesReady;
+export async function ensureLedgerIndexes() {
+  ledgerIndexesReady ??= WalletTransaction.syncIndexes();
+  await ledgerIndexesReady;
+}
 
 export async function createTransaction(
   { tenantId, walletId, type, amount, relatedEntityId = null, description = '', performedBy = null, idempotencyKey = null },
@@ -64,21 +82,23 @@ export async function createTransaction(
     throw new ApiError(422, 'Ledger idempotency key must be a string', 'INVALID_IDEMPOTENCY_KEY');
   }
   if (idempotencyKey) {
-    ledgerIndexesReady ??= WalletTransaction.syncIndexes();
-    await ledgerIndexesReady;
+    await ensureLedgerIndexes();
   }
 
   try {
     return await withSession(session, async (s) => {
+    const wallet = await requireWalletForFinancialWrite({ tenantId, walletId, session: s });
+    if (relatedEntityId) {
+      const entity = await Entity.findOne({ _id: relatedEntityId, tenantId }).session(s);
+      if (!entity) throw new NotFoundError('Entity not found');
+      if (String(entity.walletId) !== String(wallet._id)) {
+        throw new ApiError(422, 'Department is not linked to this wallet', 'ENTITY_WALLET_MISMATCH');
+      }
+    }
     if (idempotencyKey) {
       const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey }).session(s);
       if (existing) return existing;
     }
-    const wallet = await Wallet.findOne({ _id: walletId, tenantId })
-      .setOptions({ includeDeleted: true })
-      .session(s);
-    if (!wallet) throw new NotFoundError('Wallet not found');
-
     const isCash = CASH_TYPES.has(type);
     let newBalance = wallet.balance;
     let newAllocated = wallet.allocatedAmount;
@@ -167,7 +187,7 @@ export async function createTransaction(
     return txn;
     });
   } catch (err) {
-    if (idempotencyKey && duplicateKey(err)) {
+    if (!session && idempotencyKey && duplicateKey(err)) {
       const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey });
       if (existing) return existing;
     }
@@ -175,19 +195,13 @@ export async function createTransaction(
   }
 }
 
-/** Resolve which wallet backs an entity-tied spend (handles removed source wallets). */
-export async function resolveSpendWalletForEntity({ tenantId, entityId }) {
-  const entity = await Entity.findOne({ _id: entityId, tenantId });
+/** Financial operations must use the entity's exact, existing parent wallet. */
+export async function resolveSpendWalletForEntity({ tenantId, entityId, session = null }) {
+  const entity = await Entity.findOne({ _id: entityId, tenantId }).session(session);
   if (!entity) throw new NotFoundError('Entity not found');
 
-  const linked = await Wallet.findOne({ _id: entity.walletId, tenantId }).setOptions({
-    includeDeleted: true,
-  });
-  if (linked) return { entity, wallet: linked };
-
-  const fallback = await Wallet.findOne({ tenantId }).sort({ balance: -1 });
-  if (!fallback) throw new NotFoundError('Wallet not found');
-  return { entity, wallet: fallback };
+  const wallet = await requireWalletForFinancialWrite({ tenantId, walletId: entity.walletId, session });
+  return { entity, wallet };
 }
 
 function sameAllocation(existing, { walletId, entityId, amount }) {
@@ -204,10 +218,14 @@ export async function allocateToEntities({ tenantId, walletId, allocations, perf
   try {
     let txns;
     await session.withTransaction(async () => {
+      await requireWalletForFinancialWrite({ tenantId, walletId, session });
       txns = [];
       for (const { entityId, amount, idempotencyKey = null } of allocations) {
         const entity = await Entity.findOne({ _id: entityId, tenantId }).session(session);
         if (!entity) throw new NotFoundError(`Entity ${entityId} not found`);
+        if (String(entity.walletId) !== String(walletId)) {
+          throw new ApiError(422, 'Department is not linked to this wallet', 'ENTITY_WALLET_MISMATCH');
+        }
         if (idempotencyKey) {
           const existing = await WalletTransaction.findOne({ tenantId, idempotencyKey }).session(session);
           if (existing) {
@@ -376,6 +394,9 @@ export async function readEntityLedgerTotals({ tenantId, entityId }) {
 export async function readWalletLedgerView({ tenantId, walletId }) {
   const wallet = await Wallet.findOne({ _id: walletId, tenantId });
   if (!wallet) return null;
+  if (!isWalletFinanciallyAvailable(wallet)) {
+    throw new ApiError(422, 'Wallet is unavailable for financial operations', 'WALLET_UNAVAILABLE');
+  }
   const [balance, allocatedAmount] = await Promise.all([
     recomputeBalance({ tenantId, walletId }),
     recomputeAllocatedAmount({ tenantId, walletId }),
@@ -410,10 +431,8 @@ export async function repairEntityCache({ tenantId, entityId }) {
 
 /** Repair cached wallet/entity figures from the append-only ledger. */
 export async function repairWalletCaches({ tenantId, walletId }) {
-  const wallet = await Wallet.findOne({ _id: walletId, tenantId }).setOptions({
-    includeDeleted: true,
-  });
-  if (!wallet) return null;
+  const wallet = await Wallet.findOne({ _id: walletId, tenantId });
+  if (!isWalletFinanciallyAvailable(wallet)) return null;
 
   const [balance, allocated] = await Promise.all([
     recomputeBalance({ tenantId, walletId }),

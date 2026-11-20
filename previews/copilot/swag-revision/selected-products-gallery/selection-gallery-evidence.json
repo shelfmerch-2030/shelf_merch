@@ -1,0 +1,34 @@
+{
+  "images": [
+    {
+      "name": "Corporate Polo",
+      "file": "selection-0.png",
+      "loaded": true
+    },
+    {
+      "name": "Ceramic Mug",
+      "file": "selection-1.png",
+      "loaded": true
+    },
+    {
+      "name": "Zip Hoodie",
+      "file": "selection-5.png",
+      "loaded": true
+    },
+    {
+      "name": "Travel Tote",
+      "file": "selection-4.png",
+      "loaded": true
+    }
+  ],
+  "disclosureScrollDelta": 0,
+  "removal": {
+    "sameNodes": true,
+    "scrollDelta": 0,
+    "sameMessages": true,
+    "expanded": true
+  },
+  "reloadCollapsed": true,
+  "failurePreservedSelection": true,
+  "errors": []
+}

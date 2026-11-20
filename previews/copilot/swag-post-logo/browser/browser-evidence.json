@@ -1,0 +1,24 @@
+{
+  "actualBrowser": "Microsoft Edge headless",
+  "widths": [
+    1440,
+    390
+  ],
+  "backend": "real controllers, MongoMemoryReplSet, local multipart upload and actual deterministic renderer",
+  "provider": "mocked; no live Claude calls",
+  "liveCustomerData": false,
+  "executeRequests": 2,
+  "collections": 1,
+  "listings": 2,
+  "mockups": [
+    "/uploads/6afac2c33d21f56eb0fba372/mockup/239a9ae13126c40ad79faf2c.png",
+    "/uploads/6afac2c33d21f56eb0fba372/mockup/b9ef581172101665413304ef.png"
+  ],
+  "checks": [
+    "composer + upload, natural acknowledgement, one optional review action and no automatic application",
+    "typed Yes prepares only; one authorized click executes; real sandboxed renderer saves two product-specific branded mockups",
+    "publishing-choice guidance, safe subset explanation, exact store-name resolution and separate final click; one collection and two listings despite duplicate clicks",
+    "reload recovers two distinct chronological receipts, older controls inactive, no blank assistant rows and no replay"
+  ],
+  "errors": []
+}

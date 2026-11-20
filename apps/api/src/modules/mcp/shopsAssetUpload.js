@@ -81,16 +81,22 @@ function requireCaller(ctx) {
 
 export const SHOPS_PREPARE_ASSET_UPLOAD_DESCRIPTION = [
   'Start a secure browser upload handoff for an optional store logo or custom banner image.',
-  'ChatGPT and other MCP clients cannot attach binary files to tool calls — do not ask the user to paste image bytes into chat.',
+  'IMPORTANT: Use this tool only in external MCP or ChatGPT contexts where the user cannot attach files directly.',
+  'In the Embedded ShelfMerch Copilot, the user can attach a store logo directly in chat using the + button (choose "Store logo artwork" for logos or "Store banner artwork" for banners).',
+  'If the user is in the Embedded Copilot and has already attached a logo via the + button, use the logoTicketId from that attachment directly — do NOT call this tool or show an external upload link.',
+  'If the user is in the Embedded Copilot and has NOT yet attached a logo, ask them to use the + button in chat to attach it.',
+  'Only call this tool when the chat + button is unavailable (external MCP / ChatGPT context).',
   'Pass kind=logo for PNG logos (300 DPI on both axes, max 5 MB) or kind=banner for custom banner images (png/webp/jpeg, max 10 MB).',
-  'Show uploadPageUrl as a clickable browser link. After upload succeeds, call shops_get_asset_upload until status is ready,',
+  'Show uploadPageUrl as a clickable browser link only in external contexts. After upload succeeds, call shops_get_asset_upload until status is ready,',
   'then pass logoTicketId or bannerTicketId into shops_prepare_create or shops_prepare_update.',
   'Skip this tool when the user keeps the default banner and does not want a logo.',
   'Company admins only. Does not create or publish a store.',
 ].join(' ');
 
 export const SHOPS_GET_ASSET_UPLOAD_DESCRIPTION = [
-  'Check whether the user finished uploading a store logo or banner via uploadPageUrl.',
+  'Check whether the user finished uploading a store logo or banner via the external uploadPageUrl.',
+  'Only use this tool in external MCP / ChatGPT contexts after shops_prepare_asset_upload was called.',
+  'In the Embedded Copilot, logo and banner tickets are created automatically when the user attaches via the + button — do not call this tool for inline chat attachments.',
   'Poll with ticketId until status is ready, then pass logoTicketId or bannerTicketId into shops_prepare_create or shops_prepare_update.',
   'If status is still pending, ask the user to open uploadPageUrl and upload the image in their browser.',
 ].join(' ');

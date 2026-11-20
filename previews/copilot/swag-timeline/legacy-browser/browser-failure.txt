@@ -1,0 +1,160 @@
+Error: Browser condition failed: document.querySelectorAll('[aria-label^="Add Winter Hoodie"]').length===5
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design a swag.
+Nov 16
+I want to design a swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Swag for winter
+ShelfMerch Copilot
+
+Great, your collection is named Swag for winter. Would you like to see some products, or search for something specific?
+
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Sustainable Classic Hoodie: add this
+ShelfMerch Copilot
+
+Product selected. 1 product selected for Swag for winter. You can add more products or choose Next.
+
+Products shown earlier
+Remove selected product
+ShelfMerch Copilot
+
+Selection updated. Choose products below, or tell me what else to find.
+
+Products shown earlier
+Add Sustainable Classic Hoodie
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Winter Hoodie 3
+₹503 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 4
+₹504 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 5
+₹505 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 6
+₹506 incl. GST
+Availability unknown
+Details ↗
++ Add
+1 product added
+Sustainable Classic Hoodie ×
+Continue with selected products
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.
+    at poll (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag.browser-check.js:102:137)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag.browser-check.js:125:40
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design a swag.
+Nov 16
+I want to design a swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Swag for winter
+ShelfMerch Copilot
+
+Great, your collection is named Swag for winter. Would you like to see some products, or search for something specific?
+
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Products shown earlier
+Sustainable Classic Hoodie: add this
+ShelfMerch Copilot
+
+Product selected. 1 product selected for Swag for winter. You can add more products or choose Next.
+
+Products shown earlier
+Remove selected product
+ShelfMerch Copilot
+
+Selection updated. Choose products below, or tell me what else to find.
+
+Products shown earlier
+Add Sustainable Classic Hoodie
+ShelfMerch Copilot
+
+1 product added. Choose more, or continue to your logo.
+
+Products shown earlier
+ShelfMerch Copilot
+
+Here are some products you can customize. Add anything you like, or tell me what else to find.
+
+Winter Hoodie 3
+₹503 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 4
+₹504 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 5
+₹505 incl. GST
+Availability unknown
+Details ↗
++ Add
+Winter Hoodie 6
+₹506 incl. GST
+Availability unknown
+Details ↗
++ Add
+1 product added
+Sustainable Classic Hoodie ×
+Continue with selected products
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

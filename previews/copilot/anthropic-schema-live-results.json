@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-11-11T08:21:38.969Z",
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "isolatedTestDatabase": true,
+  "allPrepareSchemasIncluded": true,
+  "allowedExecution": [
+    "catalog_list_categories"
+  ],
+  "executedReads": [
+    "catalog_list_categories"
+  ],
+  "requestIds": [
+    "req_011CgvpHrPps3rXao1WKsC1o",
+    "req_011CgvpHzw2Gu5xrHmD5ZM4y",
+    "req_011CgvpJ8Mkf4zM6uw2GpBDV"
+  ],
+  "turns": [
+    {
+      "prompt": "Hello",
+      "httpStatus": 200,
+      "streamingTextReceived": true,
+      "completed": true,
+      "tools": []
+    },
+    {
+      "prompt": "List the available catalog categories. Use the category listing tool to read them. Do not make any changes.",
+      "httpStatus": 200,
+      "streamingTextReceived": true,
+      "completed": true,
+      "tools": [
+        {
+          "name": "catalog_list_categories",
+          "status": "running"
+        },
+        {
+          "name": "catalog_list_categories",
+          "status": "done"
+        }
+      ]
+    }
+  ]
+}

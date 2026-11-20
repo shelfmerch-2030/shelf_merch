@@ -1,0 +1,152 @@
+Error: Browser condition failed: document.querySelectorAll('[aria-label^="Select Winter Hoodie"]').length===7
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design a swag.
+Nov 13
+I want to design a swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Swag for winter
+ShelfMerch Copilot
+ShelfMerch Copilot
+ShelfMerch Copilot
+
+Here are verified winter options. Select products or browse another category.
+
+Sustainable Classic Hoodie
+₹840 incl. GST
+Availability unknown
+View details ↗
+✓ Selected · Remove
+Winter Hoodie 0
+₹500 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 1
+₹501 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 2
+₹502 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 3
+₹503 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 4
+₹504 incl. GST
+Availability unknown
+View details ↗
++ Select
+Show more products
+Sustainable Classic Hoodie: add this
+ShelfMerch Copilot
+
+Product selected. 1 product selected for Swag for winter. You can add more products or choose Next.
+
+Swag for winter
+Current design · Products
+
+1 product selected. Add more, or continue to your logo.
+
+Sustainable Classic Hoodie ×
+Rename collection
+Continue
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.
+    at poll (D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag.browser-check.js:102:137)
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag.browser-check.js:125:40
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design a swag.
+Nov 13
+I want to design a swag.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Swag for winter
+ShelfMerch Copilot
+ShelfMerch Copilot
+ShelfMerch Copilot
+
+Here are verified winter options. Select products or browse another category.
+
+Sustainable Classic Hoodie
+₹840 incl. GST
+Availability unknown
+View details ↗
+✓ Selected · Remove
+Winter Hoodie 0
+₹500 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 1
+₹501 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 2
+₹502 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 3
+₹503 incl. GST
+Availability unknown
+View details ↗
++ Select
+Winter Hoodie 4
+₹504 incl. GST
+Availability unknown
+View details ↗
++ Select
+Show more products
+Sustainable Classic Hoodie: add this
+ShelfMerch Copilot
+
+Product selected. 1 product selected for Swag for winter. You can add more products or choose Next.
+
+Swag for winter
+Current design · Products
+
+1 product selected. Add more, or continue to your logo.
+
+Sustainable Classic Hoodie ×
+Rename collection
+Continue
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

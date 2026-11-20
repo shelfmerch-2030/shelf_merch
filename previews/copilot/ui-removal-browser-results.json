@@ -1,0 +1,41 @@
+{
+  "fixtureMode": true,
+  "realRoute": {
+    "url": "http://localhost:8080/login",
+    "text": "Merch\nGifting\nRecognition\n✳\n\nMERCH. GIFTING. RECOGNITION.\n\nEvery gift, one shelf.\nWelcome back 👋\n\nSign in to manage your merch, gifting and orders.\n\nWork email\nPassword\nForgot password?\nLog in\nOR\n\nNeed an account? Create account\n\nYour privacy choices\n\nWe use essential cookies to keep Shelfmerch wor"
+  },
+  "curatorUiAbsent": true,
+  "capabilityCategories": 6,
+  "historyLoaded": true,
+  "chatStreamRendered": true,
+  "explicitChatMode": true,
+  "mobileHistoryOpened": true,
+  "viewports": [
+    {
+      "width": 320,
+      "overflow": false,
+      "composerVisible": true
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "composerVisible": true
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "composerVisible": true
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "composerVisible": true
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "composerVisible": true
+    }
+  ],
+  "errors": []
+}

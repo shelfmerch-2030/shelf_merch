@@ -1007,6 +1007,7 @@ export async function launchPointsCampaignApi(payload: {
 }) {
   let campaignId = payload.campaignId;
   let existingStatus: string | undefined;
+  let expectedLaunchHash: string | undefined;
   const schedule = payload.schedule ?? { mode: "now" as const };
   const paymentMode = payload.paymentMode ?? "wallet";
   const razorpayBody =
@@ -1020,7 +1021,7 @@ export async function launchPointsCampaignApi(payload: {
   if (campaignId) {
     const existing = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}`);
     existingStatus = String(existing.status ?? "");
-    await apiFetch(`/campaigns/${campaignId}`, {
+    const reviewed = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}`, {
       method: "PATCH",
       body: JSON.stringify({
         entityId: payload.entityId,
@@ -1031,6 +1032,7 @@ export async function launchPointsCampaignApi(payload: {
         schedule,
       }),
     });
+    expectedLaunchHash = reviewed.launchReviewHash as string | undefined;
   } else {
     const campaign = await apiFetch<Record<string, unknown>>("/campaigns", {
       method: "POST",
@@ -1065,7 +1067,7 @@ export async function launchPointsCampaignApi(payload: {
   }
 
   if (!existingStatus || existingStatus === "recipients_uploaded" || existingStatus === "draft") {
-    await apiFetch(`/campaigns/${campaignId}/allocate-credits`, {
+    const allocated = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}/allocate-credits`, {
       method: "POST",
       body: JSON.stringify({
         creditsPerRecipient: payload.creditsPerRecipient,
@@ -1074,12 +1076,15 @@ export async function launchPointsCampaignApi(payload: {
         ...razorpayBody,
       }),
     });
+    expectedLaunchHash = allocated.launchReviewHash as string | undefined;
   }
 
+  if (!expectedLaunchHash) throw new Error("Review the campaign again before sending points");
   const launched = await apiFetch<Record<string, unknown>>(`/campaigns/${campaignId}/launch`, {
     method: "POST",
     idempotencyKey: `launch-${campaignId}-${Date.now()}`,
     body: JSON.stringify({
+      expectedLaunchHash,
       paymentMode,
       ...razorpayBody,
     }),

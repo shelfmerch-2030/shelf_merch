@@ -1,0 +1,95 @@
+{
+  "status": "Verified with isolated fixtures and mocked AI; local API restart required for renderer setting",
+  "passed": 579,
+  "failed": 0,
+  "pending": 0,
+  "uniqueTestFiles": 52,
+  "tests": [
+    {
+      "group": "focused",
+      "passed": 30,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "workflows",
+      "passed": 81,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "safety",
+      "passed": 62,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "bindings",
+      "passed": 27,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "renderer",
+      "passed": 31,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "web",
+      "passed": 346,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "browser",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "group": "polish-browser",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "changedFiles": [
+    "apps/api/src/modules/copilot/copilotChat.service.js",
+    "apps/api/src/modules/copilot/copilotToolBindings.js",
+    "apps/api/src/modules/copilot/swagDesignWorkflow.js",
+    "apps/api/src/modules/copilot/swagTimeline.js",
+    "apps/web/src/features/copilot/SwagStepMessage.tsx",
+    "apps/web/src/features/copilot/useSwagConversation.ts",
+    "apps/web/src/features/copilot/CopilotPage.tsx",
+    "apps/web/src/features/copilot/CopilotSwagTimeline.test.tsx",
+    "apps/web/src/features/copilot/CopilotSwagPostLogo.test.tsx",
+    "apps/api/tests/copilot-swag-post-logo.test.js",
+    "apps/api/tests/copilot-swag-post-logo.browser-check.js",
+    "apps/api/tests/copilot-swag-polish.browser-check.js"
+  ],
+  "additionalLocalConfiguration": "apps/api/.env",
+  "modifiedExistingApplicationFiles": 9,
+  "newApplicationTestFiles": 3,
+  "preservedExistingApplicationFiles": 2501,
+  "rendererGeometryArtworkPersistenceAndFinancialSourcesUnchanged": true,
+  "existingTypeScriptErrors": 26,
+  "newTypeScriptErrors": 0,
+  "browserExecuteRequests": 2,
+  "browserCollections": 1,
+  "browserListings": 2,
+  "liveCustomerDataUsed": false,
+  "liveClaudeTested": false,
+  "screenshots": [
+    "01-logo-received-desktop",
+    "02-logo-received-mobile",
+    "03-apply-confirmation",
+    "04-saved-branded-mockups",
+    "05-publishing-choice",
+    "06-single-product-guidance",
+    "07-store-options",
+    "08-final-publication-confirmation",
+    "09-published-desktop",
+    "10-published-mobile"
+  ]
+}

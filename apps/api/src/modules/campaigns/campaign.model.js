@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../plugins/tenantScope.plugin.js';
 import { softDeletePlugin } from '../../plugins/softDelete.plugin.js';
+import { pointsApprovalGuard } from './pointsApprovalGuard.js';
 
 export const CAMPAIGN_STATUSES = [
   'draft',
@@ -59,6 +60,8 @@ const campaignSchema = new mongoose.Schema(
       invitesSentAt: { type: Date, default: null },
       inviteClaimedAt: { type: Date, default: null },
       invitesUnresolved: { type: Boolean, default: false },
+      pointsCreditedAt: { type: Date, default: null },
+      launchNoticeAt: { type: Date, default: null },
     },
     status: { type: String, enum: CAMPAIGN_STATUSES, default: 'draft' },
     draftState: {
@@ -75,6 +78,8 @@ const campaignSchema = new mongoose.Schema(
       expiresAt: { type: Date, default: null },
       fence: { type: Number, default: 0 },
     },
+    launchApproval: { type: mongoose.Schema.Types.Mixed, select: false },
+    deliveryRevision: { type: Number, select: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
@@ -82,6 +87,7 @@ const campaignSchema = new mongoose.Schema(
 
 campaignSchema.plugin(tenantScopePlugin);
 campaignSchema.plugin(softDeletePlugin);
+campaignSchema.plugin(pointsApprovalGuard);
 campaignSchema.index({ tenantId: 1, status: 1 });
 campaignSchema.index({ tenantId: 1, entityId: 1 });
 

@@ -1,0 +1,22 @@
+{
+  "baseline": "HEAD eaf8fc75 actual committed bindings, adapter and system prompt",
+  "model": "claude-sonnet-5-5",
+  "toolCount": 46,
+  "samplingParameters": [],
+  "maxTokens": 4096,
+  "result": {
+    "name": "BadRequestError",
+    "status": 400,
+    "type": "invalid_request_error",
+    "message": "tools.32.custom.input_schema: JSON schema is invalid. It must match JSON Schema draft 2020-12 (https://json-schema.org/draft/2020-12). Learn more about tool use at https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview.",
+    "param": null,
+    "requestId": "req_011CgvpPHihtYTVuP9Urqnnx"
+  },
+  "rejectedTool": "wallets_prepare_topup",
+  "rejectedSchema": {
+    "type": "number",
+    "minimum": 0,
+    "exclusiveMinimum": true,
+    "description": "Top-up amount in INR (dashboard Request top-up amount)."
+  }
+}

@@ -1,0 +1,268 @@
+import { beforeAll, afterAll, beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
+import { makeTenant, makeUser, makeFundedWallet, makeEntity, makeShop } from './helpers.js';
+import { Campaign } from '../src/modules/campaigns/campaign.model.js';
+import { Recipient } from '../src/modules/campaigns/recipient.model.js';
+import { Wallet } from '../src/modules/wallets/wallet.model.js';
+import { Entity } from '../src/modules/entities/entity.model.js';
+import { Shop } from '../src/modules/shops/shop.model.js';
+import { WalletTransaction } from '../src/modules/wallets/walletTransaction.model.js';
+import { McpWriteIdempotency } from '../src/modules/mcp/mcpWriteIdempotency.model.js';
+import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
+import { prepareLaunch, executeLaunch } from '../src/modules/mcp/campaignsSendWrite.js';
+import { launchCampaign, deliverScheduledCampaign, savePointsDraft, allocateCredits } from '../src/modules/campaigns/campaigns.service.js';
+import { pointsLaunchBinding } from '../src/modules/campaigns/pointsLaunchSafety.js';
+import * as launchSafety from '../src/modules/campaigns/pointsLaunchSafety.js';
+import * as ledger from '../src/services/ledger.service.js';
+import { notify } from '../src/modules/notifications/notifications.service.js';
+import { ApiError } from '../src/utils/errors.js';
+
+vi.mock('../src/modules/notifications/notifications.service.js', async importOriginal => {
+  const actual = await importOriginal();
+  return { ...actual, notify: vi.fn(async () => ({ queued: true })) };
+});
+beforeAll(connectTestDb);
+beforeEach(async () => { await clearTestDb(); vi.mocked(notify).mockClear(); });
+afterEach(() => vi.restoreAllMocks());
+afterAll(disconnectTestDb);
+
+async function fixture(mode = 'now') {
+  const tenant = await makeTenant();
+  const account = await makeUser(tenant, 'company_admin');
+  const user = { userId: account.user._id, role: 'company_admin', scopeType: 'tenant', scopeId: null, assignedEntityIds: [] };
+  const wallet = await makeFundedWallet(tenant, { amount: 2000 });
+  const entity = await makeEntity(tenant, wallet, 'Launch fixture');
+  const shop = await makeShop(tenant);
+  const campaign = await Campaign.create({ tenantId: tenant._id, entityId: entity._id, shopId: shop._id, name: 'Launch safety fixture',
+    type: 'points', status: 'approved', pointsScope: 'shop', recipientCount: 1, creditsPerRecipient: 250, totalBudget: 250, paymentMode: 'wallet',
+    schedule: { mode, ...(mode === 'scheduled' ? { sendAt: new Date(Date.now() + 86400000), timezone: 'Asia/Kolkata' } : {}) }, createdBy: account.user._id });
+  const recipient = await Recipient.create({ tenantId: tenant._id, campaignId: campaign._id, name: 'Confirmed fixture', email: 'confirmed@example.test',
+    creditAmount: mode === 'scheduled' ? 0 : 250, redemptionToken: `isolated-${campaign._id}` });
+  const scope = { tenantId: tenant._id, actorUserId: account.user._id };
+  const input = { campaignId: String(campaign._id) };
+  const prepared = await prepareLaunch({ ...scope, input });
+  return { tenant, user, wallet, entity, shop, campaign, recipient,
+    launch: { tenantId: tenant._id, campaignId: campaign._id, user },
+    args: { ...scope, input, confirmationId: prepared.confirmationId, idempotencyKey: 'launch-safety' } };
+}
+const invitations = () => vi.mocked(notify).mock.calls.map(([call]) => call).filter(call => call.type === 'redemption_invite');
+async function noDebit(f) {
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(0);
+  expect((await Wallet.findOne({ tenantId: f.tenant._id, _id: f.wallet._id })).balance).toBe(2000);
+  expect(invitations()).toHaveLength(0);
+}
+
+it('rejects a stale launch owner before financial or invitation side effects', async () => {
+  const f = await fixture();
+  const original = Campaign.findOneAndUpdate.bind(Campaign);
+  let injected = false;
+  vi.spyOn(Campaign, 'findOneAndUpdate').mockImplementation(async (...args) => {
+    const result = await original(...args);
+    if (!injected && args[1].$inc?.['launchLease.fence']) {
+      injected = true;
+      await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { 'launchLease.owner': 'successor' }, $inc: { 'launchLease.fence': 1 } });
+    }
+    return result;
+  });
+  await expect(executeLaunch(f.args)).rejects.toMatchObject({ code: 'LAUNCH_LEASE_LOST' });
+  await noDebit(f);
+});
+
+it('rolls back debit when ownership changes before fenced state persistence', async () => {
+  const f = await fixture();
+  const original = ledger.createTransaction;
+  vi.spyOn(ledger, 'createTransaction').mockImplementation(async (input, session) => {
+    expect(session).toBeTruthy();
+    await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { 'launchLease.owner': 'lost-in-transaction' }, $inc: { 'launchLease.fence': 1 } }, { session });
+    return original(input, session);
+  });
+  await expect(executeLaunch(f.args)).rejects.toBeTruthy();
+  await noDebit(f);
+  expect((await Campaign.findOne({ tenantId: f.tenant._id, _id: f.campaign._id })).status).toBe('approved');
+});
+
+it.each(['email', 'name', 'phone', 'token', 'extra', 'missing', 'message', 'scope', 'schedule', 'store', 'wallet', 'funding-scope'])(
+  'rejects a changed %s after confirmation before debit', async kind => {
+    const f = await fixture();
+    const rf = { tenantId: f.tenant._id, _id: f.recipient._id };
+    if (kind === 'email') await Recipient.updateOne(rf, { $set: { email: 'replacement@example.test' } });
+    if (kind === 'name') await Recipient.updateOne(rf, { $set: { name: 'Replacement' } });
+    if (kind === 'phone') await Recipient.updateOne(rf, { $set: { phone: '+919999999999' } });
+    if (kind === 'token') await Recipient.updateOne(rf, { $set: { redemptionToken: 'replacement-token' } });
+    if (kind === 'extra') await Recipient.create({ tenantId: f.tenant._id, campaignId: f.campaign._id, name: 'Extra', email: 'extra@example.test', redemptionToken: 'extra-token' });
+    if (kind === 'missing') await Recipient.deleteOne(rf);
+    if (kind === 'message') await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { 'message.body': 'Changed' } });
+    if (kind === 'scope') await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { pointsScope: 'stadium' } });
+    if (kind === 'schedule') await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { 'schedule.mode': 'self' } });
+    if (kind === 'store') await Shop.updateOne({ tenantId: f.tenant._id, _id: f.shop._id }, { $set: { currencyMode: 'inr' } });
+    if (kind === 'wallet') await Entity.updateOne({ tenantId: f.tenant._id, _id: f.entity._id }, { $set: { walletId: (await makeFundedWallet(f.tenant))._id } });
+    if (kind === 'funding-scope') {
+      const other = { ...f.user, scopeType: 'entity', assignedEntityIds: [String(f.entity._id)] };
+      const hash = (await pointsLaunchBinding(f.tenant._id, f.campaign._id, other)).hash;
+      await expect(launchCampaign({ ...f.launch, expectedLaunchHash: hash })).rejects.toMatchObject({ code: 'LAUNCH_MANIFEST_MISMATCH' });
+    } else await expect(executeLaunch(f.args)).rejects.toMatchObject({ code: 'CONFIRMATION_STALE' });
+    await noDebit(f);
+  },
+);
+
+it('rejects expired launch confirmation without side effects', async () => {
+  const f = await fixture();
+  await McpWriteConfirmation.updateOne({ tenantId: f.tenant._id, confirmationId: f.args.confirmationId }, { $set: { expiresAt: new Date(0) } });
+  await expect(executeLaunch(f.args)).rejects.toMatchObject({ code: 'CONFIRMATION_EXPIRED' });
+  await noDebit(f);
+});
+
+it('rolls back a debit failure and permits a shared-service retry without duplicate effects', async () => {
+  const f = await fixture();
+  const spy = vi.spyOn(ledger, 'createTransaction').mockRejectedValueOnce(new ApiError(503, 'Synthetic debit failure', 'TEST_FAILURE'));
+  await expect(launchCampaign(f.launch)).rejects.toMatchObject({ code: 'TEST_FAILURE' });
+  await noDebit(f);
+  spy.mockRestore();
+  await launchCampaign(f.launch);
+  await launchCampaign(f.launch);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+  expect(invitations()).toHaveLength(1);
+});
+
+it('rolls back a crash after debit but before campaign persistence', async () => {
+  const f = await fixture();
+  const spy = vi.spyOn(Campaign.prototype, 'save').mockRejectedValueOnce(new ApiError(503, 'Synthetic persistence failure', 'TEST_FAILURE'));
+  await expect(launchCampaign(f.launch)).rejects.toMatchObject({ code: 'TEST_FAILURE' });
+  spy.mockRestore();
+  await noDebit(f);
+  await launchCampaign(f.launch);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('does not retarget an invitation after the manifest was frozen', async () => {
+  const f = await fixture();
+  const original = Recipient.findOneAndUpdate.bind(Recipient);
+  let blocked = false;
+  vi.spyOn(Recipient, 'findOneAndUpdate').mockImplementation(async (...args) => {
+    if (args[1].$set?.inviteClaimedAt) {
+      await expect(Recipient.updateOne({ tenantId: f.tenant._id, _id: f.recipient._id }, { $set: { email: 'replacement@example.test' } })).rejects.toMatchObject({ code: 'CAMPAIGN_LAUNCH_LOCKED' });
+      blocked = true;
+    }
+    return original(...args);
+  });
+  await executeLaunch(f.args);
+  expect(blocked).toBe(true);
+  expect(invitations()).toHaveLength(1);
+  expect(invitations()[0].email).toBe('confirmed@example.test');
+});
+
+it('does not resend a claimed invitation after acknowledgement becomes uncertain', async () => {
+  const f = await fixture();
+  vi.mocked(notify).mockImplementation(async call => {
+    if (call.type === 'redemption_invite') throw new Error('Synthetic notification uncertainty');
+    return { queued: true };
+  });
+  const result = await executeLaunch(f.args);
+  expect(result).toMatchObject({ walletDebited: true, invitationsSent: 0, invitationsUnresolved: true });
+  await launchCampaign(f.launch);
+  expect(invitations()).toHaveLength(1);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('stops a stale worker after a claim and leaves delivery unresolved on takeover', async () => {
+  const f = await fixture();
+  const original = launchSafety.assertPointsLaunch;
+  let checks = 0;
+  vi.spyOn(launchSafety, 'assertPointsLaunch').mockImplementation(async (...args) => {
+    if (++checks === 2) await Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, {
+      $set: { 'launchLease.owner': 'successor', 'launchLease.expiresAt': new Date(0) }, $inc: { 'launchLease.fence': 1 },
+    });
+    return original(...args);
+  });
+  await expect(executeLaunch(f.args)).rejects.toMatchObject({ code: 'LAUNCH_LEASE_LOST' });
+  const row = await Recipient.findOne({ tenantId: f.tenant._id, _id: f.recipient._id });
+  expect(row.inviteClaimedAt).toBeTruthy();
+  expect(row.invitedAt).toBeNull();
+  await launchCampaign(f.launch);
+  expect(invitations()).toHaveLength(0);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('serializes takeover against in-flight notification submission without retrying it', async () => {
+  const f = await fixture();
+  let started;
+  let release;
+  const submitted = new Promise(resolve => { started = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  vi.mocked(notify).mockImplementation(async call => {
+    if (call.type === 'redemption_invite') { started(); await gate; }
+    return { queued: true };
+  });
+  const launch = executeLaunch(f.args).then(value => ({ value }), error => ({ error }));
+  await submitted;
+  let tookOver = false;
+  const takeover = Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, {
+    $set: { 'launchLease.owner': 'successor', 'launchLease.expiresAt': new Date(0) }, $inc: { 'launchLease.fence': 1 },
+  }).then(result => { tookOver = true; return result; });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(tookOver).toBe(false);
+  } finally { release(); }
+  await launch;
+  await takeover;
+  await launchCampaign(f.launch);
+  expect(invitations()).toHaveLength(1);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('never invites a recipient changed through an out-of-band write during claim', async () => {
+  const f = await fixture();
+  const original = Recipient.findOneAndUpdate.bind(Recipient);
+  let injected = false;
+  vi.spyOn(Recipient, 'findOneAndUpdate').mockImplementation(async (...args) => {
+    if (!injected && args[1].$set?.inviteClaimedAt) {
+      injected = true;
+      await Recipient.collection.updateOne({ tenantId: f.tenant._id, _id: f.recipient._id }, { $set: { email: 'replacement@example.test' } });
+    }
+    return original(...args);
+  });
+  await expect(executeLaunch(f.args)).rejects.toMatchObject({ code: 'LAUNCH_MANIFEST_MISMATCH' });
+  expect(invitations()).toHaveLength(0);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('handles concurrent confirmation clicks with one debit and invitation', async () => {
+  const f = await fixture();
+  const results = await Promise.allSettled([executeLaunch(f.args), executeLaunch(f.args), executeLaunch(f.args)]);
+  expect(results.some(result => result.status === 'fulfilled')).toBe(true);
+  expect(invitations()).toHaveLength(1);
+  expect(await WalletTransaction.countDocuments({ tenantId: f.tenant._id, type: 'campaign_spend' })).toBe(1);
+});
+
+it('preserves scheduled credit and invitation delivery using the frozen manifest', async () => {
+  const f = await fixture('scheduled');
+  const result = await executeLaunch(f.args);
+  expect(result).toMatchObject({ status: 'launched', walletDebited: true, invitationsSent: 0 });
+  expect((await Recipient.findOne({ tenantId: f.tenant._id, _id: f.recipient._id })).creditAmount).toBe(0);
+  await deliverScheduledCampaign({ tenantId: f.tenant._id, campaignId: f.campaign._id });
+  await deliverScheduledCampaign({ tenantId: f.tenant._id, campaignId: f.campaign._id });
+  expect(invitations()).toHaveLength(1);
+  expect((await Recipient.findOne({ tenantId: f.tenant._id, _id: f.recipient._id })).creditAmount).toBe(250);
+});
+
+it('freezes edits through stale documents, campaign updates and standalone draft/allocation services', async () => {
+  const f = await fixture('self');
+  const stale = await Recipient.findOne({ tenantId: f.tenant._id, _id: f.recipient._id });
+  await executeLaunch(f.args);
+  stale.email = 'replacement@example.test';
+  await expect(stale.save()).rejects.toMatchObject({ code: 'CAMPAIGN_LAUNCH_LOCKED' });
+  await expect(Campaign.updateOne({ tenantId: f.tenant._id, _id: f.campaign._id }, { $set: { 'message.body': 'Changed' } })).rejects.toMatchObject({ code: 'CAMPAIGN_LAUNCH_LOCKED' });
+  await expect(allocateCredits({ ...f.launch, creditsPerRecipient: 500 })).rejects.toMatchObject({ code: 'CAMPAIGN_LAUNCH_LOCKED' });
+  await expect(savePointsDraft({ tenantId: f.tenant._id, userId: f.user.userId, user: f.user,
+    data: { campaignId: f.campaign._id, entityId: f.entity._id, shopId: f.shop._id, name: f.campaign.name, recipients: [{ name: 'Extra', email: 'extra@example.test' }] } })).rejects.toBeTruthy();
+  expect(await Recipient.countDocuments({ tenantId: f.tenant._id, campaignId: f.campaign._id })).toBe(1);
+});
+
+it('recovers a lost MCP completion and keeps the approval manifest out of public results', async () => {
+  const f = await fixture();
+  const result = await executeLaunch(f.args);
+  expect(JSON.stringify(result)).not.toContain('confirmed@example.test');
+  await McpWriteIdempotency.updateOne({ tenantId: f.tenant._id, key: f.args.idempotencyKey }, { $set: { status: 'pending', result: null, leaseOwner: 'crashed', leaseExpiresAt: new Date(0) } });
+  expect(await executeLaunch(f.args)).toMatchObject({ invitationsSent: 1, walletDebited: true });
+  expect(invitations()).toHaveLength(1);
+});

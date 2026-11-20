@@ -5,6 +5,8 @@ import { Campaign } from '../campaigns/campaign.model.js';
 import { HIDDEN_CAMPAIGN_NAME } from '../campaigns/campaigns.service.js';
 import { REDEMPTION_STATUSES, Recipient } from '../campaigns/recipient.model.js';
 import { Entity } from '../entities/entity.model.js';
+import { Wallet } from '../wallets/wallet.model.js';
+import { isWalletFinanciallyAvailable } from '../../services/ledger.service.js';
 import { Order } from '../orders/order.model.js';
 
 export const POINTS_SUMMARY_DESCRIPTION = [
@@ -56,6 +58,11 @@ export const pointsSummaryOutputSchema = z.object({
   expiredCreditInr: z.number().int(),
   campaigns: z.array(campaignTotalSchema),
   entities: z.array(entityAllocationSchema),
+  unavailableEntities: z.array(z.object({
+    id: z.string(), name: z.string(), walletId: z.string(),
+    availability: z.literal('unavailable'),
+    historicalAllocatedAmountInr: z.number(), historicalSpentAmountInr: z.number(),
+  })).optional(),
 });
 
 export const giftsSearchInputSchema = z.object({
@@ -191,12 +198,20 @@ export async function summarizePointsForCaller(ctx) {
     const ids = user.assignedEntityIds ?? [];
     entityFilter._id = ids.length ? { $in: ids } : { $in: [] };
   }
-  const entities = await Entity.find(entityFilter).select('name allocatedAmount spentAmount').sort({ name: 1 }).lean();
+  const allEntities = await Entity.find(entityFilter).select('name walletId allocatedAmount spentAmount').sort({ name: 1 }).lean();
+  const wallets = await Wallet.find({ tenantId, _id: { $in: allEntities.map(entity => entity.walletId) } }).select('status deletedAt').lean();
+  const eligible = new Set(wallets.filter(isWalletFinanciallyAvailable).map(wallet => String(wallet._id)));
+  const entities = allEntities.filter(entity => eligible.has(String(entity.walletId)));
+  const unavailableEntities = allEntities.filter(entity => !eligible.has(String(entity.walletId))).map(entity => ({
+    id: String(entity._id), name: String(entity.name ?? ''), walletId: String(entity.walletId), availability: 'unavailable',
+    historicalAllocatedAmountInr: inr(entity.allocatedAmount), historicalSpentAmountInr: inr(entity.spentAmount),
+  }));
 
   return {
     currency: 'INR',
     amountBasis: 'Recipient.creditAmount is denominated in INR. There is no loyalty-point conversion.',
     ...totals,
+    ...(unavailableEntities.length ? { unavailableEntities } : {}),
     campaigns: [...byCampaign.values()].map(({ campaign, ...bucket }) => ({
       id: String(campaign._id),
       name: String(campaign.name ?? ''),
@@ -275,6 +290,7 @@ export function pointsSummaryText(output) {
     `Points credits in ${output.currency}.`,
     output.amountBasis,
     `Recipients ${output.recipientCount}. Issued ₹${output.issuedCreditInr}. Outstanding ₹${output.outstandingCreditInr}. Redeemed ₹${output.redeemedCreditInr}. Expired ₹${output.expiredCreditInr}.`,
+    ...(output.unavailableEntities?.length ? ['Some departments have unavailable parent wallets. Their amounts are historical, not available allocation; historical recipient credit totals do not establish current spendability.'] : []),
   ].join('\n');
 }
 

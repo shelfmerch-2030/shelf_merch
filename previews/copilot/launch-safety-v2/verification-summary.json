@@ -1,0 +1,239 @@
+{
+  "changedFiles": [
+    "apps/api/src/modules/campaigns/pointsLaunch.service.js",
+    "apps/api/src/modules/campaigns/pointsApprovalGuard.js",
+    "apps/api/src/modules/campaigns/campaign.model.js",
+    "apps/api/src/modules/campaigns/recipient.model.js",
+    "apps/api/src/modules/campaigns/campaigns.service.js",
+    "apps/api/src/modules/campaigns/campaigns.controller.js",
+    "apps/api/src/modules/campaigns/campaigns.validation.js",
+    "apps/api/src/modules/mcp/campaignsSendWrite.js",
+    "apps/api/src/modules/notifications/notifications.service.js",
+    "apps/api/src/services/ledger.service.js",
+    "apps/api/src/jobs/scheduledCampaign.worker.js",
+    "apps/web/src/services/mutations-api.ts",
+    "apps/api/tests/points-launch-acceptance.test.js",
+    "apps/api/tests/points-invitation-notify.test.js",
+    "apps/api/tests/campaigns-redemption.test.js",
+    "apps/api/tests/write-recovery.test.js",
+    "apps/api/tests/mcp-slack-notifications.test.js",
+    "apps/web/src/services/pointsLaunchApproval.test.ts"
+  ],
+  "preservedTracked": 70,
+  "preservedEarlier": 276,
+  "tests": [
+    {
+      "name": "staged-final",
+      "files": 6,
+      "passed": 109,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "ledger-wallet-verified",
+      "files": 6,
+      "passed": 58,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "write-state-verified",
+      "files": 4,
+      "passed": 38,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "acceptance-verified",
+      "files": 6,
+      "passed": 58,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "rest-redemption-verified",
+      "files": 1,
+      "passed": 15,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "recovery-notices-verified",
+      "files": 2,
+      "passed": 17,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "name": "web-final",
+      "files": 15,
+      "passed": 152,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "totalPassed": 447,
+  "typecheck": {
+    "passed": false,
+    "diagnosticCount": 26,
+    "changedRegionErrors": [],
+    "errors": [
+      {
+        "file": "src/components/KitAcceptPortal.tsx",
+        "line": 27,
+        "code": 2741,
+        "message": "Property 'price' is missing in type '{ id: string; g: string; brand: string; nm: string; sw: number; photoUrl: string; baseImageUrl: string; maskImageUrl: undefined; imgUrl: string; mockupUrl: string | undefined; placement: { xPct: number; yPct: number; ... 4 more ...; printWPct?: number; } | undefined; printAreas: { ...; }[] | undefined; imageUrls: st...' but required in type 'UiProduct'."
+      },
+      {
+        "file": "src/features/kits/KitDetailDialog.tsx",
+        "line": 32,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/KitPreviewDialog.tsx",
+        "line": 315,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/controllers/useKitDetailController.ts",
+        "line": 70,
+        "code": 2345,
+        "message": "Argument of type 'Map<string | undefined, UiProduct>' is not assignable to parameter of type 'Map<string, UiProduct>'."
+      },
+      {
+        "file": "src/features/kits/views/SendKitView.tsx",
+        "line": 1845,
+        "code": 2322,
+        "message": "Type 'KitPackagingChoice' is not assignable to type '\"box\" | \"none\"'."
+      },
+      {
+        "file": "src/features/shops/tabs/ShopLayoutTab.test.tsx",
+        "line": 12,
+        "code": 2352,
+        "message": "Conversion of type '{ id: string; name: string; currency: string; currencyMode: \"inr\"; pointsConversionEnabled: false; live: true; categories: string[]; logoUrl: string; bannerConfig: { theme: string; preset: string; }; }' to type 'UiShop' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 32,
+        "code": 2783,
+        "message": "'id' is specified more than once, so this usage will be overwritten."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 33,
+        "code": 2783,
+        "message": "'nm' is specified more than once, so this usage will be overwritten."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 156,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placements: Record<string, Placement>; placementEpoch: number; art: ArtFile; areaArts: { \"polo::right\": ArtFile; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 174,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placementEpoch: number; art: ArtFile; areaArts: { \"polo::right\": ArtFile; \"tee::front\": ArtFile; }; placements: { \"polo::right\": { xPct: number; yPct: number; wPct: number; rot: number; }; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 186,
+        "code": 2322,
+        "message": "Type 'SwagDraft' is not assignable to type '{ step: 0 | 1 | 2 | 3; name: string; picked: number[]; placements: Record<string, Placement>; placementEpoch: number; art: ArtFile; areaArts: { \"tee::front\": ArtFile; }; }'."
+      },
+      {
+        "file": "src/features/swag/wizard/artworkStepModel.test.ts",
+        "line": 188,
+        "code": 7053,
+        "message": "Element implicitly has an 'any' type because expression of type '\"polo::right\"' can't be used to index type '{ \"tee::front\": ArtFile; }'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 131,
+        "code": 2345,
+        "message": "Argument of type 'UiPrintArea' is not assignable to parameter of type 'PlaceholderInches'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 145,
+        "code": 18048,
+        "message": "'area.xIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 146,
+        "code": 18048,
+        "message": "'area.yIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 147,
+        "code": 18048,
+        "message": "'area.widthIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/lib/swag-and-media.test.ts",
+        "line": 148,
+        "code": 18048,
+        "message": "'area.heightIn' is possibly 'undefined'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1078,
+        "code": 2300,
+        "message": "Duplicate identifier 'mockupUrl'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1081,
+        "code": 2300,
+        "message": "Duplicate identifier 'placement'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1101,
+        "code": 2300,
+        "message": "Duplicate identifier 'mockupUrl'."
+      },
+      {
+        "file": "src/services/api-bridge.ts",
+        "line": 1102,
+        "code": 2300,
+        "message": "Duplicate identifier 'placement'."
+      },
+      {
+        "file": "src/services/mutations-api.ts",
+        "line": 1507,
+        "code": 2339,
+        "message": "Property 'inviteStatus' does not exist on type '{ name: string; email: string; mobile: string; role: string; invite: boolean; }'."
+      },
+      {
+        "file": "src/services/mutations-api.ts",
+        "line": 1510,
+        "code": 2339,
+        "message": "Property 'inviteStatus' does not exist on type '{ name: string; email: string; mobile: string; role: string; invite: boolean; }'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 89,
+        "code": 2339,
+        "message": "Property 'requestTimeout' does not exist on type 'HttpServer'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 90,
+        "code": 2339,
+        "message": "Property 'headersTimeout' does not exist on type 'HttpServer'."
+      },
+      {
+        "file": "vite.config.ts",
+        "line": 91,
+        "code": 2339,
+        "message": "Property 'timeout' does not exist on type 'HttpServer'."
+      }
+    ]
+  }
+}

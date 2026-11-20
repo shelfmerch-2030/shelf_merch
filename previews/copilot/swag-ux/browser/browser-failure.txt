@@ -1,0 +1,90 @@
+AssertionError: expected +0 to be 1 // Object.is equality
+    at D:/Shelf Merch/SMIO/shelf_merch_swag_org_account/apps/api/tests/copilot-swag-artwork.browser-check.js:162:106
+    at file:///D:/Shelf%20Merch/SMIO/shelf_merch_swag_org_account/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20
+AVAILABLE BUDGET
+₹0
+BA
+Browser admin
+isolated browser workspace
+ShelfMerch Copilot
+New chat
+Search chats
+
+Your conversations
+
+I want to design summer swag for men.
+Nov 13
+I want to design summer swag for men.
+ShelfMerch Copilot
+
+What would you like to name your swag collection?
+
+Summer Essentials
+ShelfMerch Copilot
+
+Here are verified summer options. Select products or browse another category.
+
+ActiveDry Polo
+₹840 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 0
+₹500 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 1
+₹501 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 2
+₹502 incl. GST
+Availability unknown
+View details ↗
+ActiveDry Polo: add this
+ShelfMerch Copilot
+
+Product selected. 1 product selected for Summer Essentials. You can add more products or choose Next.
+
+ShelfMerch Copilot
+Summer Polo 3
+₹503 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 4
+₹504 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 5
+₹505 incl. GST
+Availability unknown
+View details ↗
+Summer Polo 6
+₹506 incl. GST
+Availability unknown
+View details ↗
+ShelfMerch Copilot
+
+Your logo is ready. Review the products below and approve where it should be applied. Publishing is a separate step.
+
+Apply your logo?
+Review & confirm
+Collection
+Summer Essentials
+Products
+1
+Logo
+company-logo.png
+Application
+1 supported product
+Design details
+
+This saves artwork only. Publishing requires a separate final confirmation.
+
+Back / Edit
+Cancel
+Apply to All
+Message ShelfMerch AI Copilot
+
+Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image, purchase order, store logo, or file. You can also drag or paste an image.
+
+AI can make mistakes. Review important details before taking action.

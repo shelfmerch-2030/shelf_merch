@@ -286,12 +286,6 @@ export default function LandingPage() {
                 </span>
                 <span className="lh-hero-tag lh-hero-tag-brand">Custom branding</span>
                 <span className="lh-hero-tag lh-hero-tag-delivery">Delivered with care</span>
-                <span className="lh-hero-star lh-hero-star-one" aria-hidden="true">
-                  ✳
-                </span>
-                <span className="lh-hero-star lh-hero-star-two" aria-hidden="true">
-                  ✳
-                </span>
               </div>
             </div>
           </div>

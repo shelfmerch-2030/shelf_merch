@@ -27,7 +27,7 @@ import {
   selectAllRecipientIds,
 } from "@/features/send/recipientSelection";
 import type { PointsSendTotals } from "@/features/send/money";
-import type { ShopCurrencyMode } from "@/lib/storeCurrency";
+import { defaultPointsScope, type ShopCurrencyMode } from "@/lib/storeCurrency";
 import type { UiShop } from "@/services/mappers";
 import type { SendingPointsRecipient } from "@/components/SendingPointsAnimation";
 import { useLaunchPointsCampaign, useSavePointsCampaignDraft } from "../model";
@@ -112,7 +112,7 @@ export function useSendPointsController(): SendPointsVm {
   const shop = shops.find((s) => s.id === shopId);
 
   const initial = useMemo(
-    () => initialSendPointsDraft(shop?.pointsConversionEnabled ? "stadium" : "shop"),
+    () => initialSendPointsDraft(defaultPointsScope(shop)),
     [shop?.pointsConversionEnabled],
   );
   const [draft, dispatch] = useReducer(sendPointsReducer, initial);
@@ -147,7 +147,7 @@ export function useSendPointsController(): SendPointsVm {
     if (!shop || seededScope.current) return;
     dispatch({
       type: "setPointsScope",
-      pointsScope: shop.pointsConversionEnabled ? "stadium" : "shop",
+      pointsScope: defaultPointsScope(shop),
     });
     seededScope.current = true;
   }, [shop]);
