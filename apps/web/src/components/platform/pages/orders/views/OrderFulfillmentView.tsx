@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { resolveColorHex } from "@/lib/colorMap";
+import { hasSingleCatalogColor } from "@/lib/variantColors";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
   inr,
@@ -269,7 +270,7 @@ export function OrderFulfillmentView({
                         artworkUrl={artworkUrl}
                         baseImg={baseImg}
                         maskUrl={product?.maskImageUrl || ""}
-                        tintHex={tintHex}
+                        tintHex={hasSingleCatalogColor(product) ? undefined : tintHex}
                         variantColor={variant?.color}
                         mockup={mockup}
                         printAreas={printAreas}

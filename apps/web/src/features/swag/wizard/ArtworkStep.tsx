@@ -533,6 +533,7 @@ function SwagProductBrandingModal({
   const tintHex = getMockupTintHex(
     colorNames[colorIdx] ? productColorHex(product, colorNames[colorIdx]) : undefined,
     hasPickedColor,
+    product,
   );
   const allAreas = listPrintAreas(product);
   const areasForView = areasForMockupView(product, view);

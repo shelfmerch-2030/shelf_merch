@@ -82,6 +82,7 @@ export function SwagDesignDetail({
   const previewTintHex = getMockupTintHex(
     colorNames[selColor] ? productColorHex(product, colorNames[selColor]) : undefined,
     hasUserPickedColor,
+    product,
   );
   const uniqueId = collection.code || productUniqueId(product, productIndex);
   const category = product.category || catalogCategoryLabel(product);

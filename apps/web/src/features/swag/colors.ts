@@ -1,6 +1,6 @@
 import type { UiCollection, UiProduct } from "@/services/mappers";
 import { resolveColorHex } from "@/lib/colorMap";
-import { curatedColorSwatches, productVariantSwatches, sortWhiteFirstSwatches, type ColorSwatch } from "@/lib/variantColors";
+import { curatedColorSwatches, hasSingleCatalogColor, productVariantSwatches, sortWhiteFirstSwatches, type ColorSwatch } from "@/lib/variantColors";
 
 const SWAG_COLORS: [string, string][] = [
   ["Black", "#1c1c1c"],
@@ -57,7 +57,9 @@ export function isDefaultMockupTint(hex?: string): boolean {
 export function getMockupTintHex(
   colorHex: string | undefined,
   hasUserPickedColor: boolean,
+  product?: Parameters<typeof hasSingleCatalogColor>[0],
 ): string | undefined {
+  if (hasSingleCatalogColor(product)) return undefined;
   if (!hasUserPickedColor) return undefined;
   if (isDefaultMockupTint(colorHex)) return undefined;
   return colorHex;

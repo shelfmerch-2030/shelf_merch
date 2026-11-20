@@ -86,3 +86,30 @@ it("explicit variant tints keep using saved product-specific placements instead 
   expect(vi.mocked(bakeTintedMockupLayers).mock.calls[0][1]).toEqual([expect.objectContaining({ artUrl: "/area-0.png", areaKey: "front", placement: expect.objectContaining(placement) })]);
   expect(screen.getByRole("img").getAttribute("src")).not.toBe(product.mockupUrl);
 });
+
+it("single-colour products keep their saved mockup even when a tint is requested", () => {
+  const product = { ...collection().products[0], variants: [
+    { color: "Black", size: "S" }, { color: "black ", size: "L" },
+  ] };
+  render(<DesignedProductThumb product={product} {...savedDesignPreview(product)} tintHex="#123456" />);
+  expect(screen.getByRole("img")).toHaveAttribute("src", product.mockupUrl);
+  expect(bakeTintedMockupLayers).not.toHaveBeenCalled();
+});
+
+it("single-colour products without a bake keep the original image and per-area artwork", () => {
+  const product = { ...collection().products[0], mockupUrl: undefined, mockupBackUrl: undefined,
+    variants: [{ color: "Black", size: "S" }, { color: "Black", size: "L" }],
+  };
+  const view = render(<DesignedProductThumb product={product} {...savedDesignPreview(product)} tintHex="#123456" />);
+  expect(screen.getByRole("img", { name: product.nm })).toHaveAttribute("src", product.photoUrl);
+  expect(screen.getByRole("img", { name: "Artwork" })).toHaveAttribute("src", "/area-0.png");
+  expect(view.container.querySelector("canvas")).toBeNull();
+  expect(bakeTintedMockupLayers).not.toHaveBeenCalled();
+});
+
+it("products with multiple catalog colours retain tinting", async () => {
+  const product = { ...collection().products[0], variants: [{ color: "Black" }, { color: "Blue" }] };
+  render(<DesignedProductThumb product={product} {...savedDesignPreview(product)} tintHex="#123456" />);
+  await waitFor(() => expect(bakeTintedMockupLayers).toHaveBeenCalled());
+  expect(screen.getByRole("img").getAttribute("src")).not.toBe(product.mockupUrl);
+});

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { hasSingleCatalogColor } from "@/lib/variantColors";
 import { TintedGarment } from "@/components/store/TintedGarment";
 import type { UiProduct } from "@/services/mappers";
 import { DEFAULT_MOCKUP_TINT_HEX, isDefaultMockupTint } from "./colors";
@@ -350,8 +351,10 @@ export function DesignedProductThumb({
     productThumbUrl(product, false) ||
     productThumbUrl(product, true);
 
-  const isDefaultTint = isDefaultMockupTint(tintHex);
-  const useMaskTint = Boolean(resolvedMask && !isPhotoProductImage(product, resolvedMask));
+  const singleCatalogColor = hasSingleCatalogColor(product);
+  const effectiveTintHex = singleCatalogColor ? undefined : tintHex;
+  const isDefaultTint = isDefaultMockupTint(effectiveTintHex);
+  const useMaskTint = Boolean(!singleCatalogColor && resolvedMask && !isPhotoProductImage(product, resolvedMask));
   const photoCompositeBase =
     stageBase ||
     resolveMediaUrl(product.photoUrl) ||
@@ -359,7 +362,7 @@ export function DesignedProductThumb({
     (resolvedMask && !useMaskTint ? resolvedMask : "") ||
     base;
   const showBaked = Boolean(viewBaked && isDefaultTint && preferBakedMockup);
-  const liveTintHex = tintHex || DEFAULT_MOCKUP_TINT_HEX;
+  const liveTintHex = effectiveTintHex || DEFAULT_MOCKUP_TINT_HEX;
   const showViewToggle = !frontOnly && availableViews.length > 1 && viewProp == null && !hoverSwapViews;
   const embedViewToggle = showViewToggle && viewTogglePlacement !== "below";
   const viewLabel = (v: ProductViewKey) =>
@@ -568,6 +571,8 @@ export function storeProductAsUi(p: {
   dpi?: UiProduct["dpi"];
   primaryImageUrl?: string;
   imageUrls?: string[];
+  variants?: UiProduct["variants"];
+  colors?: UiProduct["colors"];
 }): UiProduct {
   const catalogId =
     p.catalogProductId || (p._id?.includes(":") ? p._id.split(":").pop() : p._id) || undefined;
@@ -603,6 +608,8 @@ export function storeProductAsUi(p: {
     nm: p.name,
     price: "",
     sw: 4,
+    variants: p.variants,
+    colors: p.colors,
     maskImageUrl: mask,
     baseImageUrl: base,
     maskBackImageUrl: resolveMediaUrl(p.maskBackImageUrl),

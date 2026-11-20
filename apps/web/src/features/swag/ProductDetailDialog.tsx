@@ -84,6 +84,7 @@ function Body({
   const tintHex = getMockupTintHex(
     names[sel] ? productColorHex(product, names[sel]) : undefined,
     hasUserPickedColor,
+    product,
   );
 
   return (

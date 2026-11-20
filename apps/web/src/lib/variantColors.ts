@@ -36,6 +36,17 @@ export function extractVariantColors(
 
 export type ColorSwatch = { name: string; hex: string };
 
+/** Count catalog colours, independently of size rows or curated swatch selections. */
+export function hasSingleCatalogColor(input: {
+  colors?: string[];
+  variants?: CatalogVariant[];
+} | null | undefined): boolean {
+  if (!input) return false;
+  const variantColors = extractVariantColors(input.variants).colors;
+  const colors = variantColors.length ? variantColors : input.colors ?? [];
+  return new Set(colors.map((color) => color.trim().toLowerCase()).filter(Boolean)).size === 1;
+}
+
 function isWhiteColor(name: string) {
   return name.toLowerCase().trim() === "white";
 }

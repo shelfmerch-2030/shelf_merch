@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import "./store-catalog.css";
 import { type StoreShop } from "../StoreBanner";
 import { resolveColorHex } from "@/lib/colorMap";
-import { curatedColorSwatches, productVariantSwatches } from "@/lib/variantColors";
+import { curatedColorSwatches, hasSingleCatalogColor, productVariantSwatches } from "@/lib/variantColors";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { shopBannerPresetLabel, shopHeroBannerUrl } from "@/lib/shop-banners";
 import { DesignedProductThumb,
@@ -816,7 +816,7 @@ function orderItemKey(item: StoreOrderItem, idx: number) {
 }
 
 function orderItemTintHex(product: StoreProduct | undefined, color?: string) {
-  if (!color || !product) return undefined;
+  if (!color || !product || hasSingleCatalogColor(product)) return undefined;
   return resolveColorHex(color, product.variants?.find((v) => v.color === color)?.colorHex);
 }
 
@@ -4267,7 +4267,7 @@ function ProductDetail({ product, mode, priceLabel, onBack, onAdd }: {
   }, [variants, selectedColor?.name, selectedColor?.hex, colorOptions.length]);
 
   const [size, setSize] = useState<string | undefined>(() => (sizes.length === 1 ? sizes[0] : undefined));
-  const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor);
+  const previewTintHex = getMockupTintHex(selectedColor?.hex, hasUserPickedColor, product);
   const sizeRequired = sizes.length > 1;
   const hasVariants = colorOptions.length > 0 || sizes.length > 0;
   const canAdd = !sizeRequired || !!size;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { isPlaceholderColorHex, resolveColorHex } from "@/lib/colorMap";
+import { hasSingleCatalogColor } from "@/lib/variantColors";
 import { formatErrorDetails } from "@/lib/errorMessage";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
@@ -330,14 +331,16 @@ export function useProductWizardController(mode: "create" | "edit", productId?: 
   const activeMaskUrl = effectiveMaskByView[imageView];
   const frontMaskIsShopifyFallback = !maskByView.front && Boolean(activeMarketingImageUrl);
   const activeMaskIsShopifyFallback = imageView === "front" && frontMaskIsShopifyFallback;
+  const singleCatalogColor = hasSingleCatalogColor(product);
   const maskCanTintByView = useMemo(
     () => ({
-      front: Boolean(maskByView.front && (maskTintableByView.front ?? urlLooksLikePng(maskByView.front))),
-      back: Boolean(maskByView.back && (maskTintableByView.back ?? urlLooksLikePng(maskByView.back))),
-      left: Boolean(maskByView.left && (maskTintableByView.left ?? urlLooksLikePng(maskByView.left))),
-      right: Boolean(maskByView.right && (maskTintableByView.right ?? urlLooksLikePng(maskByView.right))),
+      front: Boolean(!singleCatalogColor && maskByView.front && (maskTintableByView.front ?? urlLooksLikePng(maskByView.front))),
+      back: Boolean(!singleCatalogColor && maskByView.back && (maskTintableByView.back ?? urlLooksLikePng(maskByView.back))),
+      left: Boolean(!singleCatalogColor && maskByView.left && (maskTintableByView.left ?? urlLooksLikePng(maskByView.left))),
+      right: Boolean(!singleCatalogColor && maskByView.right && (maskTintableByView.right ?? urlLooksLikePng(maskByView.right))),
     }),
     [
+      singleCatalogColor,
       maskByView.front,
       maskByView.back,
       maskByView.left,

@@ -49,6 +49,7 @@ export function SwagProductDetail({
   const tintHex = getMockupTintHex(
     selectedName ? productColorHex(product, selectedName) : undefined,
     hasUserPickedColor,
+    product,
   );
   const activeView: ProductViewKey = productViews.includes(mockupView) ? mockupView : "front";
   const preview = savedDesignPreview(product, collection.artworkUrl);
