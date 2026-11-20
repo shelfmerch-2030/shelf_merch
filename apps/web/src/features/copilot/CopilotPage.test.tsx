@@ -439,6 +439,21 @@ describe("Copilot sidebar during streaming", () => {
     expect(screen.queryByText("Old preview")).not.toBeInTheDocument();
   });
 
+  it("shows the saved wallet reply once when all three amounts match its snapshot", async () => {
+    vi.mocked(api.getCopilotConversation).mockResolvedValueOnce({ id: "c1", title: "Wallet history", messages: [{
+      role: "assistant",
+      content: "Your wallet balance is **₹20,000**.\n- **Allocated budget:** ₹7,000\n- **Remaining budget:** ₹13,000",
+      artifacts: [{ kind: "wallet_balance", wallet: { balance: 20000, allocatedAmount: 7000, unallocatedAmount: 13000 } }],
+    }] });
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Welcome kits" }));
+    const reply = await screen.findByRole("article", { name: "Assistant" });
+    expect(within(reply).getByText("₹20,000")).toBeVisible();
+    expect(reply).toHaveTextContent("Allocated budget: ₹7,000");
+    expect(reply).toHaveTextContent("Remaining budget: ₹13,000");
+    expect(within(reply).queryByLabelText("Wallet balance")).not.toBeInTheDocument();
+  });
+
   it("opens saved wallet artifacts without a payload without crashing or inventing a balance", async () => {
     vi.mocked(api.getCopilotConversation).mockResolvedValueOnce({ id: "c1", title: "Wallet history", messages: [
       { role: "assistant", content: "A saved balance answer", artifacts: [{ kind: "wallet_balance" } as api.CopilotArtifact] },

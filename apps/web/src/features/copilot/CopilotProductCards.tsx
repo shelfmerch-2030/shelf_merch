@@ -9,6 +9,8 @@ import { CatalogProductCardContent, catalogProductCardClass } from "@/features/c
 import { tenantPath } from "@/lib/workspaceSlug";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { extractVariantColors } from "@/lib/variantColors";
+import { sanitizeCopilotAssistantText } from "./sanitizeCopilotText";
+import { replyRepeatsWalletBalance } from "./walletBalancePresentation";
 import type {
   CopilotArtifact,
   CopilotConfirmationArtifact,
@@ -19,9 +21,9 @@ import type {
 import { CopilotConfirmationCard, CopilotWriteSuccess } from "./CopilotConfirmationCard";
 import type { Curation } from "./curatorTypes";
 import {
-  CopilotDepartmentBudgetsCard,
-  CopilotWalletBalanceCard,
-} from "./CopilotBalanceCard";
+  CopilotDepartmentBudgetsReply,
+  CopilotWalletBalanceReply,
+} from "./CopilotBalanceReply";
 
 function formatInr(value: unknown) {
   if (value == null || value === "") return "";
@@ -32,19 +34,29 @@ function formatInr(value: unknown) {
 
 function GiftingChatGroups({ curation }: { curation: Curation }) {
   const money = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
-  return <>{curation.chat?.groups.map((group, index) => <section className="sm-copilot-gift-group" key={`${group.name}-${index}`} aria-label={group.name}>
-    <span className="sm-copilot-gift-group__label">{group.kind === "combination" ? "AI-suggested catalog combination" : group.kind === "existing_kit" ? "Existing ShelfMerch kit" : "Individual catalog options"}</span>
-    <h3>{group.name}</h3>
-    {group.rationale ? <p>{group.rationale}</p> : null}
-    <CopilotArtifacts artifacts={group.artifacts} showProductAvailability />
-    {group.subtotal != null ? <div className="sm-copilot-gift-group__cost">
-      <strong>{group.completePrice ? group.kind === "existing_kit" ? "Stored kit item estimate" : "Item subtotal" : "Partial known item subtotal"}: {money(group.subtotal)} per employee</strong>
-      {group.total != null && curation.brief.recipients ? <span>{money(group.total)} for {curation.brief.recipients} recipients</span> : null}
-      {group.missingPrices ? <span>{group.missingPrices} {group.missingPrices === 1 ? "price needs" : "prices need"} confirmation; no complete total is available.</span> : null}
-      {group.budgetDifference != null ? <span>{money(Math.abs(group.budgetDifference))} {group.budgetDifference >= 0 ? "under" : "over"} budget per employee</span> : null}
-      <small>Catalog item estimate only. Packaging, branding, customisation and shipping are excluded.</small>
-    </div> : null}
-  </section>)}</>;
+  return <>{curation.chat?.groups.map((group, index) => {
+    const firstArtifact = group.artifacts[0];
+    const kit = group.kind === "existing_kit" && group.artifacts.length === 1 && firstArtifact?.kind === "kit"
+      ? firstArtifact.kit : undefined;
+    const cards = <CopilotArtifacts artifacts={group.artifacts} showProductAvailability />;
+    return (
+      <section className={`sm-copilot-gift-group${kit ? " sm-copilot-gift-group--kit" : ""}`} key={`${group.name}-${index}`} aria-label={group.name}>
+        {kit ? cards : null}
+        <span className="sm-copilot-gift-group__label">{group.kind === "combination" ? "AI-suggested catalog combination" : group.kind === "existing_kit" ? "Existing ShelfMerch kit" : "Individual catalog options"}</span>
+        {!kit || group.name !== kit.name ? <h3>{group.name}</h3> : null}
+        {group.rationale && (!kit || group.rationale !== "An existing ShelfMerch kit. Contents and stored price come from the kit READ service.")
+          ? <p>{group.rationale}</p> : null}
+        {!kit ? cards : null}
+        {group.subtotal != null ? <div className="sm-copilot-gift-group__cost">
+          <strong>{group.completePrice ? group.kind === "existing_kit" ? "Stored kit item estimate" : "Item subtotal" : "Partial known item subtotal"}: {money(group.subtotal)} per employee</strong>
+          {group.total != null && curation.brief.recipients ? <span>{money(group.total)} for {curation.brief.recipients} recipients</span> : null}
+          {group.missingPrices ? <span>{group.missingPrices} {group.missingPrices === 1 ? "price needs" : "prices need"} confirmation; no complete total is available.</span> : null}
+          {group.budgetDifference != null ? <span>{money(Math.abs(group.budgetDifference))} {group.budgetDifference >= 0 ? "under" : "over"} budget per employee</span> : null}
+          <small>Catalog item estimate only. Packaging, branding, customisation and shipping are excluded.</small>
+        </div> : null}
+      </section>
+    );
+  })}</>;
 }
 
 /** Kit MCP summaries expose `imageUrl`; older payloads used heroImage / imageUrls. */
@@ -204,6 +216,7 @@ export function CopilotArtifacts({
   swagReadOnly,
   showAllProducts = false,
   showProductAvailability = false,
+  assistantReply,
 }: {
   artifacts?: CopilotArtifact[];
   conversationId?: string | null;
@@ -218,6 +231,7 @@ export function CopilotArtifacts({
   swagReadOnly?: boolean;
   showAllProducts?: boolean;
   showProductAvailability?: boolean;
+  assistantReply?: { text: string; streaming?: boolean };
 }) {
   const [visible, setVisible] = useState(4);
   const [extra, setExtra] = useState<Record<string, unknown>[]>([]);
@@ -253,10 +267,24 @@ export function CopilotArtifacts({
   const wallets = artifacts.filter(
     (row): row is CopilotWalletBalanceArtifact => row.kind === "wallet_balance",
   );
-  const hasWalletCards = wallets.length > 0;
   const departmentGroups = artifacts.filter(
     (row): row is CopilotDepartmentBudgetsArtifact => row.kind === "department_budgets",
   );
+  const repeatsAmounts = Boolean(assistantReply?.text && wallets.length === 1
+    && replyRepeatsWalletBalance(sanitizeCopilotAssistantText(assistantReply.text, artifacts), wallets[0]));
+  const departmentsInWallets = new Set(wallets.flatMap(row => row.departments ?? []).map(row => row.entityId || row.name));
+  const balanceResults = assistantReply?.streaming ? null : <>
+    {wallets.map((row, index) => (
+      <CopilotWalletBalanceReply key={row.wallet?.id || `wallet-${index}`} artifact={row} repeatsAmounts={repeatsAmounts} />
+    ))}
+    {departmentGroups.map((row, index) => {
+      const departments = row.departments?.filter(department => !departmentsInWallets.has(department.entityId || department.name));
+      if (row.departments?.length && !departments?.length) return null;
+      return <CopilotDepartmentBudgetsReply key={`departments-${index}`} departments={departments ?? []}
+        showTotal={departments?.length === row.departments?.length} />;
+    })}
+  </>;
+  if (wallets.length + departmentGroups.length === artifacts.length) return balanceResults;
   const confirmations = artifacts
     .map((row, index) => ({ row, index }))
     .filter((entry): entry is { row: CopilotConfirmationArtifact; index: number } => entry.row.kind === "confirmation");
@@ -270,6 +298,8 @@ export function CopilotArtifacts({
   ) : null;
 
   return (
+    <>
+    {balanceResults}
     <div className={`sm-copilot-products${swag ? ' sm-copilot-products--swag' : ''}`} aria-label="Results">
       {artifacts.filter((row): row is Extract<CopilotArtifact, { kind: "curation" }> => row.kind === "curation" && Boolean(row.curation.chat)).map((row, index) => <GiftingChatGroups key={`gifting-${index}`} curation={row.curation} />)}
       {confirmations.map(({ row, index }) => (
@@ -287,14 +317,6 @@ export function CopilotArtifacts({
           onContinueSwag={row.operation === 'swag.collection' && row.result?.id === currentSwagCollectionId ? onContinueSwag : undefined}
           onApplyLogo={row.operation === 'swag.collection' && row.result?.id === currentSwagCollectionId ? onApplyLogo : undefined} />
       ))}
-      {wallets.map((row, index) => (
-        <CopilotWalletBalanceCard key={row.wallet?.id || `wallet-${index}`} artifact={row} />
-      ))}
-      {!hasWalletCards
-        ? departmentGroups.map((row, index) => (
-            <CopilotDepartmentBudgetsCard key={`departments-${index}`} artifact={row} />
-          ))
-        : null}
       {(swag && !showAllProducts ? products.slice(0, visible) : products).map((row) => {
         const product = row.product;
         const id = String(product.id || "");
@@ -347,32 +369,33 @@ export function CopilotArtifacts({
             : kit.priceInr != null
               ? formatInr(kit.priceInr)
               : "";
-        const body = (
-          <>
-            <div className="sm-copilot-product__img">
-              <CardImage src={img} alt={name} emptyLabel="No kit image available" />
-            </div>
-            <div className="sm-copilot-product__meta">
-              <strong>{name}</strong>
-              <span>{curated ? "Curated kit" : "Customized kit"}</span>
-              {price ? <span>~{price}</span> : null}
-              {kit.recommendation && ["In stock", "Out of stock", "Availability unknown"].includes(String(kit.availability)) ? <span>{String(kit.availability)}</span> : null}
-              {kit.recommendation && Array.isArray(kit.products) ? <span>{kit.products.map((product: { name?: string; quantity?: number }) => `${product.name || "Item"}${product.quantity ? ` × ${product.quantity}` : ""}`).join(" · ")}</span> : null}
-              {href ? <span className="sm-copilot-product__link">View details ↗</span> : null}
-            </div>
-          </>
-        );
+        const availability = String(kit.availability);
+        const contents = kit.recommendation && Array.isArray(kit.products)
+          ? kit.products.map((product: { name?: string; quantity?: number }) => `${product.name || "Item"}${product.quantity ? ` × ${product.quantity}` : ""}`).join(" · ")
+          : "";
+        const body = <CatalogProductCardContent
+          name={name}
+          brand={curated ? "Curated kit" : "Customized kit"}
+          image={<CardImage key={img} src={img} alt={name} emptyLabel="No kit image available" />}
+          price={price ? <CatalogPrice price={`Est. ${price}`} /> : <div className="pr">Price on request</div>}
+          showPriceLabel={false}
+          note={kit.recommendation ? <div className="sm-copilot-catalog-card__note">
+            {["In stock", "Out of stock", "Availability unknown"].includes(availability) ? <div>{availability}</div> : null}
+            {contents ? <div>{contents}</div> : null}
+          </div> : null}
+        />;
         return href ? (
           <Link
             key={`${name}-${index}`}
             to={href}
-            className="sm-copilot-product"
+            className={copilotCatalogCardClass}
             aria-label={`View ${name}`}
           >
             {body}
+            <span className="sm-copilot-catalog-card__action">View details</span>
           </Link>
         ) : (
-          <div key={`${name}-${index}`} className="sm-copilot-product">
+          <div key={`${name}-${index}`} className={copilotCatalogCardClass}>
             {body}
           </div>
         );
@@ -380,5 +403,6 @@ export function CopilotArtifacts({
       {catalogPreview && catalogPreview.conversationId === conversationId ? <CatalogProductPreview
         key={catalogPreview.id} selection={catalogPreview} onClose={() => setCatalogPreview(null)} /> : null}
     </div>
+    </>
   );
 }

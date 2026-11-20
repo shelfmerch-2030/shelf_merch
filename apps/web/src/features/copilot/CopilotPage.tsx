@@ -875,6 +875,10 @@ export function CopilotPage() {
                     upload={() => document.getElementById('copilot-attach-swag_artwork')?.click()} />
                 ) : undefined;
                 const catalogFooter = hasCatalog && activeSwag?.step === 'products' ? renderSwagStep : undefined;
+                const showsAssistantText = message.role === "assistant"
+                  && !artworkResult && !completedApproval && !publishReview && !publishResult
+                  && !suppressCompletedReview && !earlierReview;
+                const replyText = showsAssistantText ? swagPromptForDisplay(message.content || "", step?.swag.step) : "";
                 return (
                 <article
                   key={message.uiEventId || `${message.role}-${message.createdAt || index}`}
@@ -894,7 +898,7 @@ export function CopilotPage() {
                           : publishResult || suppressCompletedReview ? null
                           : earlierReview ? <details className="sm-swag-history"><summary>Earlier review</summary><CopilotMarkdown content={message.content || ""} artifacts={message.artifacts} /><CopilotArtifacts artifacts={message.artifacts?.filter(a => a.kind === 'confirmation')} swagReadOnly conversationId={activeId} /></details>
                           : <>{selectedProducts?.length ? <SwagArtworkAcknowledgement products={selectedProducts} catalogProducts={selectedCatalogProducts} /> : null}
-                            <CopilotMarkdown content={swagPromptForDisplay(message.content || "", step?.swag.step)} artifacts={artifacts} /></>
+                            <CopilotMarkdown content={replyText} artifacts={artifacts} /></>
                       ) : (
                         <CopilotUserMessage content={message.content || ""} attachments={message.attachments} conversationId={message.uiEventId || !busy ? activeId : undefined} />
                       )}
@@ -917,6 +921,7 @@ export function CopilotPage() {
                     ) : null}
                     <CopilotArtifacts
                       artifacts={completedApproval ? artifacts.filter(a => a !== completedApproval) : artifacts}
+                      assistantReply={showsAssistantText ? { text: replyText, streaming: message.streaming } : undefined}
                       conversationId={activeId}
                       swag={step ? { selectedIds: activeSwag?.productIds || [], busy: galleryEventId && activeSelection ? workspaceBusy : locked,
                         selectionPending: Boolean(galleryEventId && activeSelection), pendingProductId: galleryEventId && activeSelection?.source === 'card' ? activeSelection.productId : undefined, readOnly: !active,

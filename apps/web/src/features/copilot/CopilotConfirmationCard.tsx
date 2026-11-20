@@ -16,6 +16,10 @@ import { amountLabel, completedPresentation, isSendPointsWorkflow, operationLabe
 import { shopStorefrontHref } from "@/lib/shopRedeemUrl";
 import { tenantPath } from "@/lib/workspaceSlug";
 
+const budgetAndFundingOperations = new Set([
+  "budget.allocate", "wallets.allocate", "wallets.topup", "wallets.payment_order", "wallets.payment_verify",
+]);
+
 function newIdempotencyKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `copilot-write-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -317,6 +321,17 @@ export function CopilotConfirmationCard({
   const previewContent = departmentSetup ? <DepartmentSetupPreview preview={preview} request={artifact.request} /> : rows.length ? <dl className="sm-copilot-confirm__preview">
     {rows.map((row, index) => <div key={`${row.label}-${index}`}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
   </dl> : <p className="sm-copilot-confirm__note">Preview details are unavailable.</p>;
+  if (terminal && budgetAndFundingOperations.has(workflow)) {
+    return <div className="sm-copilot-md sm-copilot-financial-result">
+      <p role={error || artifact.status === "failed" ? "alert" : "status"}>
+        <strong>{title} · {stateLabel}.</strong>{" "}
+        {error || artifact.message || (artifact.status === "cancelled" ? "This confirmation was cancelled."
+          : artifact.status === "completed" ? "The backend reports this confirmation as completed."
+            : "Check the operation status before preparing another change.")}
+      </p>
+      {rows.length ? <details><summary>Original preview · proposed values</summary>{previewContent}</details> : null}
+    </div>;
+  }
   if (workflow === 'swag.collection' && artifact.status === 'completed') return <SwagCompletedApproval artifact={artifact} />;
   if (workflow === 'swag.collection' && preview.action === 'publish') {
     const { name, destination, productLabel, stores } = swagPublishFacts(preview);
@@ -426,6 +441,18 @@ export function CopilotWriteSuccess({ artifact, onContinueSwag, onApplyLogo }: {
     ...(storefront ? [{ label: "View Store", href: storefront, external: true }] : []),
     ...(isStore && shopId ? [{ label: "Manage Store", href: tenantPath(`/shops/${shopId}`) }] : []),
   ];
+  if (budgetAndFundingOperations.has(artifact.operation)) {
+    return <div className="sm-copilot-md sm-copilot-financial-result" data-tone={presentation.tone} role="status">
+      <p><strong>{presentation.title}.</strong> {presentation.message}</p>
+      {presentation.rows.length ? <ul>
+        {presentation.rows.map(row => <li key={row.label}><strong>{row.label}:</strong> {row.value}</li>)}
+      </ul> : null}
+      {actions.length ? <ul>
+        {actions.map(action => <li key={action.label}><a href={action.href}
+          target={action.external ? "_blank" : undefined} rel={action.external ? "noreferrer noopener" : undefined}>{action.label}</a></li>)}
+      </ul> : null}
+    </div>;
+  }
   const Icon = presentation.tone === "pending" ? Clock3 : presentation.tone === "failure" ? CircleAlert : presentation.tone === "neutral" ? Info : CheckCircle2;
   if (artifact.operation === 'swag.collection' && entity.action === 'apply') {
     const application = entity.application as { targets?: Array<{ productId: string }> } | undefined;

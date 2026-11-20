@@ -1372,10 +1372,6 @@
 .sm-swag-logo img { object-fit: contain; }
 .sm-swag-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .sm-copilot-products--swag { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.sm-copilot-products--swag .sm-copilot-product__img { height: 100px; }
-.sm-copilot-products--swag .sm-copilot-product__meta { padding: 9px; gap: 4px; }
-.sm-copilot-products--swag .sm-copilot-product__meta strong { font-size: 13px; line-height: 1.4; }
-.sm-copilot-products--swag .sm-copilot-product__meta span { font-size: 11px; }
 .sm-copilot-product--selectable > a { flex: 1; }
 .sm-copilot-product--selectable > button { font-size: 12px; padding: 6px 8px; }
 .sm-swag-flow :is(button, a, summary):focus-visible, .sm-copilot-products--swag :is(button, a, summary):focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
@@ -1396,52 +1392,14 @@
 .sm-copilot-gift-group > p { margin: 0 0 12px; font-size: 16px; line-height: 1.6; }
 .sm-copilot-gift-group__cost { display: grid; gap: 5px; margin-top: 12px; font-size: 14px; line-height: 1.6; }
 .sm-copilot-gift-group__cost small { color: var(--cp-muted); }
-.sm-copilot-product {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--cp-line);
-  border-radius: 12px;
-  color: var(--cp-ink);
-  background: var(--cp-surface);
-  text-decoration: none;
+.sm-copilot-gift-group--kit {
+  grid-column: auto;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  overflow-wrap: anywhere;
 }
-a.sm-copilot-product:hover {
-  border-color: var(--cp-accent);
-  box-shadow: 0 3px 12px #1010140a;
-}
-.sm-copilot-product__img {
-  height: 128px;
-  display: grid;
-  place-items: center;
-  background: var(--cp-canvas);
-  color: var(--cp-muted);
-}
-.sm-copilot-product__img img {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: contain;
-}
-.sm-copilot-product__meta {
-  display: grid;
-  gap: 5px;
-  padding: 13px;
-}
-.sm-copilot-product__meta strong {
-  font-size: var(--cp-control-size);
-  font-weight: 600;
-  line-height: 1.5;
-}
-.sm-copilot-product__meta span {
-  font-size: var(--cp-caption-size);
-  color: var(--cp-muted);
-}
-.sm-copilot-product__meta .sm-copilot-product__link {
-  margin-top: 5px;
-  color: var(--cp-accent);
-}
+.sm-copilot-gift-group--kit > .sm-copilot-gift-group__label { display: block; margin-top: 8px; }
 .sm-copilot-drawer {
   width: min(310px, 88vw);
   padding: 24px 0 0;
@@ -1966,55 +1924,9 @@ a.sm-copilot-product:hover {
   }
 }
 
-.sm-copilot-balance {
-  margin-top: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--cp-line);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--cp-surface, #fff) 92%, var(--cp-accent) 8%);
-  display: grid;
-  gap: 10px;
-  white-space: normal;
-}
-.sm-copilot-balance__head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: baseline;
-}
-.sm-copilot-balance__available {
-  font-weight: 700;
-  color: var(--cp-accent);
-}
-.sm-copilot-balance__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 8px 14px;
-  margin: 0;
-}
-.sm-copilot-balance__grid dt {
-  margin: 0;
-  color: var(--cp-muted);
-  font-size: var(--cp-caption-size);
-}
-.sm-copilot-balance__grid dd {
-  margin: 2px 0 0;
-  font-weight: 600;
-}
-.sm-copilot-balance__table {
-  min-width: 22rem;
-}
-.sm-copilot-balance__note {
-  margin: 0;
-  color: var(--cp-muted);
-  font-size: var(--cp-caption-size);
-}
-.sm-copilot-balance__warn {
-  margin: 0;
-  color: #8a4b08;
-  font-size: var(--cp-caption-size);
-}
+.sm-copilot-financial-result { grid-column: 1 / -1; }
+.sm-copilot-bubble + .sm-copilot-financial-result,
+.sm-copilot-financial-result + .sm-copilot-financial-result { margin-top: .85em; }
 
 /* Assistant-associated Swag interactions share the transcript's flow. */
 .sm-swag-interaction { margin-top: 12px; min-width: 0; }
@@ -2060,15 +1972,15 @@ a.sm-copilot-product:hover {
 @media (max-width: 440px) { .sm-swag-footer-action { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .sm-swag-footer-action { transition: none; } }
 .sm-swag-history { color: var(--cp-muted); font-size: 13px; }
-.sm-copilot-message__body:has(> .sm-copilot-products > .sm-copilot-product--catalog) { flex: 1; }
-.sm-copilot-products:has(> .sm-copilot-product--catalog) {
+.sm-copilot-message__body:has(> .sm-copilot-products > :is(.sm-copilot-product--catalog, .sm-copilot-gift-group--kit)) { flex: 1; }
+.sm-copilot-products:has(> :is(.sm-copilot-product--catalog, .sm-copilot-gift-group--kit)) {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, max(148px, 30%)), 1fr));
   gap: 16px;
 }
-.sm-copilot-products--swag .sm-copilot-product:not(.sm-copilot-product--catalog) .sm-copilot-product__img { height: auto; aspect-ratio: 4 / 3; padding: 8px; }
-.sm-copilot-products--swag .sm-copilot-product:not(.sm-copilot-product--catalog) .sm-copilot-product__img img { border-radius: 7px; }
-.sm-copilot-products--swag .sm-copilot-product:not(.sm-copilot-product--catalog) .sm-copilot-product__meta { padding: 10px 10px 2px; gap: 5px; }
-.sm-copilot-products--swag .sm-copilot-product:not(.sm-copilot-product--catalog) .sm-copilot-product__meta strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.sm-copilot-gift-group--kit > .sm-copilot-products {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0;
+}
 .sm-copilot-product--catalog > .img {
   position: relative;
   display: grid;
@@ -2135,7 +2047,7 @@ a.sm-copilot-product:hover {
 .sm-copilot-catalog-preview__link { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 12px; border: 1px solid var(--cp-line); border-radius: 8px; color: var(--cp-ink); background: var(--cp-surface); font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .sm-copilot-catalog-preview :is(a, button, summary):focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
 @media (max-width: 520px) {
-  .sm-copilot-products:has(> .sm-copilot-product--catalog) { gap: 10px; }
+  .sm-copilot-products:has(> :is(.sm-copilot-product--catalog, .sm-copilot-gift-group--kit)) { gap: 10px; }
   .sm-copilot-catalog-card__action { padding-inline: 10px; }
   .sm-swag-product-actions { padding-inline: 9px; gap: 6px; }
   .sm-copilot-catalog-preview { padding: 16px; }

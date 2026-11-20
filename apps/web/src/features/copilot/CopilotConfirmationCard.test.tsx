@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CopilotConfirmationCard } from "./CopilotConfirmationCard";
+import { CopilotConfirmationCard, CopilotWriteSuccess } from "./CopilotConfirmationCard";
 import * as api from "./api";
 
 vi.mock("./api", async () => {
@@ -244,6 +244,8 @@ describe("Copilot allocation confirmations", () => {
     expect(api.persistCopilotWriteArtifactApi).toHaveBeenCalledWith("conversation", expect.objectContaining({ artifact: expect.objectContaining({ operation: "budget.allocate", status: "cancelled" }) }));
     rerender(<CopilotConfirmationCard artifact={{ ...allocationArtifact, status: "cancelled" }} onChange={onChange} />);
     expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Allocate department budget · Cancelled");
+    expect(screen.queryByRole("group", { name: "Cancelled Allocate department budget" })).not.toBeInTheDocument();
     expect(api.executeCopilotWriteApi).not.toHaveBeenCalled();
   });
 
@@ -287,5 +289,22 @@ describe("Copilot allocation confirmations", () => {
     render(<CopilotConfirmationCard artifact={allocationArtifact} onChange={onChange} />);
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ status: "failed", message })));
     expect(api.executeCopilotWriteApi).not.toHaveBeenCalled();
+  });
+});
+
+describe("Copilot budget and wallet completion replies", () => {
+  it.each([
+    ["budget.allocate", { netChange: 1000 }, /Allocate department budget.*completed/],
+    ["wallets.topup", { status: "pending_approval" }, /Finance approval is pending/],
+    ["wallets.payment_order", { nextStep: "payment_required" }, /Payment is required/],
+    ["wallets.payment_verify", { status: "credited" }, /Funds credited/],
+  ] as const)("renders %s as inline text while retaining action links", (operation, result, details) => {
+    const { container } = render(<CopilotWriteSuccess artifact={{
+      kind: "success", operation, message: "", result,
+      actions: [{ label: "View record", href: "/wallets/record" }],
+    }} />);
+    expect(screen.getByRole("status")).toHaveTextContent(details);
+    expect(screen.getByRole("link", { name: "View record" })).toHaveAttribute("href", "/wallets/record");
+    expect(container.querySelector(".sm-copilot-confirm")).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotArtifacts } from "./CopilotProductCards";
 import { CopilotMarkdown } from "./CopilotMarkdown";
+import type { CopilotWalletBalanceArtifact } from "./api";
 import { fetchCatalogProduct } from "@/services/api-bridge";
 
 vi.mock("@/services/api-bridge", async importOriginal => ({
@@ -27,6 +28,11 @@ afterEach(() => {
 });
 
 const catalogHit = { kind: "product" as const, product: { id: "507f1f77bcf86cd799439011", name: "Navy Tee", sellingPriceInr: 499 } };
+const walletSnapshot: CopilotWalletBalanceArtifact = {
+  kind: "wallet_balance",
+  wallet: { id: "w1", name: "Primary wallet", balance: 20000, allocatedAmount: 7000, unallocatedAmount: 13000 },
+};
+const walletSummary = "Total balance: ₹20,000; allocated: ₹7,000; unallocated: ₹13,000.";
 
 function CopilotLocation() {
   return <span data-testid="copilot-location">{useLocation().pathname}</span>;
@@ -160,9 +166,8 @@ describe("Copilot product/kit cards", () => {
         <CopilotArtifacts artifacts={artifacts} />
       </MemoryRouter>,
     );
-    const img = document.querySelector(".sm-copilot-product__img img") as HTMLImageElement;
-    expect(img).toBeTruthy();
-    expect(img.getAttribute("src")).toContain("cdn.example.com/diwali.png");
+    const img = screen.getByRole("img", { name: "Colorful Diwali Celebration Kit" });
+    expect(img).toHaveAttribute("src", "https://cdn.example.com/diwali.png");
     expect(screen.queryByLabelText(/No kit image available/i)).toBeNull();
   });
 
@@ -192,7 +197,10 @@ describe("Copilot product/kit cards", () => {
     expect(screen.queryByText(/cdn\.example\.com/)).toBeNull();
     const link = screen.getByRole("link", { name: /View Onboarding Kit/i });
     expect(link).toHaveAttribute("href", "/acme/kits/507f1f77bcf86cd799439022");
-    expect(link).not.toHaveClass("sm-copilot-product--catalog");
+    expect(link).toHaveClass("catalog-product-card");
+    expect(within(link).getByText("Customized kit")).toBeInTheDocument();
+    expect(within(link).getByText("Est.")).toBeInTheDocument();
+    expect(within(link).getByText("View details")).toBeInTheDocument();
   });
 
   it("renders safe markdown for normal assistant replies", () => {
@@ -223,7 +231,7 @@ describe("Copilot product/kit cards", () => {
     expect(screen.queryByText(/\| Department \|/)).toBeNull();
   });
 
-  it("renders wallet balance card from backend figures", () => {
+  it("renders backend wallet figures and warnings as inline reply content", () => {
     render(
       <MemoryRouter>
         <CopilotMarkdown content={"Your available balance is ₹13,000."} artifacts={[{
@@ -256,11 +264,54 @@ describe("Copilot product/kit cards", () => {
         }]} />
       </MemoryRouter>,
     );
-    expect(screen.getByLabelText("Wallet balance")).toBeInTheDocument();
-    expect(screen.getByText("Available ₹13,000")).toBeInTheDocument();
-    expect(screen.getByText("Balance at the time of this reply.")).toBeInTheDocument();
+    const result = screen.getByRole("region", { name: "Wallet balance" });
+    expect(result).toHaveTextContent("Balance at the time of this reply.");
+    expect(within(result).getByText("Available: ₹13,000")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Results")).not.toBeInTheDocument();
     expect(screen.queryByText(/No balance snapshot/)).not.toBeInTheDocument();
     expect(screen.getByText(/₹1,000/)).toBeInTheDocument();
+  });
+
+  it.each([
+    walletSummary,
+    "Your wallet has ₹20,000 in total, with ₹7,000 allocated and ₹13,000 remaining.",
+    "Total balance: INR 20,000.00; allocated amount: Rs. 7,000; available balance: ₹13000.",
+  ])("omits the inline wallet summary when the reply repeats each figure: %s", (text) => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[walletSnapshot]} assistantReply={{ text }} /></MemoryRouter>);
+    expect(screen.queryByLabelText("Wallet balance")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Results")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["one amount is missing", "Total balance: ₹20,000; available: ₹13,000."],
+    ["amounts are swapped", "Total balance: ₹20,000; allocated: ₹13,000; available: ₹7,000."],
+    ["an amount conflicts", `${walletSummary} Available: ₹12,000.`],
+    ["the amounts are unlabelled", "₹20,000, ₹7,000 and ₹13,000."],
+    ["the amounts are in example code", `\`\`\`text\n${walletSummary}\n\`\`\``],
+  ])("shows the authoritative figures inline when %s", (_label, text) => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[walletSnapshot]} assistantReply={{ text }} /></MemoryRouter>);
+    expect(screen.getByLabelText("Wallet balance")).toBeInTheDocument();
+  });
+
+  it.each<Partial<CopilotWalletBalanceArtifact>>([
+    { wallet: { ...walletSnapshot.wallet, fundingPending: true } },
+    { departments: [{ name: "Marketing", allocatedAmount: 7000, remainingAmount: 7000 }] },
+    { reconciliation: { ok: false, warning: "Review the wallet allocation discrepancy." } },
+    { reconciliation: { ok: true, note: "Allocated reflects outstanding amounts." } },
+  ])("shows additional snapshot details without repeating the balances: %j", (details) => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[{ ...walletSnapshot, ...details }]} assistantReply={{ text: walletSummary }} /></MemoryRouter>);
+    const reply = screen.getByRole("region", { name: "Wallet balance" });
+    expect(reply).not.toHaveTextContent(/Total balance|Available:/);
+    expect(reply).toHaveTextContent(details.wallet ? "Funding request pending approval."
+      : details.departments ? "Marketing" : details.reconciliation?.warning || details.reconciliation?.note || "");
+  });
+
+  it("shows separate inline snapshots for multiple wallets after the reply finishes streaming", () => {
+    const artifacts = [walletSnapshot, { ...walletSnapshot, wallet: { ...walletSnapshot.wallet, id: "w2", name: "Second wallet" } }];
+    const { rerender } = render(<MemoryRouter><CopilotArtifacts artifacts={artifacts} assistantReply={{ text: "", streaming: true }} /></MemoryRouter>);
+    expect(screen.queryByLabelText("Wallet balance")).not.toBeInTheDocument();
+    rerender(<MemoryRouter><CopilotArtifacts artifacts={artifacts} assistantReply={{ text: walletSummary }} /></MemoryRouter>);
+    expect(screen.getAllByLabelText("Wallet balance")).toHaveLength(2);
   });
 
   it("does not turn missing saved department budget data into an available zero balance", () => {
@@ -277,15 +328,28 @@ describe("Copilot product/kit cards", () => {
             {
               kind: "department_budgets",
               departments: [
-                { name: "Marketing", allocatedAmount: 5000, remainingAmount: 4500 },
+                { name: "Marketing", allocatedAmount: 5000, spentAmount: 500, remainingAmount: 4500 },
               ],
             },
           ]}
         />
       </MemoryRouter>,
     );
-    expect(screen.getByLabelText("Department budgets")).toBeInTheDocument();
-    expect(screen.getByText("Available ₹4,500")).toBeInTheDocument();
+    const result = screen.getByRole("region", { name: "Department budgets" });
+    expect(result).toHaveTextContent("Available ₹4,500");
+    expect(within(result).getByRole("listitem")).toHaveTextContent("Marketing · Allocated ₹5,000 · Spent ₹500 · Remaining ₹4,500");
+    expect(screen.queryByLabelText("Results")).not.toBeInTheDocument();
     expect(screen.queryByText("Total balance")).toBeNull();
+  });
+
+  it("shows departments not already present in the wallet snapshot", () => {
+    const marketing = { entityId: "m1", name: "Marketing", allocatedAmount: 1000, remainingAmount: 500 };
+    const sales = { entityId: "s1", name: "Sales", allocatedAmount: 800, remainingAmount: 600 };
+    render(<MemoryRouter><CopilotArtifacts artifacts={[
+      { ...walletSnapshot, departments: [marketing] },
+      { kind: "department_budgets", departments: [marketing, sales] },
+    ]} /></MemoryRouter>);
+    expect(screen.getAllByText("Marketing")).toHaveLength(1);
+    expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 });
