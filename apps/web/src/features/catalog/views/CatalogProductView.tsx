@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useCatalogProductHead } from "@/seo/useCatalogProductHead";
 import { LoadingState } from "@/components/LoadingState";
 import type { CatalogProductVm } from "../controllers/useCatalogProductController";
+import { catalogHomePath } from "../catalogPaths";
 import { ProductDetail } from "./ProductDetail";
 import { ProductCard } from "./ProductCard";
 import "./catalog-product-detail.css";
@@ -12,7 +13,7 @@ import "./catalog-product-detail.css";
 export function CatalogProductView(vm: CatalogProductVm) {
   const location = useLocation();
   const { pathname } = location;
-  const catalogHome = pathname.startsWith("/apps/catalog") ? "/apps/catalog" : "/app/catalog";
+  const catalogHome = catalogHomePath(pathname);
   const catalogProduct = /^\/(?:apps|app)\/catalog\/(?!category(?:\/|$))[^/]+/.test(pathname);
   const headMode = pathname.startsWith("/apps/catalog/") && catalogProduct
     ? "public"

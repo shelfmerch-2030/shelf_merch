@@ -2,6 +2,7 @@
 import { connectDb } from '../config/db.js';
 import { logger } from '../config/logger.js';
 import { startCsvImportWorker } from './csvImport.worker.js';
+import { startShopifyImportWorker } from './shopifyImport.worker.js';
 import { startNotificationWorker } from './notification.worker.js';
 import { startAnalyticsWorker } from './analytics.worker.js';
 import { startScheduledCampaignWorker } from './scheduledCampaign.worker.js';
@@ -12,6 +13,7 @@ async function main() {
   await connectDb();
   const workers = [
     startCsvImportWorker(),
+    startShopifyImportWorker(),
     startNotificationWorker(),
     await startAnalyticsWorker(),
     await startScheduledCampaignWorker(),
@@ -19,7 +21,7 @@ async function main() {
     await startSeoGrowthWorker(),
   ];
   logger.info(
-    'Background workers running (csv-import, notifications, analytics, scheduled-campaigns, merge-hris-sync, seo-growth)',
+    'Background workers running (csv-import, shopify-import, notifications, analytics, scheduled-campaigns, merge-hris-sync, seo-growth)',
   );
 
   const shutdown = async () => {

@@ -63,7 +63,7 @@ function Page() {
 }
 
 function open(path = "/apps/catalog/category/apparel") {
-  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/apps/catalog/category/:category" element={<Page />} /><Route path="/app/catalog/category/:category" element={<Page />} /></Routes></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/:slug/catalog/category/:category" element={<Page />} /></Routes></MemoryRouter>);
 }
 afterEach(cleanup);
 
@@ -84,7 +84,7 @@ describe("category shopping flow", () => {
     expect(kitsLinks).toHaveLength(2);
     for (const link of kitsLinks) expect(link.getAttribute("href")).toBe(`${home}/category/kits`);
   });
-  it.each(["/app/catalog", "/apps/catalog"])("opens every product from the All Products tile under %s", (home) => {
+  it.each(["/app/catalog", "/apps/catalog", "/husain/catalog", "/dashboard/catalog"])("opens every product from the All Products tile under %s", (home) => {
     render(<MemoryRouter initialEntries={[`${home}/browse`]}><Routes>
       <Route path={`${home}/browse`} element={<Page />} />
       <Route path={`${home}/category/:category`} element={<Page />} />
@@ -97,7 +97,7 @@ describe("category shopping flow", () => {
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Classic Tee" } });
     expect(within(listing).getByRole("status").textContent).toBe("1 product");
   });
-  it.each(["/app/catalog", "/apps/catalog"])("supports Electronics groups, featured products and both category slugs under %s", (home) => {
+  it.each(["/app/catalog", "/apps/catalog", "/husain/catalog", "/dashboard/catalog"])("supports Electronics groups, featured products and both category slugs under %s", (home) => {
     open(`${home}/category/electronics-gadgets`);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Electronics & Gadgets");
     const featured = screen.getByRole("region", { name: "The latest in Electronics & Gadgets" });

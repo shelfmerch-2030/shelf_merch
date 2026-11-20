@@ -4,11 +4,9 @@ import {
   type KitRedemptionData,
   type KitRedemptionItem,
 } from "@/services/api-bridge";
-import { DesignedProductThumb } from "@/features/swag/DesignedProductThumb";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { normalizeVariantImages, variantLabel } from "@/lib/kitVariantImages";
 import { productVariantSwatches } from "@/lib/variantColors";
-import { mapPlacement, type UiProduct } from "@/services/mappers";
 import {
   EMPTY_KIT_REDEEM_ADDRESS,
   KitRedeemAddressForm,
@@ -18,37 +16,18 @@ import type { ShippingAddress } from "./store/StoreShell";
 
 type Selection = { size?: string; color?: string };
 
-function kitItemAsProduct(item: KitRedemptionItem): UiProduct {
-  const photo =
+/** Use the saved mockup or a clean product image without adding kit artwork. */
+function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
+  const src =
+    resolveMediaUrl(item.mockupUrl) ||
+    resolveMediaUrl(item.baseImageUrl) ||
     resolveMediaUrl(item.primaryImageUrl) ||
     resolveMediaUrl(item.imageUrls?.[0]) ||
-    "";
-  const base = resolveMediaUrl(item.baseImageUrl) || "";
-  return {
-    id: item.productId,
-    g: item.group || "tee",
-    brand: item.brand,
-    nm: item.name,
-    sw: 4,
-    photoUrl: photo,
-    baseImageUrl: base,
-    // Mask PNGs include "YOUR DESIGN HERE" placeholders — use clean base/photo only.
-    maskImageUrl: undefined,
-    imgUrl: base || photo,
-    mockupUrl: item.mockupUrl,
-    placement: mapPlacement(item.placement),
-    printAreas: item.printAreas,
-    imageUrls: item.imageUrls,
-  };
-}
-
-/** Redeem preview: baked mockup when available, else logo on clean product photo. */
-function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
-  const baked = resolveMediaUrl(item.mockupUrl || "");
-  if (baked) {
+    resolveMediaUrl(item.imageUrl);
+  if (src) {
     return (
       <img
-        src={baked}
+        src={src}
         alt={item.name}
         loading="lazy"
         style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
@@ -57,11 +36,11 @@ function KitRedeemProductImage({ item }: { item: KitRedemptionItem }) {
   }
 
   return (
-    <DesignedProductThumb
-      product={kitItemAsProduct(item)}
-      artworkUrl={item.artworkUrl || undefined}
-      frontOnly
-    />
+    <div style={{ display: "grid", placeItems: "center", height: "100%" }}>
+      <span className="mut3" style={{ fontSize: 12 }}>
+        No image
+      </span>
+    </div>
   );
 }
 

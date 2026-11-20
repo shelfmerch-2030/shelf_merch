@@ -13,7 +13,7 @@ import { PRODUCT_STATUSES, INVENTORY_MODES, CUSTOMIZATION_METHODS } from './cata
 import { INVENTORY_TXN_TYPES } from './inventoryTransaction.model.js';
 import * as catalogService from './platformCatalog.service.js';
 import * as inventoryService from './inventory.service.js';
-import { importFromShopify } from './shopifyImport.service.js';
+import { createShopifyImportRouter } from './shopifyImport.routes.js';
 import { moveProductToKit } from './kindMove.service.js';
 
 const upload = uploader({ allow: IMAGE_TYPES, maxSizeMb: 25, files: 8 });
@@ -234,33 +234,10 @@ platformProductsRouter.patch(
   }),
 );
 
-platformProductsRouter.post(
+platformProductsRouter.use(
   '/import/shopify',
-  catalogWrite,
-  validate({
-    body: z.object({
-      domain: z.string().min(1),
-      accessToken: z.string().min(1),
-    }),
-  }),
-  asyncHandler(async (req, res) => {
-    // Catalog import brings in catalog products only — kit bundles are imported
-    // separately from the Kits page so the two stay sorted apart.
-    const summary = await importFromShopify({ domain: req.body.domain, token: req.body.accessToken, only: 'products' });
-    // Audit the import — never the access token.
-    writeAudit({
-      req,
-      action: 'catalog.import.shopify',
-      entityType: 'CatalogProduct',
-      after: {
-        domain: summary.domain,
-        imported: summary.imported,
-        updated: summary.updated,
-        skipped: summary.skipped,
-        failed: summary.failed,
-      },
-    });
-    res.json(summary);
+  createShopifyImportRouter({
+    kind: 'products', area: 'catalog', action: 'catalog.import.shopify', entityType: 'CatalogProduct',
   }),
 );
 

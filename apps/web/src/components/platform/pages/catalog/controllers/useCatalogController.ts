@@ -3,6 +3,7 @@ import { getStoredUser } from "@/services/auth-store";
 import { canAccessArea } from "@/services/platform-access";
 import { moveProductToKit } from "@/services/platform-api";
 import { usePlatformProducts } from "../model";
+import { downloadCatalogCsv } from "../catalogCsv";
 
 export type CatalogStatusFilter = "all" | "draft" | "active" | "archived" | "discontinued";
 export type CatalogSort =
@@ -37,6 +38,8 @@ export type CatalogVm = ReturnType<typeof usePlatformProducts> & {
   movingId: string | null;
   moveError: string;
   onAddToKits: (productId: string) => Promise<void>;
+  exportError: string;
+  onExport: () => void;
 };
 
 function stockOf(row: CatalogRow) {
@@ -87,6 +90,7 @@ export function useCatalogController(): CatalogVm {
   const [sort, setSort] = useState<CatalogSort>("newest");
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const rows = load.data
     ? applyCatalogQuery(load.data.items as CatalogRow[], search, statusFilter, sort)
@@ -105,6 +109,19 @@ export function useCatalogController(): CatalogVm {
     }
   }
 
+  function onExport() {
+    if (load.loading || load.error || !load.data?.items.length) return;
+    setExportError("");
+    try {
+      if (load.data.items.length < load.data.total) {
+        throw new Error("The full catalog could not be loaded. Reload the page before exporting.");
+      }
+      downloadCatalogCsv(load.data.items);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Failed to export catalog");
+    }
+  }
+
   return {
     ...load,
     canWrite,
@@ -118,5 +135,7 @@ export function useCatalogController(): CatalogVm {
     movingId,
     moveError,
     onAddToKits,
+    exportError,
+    onExport,
   };
 }

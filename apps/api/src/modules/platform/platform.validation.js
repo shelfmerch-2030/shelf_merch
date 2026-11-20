@@ -3,8 +3,10 @@ import { objectId } from '../users/users.validation.js';
 import { ORDER_STATUSES } from '../orders/order.model.js';
 import { PRODUCTION_TASK_STATUSES } from './productionTask.model.js';
 import { PLATFORM_ROLES } from '../roles/roleAssignment.model.js';
+import { QC_STATUSES } from './productionQc.service.js';
 
 export const listPlatformOrdersQuery = z.object({
+  qcStatus: z.enum(QC_STATUSES).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),
   status: z.enum(ORDER_STATUSES).optional(),
@@ -44,6 +46,7 @@ export const createProductionTaskSchema = z.object({
 });
 
 export const listProductionTasksQuery = z.object({
+  qcStatus: z.enum(QC_STATUSES).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),
   status: z.enum(PRODUCTION_TASK_STATUSES).optional(),
@@ -56,10 +59,29 @@ export const updateTaskStatusSchema = z.object({
   note: z.string().optional().default(''),
 });
 
+const qcPhotoUrl = z.string().trim().min(1).max(2000).refine((value) => {
+  if (value.startsWith('/uploads/') && !value.includes('..') && !value.includes('\\')) return true;
+  try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }
+}, 'Use an uploaded photo URL');
+
 export const qcSchema = z.object({
   passed: z.boolean(),
-  reason: z.string().optional().default(''),
-  photoUrl: z.string().optional().default(''),
+  reason: z.string().trim().max(2000).optional().default(''),
+  notes: z.string().trim().max(4000).optional().default(''),
+  inspectedQuantity: z.number().int().positive(),
+  failedQuantity: z.number().int().nonnegative(),
+  checks: z.object({
+    product: z.boolean(), artwork: z.boolean(), workmanship: z.boolean(),
+    quantity: z.boolean(), contents: z.boolean(),
+  }),
+  photoUrls: z.array(qcPhotoUrl).min(1).max(20),
+}).superRefine((value, ctx) => {
+  if (!value.passed && !value.reason) ctx.addIssue({ code: 'custom', path: ['reason'], message: 'QC failure requires a reason' });
+  if (value.failedQuantity > value.inspectedQuantity) ctx.addIssue({ code: 'custom', path: ['failedQuantity'], message: 'Failed quantity cannot exceed inspected quantity' });
+  if (value.passed && (value.failedQuantity !== 0 || Object.values(value.checks).some((checked) => !checked))) {
+    ctx.addIssue({ code: 'custom', message: 'Passing QC requires all checks and zero failed units' });
+  }
+  if (!value.passed && value.failedQuantity === 0) ctx.addIssue({ code: 'custom', path: ['failedQuantity'], message: 'Enter the number of failed units' });
 });
 
 export const updateTaskSchema = z.object({
@@ -67,7 +89,7 @@ export const updateTaskSchema = z.object({
   expectedDispatchAt: z.coerce.date().optional().nullable(),
   mockupUrl: z.string().optional(),
   productionSheetUrl: z.string().optional(),
-  qcPhotoUrl: z.string().optional(),
+  qcPhotoUrl: qcPhotoUrl.optional(),
   note: z.string().optional(),
 });
 

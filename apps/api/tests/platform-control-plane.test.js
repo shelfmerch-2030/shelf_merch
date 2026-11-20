@@ -11,6 +11,7 @@ import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { Order } from '../src/modules/orders/order.model.js';
+import { ProductionTask } from '../src/modules/platform/productionTask.model.js';
 import { Collection } from '../src/modules/collections/collection.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Vendor } from '../src/modules/vendors/vendor.model.js';
@@ -266,8 +267,42 @@ describe('platform order detail fulfillment assets', () => {
   });
 });
 
+describe('production without order mockup review', () => {
+  it.each(['approved', 'mockup_pending'])('starts production from %s without mockup approval', async (status) => {
+    await Order.updateOne({ _id: order._id, tenantId: tenant._id }, { $set: { status } });
+    const res = await request(app)
+      .post('/api/v1/platform/production/tasks')
+      .set('Authorization', `Bearer ${productionManagerToken}`)
+      .send({ orderId: order._id });
+    expect(res.status).toBe(201);
+    expect(String(res.body.orderId)).toBe(String(order._id));
+    const updated = await Order.findOne({ _id: order._id, tenantId: tenant._id });
+    expect(updated.status).toBe('in_production');
+    expect(updated.mockupUrl).toBeFalsy();
+    expect(updated.statusHistory.map((entry) => entry.status)).toEqual(['in_production']);
+
+    const duplicate = await request(app)
+      .post('/api/v1/platform/production/tasks')
+      .set('Authorization', `Bearer ${productionManagerToken}`)
+      .send({ orderId: order._id });
+    expect(duplicate.status).toBe(409);
+  });
+
+  it.each(['created', 'cancelled'])('rejects production from %s', async (status) => {
+    await Order.updateOne({ _id: order._id, tenantId: tenant._id }, { $set: { status } });
+    const res = await request(app)
+      .post('/api/v1/platform/production/tasks')
+      .set('Authorization', `Bearer ${productionManagerToken}`)
+      .send({ orderId: order._id });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('ORDER_NOT_READY');
+    expect(await ProductionTask.countDocuments({ orderId: order._id })).toBe(0);
+  });
+});
+
 describe('shipment delivery advances order', () => {
   it('transitions order to delivered when shipment is delivered', async () => {
+    await ProductionTask.create({ tenantId: tenant._id, orderId: order._id, status: 'ready_to_ship', qcResult: 'passed' });
     const shipment = await Shipment.create({
       tenantId: tenant._id,
       orderId: order._id,

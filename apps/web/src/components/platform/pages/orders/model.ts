@@ -22,7 +22,12 @@ export {
 export function usePlatformOrders() {
   const [searchParams] = useSearchParams();
   const tenantId = searchParams.get("tenantId") || undefined;
-  return useLoad(() => fetchPlatformOrders({ limit: 100, tenantId }), [tenantId]);
+  const qcStatus = searchParams.get("qcStatus") || undefined;
+  const result = useLoad(
+    () => fetchPlatformOrders({ limit: 100, tenantId, qcStatus }),
+    [tenantId, qcStatus],
+  );
+  return { ...result, qcFilter: qcStatus ?? "" };
 }
 
 /** Single platform order; bump `reloadKey` to refetch after a mutation. */

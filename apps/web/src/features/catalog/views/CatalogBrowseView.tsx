@@ -2,17 +2,13 @@ import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import type { CatalogVm } from "../controllers/useCatalogController";
+import { catalogHomePath } from "../catalogPaths";
 import { browseCatalogEntries, buildCatalogOverviewTiles } from "./catalog-navigation";
 import {
   catalogCategorySlug,
   type CatalogCategoryChild,
 } from "../types";
 import "./catalog-view.css";
-export function catalogHomePath(pathname: string) {
-  const match = pathname.match(/^(.*\/catalog)(?:\/|$)/);
-  return match?.[1] ?? "/app/catalog";
-}
-
 function CategoryBranch({
   name,
   children,

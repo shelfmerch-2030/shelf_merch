@@ -4,7 +4,9 @@ import { Recipient } from '../campaigns/recipient.model.js';
 import { transitionState, canTransition } from '../../services/stateMachine.service.js';
 import { sendNotificationEmail } from '../../services/email.service.js';
 import { ApiError, ConflictError, NotFoundError } from '../../utils/errors.js';
+import { createDelhiveryShipment, delhiveryTrackingUrl } from '../../services/delhivery.service.js';
 import { getPagination, paginatedResponse } from '../../utils/pagination.js';
+import { assertOrderShippable } from '../platform/productionQc.service.js';
 import { scheduleOrderDispatchedSlackNotification, scheduleDeliveryFailedIfNeeded } from '../integrations/slack/slackNotify.service.js';
 
 function buildFilter(query) {
@@ -52,6 +54,8 @@ export async function getShipment(shipmentId) {
 export async function createShipment({ orderId, courier, awb, trackingUrl = '', eta = null, actor }) {
   const order = await Order.findById(orderId).setOptions({ skipTenantGuard: true });
   if (!order) throw new NotFoundError('Order not found');
+  if (order.status !== 'packed') throw new ApiError(422, 'The order must be packed before requesting shipment.', 'ORDER_NOT_SHIPPABLE');
+  await assertOrderShippable(order);
 
   const existing = await Shipment.findOne({ orderId: order._id, tenantId: order.tenantId });
   if (existing) throw new ConflictError('A shipment already exists for this order');
@@ -69,6 +73,52 @@ export async function createShipment({ orderId, courier, awb, trackingUrl = '', 
   });
 
   order.trackingNumber = awb;
+  await order.save();
+
+  return shipment;
+}
+
+const DELHIVERY_BLOCKED_ORDER_STATUSES = ['cancelled', 'shipped', 'delivered'];
+
+/**
+ * Manifest the order on Delhivery One (so it shows on the Delhivery dashboard)
+ * and record the returned AWB as this order's shipment.
+ */
+export async function requestDelhiveryShipment({ orderId, taskId, actor }) {
+  const order = await Order.findById(orderId).setOptions({ skipTenantGuard: true });
+  if (!order) throw new NotFoundError('Order not found');
+  if (DELHIVERY_BLOCKED_ORDER_STATUSES.includes(order.status)) {
+    throw new ApiError(422, `Cannot request a shipment for a ${order.status} order`, 'ORDER_NOT_SHIPPABLE');
+  }
+  const task = await assertOrderShippable(order);
+  if (taskId && String(task._id) !== String(taskId)) throw new ApiError(422, 'Request shipment from the current production task.', 'STALE_TASK');
+
+  const existing = await Shipment.findOne({ orderId: order._id, tenantId: order.tenantId });
+  if (existing) {
+    throw new ConflictError(
+      existing.awb
+        ? `A shipment already exists for this order (AWB ${existing.awb})`
+        : 'A shipment already exists for this order',
+    );
+  }
+
+  const { waybill } = await createDelhiveryShipment(order);
+
+  const shipment = await Shipment.create({
+    tenantId: order.tenantId,
+    orderId: order._id,
+    courier: 'Delhivery',
+    provider: 'delhivery',
+    awb: waybill,
+    trackingUrl: delhiveryTrackingUrl(waybill),
+    status: 'pending',
+    statusHistory: [
+      { status: 'pending', at: new Date(), actorUserId: actor?.userId ?? null, note: 'Shipment requested on Delhivery' },
+    ],
+    events: [{ status: 'pending', note: `Manifested on Delhivery, AWB ${waybill}`, at: new Date() }],
+  });
+
+  order.trackingNumber = waybill;
   await order.save();
 
   return shipment;
@@ -156,6 +206,11 @@ async function syncOrderWithShipment(shipment, status, actor) {
 
 export async function addShipmentEvent({ shipmentId, status, location, note, at, actor }) {
   const shipment = await getShipment(shipmentId);
+  if (['shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(status)) {
+    const order = await Order.findOne({ _id: shipment.orderId, tenantId: shipment.tenantId });
+    if (!order) throw new NotFoundError('Order not found');
+    await assertOrderShippable(order);
+  }
   const eventAt = at ?? new Date();
   const priorStatus = shipment.status;
 

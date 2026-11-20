@@ -3,7 +3,7 @@
  * catalog → inventory → tenant governance → order ops → production → shipment
  * → finance → support → team → settings → audit, with role-matrix guards.
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { createApp } from '../src/app.js';
@@ -16,6 +16,8 @@ import { Campaign } from '../src/modules/campaigns/campaign.model.js';
 import { Entity } from '../src/modules/entities/entity.model.js';
 import { Recipient } from '../src/modules/campaigns/recipient.model.js';
 import { Order } from '../src/modules/orders/order.model.js';
+import { ProductionTask } from '../src/modules/platform/productionTask.model.js';
+import { Shipment } from '../src/modules/shipments/shipment.model.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { Invoice } from '../src/modules/invoices/invoice.model.js';
 import { signAccessToken, hashPassword } from '../src/modules/auth/auth.service.js';
@@ -28,6 +30,17 @@ let tenant;
 let wallet;
 let adminToken;
 let tokens; // per platform role
+
+vi.mock('../src/services/storage.service.js', async (importOriginal) => ({
+  ...await importOriginal(),
+  uploadFile: vi.fn(async () => ({ url: '/uploads/qc/test.png', key: 'qc/test.png', driver: 'local' })),
+}));
+
+const inspection = (overrides = {}) => ({
+  passed: true, inspectedQuantity: 2, failedQuantity: 0,
+  checks: { product: true, artwork: true, workmanship: true, quantity: true, contents: true },
+  photoUrls: ['/uploads/qc/test.png'], ...overrides,
+});
 
 async function makeUser(tenantDoc, role, scopeType, extra = {}) {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.io`;
@@ -398,17 +411,21 @@ describe('orders → production → shipment loop (§3.5–§3.7)', () => {
     }
     expect((await Order.findOne({ _id: order._id, tenantId: tenant._id })).status).toBe('qc_pending');
 
-    // QC fail loops with a reason; QC pass packs the order
+    // QC fail loops with a reason; QC pass authorizes packing separately.
+    await request(app).post(`/api/v1/platform/production/tasks/${taskId}/qc-photos`)
+      .set(auth(tokens.platform_production_manager))
+      .attach('image', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'), { filename: 'qc.png', contentType: 'image/png' })
+      .expect(201);
     const fail = await request(app)
       .post(`/api/v1/platform/production/tasks/${taskId}/qc`)
       .set(auth(tokens.platform_production_manager))
       .send({ passed: false });
-    expect(fail.status).toBe(422); // reason required
+    expect(fail.status).toBe(400); // required inspection fields
 
     await request(app)
       .post(`/api/v1/platform/production/tasks/${taskId}/qc`)
       .set(auth(tokens.platform_production_manager))
-      .send({ passed: false, reason: 'Print misaligned' })
+      .send(inspection({ passed: false, failedQuantity: 1, reason: 'Print misaligned' }))
       .expect(200);
     await request(app)
       .patch(`/api/v1/platform/production/tasks/${taskId}/status`)
@@ -418,9 +435,15 @@ describe('orders → production → shipment loop (§3.5–§3.7)', () => {
     const pass = await request(app)
       .post(`/api/v1/platform/production/tasks/${taskId}/qc`)
       .set(auth(tokens.platform_production_manager))
-      .send({ passed: true, photoUrl: '/uploads/qc/1.png' });
+      .send(inspection());
     expect(pass.status).toBe(200);
     expect(pass.body.status).toBe('packing');
+    expect(pass.body.qcInspections).toHaveLength(2);
+    expect(pass.body.qcInspections[0].reason).toBe('Print misaligned');
+    expect(pass.body.qcInspections[1].inspectorName).toBe('platform_production_manager user');
+    expect((await Order.findOne({ _id: order._id, tenantId: tenant._id })).status).toBe('qc_pending');
+    await request(app).patch(`/api/v1/platform/production/tasks/${taskId}/status`)
+      .set(auth(tokens.platform_production_manager)).send({ status: 'ready_to_ship' }).expect(200);
     expect((await Order.findOne({ _id: order._id, tenantId: tenant._id })).status).toBe('packed');
 
     // logistics: AWB + tracking events drive the order to delivered
@@ -442,6 +465,95 @@ describe('orders → production → shipment loop (§3.5–§3.7)', () => {
     expect(final.trackingNumber).toBe('AWB-001');
   });
 
+  async function pendingQc() {
+    const order = await makeOrder({ status: 'qc_pending' });
+    const task = await ProductionTask.create({ orderId: order._id, tenantId: tenant._id,
+      status: 'qc_pending', qcPhotos: [{ url: '/uploads/qc/test.png' }] });
+    return { order, task, endpoint: `/api/v1/platform/production/tasks/${task._id}` };
+  }
+
+  it('blocks status and shipment bypasses before QC and packing', async () => {
+    const { order, task, endpoint } = await pendingQc();
+    const ops = auth(tokens.platform_ops_admin);
+    for (const status of ['packing', 'in_production', 'ready_to_ship']) {
+      await request(app).patch(`${endpoint}/status`).set(ops).send({ status }).expect(422);
+    }
+    await request(app).patch(`/api/v1/platform/orders/${order._id}/status`).set(ops).send({ status: 'packed' }).expect(422);
+    await request(app).post(`${endpoint}/delhivery-shipment`).set(ops).expect(422);
+    await request(app).post('/api/v1/platform/shipments').set(ops)
+      .send({ orderId: String(order._id), courier: 'Delhivery', awb: 'EARLY' }).expect(422);
+    await request(app).post(`${endpoint}/qc`).set(ops).send(inspection()).expect(200);
+    await request(app).patch(`/api/v1/platform/orders/${order._id}/status`).set(ops).send({ status: 'packed' }).expect(422);
+    await request(app).post(`${endpoint}/delhivery-shipment`).set(ops).expect(422);
+    // A pre-existing/manual shipment cannot bypass dispatch checks either.
+    const shipment = await Shipment.create({ orderId: order._id, tenantId: tenant._id, awb: 'OLD', courier: 'Test' });
+    await request(app).post(`/api/v1/platform/shipments/${shipment._id}/events`).set(ops).send({ status: 'shipped' }).expect(422);
+    expect((await ProductionTask.findById(task._id)).status).toBe('packing');
+    expect((await Shipment.findById(shipment._id).setOptions({ skipTenantGuard: true })).status).toBe('pending');
+    await request(app).patch(`${endpoint}/status`).set(ops).send({ status: 'ready_to_ship' }).expect(200);
+    await request(app).post(`/api/v1/platform/shipments/${shipment._id}/events`).set(ops).send({ status: 'shipped' }).expect(200);
+    await request(app).patch(`${endpoint}/status`).set(ops).send({ status: 'completed' }).expect(200);
+  });
+
+  it('requires complete inspection details and task-owned evidence', async () => {
+    const { task, endpoint } = await pendingQc();
+    const ops = auth(tokens.platform_ops_admin);
+    const invalid = [
+      [{ passed: true }, 400], [inspection({ photoUrls: [] }), 400], [inspection({ photoUrls: ['/uploads/other-task.png'] }), 422],
+      [inspection({ inspectedQuantity: 1 }), 422], [inspection({ inspectedQuantity: 3 }), 422],
+      [inspection({ failedQuantity: 1 }), 400], [inspection({ checks: { product: false, artwork: true, workmanship: true, quantity: true, contents: true } }), 400],
+      [inspection({ passed: false, reason: '   ', failedQuantity: 1 }), 400], [inspection({ passed: false, reason: 'Defect', failedQuantity: 0 }), 400],
+      [inspection({ passed: false, reason: 'Defect', failedQuantity: 3 }), 400],
+    ];
+    for (const [body, code] of invalid) await request(app).post(`${endpoint}/qc`).set(ops).send(body).expect(code);
+    expect((await ProductionTask.findById(task._id)).qcInspections).toHaveLength(0);
+    await request(app).post(`${endpoint}/qc`).set(auth(tokens.platform_readonly_auditor)).send(inspection()).expect(403);
+    await request(app).post(`${endpoint}/qc-photos`).set(auth(tokens.platform_readonly_auditor)).expect(403);
+    await request(app).post(`${endpoint}/qc-photos`).set(ops)
+      .attach('image', Buffer.from('<svg/>'), { filename: 'bad.svg', contentType: 'image/svg+xml' }).expect(415);
+  });
+
+  it('records one immutable inspection under simultaneous submissions', async () => {
+    const { task, endpoint } = await pendingQc();
+    const results = await Promise.all([1, 2].map(() => request(app).post(`${endpoint}/qc`)
+      .set(auth(tokens.platform_production_manager)).send(inspection())));
+    expect(results.map((result) => result.status).sort()).toEqual([200, 422]);
+    expect((await ProductionTask.findById(task._id)).qcInspections).toHaveLength(1);
+  });
+
+  it('shows rework and filters using the latest task, including orders without tasks', async () => {
+    const { order, endpoint } = await pendingQc();
+    const unstarted = await makeOrder();
+    const ops = auth(tokens.platform_ops_admin);
+    await request(app).post(`${endpoint}/qc`).set(ops).send(inspection({ passed: false, reason: 'Misaligned', failedQuantity: 1 })).expect(200);
+    const rework = await request(app).get('/api/v1/platform/orders?qcStatus=rework').set(ops).expect(200);
+    expect(rework.body.items.map((item) => item._id)).toEqual([String(order._id)]);
+    expect(rework.body.items[0].qcStatus).toBe('rework');
+    const notStarted = await request(app).get('/api/v1/platform/orders?qcStatus=not_started').set(ops).expect(200);
+    expect(notStarted.body.items.map((item) => item._id)).toEqual([String(unstarted._id)]);
+    const tasks = await request(app).get('/api/v1/platform/production/tasks?qcStatus=rework').set(ops).expect(200);
+    expect(tasks.body.items).toHaveLength(1);
+    expect(tasks.body.items[0].expectedQuantity).toBe(2);
+    await request(app).patch(`${endpoint}/status`).set(ops).send({ status: 'qc_pending' }).expect(200);
+    const pending = await request(app).get('/api/v1/platform/orders?qcStatus=pending').set(ops).expect(200);
+    expect(pending.body.items.map((item) => item._id)).toEqual([String(order._id)]);
+  });
+
+  it('rejects stale tasks and cancelled orders without recording QC or requesting courier pickup', async () => {
+    const { order, task, endpoint } = await pendingQc();
+    const ops = auth(tokens.platform_ops_admin);
+    await ProductionTask.create({ orderId: order._id, tenantId: tenant._id, status: 'created', createdAt: new Date(Date.now() + 1000) });
+    await request(app).post(`${endpoint}/qc`).set(ops).send(inspection()).expect(422);
+    await request(app).patch(`${endpoint}/status`).set(ops).send({ status: 'issue' }).expect(422);
+    await request(app).post(`${endpoint}/qc-photos`).set(ops).expect(422);
+    const pending = await request(app).get('/api/v1/platform/orders?qcStatus=pending').set(ops).expect(200);
+    expect(pending.body.items).toHaveLength(0);
+    await request(app).patch(`/api/v1/platform/orders/${order._id}/status`).set(ops).send({ status: 'cancelled' }).expect(200);
+    await request(app).post(`${endpoint}/qc`).set(ops).send(inspection()).expect(422);
+    await request(app).post(`${endpoint}/delhivery-shipment`).set(ops).expect(422);
+    expect((await ProductionTask.findById(task._id)).qcInspections).toHaveLength(0);
+  });
+
   it('creates a zero-charge replacement linked to the original', async () => {
     const order = await makeOrder({ status: 'delivered' });
     const res = await request(app)
@@ -458,6 +570,7 @@ describe('orders → production → shipment loop (§3.5–§3.7)', () => {
   it('imports AWBs in bulk from CSV', async () => {
     const o1 = await makeOrder({ status: 'packed' });
     const o2 = await makeOrder({ status: 'packed' });
+    for (const order of [o1, o2]) await ProductionTask.create({ orderId: order._id, tenantId: tenant._id, status: 'ready_to_ship', qcResult: 'passed' });
     const csv = `orderNumber,courier,awb\n${o1.orderNumber},Delhivery,AWB-100\n${o2.orderNumber},BlueDart,AWB-101\nSM-2026-999999,Delhivery,AWB-102`;
 
     const res = await request(app)

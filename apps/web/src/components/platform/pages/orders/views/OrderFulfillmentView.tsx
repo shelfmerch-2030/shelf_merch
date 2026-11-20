@@ -16,6 +16,8 @@ import {
   type OrderItem,
 } from "./fulfillment-parts";
 import { OrderFulfillmentActions } from "./OrderFulfillmentActions";
+import { qcLabel, type QcInspection } from "@/services/production-qc";
+import { QcInspectionHistory } from "../../production/views/QcInspectionHistory";
 
 function mediaAssetKey(url: string) {
   const resolved = resolveMediaUrl(url);
@@ -90,14 +92,7 @@ export function OrderFulfillmentView({
             actions={<StatusTag status={String(data.status)} />}
           />
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: canWrite ? "1fr 340px" : "1fr",
-              gap: 24,
-              alignItems: "start",
-            }}
-          >
+          <div className={`order-fulfillment-layout${canWrite ? " has-actions" : ""}`}>
             <div>
               <div className="card" style={{ padding: 20, marginBottom: 24 }}>
                 <div className="h1" style={{ fontSize: 16, marginBottom: 16 }}>
@@ -177,7 +172,6 @@ export function OrderFulfillmentView({
                   </>
                 )}
               </div>
-
               <div className="h1" style={{ fontSize: 16, marginBottom: 16 }}>
                 Production line items{" "}
                 <span className="muted" style={{ fontWeight: "var(--font-weight-regular)" }}>
@@ -341,7 +335,11 @@ export function OrderFulfillmentView({
               )}
             </div>
 
-            {canWrite && data && <OrderFulfillmentActions order={data} onChanged={reload} />}
+            {canWrite && data && <OrderFulfillmentActions key={String(data._id)} order={data} onChanged={reload} />}
+            {!canWrite && data && <div className="card" style={{ padding: 20 }}>
+              <h3>{qcLabel(data.qcStatus)}</h3>
+              <QcInspectionHistory inspections={(data.productionTask as { qcInspections?: QcInspection[] } | null)?.qcInspections ?? []} />
+            </div>}
           </div>
         </>
       )}

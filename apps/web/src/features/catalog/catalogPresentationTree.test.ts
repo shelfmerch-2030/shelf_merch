@@ -30,4 +30,9 @@ describe("flat public category presentation", () => {
     expect(buildCatalogPresentationTree([authored], flatProducts)[0]).toBe(authored);
     expect(buildCatalogPresentationTree(flatCategories, [])[3].children).toEqual([]);
   });
+
+  it("tolerates non-array category payloads instead of throwing", () => {
+    expect(buildCatalogPresentationTree({} as never, flatProducts)).toEqual([]);
+    expect(buildCatalogPresentationTree("html" as never, flatProducts)).toEqual([]);
+  });
 });

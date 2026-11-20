@@ -3,7 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import type { UiProduct } from "../model";
 import { productMatchesLevel, productPhotoUrl } from "../types";
-import { catalogHomePath } from "./CatalogBrowseView";
+import { catalogHomePath } from "../catalogPaths";
 import { ProductCard } from "./ProductCard";
 import "./featured-catalog-products.css";
 

@@ -9,6 +9,18 @@ import { InvalidTransitionError } from '../src/utils/errors.js';
 
 describe('stateMachine.service', () => {
   describe('order machine', () => {
+    it.each(['approved', 'mockup_pending'])('allows %s orders to skip mockup review', (status) => {
+      const order = { status, statusHistory: [] };
+      transitionState('order', order, 'in_production', { userId: 'ops' }, 'Production task created');
+      expect(order.status).toBe('in_production');
+      expect(order.statusHistory).toHaveLength(1);
+      expect(order.statusHistory[0].status).toBe('in_production');
+    });
+
+    it('still requires order approval before production', () => {
+      expect(canTransition('order', 'created', 'in_production')).toBe(false);
+    });
+
     it('allows the full happy path', () => {
       const path = [
         'approved', 'mockup_pending', 'mockup_approved', 'in_production',

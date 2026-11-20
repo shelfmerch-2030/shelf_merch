@@ -61,7 +61,7 @@ export function ShopifyImportView({
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
             Paste the Admin API access token (<code>shpat_…</code>), never the client secret (<code>shpss_…</code>)
             or client ID. The custom app needs <code>read_products</code> (and <code>read_inventory</code> for HSN).
-            Used once for this import and never stored.{" "}
+            Used only for this import.{" "}
             {kits
               ? "Only kit bundles are imported, as curated active kits."
               : "Only active Shopify products are pulled, and they land as drafts. HSN is copied from Shopify inventory items when set; still set cost and GST before publishing."}
@@ -74,6 +74,7 @@ export function ShopifyImportView({
 
       {summary && (
         <div className="card" style={{ padding: 22, maxWidth: 720, marginTop: 18 }}>
+          {busy && <p className="muted" role="status">Importing… Results update as each item finishes.</p>}
           <div className="row" style={{ gap: 24, marginBottom: 14 }}>
             <div>
               <div className="muted" style={{ fontSize: 12 }}>
@@ -110,21 +111,11 @@ export function ShopifyImportView({
           </div>
 
           <div className="row" style={{ gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-            {kits ? (
-              <ImportGroup
-                label="Kit bundles"
-                hint="→ Kits"
-                b={summary.kits}
-                items={summary.items.filter((i) => i.kind === "kit" && i.status !== "failed")}
-              />
-            ) : (
-              <ImportGroup
-                label="Catalog products"
-                hint="→ Catalog"
-                b={summary.products}
-                items={summary.items.filter((i) => i.kind !== "kit" && i.status !== "failed")}
-              />
-            )}
+            <ImportGroup
+              label={kits ? "Kit bundles" : "Catalog products"}
+              hint={kits ? "→ Kits" : "→ Catalog"}
+              items={summary.items}
+            />
           </div>
 
           {kits && summary.kits && summary.kits.imported + summary.kits.updated > 0 && (
@@ -133,19 +124,8 @@ export function ShopifyImportView({
             </p>
           )}
 
-          {summary.failed > 0 && (
-            <ul style={{ color: "var(--danger)", fontSize: 13, paddingLeft: 18 }}>
-              {summary.items
-                .filter((i) => i.status === "failed")
-                .map((i, n) => (
-                  <li key={n}>
-                    {i.title}: {i.reason}
-                  </li>
-                ))}
-            </ul>
-          )}
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button type="button" className="btn btn-soft btn-sm" onClick={onViewResults}>
+            <button type="button" className="btn btn-soft btn-sm" disabled={busy} onClick={onViewResults}>
               {kits ? "View kits" : "View catalog"}
             </button>
           </div>

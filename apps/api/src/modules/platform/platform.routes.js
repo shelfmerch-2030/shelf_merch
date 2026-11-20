@@ -5,6 +5,7 @@ import { resolveTenant, blockDuringImpersonation } from '../../middleware/tenant
 import { platformArea } from '../../middleware/platformAccess.middleware.js';
 import { validate } from '../../middleware/validate.middleware.js';
 import { ForbiddenError } from '../../utils/errors.js';
+import { uploader, IMAGE_TYPES } from '../../middleware/upload.middleware.js';
 import * as controller from './platform.controller.js';
 import {
   listPlatformOrdersQuery,
@@ -102,11 +103,21 @@ platformProductionRouter.post(
   validate({ body: createProductionTaskSchema }),
   asyncHandler(controller.createProductionTask),
 );
+platformProductionRouter.get(
+  '/tasks/:id', productionRead, validate({ params: orderIdParam }), asyncHandler(controller.getProductionTask),
+);
 platformProductionRouter.patch(
   '/tasks/:id/status',
   productionWrite,
   validate({ params: orderIdParam, body: updateTaskStatusSchema }),
   asyncHandler(controller.updateProductionTaskStatus),
+);
+platformProductionRouter.post(
+  '/tasks/:id/qc-photos',
+  productionWrite,
+  validate({ params: orderIdParam }),
+  uploader({ allow: IMAGE_TYPES, maxSizeMb: 5 }).single('image'),
+  asyncHandler(controller.uploadQcPhoto),
 );
 platformProductionRouter.post(
   '/tasks/:id/qc',
@@ -119,6 +130,12 @@ platformProductionRouter.patch(
   productionWrite,
   validate({ params: orderIdParam, body: updateTaskSchema }),
   asyncHandler(controller.updateProductionTask),
+);
+platformProductionRouter.post(
+  '/tasks/:id/delhivery-shipment',
+  productionWrite,
+  validate({ params: orderIdParam }),
+  asyncHandler(controller.requestDelhiveryShipment),
 );
 
 // ---- /api/v1/platform/audit-logs (§6) ----

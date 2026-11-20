@@ -10,8 +10,8 @@ const TRANSITIONS = {
   // issue_raised → replacement_processing.
   order: {
     created: ['approved', 'issue_raised', 'cancelled'],
-    approved: ['mockup_pending', 'issue_raised', 'cancelled'],
-    mockup_pending: ['mockup_approved', 'issue_raised', 'cancelled'],
+    approved: ['in_production', 'mockup_pending', 'issue_raised', 'cancelled'],
+    mockup_pending: ['in_production', 'mockup_approved', 'issue_raised', 'cancelled'],
     mockup_approved: ['in_production', 'issue_raised', 'cancelled'],
     in_production: ['qc_pending', 'issue_raised', 'cancelled'],
     qc_pending: ['packed', 'issue_raised', 'cancelled'],

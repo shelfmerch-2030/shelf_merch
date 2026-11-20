@@ -1,4 +1,6 @@
 import { type ReactNode } from "react";
+import { Link } from "react-router";
+import { QC_FILTERS, qcLabel } from "@/services/production-qc";
 import {
   DataTable,
   PlatformError,
@@ -14,6 +16,9 @@ export function ProductionView({
   board,
   tasks,
   canWrite,
+  qcFilter,
+  onQcFilter,
+  taskLinkError,
   managing,
   onManage,
   onCloseManage,
@@ -27,10 +32,30 @@ export function ProductionView({
     render?: (row: Record<string, unknown>) => ReactNode;
   }[] = [
     { key: "_id", label: "Task", render: (r) => String(r._id).slice(-6) },
-    { key: "orderId", label: "Order", render: (r) => String(r.orderId ?? "").slice(-6) },
+    {
+      key: "orderId",
+      label: "Order",
+      render: (r) => (
+        <Link to={`/platform/orders/${String(r.orderId)}`}>
+          {String(r.orderNumber || String(r.orderId ?? "").slice(-6))}
+        </Link>
+      ),
+    },
     { key: "assignedTo", label: "Assignee", render: (r) => String(r.assignedTo || "N/A") },
     { key: "status", label: "Status", render: (r) => <StatusTag status={String(r.status)} /> },
-    { key: "qcResult", label: "QC", render: (r) => String(r.qcResult || "N/A") },
+    {
+      key: "qcStatus",
+      label: "QC",
+      render: (r) => <span title={String(r.qcFailReason || "")}>{qcLabel(r.qcStatus)}</span>,
+    },
+    {
+      key: "shipment",
+      label: "Shipment",
+      render: (r) => {
+        const s = r.shipment as { courier?: string; awb?: string } | null | undefined;
+        return s?.awb ? `${s.courier || "Courier"} · ${s.awb}` : "Not requested";
+      },
+    },
   ];
 
   if (canWrite) {
@@ -50,6 +75,7 @@ export function ProductionView({
       <PlatformPageHeader title="Production" subtitle="Task board and orders in production." />
       {board.loading && <PlatformLoading />}
       {board.error && <PlatformError message={board.error} />}
+      {taskLinkError && <PlatformError message={taskLinkError} />}
       {data && (
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div className="card" style={{ padding: 16 }}>
@@ -88,12 +114,36 @@ export function ProductionView({
       )}
 
       <h3 style={{ margin: "24px 0 12px" }}>Production tasks</h3>
+      <div className="field" style={{ maxWidth: 300 }}>
+        <label className="lbl" htmlFor="production-qc-filter">
+          QC status
+        </label>
+        <select
+          id="production-qc-filter"
+          className="inp"
+          value={qcFilter}
+          onChange={(e) => onQcFilter(e.target.value)}
+        >
+          {QC_FILTERS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {tasks.loading && <PlatformLoading />}
       {tasks.error && <PlatformError message={tasks.error} />}
       {tasks.data && (
         <DataTable empty="No production tasks." rows={tasks.data.items} columns={taskColumns} />
       )}
       {managing && (
-        <TaskManageModal row={managing} onClose={onCloseManage} onChanged={onProductionChanged} />
+        <TaskManageModal
+          key={String(managing._id)}
+          row={managing}
+          onClose={onCloseManage}
+          onChanged={onProductionChanged}
+          readOnly={!canWrite}
+        />
       )}
     </>
   );

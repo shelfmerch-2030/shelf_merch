@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { importShopify, importShopifyKits, type ShopifyImportSummary } from "../model";
 
@@ -38,17 +38,35 @@ export function useShopifyImportController(): ShopifyImportVm {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<ShopifyImportSummary | null>(null);
+  const activeImport = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    activeImport.current?.abort();
+    activeImport.current = null;
+  }, [kits]);
 
   async function run() {
+    if (activeImport.current) return;
+    const controller = new AbortController();
+    activeImport.current = controller;
     setBusy(true);
     setError("");
     setSummary(null);
     try {
-      setSummary(await (kits ? importShopifyKits : importShopify)(domain.trim(), normalizeShopifyTokenInput(token)));
+      const result = await (kits ? importShopifyKits : importShopify)(
+        domain.trim(),
+        normalizeShopifyTokenInput(token),
+        (status) => { if (!controller.signal.aborted) setSummary(status); },
+        controller.signal,
+      );
+      if (!controller.signal.aborted) setSummary(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Import failed");
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Import failed");
     } finally {
-      setBusy(false);
+      if (activeImport.current === controller) {
+        activeImport.current = null;
+        setBusy(false);
+      }
     }
   }
 

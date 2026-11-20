@@ -326,7 +326,12 @@ export type PublicCatalogCategory = {
 
 /** Active Parent → Category → Sub-Category tree for public catalog browse. */
 export async function fetchPublicCatalogCategories(): Promise<PublicCatalogCategory[]> {
-  return publicFetch<PublicCatalogCategory[]>("/catalog/categories");
+  const data = await publicFetch<PublicCatalogCategory[]>("/catalog/categories");
+  // Proxy/upstream mistakes (HTML preview hosts, envelopes) must not reach tree builders.
+  if (!Array.isArray(data)) {
+    throw new Error("Catalog categories response was not an array");
+  }
+  return data;
 }
 
 /** Apply a workspace snapshot onto the legacy shelf-merch.js global state object. */

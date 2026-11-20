@@ -22,6 +22,8 @@ const shipmentSchema = new mongoose.Schema(
   {
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true, index: true },
     courier: { type: String, default: '' },
+    /** 'delhivery' when manifested via the Delhivery API; '' for manual AWB entry. */
+    provider: { type: String, default: '' },
     awb: { type: String, default: '', index: true },
     trackingUrl: { type: String, default: '' },
     eta: { type: Date, default: null },

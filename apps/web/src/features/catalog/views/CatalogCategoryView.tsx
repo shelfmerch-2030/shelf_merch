@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import type { CatalogVm } from "../controllers/useCatalogController";
+import { catalogHomePath } from "../catalogPaths";
 import {
   ALL_PRODUCTS,
   CUSTOMISED_KITS_SUBCATEGORY,
@@ -190,7 +191,7 @@ function resolveBrowseLevels(
 export function CatalogCategoryView(vm: CatalogVm) {
   const { pathname, search } = useLocation();
   const isPublicApps = pathname.startsWith("/apps/catalog");
-  const catalogHome = isPublicApps ? "/apps/catalog" : "/app/catalog";
+  const catalogHome = catalogHomePath(pathname);
   const parentName = vm.parent;
   const isKitsCategory = parentName === KITS_CATEGORY;
 

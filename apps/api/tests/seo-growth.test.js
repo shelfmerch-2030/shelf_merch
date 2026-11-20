@@ -205,6 +205,40 @@ afterEach(() => {
 });
 afterAll(disconnectTestDb);
 
+describe("SEO Growth overview routing", () => {
+  const url = "/api/v1/platform/seo-growth";
+
+  it("requires authentication for the overview", async () => {
+    const result = await request(app).get(url);
+    expect(result.status).toBe(401);
+  });
+
+  it.each([
+    "platform_super_admin",
+    "platform_sales_manager",
+    "platform_readonly_auditor",
+  ])("loads the overview for %s", async (role) => {
+    const { token } = await tokenFor(role);
+    const result = await request(app).get(url).set(auth(token));
+    expect(result.status).toBe(200);
+    expect(result.body).toMatchObject({
+      settings: { enabled: false },
+      jobs: [],
+      keywords: [],
+      contents: [],
+      knowledge: [],
+      counts: { awaitingReview: 0, published: 0 },
+      performance: { periods: expect.any(Array) },
+    });
+  });
+
+  it("rejects platform users without blog access", async () => {
+    const { token } = await tokenFor("platform_ops_admin");
+    const result = await request(app).get(url).set(auth(token));
+    expect(result.status).toBe(403);
+  });
+});
+
 describe("competitor knowledge isolation", () => {
   it("imports sourced research idempotently without replacing review decisions", async () => {
     const rows = JSON.parse(
