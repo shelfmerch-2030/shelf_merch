@@ -3,6 +3,7 @@ import { configureSwagForCaller, prepareSwagForCaller, swagConfigureSchema, swag
 import { SEND_POINTS_DESCRIPTION, prepareSendPointsForCaller, sendPointsPrepareSchema } from './sendPointsWorkflow.js';
 import { catalogByName, workflowsFromCatalog } from './copilotMcpCatalog.js';
 import { CATALOG_INVENTORY_RULE, catalogSearchInputSchema, searchCatalog } from '../mcp/catalogSearch.js';
+import { walletBalanceArtifacts } from './copilotWalletReconcile.js';
 import {
   catalogGetProductInputSchema,
   catalogListCategoriesInputSchema,
@@ -418,23 +419,7 @@ export function buildCopilotToolDefinitions() {
       async run(ctx) {
         return listBalancesForCaller(ctx);
       },
-      artifacts(result) {
-        if (result?.scope === 'department') return [];
-        return (result?.items ?? []).map((wallet) => ({
-          kind: 'wallet_balance',
-          scope: 'organization',
-          wallet: {
-            id: String(wallet.id ?? ''),
-            name: String(wallet.name ?? ''),
-            currency: String(wallet.currency ?? 'INR'),
-            status: String(wallet.status ?? ''),
-            balance: Number(wallet.balance) || 0,
-            allocatedAmount: Number(wallet.allocatedAmount) || 0,
-            unallocatedAmount: Number(wallet.unallocatedAmount) || 0,
-            fundingPending: Boolean(wallet.fundingPending),
-          },
-        }));
-      },
+      artifacts: walletBalanceArtifacts,
     },
     {
       name: 'wallet_list_transactions',

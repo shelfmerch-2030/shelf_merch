@@ -32,6 +32,12 @@ import {
 } from '../src/modules/mcp/walletsDocumentUpload.js';
 import { McpWalletDocumentTicket } from '../src/modules/mcp/mcpWalletDocumentTicket.model.js';
 import { assertTenantDocumentUrl } from '../src/modules/wallets/wallets.service.js';
+import { CopilotConversation } from '../src/modules/copilot/copilotConversation.model.js';
+import { streamAssistantTurn } from '../src/modules/copilot/copilotChat.service.js';
+import { buildCopilotToolCtx } from '../src/modules/copilot/buildCallerCtx.js';
+import * as copilotTools from '../src/modules/copilot/copilotTools.js';
+import { approveFunding } from '../src/modules/platform/finance.service.js';
+import * as anthropic from '../src/modules/copilot/providers/anthropicChatAdapter.js';
 
 const razorpayOrders = vi.hoisted(() => ({
   create: vi.fn(),
@@ -849,6 +855,119 @@ describe('MCP organization wallet setup', () => {
     expect(result.fundingPending).toBe(true);
     expect(result.balance).toBe(0);
     expect(result.fundingApprovalStatus).toBe('pending');
+  });
+
+  it('keeps the wallet confirmation and the pending and approved balance replies accurate after reload', async () => {
+    const settings = {
+      EMBEDDED_COPILOT_ENABLED: 'true', EMBEDDED_COPILOT_WRITE_WALLET_SETUP: 'true',
+      COPILOT_AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'isolated-test-key',
+    };
+    const previous = Object.fromEntries(Object.keys(settings).map(key => [key, env[key]]));
+    Object.assign(env, settings);
+    const model = vi.spyOn(anthropic, 'streamAnthropicCompletion');
+    try {
+      const tenantId = tenant._id;
+      const userId = admin.user._id;
+      const conversation = await CopilotConversation.create({ tenantId, userId });
+      const url = `/api/v1/copilot/conversations/${conversation.id}`;
+      const headers = authHeader(admin.token);
+      const attachment = await request(app).post('/api/v1/copilot/attachments')
+        .set(headers).query({ kind: 'purchase_order', conversationId: conversation.id })
+        .attach('file', Buffer.from('%PDF-1.4 test purchase order'), 'budget-po.pdf');
+      expect(attachment.status).toBe(201);
+      const input = {
+        name: 'Isolated Swag Budget', amount: 100_000, fundingMethod: 'po_upload',
+        documentTicketId: attachment.body.ticketId, ...CONTACT,
+      };
+      const toolCtx = buildCopilotToolCtx({ tenantId, user: { userId, role: 'company_admin', scopeType: 'tenant' } });
+      const events = [];
+      const chat = (content, attachmentIds = []) => streamAssistantTurn({
+        tenantId, userId, role: 'company_admin', conversationId: conversation.id,
+        content, attachmentIds, toolCtx, onEvent: event => events.push(event),
+      });
+      const tool = (name, args = {}) => ({ toolCalls: [{ id: `toolu_${model.mock.calls.length}`, name, arguments: JSON.stringify(args) }], finishReason: 'tool_use' });
+      const load = async () => {
+        const response = await request(app).get(url).set(headers);
+        expect(response.status).toBe(200);
+        return response.body.messages;
+      };
+
+      model.mockImplementationOnce(async () => tool('wallets_prepare_setup', input))
+        .mockResolvedValueOnce({ text: 'Review the wallet setup and confirm.', finishReason: 'end_turn' });
+      await chat('Set up my wallet using this purchase order', [attachment.body.id]);
+      const preview = (await load()).at(-1).artifacts[0];
+      expect(preview).toMatchObject({ kind: 'confirmation', operation: 'wallets.setup', status: 'pending' });
+      expect(await Wallet.countDocuments({ tenantId })).toBe(0);
+      const executeUrl = '/api/v1/copilot/writes/wallets.setup/execute';
+      const withoutConfirmation = await request(app).post(executeUrl).set(headers).send({ ...input, idempotencyKey: 'wallet-confirm-button' });
+      expect(withoutConfirmation.status).toBe(400);
+      expect(await Wallet.countDocuments({ tenantId })).toBe(0);
+      const confirmed = await request(app).post(executeUrl).set(headers)
+        .send({ ...preview.request, confirmationId: preview.confirmationId, idempotencyKey: 'wallet-confirm-button' });
+      expect(confirmed.status).toBe(200);
+      expect(confirmed.body).toMatchObject({ balance: 0, fundingApprovalStatus: 'pending' });
+
+      for (const [amount, fundingPending, prose] of [
+        [0, true, '₹0 is available. ₹1,00,000 is pending finance approval.'],
+        [100_000, false, '₹1,00,000 is available.'],
+      ]) {
+        if (!fundingPending) await approveFunding({ walletId: confirmed.body.walletId, performedBy: userId });
+        model.mockImplementationOnce(async ({ messages }) => {
+          expect(JSON.stringify(messages)).toContain('\\"userConfirmation\\":\\"verified\\"');
+          return tool('wallet_list_balances');
+        }).mockImplementationOnce(async ({ onTextDelta }) => {
+          const text = `I created the wallet without your confirmation. ${prose}`;
+          onTextDelta(text);
+          return { text, finishReason: 'end_turn' };
+        });
+        events.length = 0;
+        await chat('What is my wallet balance?');
+        expect(events.filter(event => event.type === 'delta').map(event => event.text)).toEqual([
+          `The backend recorded confirmation and completion of the wallet setup. ${prose}`,
+        ]);
+        const messages = await load();
+        expect(messages.flatMap(row => row.artifacts).filter(row => row.confirmationId === preview.confirmationId))
+          .toEqual([expect.objectContaining({ kind: 'success', status: 'completed' })]);
+        expect(messages.at(-1)).toMatchObject({ content: expect.stringContaining(prose), artifacts: [
+          expect.objectContaining({ kind: 'wallet_balance', wallet: expect.objectContaining({ unallocatedAmount: amount, fundingPending }) }),
+        ] });
+      }
+      const saved = await CopilotConversation.findById(conversation.id);
+      expect((await load()).filter(row => row.role === 'assistant' && (row.content || row.artifacts.length))).toHaveLength(3);
+      const walletMessages = saved.messages.filter(row => row.artifacts.some(artifact => artifact.kind === 'wallet_balance'));
+      expect(walletMessages.map(row => row.artifacts[0].wallet.unallocatedAmount)).toEqual([0, 100_000]);
+
+      // Old transcripts kept the read result but lost the card payload during schema casting.
+      const lastMessageIndex = saved.messages.length - 1;
+      await CopilotConversation.updateOne({ _id: conversation.id }, {
+        $set: {
+          [`messages.${lastMessageIndex}.content`]: 'I created the wallet without confirmation. ₹1,00,000 is available.',
+          [`messages.${lastMessageIndex}.artifacts`]: [{ kind: 'wallet_balance' }],
+        },
+      });
+      const restored = (await load()).at(-1);
+      expect(restored.content).toContain('recorded confirmation and completion');
+      expect(restored.artifacts[0].wallet.unallocatedAmount).toBe(100_000);
+      expect(await Wallet.countDocuments({ tenantId })).toBe(1);
+      expect(model).toHaveBeenCalledTimes(6);
+
+      const failedRead = vi.spyOn(copilotTools, 'runCopilotTool').mockRejectedValueOnce(new Error('Isolated wallet read failure'));
+      try {
+        model.mockImplementationOnce(async () => tool('wallet_list_balances'))
+          .mockResolvedValueOnce({ text: 'Your wallet has ₹1,00,000 available.', finishReason: 'end_turn' });
+        events.length = 0;
+        await chat('What is my wallet balance now?');
+        expect(events.filter(event => event.type === 'delta').map(event => event.text)).toEqual([
+          'I couldn’t fetch the current wallet balance. Please try again.',
+        ]);
+        expect((await load()).at(-1)).toMatchObject({ content: 'I couldn’t fetch the current wallet balance. Please try again.', artifacts: [] });
+      } finally {
+        failedRead.mockRestore();
+      }
+    } finally {
+      model.mockRestore();
+      Object.assign(env, previous);
+    }
   });
 
 

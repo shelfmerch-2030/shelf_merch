@@ -144,7 +144,9 @@ describe("Copilot workspace", () => {
   it("opens a saved conversation and returns to an empty new chat without creating a server record", async () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: /Welcome kits/ }));
-    expect(await screen.findByText("A previous reply")).toBeTruthy();
+    const reply = await screen.findByRole("article", { name: "Assistant" });
+    expect(reply).toHaveTextContent(/^A previous reply$/);
+    expect(reply.querySelector("img, svg, canvas")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "New chat" })[0]);
     expect(screen.getByRole("heading", { name: "How can I help you today?" })).toBeTruthy();
     expect(api.createCopilotConversation).not.toHaveBeenCalled();
@@ -444,7 +446,7 @@ describe("Copilot sidebar during streaming", () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: /Welcome kits/ }));
     expect(await screen.findByText("A saved balance answer")).toBeInTheDocument();
-    expect(screen.getByText(/Wallet balance is unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/No balance snapshot is available for this reply/)).toBeInTheDocument();
     expect(screen.queryByText("Available ₹0")).toBeNull();
   });
 });

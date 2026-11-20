@@ -3,12 +3,12 @@ import {
   LoaderCircle,
   MessageSquare,
   PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
   Search,
   SquarePen,
   X,
 } from "lucide-react";
-import { CopilotIcon } from "./CopilotIcon";
 import type { CopilotConversationSummary } from "./api";
 
 export function CopilotHistory({
@@ -51,7 +51,6 @@ export function CopilotHistory({
       <div className="sm-copilot-history__heading">
         {!collapsed ? (
           <span className="sm-copilot-history__brand">
-            <CopilotIcon size={27} />
             <strong>ShelfMerch Copilot</strong>
           </span>
         ) : null}
@@ -64,7 +63,7 @@ export function CopilotHistory({
             aria-expanded={false}
             title="Expand conversation history"
           >
-            <CopilotIcon size={28} />
+            <PanelLeftOpen size={19} aria-hidden="true" />
           </button>
         ) : onCollapse ? (
           <button

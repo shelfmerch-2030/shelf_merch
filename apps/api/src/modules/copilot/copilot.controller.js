@@ -7,6 +7,8 @@ import { serializeConfirmationArtifact } from './copilotToolBindings.js';
 import { ApiError, ForbiddenError } from '../../utils/errors.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { buildCopilotToolCtx } from './buildCallerCtx.js';
+import { hidesOrganizationWallet } from '../mcp/walletVisibility.js';
+import { restoreWalletSnapshots } from './copilotWalletReconcile.js';
 import {
   capabilitiesForRole,
   isCopilotRole,
@@ -220,6 +222,8 @@ export async function getOne(req, res) {
     userId: req.user.userId,
     conversationId: req.params.id,
   });
+  const showWalletSnapshots = !hidesOrganizationWallet(req.user);
+  if (showWalletSnapshots) restoreWalletSnapshots(conversation.messages);
   res.json({
     id: String(conversation._id),
     title: conversation.title,
@@ -229,7 +233,9 @@ export async function getOne(req, res) {
         role: m.role,
         ...(m.uiEventId ? { uiEventId: m.uiEventId } : {}),
         content: m.content,
-        artifacts: (m.artifacts ?? []).map(serializeConfirmationArtifact),
+        artifacts: (m.artifacts ?? [])
+          .filter(artifact => showWalletSnapshots || artifact.kind !== 'wallet_balance')
+          .map(serializeConfirmationArtifact),
         attachments: (m.attachments || []).map((row) => ({
           id: row.id,
           kind: row.kind,

@@ -25,6 +25,8 @@ const props = () => ({
 describe("Copilot history navigation", () => {
   it("shows only the conversation title in each row and marks the active chat", () => {
     render(<CopilotHistory {...props()} />);
+    const sidebarTitle = screen.getByText("ShelfMerch Copilot");
+    expect(sidebarTitle.parentElement?.querySelector("img, svg, canvas")).toBeNull();
     const active = screen.getByRole("button", { name: "Welcome kits" });
     expect(active).toHaveAttribute("aria-current", "true");
     expect(active.querySelector("svg, time")).toBeNull();

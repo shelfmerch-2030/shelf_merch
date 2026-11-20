@@ -7,7 +7,7 @@ import { ApiError } from '../../utils/errors.js';
 import { logger } from '../../config/logger.js';
 
 import { CopilotConversation } from './copilotConversation.model.js';
-import { reconcileConversationWriteState, messagesWithWriteOutcomes } from './copilotWriteState.service.js';
+import { reconcileConversationWriteState, messagesWithWriteOutcomes, walletSetupNarration } from './copilotWriteState.service.js';
 import { CopilotAudit } from './copilotAudit.model.js';
 import {
   attachmentPromptSuffix,
@@ -40,6 +40,7 @@ import { enrichWalletArtifacts } from './copilotWalletReconcile.js';
 import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
+import { catalogDiscoveryIntent, catalogDiscoveryReply } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
 // becoming a full publication on a later ambiguous answer or provider tool call.
@@ -95,6 +96,7 @@ export const SYSTEM_PROMPT = [
   'Do not dump large Markdown tables or full department grids for simple balance questions. Offer a breakdown only when the user asks for allocations, departments, or a detailed view. The UI shows a structured balance card from tool data.',
   'When the user asks for department allocation detail, you may use a GitHub-flavored Markdown table built only from tool figures.',
   'Budget setup (new wallet): company admins only. Collect wallet name, currency (INR), optional period dates, funding method (PO upload or online), and amount. For PO upload: ask the user to attach a PDF via the + button (Purchase Order / Agreement), then proceed to prepare. The UI shows a confirmation preview before writing. Warn before confirming that this creates a live budget wallet.',
+  'For wallet setup, use the backend receipt to tell whether confirmation was recorded. A verified userConfirmation means the approved setup completed. The Confirm click is a UI action and does not create a user chat message. If confirmation evidence is missing, say it cannot be verified. Never infer it was skipped. Wallet setup confirmation is separate from PO finance approval. Use a fresh wallet read for current balances and approval status, and say when that lookup fails.',
   'Budget top-up (existing wallet): company admins only. Use wallet_list_balances to identify the wallet. Collect amount and funding method (PO upload or online). For PO upload: ask the user to attach the PO PDF via the + button first. The dashboard calls this "Request top-up / Add Funds". Warn that the funds require finance approval and are not immediately available.',
   'Budget allocation (move funds to departments): company admins only. Use wallet_list_balances for unallocatedAmount and entities_list for department entityIds and current allocatedAmount. Signed INR deltas: positive assigns unallocated cash to a department, negative returns unspent budget. For equal split: floor(unallocatedAmount / N) per department. Show the before/after preview; do not apply until the user confirms.',
   'Department setup (create departments + assign managers + allocate initial budget): company admins only. Call entities_list first to offer suggested departments. Collect department names, manager name and email, optional role/mobile, sendInvite preference, and initial budget per department. Total budgets cannot exceed wallet unallocatedAmount.',
@@ -139,12 +141,15 @@ export async function listConversations({ tenantId, userId, limit = 30 }) {
 
 export async function getConversation({ tenantId, userId, conversationId }) {
   let conversation = await scopedConversation(tenantId, userId, conversationId);
-  const outcomes = await reconcileConversationWriteState(conversation);
+  let outcomes = await reconcileConversationWriteState(conversation);
   if (conversation.swag) {
     for (const outcome of outcomes) await appendSwagReceipt(conversation, outcome);
     // Canonical receipts may have been recovered after a lost HTTP response.
     conversation = await scopedConversation(tenantId, userId, conversationId);
-    await reconcileConversationWriteState(conversation);
+    outcomes = await reconcileConversationWriteState(conversation);
+  }
+  for (const message of conversation.messages) {
+    if (message.role === 'assistant') message.content = walletSetupNarration(message.content, outcomes);
   }
   return conversation;
 }
@@ -547,8 +552,47 @@ export async function streamAssistantTurn({
   }
   if (mode === 'chat' && conversation.curator) conversation.curator = { ...conversation.curator, enabled: false };
 
+  const canDiscoverCatalog = !conversation.swag && !swagDesignTurn && !attachments.length && !anotherWritePending && !explicitPointsWrite;
+  const previous = conversation.messages[initialMessageCount - 1];
+  const previousCatalogReply = previous?.role === 'assistant' ? previous : undefined;
+  const discovery = canDiscoverCatalog && catalogDiscoveryIntent(text, previousCatalogReply);
+  if (discovery) {
+    let { content } = discovery;
+    let artifacts = discovery.lastPage ? [{ kind: 'catalog_page', catalog: discovery.lastPage }] : [];
+    if (discovery.query) {
+      const startedAt = Date.now();
+      onEvent?.({ type: 'tool', name: 'catalog_search', status: 'running' });
+      let search = await runCopilotTool('catalog_search', toolCtx, discovery.query, role);
+      if (!search.result.items.length && discovery.fallbackQuery) {
+        search = await runCopilotTool('catalog_search', toolCtx, { ...discovery.query, category: undefined, query: discovery.fallbackQuery }, role);
+      }
+      content = catalogDiscoveryReply(search.result);
+      artifacts = search.artifacts;
+      const toolCallId = `toolu_${randomUUID()}`;
+      conversation.messages.push(
+        { role: 'assistant', toolCalls: [{ id: toolCallId, name: 'catalog_search', arguments: JSON.stringify(search.result.catalogQuery) }] },
+        { role: 'tool', toolCallId, toolName: 'catalog_search', content: toolContentForModel('catalog_search', search.result, artifacts) },
+      );
+      await CopilotAudit.create({ tenantId, userId, conversationId: conversation._id, toolName: 'catalog_search', ok: true, latencyMs: Date.now() - startedAt });
+      onEvent?.({ type: 'tool', name: 'catalog_search', status: 'done' });
+    }
+    conversation.messages.push({ role: 'assistant', content, artifacts });
+    await persistTurn();
+    onEvent?.({ type: 'delta', text: content });
+    if (artifacts.length) onEvent?.({ type: 'artifacts', artifacts });
+    onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title });
+    return conversation;
+  }
+
+  const catalogGuidance = 'For general catalog discovery, a generic request to browse products needs one question about the product type. Search immediately when the user gives a type, keyword, or budget, including when they supply it as a short reply to that question. A budget alone searches across categories. Show mixed paginated results when the user asks to browse everything. Keep filters when paging.';
+  const systemPrompt = canDiscoverCatalog ? `${SYSTEM_PROMPT} ${catalogGuidance}` : SYSTEM_PROMPT;
+
   // Authorized READ + enabled PREPARE only — EXECUTE never included (modelVisible:false).
   const tools = listOpenAiToolsForRole(role);
+  // Wallet follow-ups are released after their narration is checked against the receipt.
+  const priorReply = conversation.messages.findLast(message => message.role === 'assistant' && !message.toolCalls?.length);
+  const checkWalletNarration = /\b(?:wallet|balance)\b/i.test(text)
+    || priorReply?.artifacts?.some(row => row.operation === 'wallets.setup' || row.kind === 'wallet_balance');
   const providerName = providerStatus.provider;
   const model = providerStatus.model;
 
@@ -556,6 +600,7 @@ export async function streamAssistantTurn({
   let completionTokens = 0;
   let toolCallCount = 0;
   const collectedArtifacts = [];
+  let walletBalanceLookupFailed = false;
   let assistantText = '';
   let observedSwagRevision = conversation.swag?.revision;
   let swagTurnSuperseded = false;
@@ -575,7 +620,7 @@ export async function streamAssistantTurn({
 
   // Provider-native transcript for multi-step tool loops within this turn.
   const openAiTranscript =
-    providerName === 'openai' ? toOpenAiMessages(SYSTEM_PROMPT, modelMessages) : null;
+    providerName === 'openai' ? toOpenAiMessages(systemPrompt, modelMessages) : null;
   const anthropicTranscript =
     providerName === 'anthropic' ? toAnthropicMessages(modelMessages) : null;
   if (providerName === 'anthropic' && anthropicTranscript?.length) {
@@ -617,13 +662,13 @@ export async function streamAssistantTurn({
           ? await streamAnthropicCompletion({
               client: anthropicClient,
               model,
-              systemPrompt: SYSTEM_PROMPT,
+              systemPrompt,
               messages: anthropicTranscript,
               tools,
               signal,
               onTextDelta: (delta) => {
                 assistantText += delta;
-                onEvent?.({ type: 'delta', text: delta });
+                if (!checkWalletNarration) onEvent?.({ type: 'delta', text: delta });
               },
             })
           : await streamOpenAiCompletion({
@@ -635,7 +680,7 @@ export async function streamAssistantTurn({
               signal,
               onTextDelta: (delta) => {
                 assistantText += delta;
-                onEvent?.({ type: 'delta', text: delta });
+                if (!checkWalletNarration) onEvent?.({ type: 'delta', text: delta });
               },
             });
 
@@ -645,7 +690,7 @@ export async function streamAssistantTurn({
       // Adapters normally stream via onTextDelta; apply full text if none was streamed (mocks / buffered).
       if (turn.text && !assistantText) {
         assistantText = turn.text;
-        onEvent?.({ type: 'delta', text: turn.text });
+        if (!checkWalletNarration) onEvent?.({ type: 'delta', text: turn.text });
       }
 
       const pendingToolCalls = turn.toolCalls || [];
@@ -654,21 +699,22 @@ export async function streamAssistantTurn({
       }
 
       // Persist assistant tool_calls turn for provider continuity + conversation history.
+      const toolTurnText = checkWalletNarration ? '' : assistantText || turn.text || '';
       if (providerName === 'openai') {
         appendOpenAiAssistantToolTurn(openAiTranscript, {
-          text: assistantText || turn.text || '',
+          text: toolTurnText,
           toolCalls: pendingToolCalls,
         });
       } else {
         appendAnthropicAssistantToolTurn(anthropicTranscript, {
-          text: assistantText || turn.text || '',
+          text: toolTurnText,
           toolCalls: pendingToolCalls,
         });
       }
 
       conversation.messages.push({
         role: 'assistant',
-        content: assistantText || turn.text || '',
+        content: toolTurnText,
         toolCalls: pendingToolCalls.map((call) => ({
           id: call.id,
           name: call.name,
@@ -731,6 +777,7 @@ export async function streamAssistantTurn({
           payload = { error: err?.message || 'Tool failed' };
           logger.warn({ tool: name, errName: err?.name, errCode: err?.code }, 'Copilot tool failed');
         }
+        if (name === 'wallet_list_balances') walletBalanceLookupFailed = !ok;
         await CopilotAudit.create({
           tenantId,
           userId,
@@ -770,6 +817,11 @@ export async function streamAssistantTurn({
 
     const enrichedArtifacts = enrichWalletArtifacts(collectedArtifacts);
     let finalText = formatAssistantTextForCards(assistantText, enrichedArtifacts);
+    if (checkWalletNarration) {
+      finalText = walletBalanceLookupFailed
+        ? 'I couldn’t fetch the current wallet balance. Please try again.'
+        : walletSetupNarration(finalText, writeOutcomes);
+    }
     let timelineState;
     if (swagDesignTurn && isWriteFlagEnabled('collections') && (conversation.swag || observedSwagRevision !== undefined)) {
       timelineState = await configureSwagForCaller({ ...toolCtx, copilotConversationId: String(conversation._id) }, {});
@@ -807,6 +859,7 @@ export async function streamAssistantTurn({
       await persistSwagRequest();
       await persistSwagReply(conversation.messages.slice(initialMessageCount + 1), timelineState);
     } else await persistTurn();
+    if (checkWalletNarration && finalText) onEvent?.({ type: 'delta', text: finalText });
     const usage = await recordUsage({
       tenantId,
       userId,

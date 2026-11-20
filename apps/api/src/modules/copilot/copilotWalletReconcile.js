@@ -81,3 +81,42 @@ export function enrichWalletArtifacts(artifacts = []) {
     };
   });
 }
+
+export function walletBalanceArtifacts(result) {
+  if (result?.scope === 'department' || !Array.isArray(result?.items)) return [];
+  return result.items.map(wallet => ({
+    kind: 'wallet_balance',
+    scope: 'organization',
+    ...(wallet?.id && [wallet.balance, wallet.allocatedAmount, wallet.unallocatedAmount].every(Number.isFinite)
+      ? { wallet: {
+        id: String(wallet.id), name: wallet.name, currency: wallet.currency, status: wallet.status,
+        balance: wallet.balance, allocatedAmount: wallet.allocatedAmount, unallocatedAmount: wallet.unallocatedAmount,
+        fundingPending: Boolean(wallet.fundingPending),
+      } }
+      : {}),
+  }));
+}
+
+/** Recover dropped legacy card fields only from the wallet reads belonging to that reply. */
+export function restoreWalletSnapshots(messages) {
+  let snapshots = [];
+  for (const message of messages) {
+    if (message.role === 'user') snapshots = [];
+    if (message.role === 'tool' && message.toolName === 'wallet_list_balances') {
+      try { snapshots.push(...walletBalanceArtifacts(JSON.parse(message.content))); }
+      catch { /* Older tool results may be truncated or unavailable. */ }
+    }
+    if (message.role !== 'assistant' || message.toolCalls?.length) continue;
+    const cards = message.artifacts.filter(row => row.kind === 'wallet_balance');
+    if (cards.some(row => !row.wallet) && cards.length === snapshots.length
+      && cards.every((row, index) => !row.wallet || row.wallet.id === snapshots[index].wallet?.id)) {
+      let index = 0;
+      message.artifacts = message.artifacts.map(row => {
+        if (row.kind !== 'wallet_balance') return row;
+        const snapshot = snapshots[index++];
+        return row.wallet || !snapshot.wallet ? row : snapshot;
+      });
+    }
+    snapshots = [];
+  }
+}

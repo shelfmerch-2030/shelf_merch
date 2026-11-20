@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotArtifacts } from "./CopilotProductCards";
 import { CopilotMarkdown } from "./CopilotMarkdown";
+import { fetchCatalogProduct } from "@/services/api-bridge";
+
+vi.mock("@/services/api-bridge", async importOriginal => ({
+  ...await importOriginal<typeof import("@/services/api-bridge")>(),
+  fetchCatalogProduct: vi.fn(),
+}));
 
 vi.mock("@/lib/workspaceSlug", () => ({
   tenantPath: (path: string) => `/acme${path}`,
@@ -14,9 +21,67 @@ vi.mock("@/lib/mediaUrl", () => ({
   resolveMediaUrl: (url: string) => url || "",
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.mocked(fetchCatalogProduct).mockReset();
+});
+
+const catalogHit = { kind: "product" as const, product: { id: "507f1f77bcf86cd799439011", name: "Navy Tee", sellingPriceInr: 499 } };
+
+function CopilotLocation() {
+  return <span data-testid="copilot-location">{useLocation().pathname}</span>;
+}
+
+function renderCatalogHit() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/acme/copilot"]}>
+    <CopilotLocation />
+    <CopilotArtifacts artifacts={[catalogHit]} />
+  </MemoryRouter></QueryClientProvider>);
+}
 
 describe("Copilot product/kit cards", () => {
+  it("opens verified details in chat and restores focus to the same product card", async () => {
+    vi.mocked(fetchCatalogProduct).mockResolvedValue({
+      id: catalogHit.product.id, nm: "Navy Tee", g: "tee", brand: "Catalog Brand", price: "", sw: 1,
+      category: "Apparel", basePriceInr: 529, description: "Catalog-supplied cotton tee.",
+      colors: ["Navy"], variants: [{ size: "M", stock: 3 } as { size: string; stock: number }],
+    });
+    renderCatalogHit();
+    const trigger = screen.getByRole("link", { name: "View Navy Tee" });
+    expect(fetchCatalogProduct).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "Navy Tee" });
+    expect(await within(dialog).findByText("₹529")).toBeInTheDocument();
+    expect(within(dialog).getByText("Catalog-supplied cotton tee.")).toBeInTheDocument();
+    expect(within(dialog).getByText("In stock")).toBeInTheDocument();
+    expect(within(dialog).getByText("Navy")).toBeInTheDocument();
+    expect(within(dialog).getByText("M")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Open full catalog page" })).toHaveAttribute("href", trigger.getAttribute("href"));
+    expect(fetchCatalogProduct).toHaveBeenCalledExactlyOnceWith(catalogHit.product.id);
+    expect(screen.getByTestId("copilot-location")).toHaveTextContent("/acme/copilot");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(trigger).toHaveFocus();
+    });
+    expect(screen.getByRole("link", { name: "View Navy Tee" })).toBe(trigger);
+  });
+
+  it("shows a failed lookup and retries without filling in missing catalog details", async () => {
+    vi.mocked(fetchCatalogProduct).mockRejectedValueOnce(new Error("Catalog unavailable")).mockResolvedValueOnce({
+      id: catalogHit.product.id, nm: "Navy Tee", g: "tee", brand: "", price: "", sw: 0,
+    });
+    renderCatalogHit();
+    fireEvent.click(screen.getByRole("link", { name: "View Navy Tee" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Could not load catalog details.");
+    expect(within(dialog).queryByText("₹499")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Try again" }));
+    expect(await within(dialog).findByText("Price on request")).toBeInTheDocument();
+    expect(within(dialog).getByText("Availability unknown")).toBeInTheDocument();
+  });
+
   it("renders product cards with View details navigation and no raw table", () => {
     const artifacts = [
       {
@@ -24,6 +89,7 @@ describe("Copilot product/kit cards", () => {
         product: {
           id: "507f1f77bcf86cd799439011",
           name: "Navy Tee",
+          brand: "Shelf Merch",
           sellingPriceInr: 499,
           primaryImageUrl: "https://cdn.example.com/navy.png",
           variants: [{ stock: 12 }],
@@ -42,8 +108,37 @@ describe("Copilot product/kit cards", () => {
     expect(screen.queryByRole("table")).toBeNull();
     const link = screen.getByRole("link", { name: /View Navy Tee/i });
     expect(link).toHaveAttribute("href", "/acme/catalog/507f1f77bcf86cd799439011");
+    expect(link).toHaveClass("sm-copilot-product--catalog", "catalog-product-card");
+    expect(within(link).getByText("Shelf Merch")).toBeInTheDocument();
+    expect(within(link).getByText("AS LOW AS")).toBeInTheDocument();
+    expect(within(link).getByText("View details")).toBeInTheDocument();
     expect(screen.getByText("Navy Tee")).toBeInTheDocument();
-    expect(screen.getByText(/₹499/)).toBeInTheDocument();
+    expect(link).toHaveTextContent(/₹\s*499/);
+  });
+
+  it("shows catalog swatches and minimum quantities on both discovery and Swag cards", () => {
+    const product = { ...catalogHit.product, moq: 3, images: ["https://official.test/tee.png"], variants: [
+      { color: "Navy", stock: 2 }, { color: "Navy", stock: 1 }, { color: "White", stock: 6 },
+    ] };
+    const artifacts = [{ ...catalogHit, product }];
+    const view = render(<MemoryRouter><CopilotArtifacts artifacts={artifacts} /></MemoryRouter>);
+    const card = screen.getByRole("link", { name: "View Navy Tee" });
+    expect(within(card).getByRole("img", { name: "Colors: Navy, White" })).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: "Navy Tee" })).toHaveAttribute("src", product.images[0]);
+    expect(within(card).getByText("Min 3")).toBeInTheDocument();
+    expect(card).toHaveTextContent(/₹\s*499/);
+    view.rerender(<MemoryRouter><CopilotArtifacts artifacts={artifacts} swag={{ selectedIds: [], busy: false, onToggle: vi.fn() }} /></MemoryRouter>);
+    expect(screen.getByRole("img", { name: "Colors: Navy, White" })).toBeInTheDocument();
+    expect(screen.getByText("Min 3")).toBeInTheDocument();
+    expect(screen.getByText("₹499 incl. GST")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add Navy Tee" })).toBeInTheDocument();
+  });
+
+  it("omits the color pill and minimum when catalog data is missing", () => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[{ ...catalogHit, product: { ...catalogHit.product, sellingPriceInr: null, variants: [] } }]} /></MemoryRouter>);
+    expect(screen.getByText("Price on request")).toBeInTheDocument();
+    expect(screen.queryByText(/Min \d/)).toBeNull();
+    expect(screen.queryByRole("img", { name: /Colors:/ })).toBeNull();
   });
 
   it("renders kit cards using imageUrl from MCP kit summaries", () => {
@@ -97,6 +192,7 @@ describe("Copilot product/kit cards", () => {
     expect(screen.queryByText(/cdn\.example\.com/)).toBeNull();
     const link = screen.getByRole("link", { name: /View Onboarding Kit/i });
     expect(link).toHaveAttribute("href", "/acme/kits/507f1f77bcf86cd799439022");
+    expect(link).not.toHaveClass("sm-copilot-product--catalog");
   });
 
   it("renders safe markdown for normal assistant replies", () => {
@@ -162,6 +258,8 @@ describe("Copilot product/kit cards", () => {
     );
     expect(screen.getByLabelText("Wallet balance")).toBeInTheDocument();
     expect(screen.getByText("Available ₹13,000")).toBeInTheDocument();
+    expect(screen.getByText("Balance at the time of this reply.")).toBeInTheDocument();
+    expect(screen.queryByText(/No balance snapshot/)).not.toBeInTheDocument();
     expect(screen.getByText(/₹1,000/)).toBeInTheDocument();
   });
 

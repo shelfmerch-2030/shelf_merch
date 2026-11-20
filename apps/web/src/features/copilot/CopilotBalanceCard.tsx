@@ -47,7 +47,7 @@ export function CopilotWalletBalanceCard({
 }) {
   const wallet = artifact.wallet;
   if (!wallet) {
-    return <div className="sm-copilot-balance" role="status">Wallet balance is unavailable in this saved conversation. Ask Copilot to refresh it.</div>;
+    return <div className="sm-copilot-balance" role="status">No balance snapshot is available for this reply. Ask for the current balance.</div>;
   }
   const available = formatInr(wallet.unallocatedAmount);
   return (
@@ -56,6 +56,7 @@ export function CopilotWalletBalanceCard({
         <strong>{wallet.name || "Organization wallet"}</strong>
         <span className="sm-copilot-balance__available">Available {available}</span>
       </div>
+      <p className="sm-copilot-balance__note">Balance at the time of this reply.</p>
       <dl className="sm-copilot-balance__grid">
         <div>
           <dt>Total balance</dt>

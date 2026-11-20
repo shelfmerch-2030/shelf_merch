@@ -1,6 +1,6 @@
-import launcherIcon from "./assets/shelfmerch-copilot-launcher.png";
 import { useLocation, useNavigate } from "react-router";
 import { tenantPath } from "@/lib/workspaceSlug";
+import { CopilotIcon } from "./CopilotIcon";
 import { useCopilotStatus } from "./useCopilotStatus";
 import "./copilot.css";
 
@@ -22,7 +22,7 @@ export function CopilotLauncher() {
         })
       }
     >
-      <img className="sm-copilot-launcher__image" src={launcherIcon} alt="" draggable={false} />
+      <CopilotIcon size="100%" animated />
       <span className="sm-copilot-launcher__tooltip" aria-hidden="true">
         Ask ShelfMerch Copilot
       </span>

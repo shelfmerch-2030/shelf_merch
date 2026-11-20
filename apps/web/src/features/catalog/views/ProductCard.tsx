@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import type { ReactNode } from "react";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { UiProduct } from "@/services/mappers";
 import { CatalogPrice } from "./CatalogPrice";
@@ -6,6 +7,39 @@ import "./product-card.css";
 
 function thumb(p: UiProduct): string | undefined {
   return resolveMediaUrl(p.mockupUrl) || resolveMediaUrl(p.photoUrl) || resolveMediaUrl(p.imgUrl);
+}
+
+export const catalogProductCardClass = "pcard pcard--editorial catalog-product-card";
+
+export function CatalogProductCardContent({
+  name,
+  brand,
+  image,
+  price,
+  minimum,
+  showPriceLabel = true,
+  note,
+}: {
+  name: string;
+  brand?: string;
+  image: ReactNode;
+  price: ReactNode;
+  minimum?: number;
+  showPriceLabel?: boolean;
+  note?: ReactNode;
+}) {
+  return <>
+    <div className="img">{image}</div>
+    <div className="meta">
+      <div className="catalog-product-card__brand">{brand || "\u00a0"}</div>
+      <div className="nm">{name}</div>
+      <div className="pcard-bottom">
+        <div className="catalog-product-card__price">{showPriceLabel ? <span>AS LOW AS</span> : null}{price}</div>
+        {minimum !== undefined ? <div className="pcard-min">Min {minimum}</div> : null}
+      </div>
+      {note}
+    </div>
+  </>;
 }
 
 /** Shared product card for catalog listings, featured rows and related items. */
@@ -21,9 +55,12 @@ export function ProductCard({
   const src = thumb(product);
 
   const content = (
-    <>
-      <div className="img">
-        {src ? (
+    <CatalogProductCardContent
+      name={product.nm}
+      brand={product.brand}
+      minimum={1}
+      price={<CatalogPrice price={product.price} basePriceInr={product.basePriceInr} />}
+      image={src ? (
           <img
             src={src}
             alt={product.nm}
@@ -37,16 +74,7 @@ export function ProductCard({
             style={{ width: "100%", height: "100%" }}
           />
         )}
-      </div>
-      <div className="meta">
-        <div className="catalog-product-card__brand">{product.brand || "\u00a0"}</div>
-        <div className="nm">{product.nm}</div>
-        <div className="pcard-bottom">
-          <div className="catalog-product-card__price"><span>AS LOW AS</span><CatalogPrice price={product.price} basePriceInr={product.basePriceInr} /></div>
-          <div className="pcard-min">Min 1</div>
-        </div>
-      </div>
-    </>
+    />
   );
 
   const href = to ?? (product.id ? `/app/catalog/${product.id}` : undefined);
@@ -55,7 +83,7 @@ export function ProductCard({
       <Link
         to={href}
         state={state}
-        className="pcard pcard--editorial catalog-product-card"
+        className={catalogProductCardClass}
         aria-label={`View ${product.nm}`}
         style={{ textDecoration: "none", color: "inherit" }}
       >
@@ -64,5 +92,5 @@ export function ProductCard({
     );
   }
 
-  return <div className="pcard pcard--editorial catalog-product-card">{content}</div>;
+  return <div className={catalogProductCardClass}>{content}</div>;
 }
