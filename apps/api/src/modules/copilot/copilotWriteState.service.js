@@ -38,6 +38,9 @@ function confirmationsIn(messages) {
 }
 
 function outcomeMessage(outcome) {
+  if (outcome.workflow === 'wallets.setup' && outcome.state === 'completed') {
+    return 'The backend recorded confirmation and completion of the wallet setup.';
+  }
   if (outcome.workflow === 'campaigns.send_points') {
     if (outcome.state === 'completed') return 'Send Points launch is recorded. The result shows actual debit and invitation acknowledgement; mailbox delivery is not guaranteed.';
     if (outcome.progress?.outcome === 'in_progress') return 'This confirmed send is still processing. Check status; do not confirm it again.';
@@ -55,6 +58,30 @@ function outcomeMessage(outcome) {
   if (outcome.state === 'consumed') return 'This confirmation was consumed, but completion is not verified. Check status; do not execute it again.';
   if (outcome.state === 'unavailable') return 'This confirmation is unavailable and completion cannot be verified. Check authoritative status; do not execute it again.';
   return 'Execution failed. Do not infer completion or rollback; check authoritative state before preparing again.';
+}
+
+const SKIPPED_CONFIRMATION = [
+  /\bwithout (?:first )?(?:(?:an?|your|the|explicit|user|prior|separate)\s+)*(?:confirmation|confirming|clicking confirm)\b/i,
+  /\b(?:skipped|bypassed) (?:the )?confirmation\b|\b(?:the )?confirmation (?:was |step was )?(?:skipped|bypassed|not required|never requested)\b|\bno confirmation (?:was )?(?:required|needed|provided|requested)\b/i,
+  /\b(?:did not|didn['’]t|never) (?:ask (?:you )?(?:to confirm|for confirmation)|click confirm|show (?:a |the )?confirmation)\b/i,
+];
+const describesSkippedConfirmation = text => SKIPPED_CONFIRMATION.some(pattern => pattern.test(text));
+const CONFIRMATION_REQUIREMENT = /\b(?:can(?:not|['’]t)|will not|won['’]t|would not|wouldn['’]t|must not|should not|do not|don['’]t|did not|didn['’]t|never|not)\s+(?:have\s+)?(?:create[d]?|set up|complete[d]?|proceed(?:ed)?|execute[d]?)\b/i;
+
+/** Correct unsupported claims about the wallet setup approval, leaving balance narration intact. */
+export function walletSetupNarration(content, outcomes) {
+  if (!content || !describesSkippedConfirmation(content)) return content;
+  const setups = outcomes.filter(row => row.workflow === 'wallets.setup');
+  return content.replace(/[^\n]+?(?:[.!?](?=\s|$)|$)/gm, sentence => {
+    if (sentence.endsWith('?') || !describesSkippedConfirmation(sentence) || CONFIRMATION_REQUIREMENT.test(sentence)) return sentence;
+    const names = setups.filter(row => row.result?.name && sentence.toLowerCase().includes(row.result.name.toLowerCase()));
+    if (!/\bwallet\b/i.test(sentence) && (!setups.length || /\b(?:store|campaign|top[- ]?up|publish|send points|finance approval)\b/i.test(sentence))) return sentence;
+    const relevant = names.length ? names : setups;
+    const replacement = relevant.length === 1 && relevant[0].state === 'completed'
+      ? outcomeMessage(relevant[0])
+      : 'I can’t verify the wallet setup confirmation from this conversation.';
+    return sentence.replace(/\S[\s\S]*/, replacement);
+  });
 }
 
 function applyOutcome(artifact, outcome) {
@@ -143,7 +170,9 @@ export async function recordCopilotWriteOutcome({ tenantId, userId, workflow, co
 
 /** Supersede PREPARE-only content, preserving provider tool-use/result pairing. */
 export function messagesWithWriteOutcomes(messages, outcomes) {
-  const terminal = outcomes.filter(row => row.state !== 'pending');
+  const terminal = outcomes.filter(row => row.state !== 'pending').map(row => row.workflow === 'wallets.setup'
+    ? { ...row, userConfirmation: row.state === 'completed' ? 'verified' : 'unverified' }
+    : row);
   if (!terminal.length) return messages;
   const projected = messages.map(message => {
     const value = plain(message);
@@ -158,6 +187,9 @@ export function messagesWithWriteOutcomes(messages, outcomes) {
     const bound = (value.artifacts || []).filter(artifact => artifact.confirmationId);
     if (value.role === 'assistant' && !value.toolCalls?.length && bound.length && bound.every(artifact => terminal.some(row => row.confirmationId === artifact.confirmationId))) {
       return { ...value, content: bound.map(artifact => outcomeMessage(terminal.find(row => row.confirmationId === artifact.confirmationId))).join('\n') };
+    }
+    if (value.role === 'assistant' && !value.toolCalls?.length) {
+      return { ...value, content: walletSetupNarration(value.content, outcomes) };
     }
     return value;
   });

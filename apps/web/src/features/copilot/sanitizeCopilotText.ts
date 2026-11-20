@@ -54,6 +54,9 @@ export function sanitizeCopilotAssistantText(
   artifacts?: CopilotArtifact[] | null,
 ): string {
   if (!content) return "";
+  const confirmations = artifacts?.filter(row => row.kind === "confirmation") ?? [];
+  if (confirmations.length === 1 && confirmations[0].operation === "entities.setup"
+    && (!confirmations[0].status || confirmations[0].status === "pending")) return "Review the department setup below before confirming.";
   let text = content.replace(/\r\n/g, "\n");
   const titles = cardTitles(artifacts);
 

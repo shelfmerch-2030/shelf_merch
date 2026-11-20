@@ -30,6 +30,80 @@ const baseArtifact = {
   status: "pending" as const,
 };
 
+const departmentArtifact = {
+  ...baseArtifact,
+  operation: "entities.setup",
+  preview: {
+    currency: "INR", totalAllocation: 50_000, before: { balance: 100_000 }, after: { unallocatedAmount: 50_000 },
+    departments: [
+      { name: "Marketing", action: "create", budget: 30_000, managerName: "Rahul Sharma", managerTitle: "Marketing Manager", invitation: "new_invitation", sendInvite: true },
+      { name: "Sales", action: "create", budget: 20_000, managerName: "Priya Verma", managerTitle: "Sales Manager", invitation: "new_invitation", sendInvite: true },
+    ],
+    notices: [{ kind: "warning", detail: "Funding must be approved before allocation." }],
+  },
+  request: {
+    walletId: "507f1f77bcf86cd799439011", departments: [
+      { name: "Sales", manager: { email: "priya@example.com", sendInvite: true } },
+      { name: "Marketing", manager: { email: "rahul@example.com", sendInvite: true } },
+    ],
+  },
+};
+
+describe("Department Setup confirmation presentation", () => {
+  it("renders the saved preview compactly and keeps the exact prepared request for Confirm", async () => {
+    vi.mocked(api.resolveCopilotWriteApi).mockResolvedValue({ confirmationId: departmentArtifact.confirmationId, status: "pending" });
+    vi.mocked(api.executeCopilotWriteApi).mockResolvedValue({ departments: [] });
+    render(<CopilotConfirmationCard artifact={JSON.parse(JSON.stringify(departmentArtifact))} onChange={vi.fn()} />);
+    expect(screen.getByText("Create 2 departments")).toBeInTheDocument();
+    expect(screen.getByText("Total allocation")).toBeInTheDocument();
+    expect(screen.getByText("Remaining unallocated")).toBeInTheDocument();
+    expect(screen.getAllByText("₹50,000")).toHaveLength(2);
+    expect(screen.getByText("Marketing — ₹30,000")).toBeInTheDocument();
+    expect(screen.getByText("Sales — ₹20,000")).toBeInTheDocument();
+    expect(screen.getByText("Rahul Sharma · Marketing Manager")).toBeInTheDocument();
+    expect(screen.getByText("Priya Verma · Sales Manager")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "rahul@example.com" })).toHaveAttribute("href", "mailto:rahul@example.com");
+    expect(screen.getByRole("link", { name: "priya@example.com" })).toHaveAttribute("href", "mailto:priya@example.com");
+    expect(screen.getByText(/Enabled for both managers/)).toBeInTheDocument();
+    expect(screen.getByText("Funding must be approved before allocation.")).toBeInTheDocument();
+    expect(screen.queryByText(/new_invitation|Before - Balance|Departments 1|Notices 1/)).toBeNull();
+    await waitFor(() => expect(api.resolveCopilotWriteApi).toHaveBeenCalledTimes(1));
+    expect(api.executeCopilotWriteApi).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(api.executeCopilotWriteApi).toHaveBeenCalledWith("entities.setup", {
+      ...departmentArtifact.request, confirmationId: departmentArtifact.confirmationId, idempotencyKey: expect.any(String),
+    }));
+  });
+
+  it("explains mixed invitation outcomes and uses the same Cancel handler", async () => {
+    vi.mocked(api.resolveCopilotWriteApi).mockResolvedValue({ confirmationId: departmentArtifact.confirmationId, status: "pending" });
+    vi.mocked(api.cancelCopilotWriteApi).mockResolvedValue({ confirmationId: departmentArtifact.confirmationId, status: "cancelled" });
+    const [first, second] = departmentArtifact.preview.departments;
+    const artifact = { ...departmentArtifact, preview: { ...departmentArtifact.preview, departments: [first, { ...second, invitation: "link_existing" }] } };
+    render(<CopilotConfirmationCard artifact={artifact} onChange={vi.fn()} />);
+    expect(screen.getByText(/New manager invitation · Email will be sent/)).toBeInTheDocument();
+    expect(screen.getByText(/Existing manager account will be linked · No invitation email/)).toBeInTheDocument();
+    expect(screen.queryByText(/Enabled for both managers/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(api.cancelCopilotWriteApi).toHaveBeenCalledWith("entities.setup", departmentArtifact.confirmationId));
+    expect(api.executeCopilotWriteApi).not.toHaveBeenCalled();
+  });
+
+  it("shows a disabled invitation and missing details without guessing", () => {
+    const artifact = { ...departmentArtifact, request: undefined, preview: { fundingPending: true, departments: [
+      { name: "Support", sendInvite: false, invitation: "assign_without_invite" },
+      { name: "Operations" },
+    ] } };
+    render(<CopilotConfirmationCard artifact={artifact} onChange={vi.fn()} />);
+    expect(screen.getByText(/Manager will be assigned without email/)).toBeInTheDocument();
+    expect(screen.getByText(/Invitation setting unavailable/)).toBeInTheDocument();
+    expect(screen.getAllByText("Work email unavailable")).toHaveLength(2);
+    expect(screen.getByText("Current unallocated")).toBeInTheDocument();
+    expect(screen.getByText("Allocations will be applied after wallet funding is approved.")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+});
+
 describe("CopilotConfirmationCard store update recovery", () => {
   it("shows success for a successful update execute and persists the outcome", async () => {
     vi.mocked(api.resolveCopilotWriteApi).mockResolvedValue({

@@ -746,7 +746,6 @@ export function CopilotPage() {
             </Sheet>
           </div>
           <span className="sm-copilot-mobile-brand">
-            <CopilotIcon size={24} />
             <strong>ShelfMerch Copilot</strong>
           </span>
         </div>
@@ -880,17 +879,9 @@ export function CopilotPage() {
                 <article
                   key={message.uiEventId || `${message.role}-${message.createdAt || index}`}
                   className={`sm-copilot-message sm-copilot-message--${message.role}`}
-                  aria-label={message.role === "user" ? "You" : "ShelfMerch Copilot"}
+                  aria-label={message.role === "user" ? "You" : "Assistant"}
                 >
-                  {message.role === "assistant" ? (
-                    <span className="sm-copilot-message__avatar">
-                      <CopilotIcon size={30} />
-                    </span>
-                  ) : null}
                   <div className={`sm-copilot-message__body${message.role === 'user' && message.attachments?.length ? ' sm-copilot-message__body--attachments' : ''}`}>
-                    {message.role === "assistant" ? (
-                      <span className="sm-copilot-message__author">ShelfMerch Copilot</span>
-                    ) : null}
                     <div className="sm-copilot-bubble">
                       {message.role === "assistant" ? (
                         artworkResult ? <>

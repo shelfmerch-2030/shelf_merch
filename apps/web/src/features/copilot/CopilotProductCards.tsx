@@ -2,8 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { browseSwagCatalog, type SwagCatalogQuery } from "./swagApi";
 import { Link } from "react-router";
 import { ImageOff, LoaderCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { useCatalogProduct } from "@/features/catalog/model";
+import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
+import { CatalogProductCardContent, catalogProductCardClass } from "@/features/catalog/views/ProductCard";
 import { tenantPath } from "@/lib/workspaceSlug";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { extractVariantColors } from "@/lib/variantColors";
 import type {
   CopilotArtifact,
   CopilotConfirmationArtifact,
@@ -31,7 +36,7 @@ function GiftingChatGroups({ curation }: { curation: Curation }) {
     <span className="sm-copilot-gift-group__label">{group.kind === "combination" ? "AI-suggested catalog combination" : group.kind === "existing_kit" ? "Existing ShelfMerch kit" : "Individual catalog options"}</span>
     <h3>{group.name}</h3>
     {group.rationale ? <p>{group.rationale}</p> : null}
-    <CopilotArtifacts artifacts={group.artifacts} />
+    <CopilotArtifacts artifacts={group.artifacts} showProductAvailability />
     {group.subtotal != null ? <div className="sm-copilot-gift-group__cost">
       <strong>{group.completePrice ? group.kind === "existing_kit" ? "Stored kit item estimate" : "Item subtotal" : "Partial known item subtotal"}: {money(group.subtotal)} per employee</strong>
       {group.total != null && curation.brief.recipients ? <span>{money(group.total)} for {curation.brief.recipients} recipients</span> : null}
@@ -50,8 +55,9 @@ function kitImageSrc(kit: Record<string, unknown>): string {
 }
 
 export function productImageSrc(product: Record<string, unknown>): string {
-  const urls = Array.isArray(product.imageUrls) ? (product.imageUrls as unknown[]) : [];
-  const raw = product.primaryImageUrl || product.imageUrl || urls[0] || "";
+  const urls = Array.isArray(product.imageUrls) ? product.imageUrls : [];
+  const gallery = Array.isArray(product.images) ? product.images : [];
+  const raw = product.primaryImageUrl || product.imageUrl || urls[0] || gallery[0] || "";
   return resolveMediaUrl(String(raw || "")) || "";
 }
 
@@ -90,6 +96,89 @@ export function stockLabel(product: Record<string, unknown>) {
   return available ? "In stock" : "Out of stock";
 }
 
+function CatalogCardBody({ product, name, showAvailability }: {
+  product: Record<string, unknown>;
+  name: string;
+  showAvailability: boolean;
+}) {
+  const image = productImageSrc(product);
+  const variants = Array.isArray(product.variants) ? product.variants.map(row => ({
+    color: typeof row?.color === "string" ? row.color : undefined,
+    colorHex: typeof row?.colorHex === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(row.colorHex) ? row.colorHex : undefined,
+    size: typeof row?.size === "string" ? row.size.trim() : undefined,
+  })) : [];
+  const { colors, colorHexByName } = extractVariantColors(variants);
+  const swatches = colors.filter(color => Object.hasOwn(colorHexByName, color)).slice(0, 5);
+  const sizes = [...new Set(variants.map(row => row.size).filter(Boolean))];
+  const price = formatInr(product.sellingPriceInr);
+  const minimum = typeof product.moq === "number" && Number.isInteger(product.moq) && product.moq > 0 ? product.moq : undefined;
+  const priceText = price ? `${price} incl. GST` : "Price on request";
+
+  return <CatalogProductCardContent
+    name={name}
+    brand={typeof product.brand === "string" ? product.brand.trim() : undefined}
+    minimum={minimum}
+    showPriceLabel={Boolean(price)}
+    price={price && !showAvailability ? <CatalogPrice price={price} /> : <div className="pr">{priceText}</div>}
+    image={<>
+      <CardImage key={image} src={image} alt={name} emptyLabel="No product image available" />
+      {swatches.length ? <span className="sm-copilot-catalog-card__colors" role="img" aria-label={`Colors: ${colors.join(", ")}`} title={colors.join(", ")}>
+        {swatches.map(color => <span key={color} aria-hidden="true" style={{ backgroundColor: colorHexByName[color] }} />)}
+        {colors.length > swatches.length ? <small aria-hidden="true">+{colors.length - swatches.length}</small> : null}
+      </span> : null}
+    </>}
+    note={showAvailability ? <div className="sm-copilot-catalog-card__note">
+      <div>{stockLabel(product)}</div>
+      {product.recommendation && sizes.length ? <div>{sizes.slice(0, 6).join(" · ")}</div> : null}
+    </div> : null}
+  />;
+}
+
+const copilotCatalogCardClass = `${catalogProductCardClass} sm-copilot-product--catalog`;
+
+type CatalogPreview = { id: string; name: string; href: string; trigger: HTMLAnchorElement };
+
+function CatalogProductPreview({ selection, onClose }: { selection: CatalogPreview; onClose: () => void }) {
+  const { data, isPending, isError, refetch } = useCatalogProduct(selection.id);
+  const title = useRef<HTMLHeadingElement>(null);
+  const product = data?.id === selection.id ? data : undefined;
+  const name = product?.nm?.trim() || selection.name;
+  const image = resolveMediaUrl(product?.photoUrl || product?.imageUrls?.[0] || product?.baseImageUrl) || "";
+  const variants = product?.variants ?? [];
+  const sizes = [...new Set(variants.flatMap(row => row.size?.trim() ? [row.size.trim()] : []))];
+  const knownStock = variants.filter((row): row is typeof row & { stock: number } => "stock" in row && typeof row.stock === "number" && Number.isFinite(row.stock));
+  const price = product?.basePriceInr && product.basePriceInr > 0 ? formatInr(product.basePriceInr) : "";
+
+  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+    <DialogContent className="sm-copilot-dialog sm-copilot-catalog-preview"
+      onOpenAutoFocus={event => { event.preventDefault(); title.current?.focus({ preventScroll: true }); }}
+      onCloseAutoFocus={event => { event.preventDefault(); selection.trigger.focus({ preventScroll: true }); }}>
+      <DialogTitle ref={title} tabIndex={-1}>{name}</DialogTitle>
+      <DialogDescription className="sr-only">Catalog product details</DialogDescription>
+      {product ? <div className="sm-copilot-catalog-preview__grid">
+        <div className="sm-copilot-catalog-preview__image"><CardImage key={image} src={image} alt={name} emptyLabel="No product image available" /></div>
+        <div className="sm-copilot-catalog-preview__info">
+          <div className="sm-copilot-catalog-preview__price"><strong>{price || "Price on request"}</strong>{price ? <small> incl. GST</small> : null}</div>
+          <p className="sm-copilot-catalog-preview__availability">{stockLabel({ variants: knownStock })}</p>
+          <dl>
+            {product.brand ? <div><dt>Brand</dt><dd>{product.brand}</dd></div> : null}
+            {product.category ? <div><dt>Category</dt><dd>{product.category}</dd></div> : null}
+            {product.colors?.length ? <div><dt>Colors</dt><dd>{product.colors.join(", ")}</dd></div> : null}
+            {sizes.length ? <div><dt>Sizes</dt><dd>{sizes.join(", ")}</dd></div> : null}
+          </dl>
+          {product.description?.trim() ? <p className="sm-copilot-catalog-preview__description">{product.description}</p> : null}
+          {product.keyFeatures?.trim() ? <details><summary>Key features</summary><p className="sm-copilot-catalog-preview__description">{product.keyFeatures}</p></details> : null}
+          {isError ? <p role="status">Could not refresh these catalog details.</p> : null}
+        </div>
+      </div> : isPending ? <p role="status">Loading catalog details…</p> : <div role="alert">
+        <p>Could not load catalog details.</p>
+        <button type="button" className="sm-copilot-catalog-preview__link" onClick={() => void refetch()}>Try again</button>
+      </div>}
+      <footer><Link className="sm-copilot-catalog-preview__link" to={selection.href}>Open full catalog page</Link></footer>
+    </DialogContent>
+  </Dialog>;
+}
+
 function kitHref(kit: Record<string, unknown>) {
   const id = String(kit.id || "");
   if (!id) return undefined;
@@ -114,6 +203,7 @@ export function CopilotArtifacts({
   renderSwagFooter,
   swagReadOnly,
   showAllProducts = false,
+  showProductAvailability = false,
 }: {
   artifacts?: CopilotArtifact[];
   conversationId?: string | null;
@@ -127,6 +217,7 @@ export function CopilotArtifacts({
   renderSwagFooter?: (exploreMore: ReactNode) => ReactNode;
   swagReadOnly?: boolean;
   showAllProducts?: boolean;
+  showProductAvailability?: boolean;
 }) {
   const [visible, setVisible] = useState(4);
   const [extra, setExtra] = useState<Record<string, unknown>[]>([]);
@@ -134,6 +225,7 @@ export function CopilotArtifacts({
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogPreview, setCatalogPreview] = useState<(CatalogPreview & { conversationId: typeof conversationId }) | null>(null);
   const key = `${conversationId}:${JSON.stringify((artifacts || []).filter(a => a.kind === 'product' || a.kind === 'catalog_page'))}`;
   const current = useRef(key); current.current = key;
   const moreLock = useRef(false);
@@ -208,25 +300,10 @@ export function CopilotArtifacts({
         const id = String(product.id || "");
         const name = String(product.name || "Product");
         const productPending = swag?.pendingProductId === id;
-        const img = productImageSrc(product);
         const href = id ? tenantPath(`/catalog/${encodeURIComponent(id)}`) : undefined;
-        const price = formatInr(product.sellingPriceInr);
-        const body = (
-          <>
-            <div className="sm-copilot-product__img">
-              <CardImage src={img} alt={name} emptyLabel="No product image available" />
-            </div>
-            <div className="sm-copilot-product__meta">
-              <strong>{name}</strong>
-              <span className={swag ? 'sm-swag-product-price' : undefined}>{price ? `${price} incl. GST` : "Price on request"}</span>
-              <span className={swag ? 'sm-swag-product-availability' : undefined}>{stockLabel(product)}</span>
-              {product.recommendation && Array.isArray(product.variants) ? <span>{[...new Set(product.variants.flatMap((variant: { color?: string; size?: string }) => [variant.color, variant.size]).filter(Boolean))].slice(0, 6).join(" · ")}</span> : null}
-              {href && !swag ? <span className="sm-copilot-product__link">View details ↗</span> : null}
-            </div>
-          </>
-        );
-        if (swag && id && href) return <div key={id} className="sm-copilot-product sm-copilot-product--selectable">
-          <div className="sm-swag-product-body">{body}</div><div className="sm-swag-product-actions">
+        const body = <CatalogCardBody product={product} name={name} showAvailability={Boolean(swag || product.recommendation || showProductAvailability)} />;
+        if (swag && id && href) return <div key={id} className={`${copilotCatalogCardClass} sm-copilot-product--selectable`}>
+          {body}<div className="sm-swag-product-actions">
           <Link className="sm-swag-product-detail" to={href} aria-label={`View ${name}`}>Details</Link>
           {!swag.readOnly ? <button type="button" data-swag-product-id={id} className="sm-swag-product-add" aria-label={`${swag.selectedIds.includes(id) ? 'Remove' : 'Add'} ${name}`}
             aria-pressed={swag.selectedIds.includes(id)} disabled={swag.busy} aria-busy={productPending || undefined}
@@ -238,13 +315,20 @@ export function CopilotArtifacts({
           <Link
             key={id || name}
             to={href}
-            className="sm-copilot-product"
+            className={copilotCatalogCardClass}
             aria-label={`View ${name}`}
+            aria-haspopup={swag ? undefined : "dialog"}
+            onClick={swag ? undefined : event => {
+              if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              setCatalogPreview({ id, name, href, trigger: event.currentTarget, conversationId });
+            }}
           >
             {body}
+            {!swag ? <span className="sm-copilot-catalog-card__action">View details</span> : null}
           </Link>
         ) : (
-          <div key={name} className="sm-copilot-product">
+          <div key={name} className={copilotCatalogCardClass}>
             {body}
           </div>
         );
@@ -293,6 +377,8 @@ export function CopilotArtifacts({
           </div>
         );
       })}
+      {catalogPreview && catalogPreview.conversationId === conversationId ? <CatalogProductPreview
+        key={catalogPreview.id} selection={catalogPreview} onClose={() => setCatalogPreview(null)} /> : null}
     </div>
   );
 }

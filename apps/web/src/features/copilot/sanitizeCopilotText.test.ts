@@ -25,6 +25,15 @@ const kitArtifacts = [
 ];
 
 describe("sanitizeCopilotAssistantText", () => {
+  it("defers a prepared department summary to its card and leaves validation and other workflows visible", () => {
+    const artifact = { kind: "confirmation" as const, operation: "entities.setup", confirmationId: "fixture", status: "pending" as const };
+    const summary = "Marketing will receive ₹30,000. Sales will receive ₹20,000. Invitation emails will be sent.";
+    expect(sanitizeCopilotAssistantText(summary, [artifact])).toBe("Review the department setup below before confirming.");
+    const validation = "This allocation exceeds the unallocated wallet balance.";
+    expect(sanitizeCopilotAssistantText(validation, [])).toBe(validation);
+    expect(sanitizeCopilotAssistantText(summary, [{ ...artifact, operation: "budget.allocate" }])).toBe(summary);
+  });
+
   it("strips markdown product tables and image URLs when product cards exist", () => {
     const raw = [
       "Here are some options:",

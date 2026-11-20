@@ -21,6 +21,79 @@ function newIdempotencyKey() {
   return `copilot-write-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function previewFields(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function previewText(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function departmentInvitation(row: Record<string, unknown>) {
+  switch (row.invitation) {
+    case "link_existing": return { sendsEmail: false, label: "Existing manager account will be linked" };
+    case "already_assigned": return { sendsEmail: false, label: "Manager is already assigned" };
+    case "assign_without_invite": return { sendsEmail: false, label: "Manager will be assigned without email" };
+    case "new_invitation":
+    case "refresh_invitation":
+      if (row.sendInvite === true) return { sendsEmail: true, label: row.invitation === "new_invitation" ? "New manager invitation" : "Existing invitation will be refreshed" };
+      if (row.sendInvite === false) return { sendsEmail: false, label: "Manager will be assigned without email" };
+      break;
+  }
+  return { sendsEmail: null, label: "Invitation setting unavailable" };
+}
+
+function DepartmentSetupPreview({ preview, request }: {
+  preview: Record<string, unknown>;
+  request?: Record<string, unknown>;
+}) {
+  const departments = Array.isArray(preview.departments) ? preview.departments.map(previewFields) : [];
+  const preparedDepartments = Array.isArray(request?.departments) ? request.departments.map(previewFields) : [];
+  const invitations = departments.map(departmentInvitation);
+  const allSend = invitations.length > 0 && invitations.every(row => row.sendsEmail === true);
+  const noneSend = invitations.length > 0 && invitations.every(row => row.sendsEmail === false);
+  const money = (value: unknown) => amountLabel(value, preview.currency);
+  const notices = Array.isArray(preview.notices) ? preview.notices.map(previewFields) : [];
+  const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
+  const notes = [...new Set([
+    ...notices.filter(notice => notice.kind !== "manager_invitation").map(notice => previewText(notice.detail)),
+    ...warnings.map(warning => previewText(warning) || previewText(previewFields(warning).message)),
+    ...(preview.fundingPending === true && !notices.some(notice => notice.kind === "planned_budget" && previewText(notice.detail))
+      ? ["Allocations will be applied after wallet funding is approved."] : []),
+  ].filter(Boolean))];
+
+  return <div className="sm-copilot-department-review">
+    <dl className="sm-copilot-department-review__totals">
+      <div><dt>Total allocation</dt><dd>{money(preview.totalAllocation)}</dd></div>
+      <div><dt>{preview.fundingPending === true ? "Current unallocated" : "Remaining unallocated"}</dt><dd>{money(previewFields(preview.after).unallocatedAmount)}</dd></div>
+    </dl>
+    {departments.length ? <ul className="sm-copilot-department-review__list" aria-label="Departments">
+      {departments.map((row, index) => {
+        const name = previewText(row.name);
+        const matching = preparedDepartments.filter(item => previewText(item.name) === name);
+        const email = matching.length === 1 ? previewText(previewFields(matching[0].manager).email) : "";
+        const manager = [previewText(row.managerName), previewText(row.managerTitle)].filter(Boolean).join(" · ");
+        const invitation = invitations[index];
+        return <li key={name || index}>
+          <strong>{name || "Department name unavailable"} — {money(row.budget)}</strong>
+          <p>{manager || "Manager details unavailable"}</p>
+          {/^[^\s@?#]+@[^\s@?#]+$/.test(email)
+            ? <a href={`mailto:${encodeURIComponent(email).replace("%40", "@")}`}>{email}</a>
+            : <p>Work email unavailable</p>}
+          <p className="sm-copilot-department-review__context">{invitation.label}
+            {!allSend && !noneSend && invitation.sendsEmail !== null ? ` · ${invitation.sendsEmail ? "Email will be sent" : "No invitation email"}` : ""}
+          </p>
+        </li>;
+      })}
+    </ul> : <p>Department details are unavailable. Ask Copilot to prepare another preview.</p>}
+    {allSend && <p><strong>Invitation emails</strong> · {departments.length === 1 ? "Will be sent" : departments.length === 2 ? "Enabled for both managers" : "Enabled for all managers"}</p>}
+    {noneSend && <p><strong>Invitation emails</strong> · None will be sent</p>}
+    {notes.length > 0 && <ul className="sm-copilot-department-review__notes" aria-label="Setup notes">
+      {notes.map(note => <li key={note}>{note}</li>)}
+    </ul>}
+  </div>;
+}
+
 function allocationPreviewRows(preview: Record<string, unknown>) {
   const currency = String(preview.currency || "");
   const money = (value: unknown) => amountLabel(value, currency);
@@ -86,7 +159,8 @@ export function CopilotConfirmationCard({
       : 'Confirm Apply';
   const swagUnverified = workflow === "swag.collection" && artifact.status === "consumed";
   const resumable = combined && artifact.canResume === true && artifact.status === "failed";
-  const rows = workflow === "swag.collection" ? swagRows(preview) : workflow === "budget.allocate" ? allocationPreviewRows(preview) : isSendPointsWorkflow(workflow) ? sendPointsRows(preview) : previewRows(preview);
+  const departmentSetup = workflow === "entities.setup";
+  const rows = departmentSetup ? [] : workflow === "swag.collection" ? swagRows(preview) : workflow === "budget.allocate" ? allocationPreviewRows(preview) : isSendPointsWorkflow(workflow) ? sendPointsRows(preview) : previewRows(preview);
   const processing = combined && artifact.progress?.outcome === "in_progress";
   function partialOutcome(resolved: { progress?: Record<string, unknown>; canResume?: boolean }): CopilotConfirmationArtifact {
     const running = resolved.progress?.outcome === "in_progress";
@@ -231,14 +305,16 @@ export function CopilotConfirmationCard({
   }
 
   const terminal = !pending;
-  const title = workflow === "swag.collection" ? preview.action === "publish" ? "Publish your collection?" : preview.action === "apply" ? "Apply your logo?" : "Save for later?" : operationLabel(workflow);
+  const departments = departmentSetup && Array.isArray(preview.departments) ? preview.departments : [];
+  const departmentTitle = departments.length ? `${departments.every(row => previewFields(row).action === "create") ? "Create" : "Set up"} ${departments.length} ${departments.length === 1 ? "department" : "departments"}` : "Review department setup";
+  const title = departmentSetup ? departmentTitle : workflow === "swag.collection" ? preview.action === "publish" ? "Publish your collection?" : preview.action === "apply" ? "Apply your logo?" : "Save for later?" : operationLabel(workflow);
   const stateLabel = processing ? "Processing" : artifact.status === "cancelled" ? "Cancelled"
     : artifact.status === "completed" ? "Completed"
       : artifact.status === "expired" || (artifact.status === "failed" && /expired/i.test(artifact.message || "")) ? "Expired"
         : ["consumed", "unverified"].includes(artifact.status || "") || (artifact.status === "failed" && /not verified|unavailable|cannot be verified/i.test(artifact.message || "")) ? "Unverified"
           : artifact.status === "failed" ? "Failed" : pending ? "Review & confirm" : "Status unavailable";
   const tone = stateLabel === "Failed" ? "failure" : terminal ? "neutral" : "pending";
-  const previewContent = rows.length ? <dl className="sm-copilot-confirm__preview">
+  const previewContent = departmentSetup ? <DepartmentSetupPreview preview={preview} request={artifact.request} /> : rows.length ? <dl className="sm-copilot-confirm__preview">
     {rows.map((row, index) => <div key={`${row.label}-${index}`}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
   </dl> : <p className="sm-copilot-confirm__note">Preview details are unavailable.</p>;
   if (workflow === 'swag.collection' && artifact.status === 'completed') return <SwagCompletedApproval artifact={artifact} />;
@@ -293,7 +369,7 @@ export function CopilotConfirmationCard({
         {sendPointsRows(artifact.progress, true).map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
       </dl> : null}
       {pending ? <>
-        {workflow !== 'swag.collection' ? <p className="sm-copilot-confirm__note">Review these details before confirming. Cancel dismisses this request.</p> : null}
+        {workflow !== 'swag.collection' && !departmentSetup ? <p className="sm-copilot-confirm__note">Review these details before confirming. Cancel dismisses this request.</p> : null}
         {workflow === "shops.create" ? <p className="sm-copilot-confirm__note">Confirming creates and publishes this new store as Live.</p> : null}
         {workflow === "campaigns.points_draft" ? <p className="sm-copilot-confirm__note">Saving this draft does not debit funds or send invitations. Credit allocation and launch require separate confirmations.</p> : null}
         {workflow === "campaigns.allocate_credits" ? <p className="sm-copilot-confirm__note">This confirms INR-backed campaign credits. The wallet is debited only at launch, which requires a separate confirmation.</p> : null}
@@ -301,7 +377,7 @@ export function CopilotConfirmationCard({
       </> : artifact.status !== "failed" ? <p className="sm-copilot-confirm__note" role="status">{artifact.message || (artifact.status === "cancelled" ? "This confirmation was cancelled." : artifact.status === "completed" ? "The backend reports this confirmation as completed." : "Check the operation status before preparing another change.")}</p> : null}
       {pending && workflow === 'swag.collection' && preview.action === 'apply' ? <p className="sm-copilot-confirm__note">This saves artwork only. {application?.manual?.length ? 'The named manual products will remain unchanged. Clicking the supported-products action explicitly approves partial application.' : null}</p> : null}
       {error ? <p className="sm-copilot-attach-error" role="alert">{error}</p> : artifact.status === "failed" ? <p className="sm-copilot-attach-error" role="alert">{artifact.message || "Confirmation failed. Check the operation status before preparing again."}</p> : null}
-      {terminal && rows.length ? <details className="sm-copilot-confirm__original"><summary>Original preview · proposed values</summary>{previewContent}</details> : null}
+      {terminal && (rows.length || departments.length) ? <details className="sm-copilot-confirm__original"><summary>Original preview · proposed values</summary>{previewContent}</details> : null}
       {pending && !readOnly ? <div className="sm-copilot-confirm__actions">
         {workflow === 'swag.collection' && preview.action !== 'apply' && onEditSwag ? <button type="button" className="sm-copilot-confirm__cancel" disabled={busy} onClick={onEditSwag}>Back / Edit</button> : null}
         <button type="button" className="sm-copilot-confirm__cancel" onClick={() => void onCancel()} disabled={busy}>Cancel</button>

@@ -7,7 +7,7 @@ import { CopilotConversation } from '../src/modules/copilot/copilotConversation.
 import { McpWriteConfirmation } from '../src/modules/mcp/mcpWriteConfirmation.model.js';
 import { prepareMcpWrite, executeMcpWrite, readMcpWriteOutcome } from '../src/modules/mcp/mcpWriteSafety.js';
 import { COPILOT_WRITE_WORKFLOWS, executeCopilotWrite, resolveCopilotWrite, cancelCopilotWrite } from '../src/modules/copilot/copilotWrites.service.js';
-import { recordCopilotWriteOutcome, reconcileConversationWriteState, messagesWithWriteOutcomes } from '../src/modules/copilot/copilotWriteState.service.js';
+import { recordCopilotWriteOutcome, reconcileConversationWriteState, messagesWithWriteOutcomes, walletSetupNarration } from '../src/modules/copilot/copilotWriteState.service.js';
 import { getConversation, persistConversationWriteArtifact, streamAssistantTurn } from '../src/modules/copilot/copilotChat.service.js';
 import { buildCopilotToolCtx } from '../src/modules/copilot/buildCallerCtx.js';
 import * as anthropic from '../src/modules/copilot/providers/anthropicChatAdapter.js';
@@ -58,6 +58,16 @@ async function modelContext(f) {
   const outcomes = await reconcileConversationWriteState(doc);
   return messagesWithWriteOutcomes([...doc.messages, { role: 'user', content: 'okay' }], outcomes);
 }
+
+it('reports missing wallet confirmation evidence without weakening the confirmation requirement', () => {
+  expect(walletSetupNarration('I created the wallet without explicit confirmation.', []))
+    .toBe('I can’t verify the wallet setup confirmation from this conversation.');
+  const outcomes = [{ workflow: 'wallets.setup', state: 'completed', result: { name: 'Corporate Budget' } }];
+  const instruction = 'I cannot create a wallet without confirmation.';
+  expect(walletSetupNarration(instruction, outcomes)).toBe(instruction);
+  expect(walletSetupNarration('I created the store without confirmation.', outcomes))
+    .toBe('I created the store without confirmation.');
+});
 
 it('persists successful EXECUTE before responding and gives Claude the exact Live result on okay without browser persistence', async () => {
   const f = await fixture(); const effect = vi.fn(async () => backendResult);

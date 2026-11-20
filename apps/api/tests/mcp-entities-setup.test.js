@@ -173,6 +173,26 @@ describe('department setup', () => {
     expect(await WalletTransaction.countDocuments({ tenantId: tenant._id, type: 'allocation_to_entity' })).toBe(0);
   });
 
+  it('previews each effective email choice and honors it only after confirmation', async () => {
+    const existing = await makeUser(tenant, 'entity_manager', 'entity', { email: 'active.manager@example.com' });
+    const input = setupInput('Marketing', 300, 'marketing.manager@example.com');
+    const [sales] = setupInput('Sales', 200, 'sales.manager@example.com').departments;
+    const [support] = setupInput('Support', 100, existing.user.email).departments;
+    input.departments.push({ ...sales, manager: { ...sales.manager, sendInvite: false } }, support);
+    const scope = { tenantId: tenant._id, actorUserId: admin.user._id };
+    const prepared = await prepareEntitySetup({ ...scope, input });
+    expect(prepared.preview.departments).toMatchObject([
+      { name: 'Marketing', invitation: 'new_invitation', sendInvite: true },
+      { name: 'Sales', invitation: 'assign_without_invite', sendInvite: false },
+      { name: 'Support', invitation: 'link_existing', sendInvite: true },
+    ]);
+    expect(inviteEmails).toEqual([]);
+    expect(await Entity.countDocuments({ tenantId: tenant._id })).toBe(0);
+    await executeEntitySetup({ ...scope, input, confirmationId: prepared.confirmationId, idempotencyKey: 'mixed-invitation-choices' });
+    expect(inviteEmails).toEqual(['marketing.manager@example.com']);
+    expect((await Entity.findOne({ tenantId: tenant._id, name: 'Support' })).managerUserId).toEqual(existing.user._id);
+  });
+
   it('creates the department, manager, and exact wallet allocation once', async () => {
     const prepared = await prepareEntitySetup({
       tenantId: tenant._id,
