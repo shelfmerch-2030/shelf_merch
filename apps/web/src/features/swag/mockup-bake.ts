@@ -31,6 +31,7 @@ function paintArtworkInPrintPlate(
   const { art, originX, originY, printRect, rel, aspect } = args;
   const w0 = printRect.w * rel.w;
   const h0 = w0 * aspect;
+  const blend = printBlendForFabric(samplePlateLuminance(ctx, originX, originY, printRect));
   ctx.save();
   ctx.translate(originX + printRect.x, originY + printRect.y);
   const plateRot = ((printRect.rotationDeg || 0) * Math.PI) / 180;
@@ -38,12 +39,79 @@ function paintArtworkInPrintPlate(
   ctx.beginPath();
   ctx.rect(0, 0, printRect.w, printRect.h);
   ctx.clip();
-  ctx.globalCompositeOperation = "multiply";
-  ctx.globalAlpha = 0.96;
+  ctx.globalCompositeOperation = blend.op;
+  ctx.globalAlpha = blend.alpha;
   ctx.translate(rel.cx * printRect.w, rel.cy * printRect.h);
   ctx.rotate(((rel.rot || 0) * Math.PI) / 180);
   ctx.drawImage(art, -w0 / 2, -h0 / 2, w0, h0);
   ctx.restore();
+}
+
+/**
+ * Average perceived luminance (0..1) of the garment pixels under a print plate.
+ * Transparent mask pixels are ignored. Returns null if nothing opaque is found
+ * or the canvas cannot be read.
+ */
+function samplePlateLuminance(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  printRect: { x: number; y: number; w: number; h: number; rotationDeg: number },
+): number | null {
+  try {
+    const rad = ((printRect.rotationDeg || 0) * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const ox = originX + printRect.x;
+    const oy = originY + printRect.y;
+    // Plate rotates around its top-left corner (same as Konva / paint above).
+    const corners = [
+      [0, 0],
+      [printRect.w, 0],
+      [0, printRect.h],
+      [printRect.w, printRect.h],
+    ].map(([x, y]) => [ox + x * cos - y * sin, oy + x * sin + y * cos]);
+    const xs = corners.map((c) => c[0]);
+    const ys = corners.map((c) => c[1]);
+    const x0 = Math.max(0, Math.floor(Math.min(...xs)));
+    const y0 = Math.max(0, Math.floor(Math.min(...ys)));
+    const x1 = Math.min(ctx.canvas.width, Math.ceil(Math.max(...xs)));
+    const y1 = Math.min(ctx.canvas.height, Math.ceil(Math.max(...ys)));
+    const sw = x1 - x0;
+    const sh = y1 - y0;
+    if (sw < 1 || sh < 1) return null;
+    const data = ctx.getImageData(x0, y0, sw, sh).data;
+    const stride = Math.max(1, Math.floor(Math.sqrt((sw * sh) / 4000)));
+    let sum = 0;
+    let count = 0;
+    for (let y = 0; y < sh; y += stride) {
+      for (let x = 0; x < sw; x += stride) {
+        const i = (y * sw + x) * 4;
+        if (data[i + 3] < 128) continue;
+        sum += (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
+        count += 1;
+      }
+    }
+    return count ? sum / count : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How baked artwork is composited onto the garment.
+ * - Light fabric → multiply, so the print picks up folds and shadows.
+ * - Mid/dark fabric → normal (opaque DTF ink over a white underbase). Multiply
+ *   can only darken, which crushed logos toward the fabric colour on navy/black
+ *   products and made saved mockups look nothing like the artwork-step canvas.
+ */
+export function printBlendForFabric(lum: number | null): {
+  op: GlobalCompositeOperation;
+  alpha: number;
+} {
+  if (lum == null || lum >= 0.62) return { op: "multiply", alpha: 0.96 };
+  if (lum <= 0.32) return { op: "source-over", alpha: 0.92 };
+  return { op: "source-over", alpha: 0.94 };
 }
 
 /** Per-product artwork placement — print-area % preferred; canvas % mirrored. */
