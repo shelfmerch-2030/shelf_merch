@@ -210,7 +210,11 @@ const envSchema = z.object({
   /** Pickup location name exactly as registered in Delhivery One → Settings → Pickup addresses. */
   DELHIVERY_PICKUP_LOCATION: z.string().optional().default(''),
 
+<<<<<<< HEAD
   /** SEO growth engine — server-only; never expose via VITE_ or client bundles. */
+=======
+  /** SEO growth engine + Copilot Claude — server-only; never expose via VITE_ or client bundles. */
+>>>>>>> sushant/integration/shelfmerch-ai-copilot-staging-2026-11-20
   ANTHROPIC_API_KEY: z.string().optional().default(''),
   ANTHROPIC_MODEL: z.string().optional().default(''),
   ANTHROPIC_API_VERSION: z.string().optional().default('2023-06-01'),
