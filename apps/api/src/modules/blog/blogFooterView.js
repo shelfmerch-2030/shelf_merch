@@ -25,7 +25,7 @@ export function blogFooter() {
     <div class="journal-footer__accordion">${sections.map(([title, items]) => `<details name="journal-footer-sections"><summary>${title}</summary><div>${links(items)}</div></details>`).join('')}</div>
     <div class="journal-footer__bottom">
       <div class="journal-footer__contact"><span class="journal-footer__contact-icon">${icon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>')}</span><p><small>Need help?</small><a href="mailto:support@shelfmerch.com">support@shelfmerch.com</a></p></div>
-      <div class="journal-footer__contact"><span class="journal-footer__contact-icon">${icon('<path d="M7 3h3l1.5 4-2 1.2a12 12 0 0 0 6.3 6.3L17 12.5l4 1.5v3A16 16 0 0 1 7 3Z"/>')}</span><p><small>Call us</small><a href="tel:+919515888515">9515888515</a></p></div>
+      <div class="journal-footer__contact"><span class="journal-footer__contact-icon">${icon('<path d="M7 3h3l1.5 4-2 1.2a12 12 0 0 0 6.3 6.3L17 12.5l4 1.5v3A16 16 0 0 1 7 3Z"/>')}</span><p><small>Call us</small><a href="tel:+918887222888">8887222888</a></p></div>
       <div class="journal-footer__contact"><span class="journal-footer__contact-icon">${icon('<circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 3.5"/>')}</span><p><small>Mon to Fri, 9:00 AM to 6:00 PM</small><strong>We’re here to help</strong></p></div>
       <span class="journal-footer__copyright">© ${new Date().getUTCFullYear()} ShelfMerch. All rights reserved.</span>
     </div>

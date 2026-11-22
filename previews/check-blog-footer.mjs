@@ -16,7 +16,7 @@ for (const [, href] of existing.matchAll(/(?:href|to)="([^"]+)"/g)) {
   assert(html.includes(`href="${href}"`), `Main-site footer link missing: ${href}`);
 }
 assert(doc.body.textContent.includes('Human Resource'));
-assert(doc.body.textContent.includes('9515888515'));
+assert(doc.body.textContent.includes('8887222888'));
 assert(doc.body.textContent.includes('Mon to Fri, 9:00 AM to 6:00 PM'));
 const live = await fetch('http://localhost:8080/blog');
 assert.equal(live.status, 200);

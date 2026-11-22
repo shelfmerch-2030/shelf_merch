@@ -117,6 +117,11 @@
       "description": "Send ShelfMerch kit, order, delivery, and budget updates into Slack without reading private conversations."
     },
     {
+      "path": "/integrations/zoho-people",
+      "title": "ShelfMerch Integration for Zoho People",
+      "description": "Connect Zoho People to ShelfMerch, manually sync your employee directory, and use imported employees for onboarding kits, corporate gifting, and recognition."
+    },
+    {
       "path": "/support",
       "title": "ShelfMerch Support | Help Center",
       "description": "Get support for ShelfMerch integrations, Slack connection, account setup, and platform assistance."

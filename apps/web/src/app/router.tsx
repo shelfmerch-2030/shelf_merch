@@ -410,6 +410,13 @@ export const appRouter = createBrowserRouter([
         ),
       },
       {
+        path: "integrations/zoho-people",
+        lazy: page(
+          () => import("@/features/integrations/ZohoPeopleLandingPage"),
+          "ZohoPeopleLandingPage",
+        ),
+      },
+      {
         path: "support",
         lazy: page(() => import("@/features/marketing/PublicSupportPage"), "PublicSupportPage"),
       },

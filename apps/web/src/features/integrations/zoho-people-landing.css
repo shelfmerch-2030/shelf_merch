@@ -1,0 +1,234 @@
+.zoho-people-landing main {
+  padding-top: 70px;
+  color: #171717;
+  font-family: var(--font-family-public-sans);
+}
+
+.zoho-people-inner {
+  width: min(1280px, 90%);
+  margin-inline: auto;
+}
+
+.landing-home .zoho-people-hero .lh-hero-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (min-width: 761px) {
+  .landing-home .zoho-people-hero .lh-hero-grid {
+    min-height: clamp(440px, 37vw, 550px);
+  }
+}
+
+.landing-home .zoho-people-hero .lh-hero-grid::before {
+  width: max(62%, 50vw);
+}
+
+.landing-home .zoho-people-hero h1 {
+  font-size: clamp(36px, 4vw, 60px);
+  margin-top: 0;
+}
+
+.landing-home .zoho-people-hero .lh-hero-image {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  margin: 0;
+}
+
+.zoho-people-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.zoho-people-landing main h2 {
+  font-size: clamp(28px, 3.4vw, 46px);
+}
+
+.zoho-people-landing main p {
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+
+.landing-home .zoho-people-hero p {
+  margin: 0 0 24px;
+}
+
+.zoho-people-section {
+  padding-block: clamp(28px, 5vw, 64px);
+}
+
+.zoho-people-workflow {
+  padding-block: clamp(28px, 3.5vw, 48px);
+}
+
+.zoho-people-steps {
+  counter-reset: zoho-step;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  gap: 16px;
+  margin: 24px 0 0;
+  padding: 0;
+}
+
+.zoho-people-steps li {
+  counter-increment: zoho-step;
+  padding: clamp(20px, 2vw, 28px);
+  border-radius: 12px;
+  background: #e5ebff;
+}
+
+.zoho-people-steps li:nth-child(2) {
+  background: #ece5fd;
+}
+
+.zoho-people-steps li:nth-child(3) {
+  background: #f9e9b7;
+}
+
+.zoho-people-steps li::before {
+  content: counter(zoho-step) / "";
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: #171717;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.zoho-people-steps h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.zoho-people-landing .zoho-people-steps p {
+  max-width: 42ch;
+  margin-top: 8px;
+}
+
+.zoho-people-workflow-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+}
+
+.zoho-people-landing main .zoho-people-workflow-heading a.zoho-people-resource {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.zoho-people-landing main .zoho-people-workflow-heading a.zoho-people-resource:hover {
+  text-decoration: underline;
+}
+
+.zoho-people-details {
+  padding-bottom: clamp(32px, 5vw, 64px);
+}
+
+.zoho-people-detail-card {
+  min-width: 0;
+  padding: clamp(20px, 3vw, 36px);
+  border: 1px solid #dce1ed;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.zoho-people-detail-card.zoho-people-pricing {
+  background: #e5ebff;
+}
+
+.zoho-people-landing main .zoho-people-detail-card h2 {
+  font-size: clamp(24px, 2.6vw, 34px);
+}
+
+.zoho-people-details .button {
+  margin-top: 20px;
+}
+
+.zoho-people-contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 16px 0 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #dce1ed;
+}
+
+.zoho-people-contacts dt {
+  font-weight: 700;
+}
+
+.zoho-people-contacts dd {
+  margin: 4px 0 0;
+}
+
+.zoho-people-developer-heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.zoho-people-links {
+  list-style: disc;
+  margin: 12px 0 0;
+  padding-inline-start: 20px;
+  line-height: 1.7;
+}
+
+.zoho-people-landing main a:not(.button, .lh-button) {
+  color: #203cac;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.zoho-people-landing main a:focus-visible {
+  outline: 2px solid #203cac;
+  outline-offset: 4px;
+}
+
+.zoho-people-final h2 em {
+  display: block;
+  font-family: var(--font-family-public-serif);
+}
+
+.zoho-people-landing main .zoho-people-final p {
+  margin: 24px auto 28px;
+  font-size: clamp(16px, 1.5vw, 19px);
+}
+
+.zoho-people-landing main .zoho-people-final a:focus-visible {
+  outline-color: var(--yellow);
+}
+
+@media (max-width: 760px) {
+  .zoho-people-landing main {
+    padding-top: 59.5px;
+  }
+
+  .landing-home .zoho-people-hero .lh-hero-grid,
+  .zoho-people-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landing-home .zoho-people-hero h1 {
+    font-size: clamp(34px, 8.5vw, 48px);
+  }
+
+  .landing-home .zoho-people-hero p {
+    font-size: 18px;
+  }
+}
