@@ -115,9 +115,10 @@ export type CopilotDepartmentBudgetsArtifact = {
 
 export type CopilotWebResearch = {
   brief: { topic: string | null; purpose: "listings" | "trends" | "comparison" | "research"; region?: string };
-  status: "completed" | "partial" | "unavailable" | "no_sources" | "limited" | "disabled" | "unsupported_topic";
+  status: "completed" | "partial" | "unavailable" | "no_sources" | "unverified" | "synthesis_failed" | "limited" | "disabled" | "unsupported_topic";
   checkedAt?: string;
   summarized?: boolean;
+  leadsOnly?: boolean;
   sources: Array<{ title: string; url: string; excerpt: string }>;
 };
 

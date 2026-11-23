@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { connectTestDb, clearTestDb, disconnectTestDb } from './setup.js';
 import { makeTenant, makeUser } from './helpers.js';
 import { env } from '../src/config/env.js';
+import { logger } from '../src/config/logger.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { CopilotConversation } from '../src/modules/copilot/copilotConversation.model.js';
 import { CopilotUsage } from '../src/modules/copilot/copilotUsage.model.js';
@@ -104,7 +105,7 @@ describe('isolated native research', () => {
     expect(complete.mock.calls[0][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 }, messages: [
       { role: 'user', content: JSON.stringify({ purpose: 'trends', topic: 'corporate gifting and merchandise', region: 'India', count: 3 }) },
     ] });
-    expect(result).toEqual({ status: 'completed', sources: [{ url: sourceUrl, title: 'Public merchant listing',
+    expect(result).toMatchObject({ status: 'completed', leads: [], sources: [{ url: sourceUrl, title: 'Public merchant listing',
       excerpt: 'Public listing excerpt' }], usage: { promptTokens: 50, completionTokens: 20, webSearchRequests: 1 } });
   });
 
@@ -125,6 +126,30 @@ describe('isolated native research', () => {
     }), expect.objectContaining({ maxRetries: 0 }));
     expect(result.contentBlocks).toBe(blocks);
     expect(result).toMatchObject({ finishReason: 'pause_turn', webSearchRequests: 1, toolCalls: [] });
+  });
+
+  it('reads Anthropic result blocks, matches citation fragments and retains an uncited page only as a lead', async () => {
+    const secondPage = 'https://example.com/supplier/kitchen-scale';
+    const blocks = [
+      { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: { query: 'public test query' } },
+      searchResult(sourceUrl),
+      searchResult(secondPage),
+      { type: 'text', text: 'A cited claim.', citations: [cite(`${sourceUrl}#product-details`, 'Direct merchant listing')] },
+    ];
+    const client = { ...supportedModel(), messages: { stream: vi.fn(() => ({
+      async *[Symbol.asyncIterator]() {
+        yield { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { server_tool_use: { web_search_requests: 1 } } };
+      },
+      finalMessage: async () => ({ content: blocks, stop_reason: 'end_turn', usage: { server_tool_use: { web_search_requests: 1 } } }),
+    })) } };
+    const result = await runCopilotWebResearch({ client, model: modelId, tenantId: tenant, userId: 'user',
+      brief: publicResearchRequest('Find products outside ShelfMerch'), reserve: useQuota() });
+    expect(result).toMatchObject({
+      status: 'completed', sources: [{ url: sourceUrl, title: 'Direct merchant listing' }],
+      leads: [{ url: secondPage, excerpt: '' }],
+      diagnostics: { resultCount: 2, citedSources: 1, rejectedCitations: 0 },
+    });
+    expect(JSON.stringify(result)).not.toMatch(/encrypted|public test query|A cited claim/);
   });
 
   it('replays server blocks on pause, rejects unsafe or uncited links, and never returns provider prose or opaque blocks', async () => {
@@ -174,6 +199,75 @@ describe('isolated native research', () => {
 });
 
 describe('embedded Milestone 1 routing and storage', () => {
+  it('recovers title-backed products with incomplete snippets and ignores malformed sibling candidates', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    stream.mockResolvedValueOnce(listings([
+      ['frother', 'Rechargeable USB‑C Milk Frother — Merchant', 'Choose a delivery address to see shipping terms.'],
+    ])).mockResolvedValueOnce(synthesis([
+      { source: 'invalid', reason: null },
+      { source: 1, name: 'Rechargeable USB-C Milk Frother', price: null, reason: 'Pairs with a coffee welcome kit' },
+      { source: 1, name: 'Invented gadget', price: '₹349' },
+    ]));
+    const { reply } = await chat.turn('Search the web for three kitchen-tech gadgets available in India.');
+    expect(reply.content).toMatch(/Rechargeable USB-C Milk Frother.*Unit price unknown/s);
+    expect(reply.content).not.toMatch(/Invented gadget|₹349/);
+    expect(reply.artifacts[0].research).toMatchObject({ status: 'completed', sources: [{ url: 'https://example.com/frother' }] });
+    expect(timeout).toHaveBeenCalledWith(8_000);
+    expect(stream).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains safe leads and logs only structured counts when synthesis output is unusable', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const diagnostics = vi.spyOn(logger, 'info');
+    stream.mockResolvedValueOnce(found()).mockResolvedValueOnce({
+      text: 'fixture provider detail which must remain private', finishReason: 'end_turn', toolCalls: [],
+    });
+    const { reply } = await chat.turn('Search the web for kitchen-tech gadgets available in India for Toast employees.');
+    expect(reply.artifacts[0].research).toMatchObject({
+      status: 'synthesis_failed', leadsOnly: true, sources: [{ url: sourceUrl }],
+    });
+    const entry = diagnostics.mock.calls.find(([, message]) => message === 'Copilot web research completed')?.[0];
+    expect(entry).toMatchObject({
+      status: 'synthesis_failed', search: { outcome: 'cited_results', citedSources: 1 },
+      synthesis: { outcome: 'invalid_response' },
+    });
+    expect(JSON.stringify(entry)).not.toMatch(/example\.com|Toast|kitchen|provider detail|server-only|Public listing/);
+  });
+
+  it.each([
+    [searchResult(sourceUrl), 'unverified', 'uncited_or_rejected_results'],
+    [{ type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [] }, 'no_sources', 'empty_results'],
+    [{ type: 'web_search_tool_result', content: { type: 'web_search_tool_result_error', error_code: 'unavailable' } }, 'unavailable', 'search_tool_error'],
+  ])('distinguishes uncited results, empty results and tool errors', async (block, status, outcome) => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const diagnostics = vi.spyOn(logger, 'info');
+    stream.mockResolvedValueOnce(native([block])).mockResolvedValueOnce(synthesis([], [
+      { name: 'Coffee preparation kit', reason: 'A useful theme for a small welcome gift' },
+    ]));
+    const { reply } = await chat.turn('Search the web for kitchen-tech gadgets available in India.');
+    expect(reply.content).toContain('Unverified ideas to source');
+    expect(reply.artifacts[0].research).toMatchObject({ status,
+      ...(status === 'unverified' ? { leadsOnly: true, sources: [{ url: sourceUrl }] } : { sources: [] }),
+    });
+    expect(diagnostics).toHaveBeenCalledWith(expect.objectContaining({ status, search: expect.objectContaining({ outcome }) }), 'Copilot web research completed');
+  });
+
+  it('distinguishes rejected evidence from an empty search while offering concepts', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    stream.mockResolvedValueOnce(found()).mockResolvedValueOnce(synthesis([
+      { source: 1, name: 'Title invented by model' },
+    ], [{ name: 'Kitchen welcome kit', reason: 'A theme to ask suppliers about' }]));
+    const { reply } = await chat.turn('Search the web for kitchen-tech gadgets available in India.');
+    expect(reply.content).toContain('Kitchen welcome kit');
+    expect(reply.content).not.toContain('Title invented by model');
+    expect(reply.artifacts[0].research).toMatchObject({ status: 'unverified', leadsOnly: true });
+  });
+
   it('recommends three concrete kitchen gadgets in India and rejects industry reports and unsupported price claims', async () => {
     const { stream } = mockClaude();
     const chat = await workspace();
@@ -242,7 +336,7 @@ describe('embedded Milestone 1 routing and storage', () => {
   it('offers conceptual recommendations when no direct supplier evidence can be verified', async () => {
     const { stream } = mockClaude();
     const chat = await workspace();
-    stream.mockResolvedValueOnce(native([], 'end_turn')).mockResolvedValueOnce(synthesis([], [
+    stream.mockResolvedValueOnce(native([{ type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [] }])).mockResolvedValueOnce(synthesis([], [
       { name: 'Rechargeable milk frother', reason: 'Pairs with a coffee-themed welcome kit' },
       { name: 'Digital food thermometer', reason: 'Useful when meal prepping' },
       { name: 'Compact kitchen scale', reason: 'Fits in a small baking kit' },

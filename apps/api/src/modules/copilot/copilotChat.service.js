@@ -41,7 +41,7 @@ import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
 import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
-import { synthesizeResearch } from './copilotResearchRecommendations.js';
+import { fallbackResearchLeads, synthesizeResearch } from './copilotResearchRecommendations.js';
 import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
@@ -584,29 +584,36 @@ export async function streamAssistantTurn({
     if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
     const [external, internal] = await Promise.all([
       enabled ? runCopilotWebResearch({ client, model: providerStatus.model, brief, signal, tenantId, userId })
-        : Promise.resolve({ status: topic ? 'disabled' : 'unsupported_topic', sources: [], usage: {} }),
+        : Promise.resolve({ status: topic ? 'disabled' : 'unsupported_topic', sources: [], leads: [], usage: {} }),
       purpose === 'comparison' ? comparisonCatalog({ text, category, toolCtx, role })
         : Promise.resolve({ artifacts: [], status: 'skipped', calls: 0 }),
     ]);
     const catalog = internal.artifacts.slice(0, 4).map(({ product }) => ({
       name: product.name, sellingPriceInr: product.sellingPriceInr,
     }));
-    const synthesis = client && !signal?.aborted && (external.status !== 'limited' || external.sources.length)
-      && webResearchEnabled(tenantId, providerStatus.provider)
-      ? await synthesizeResearch({ client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog, signal,
-        deadline: startedAt + env.EMBEDDED_COPILOT_WEB_SEARCH_TIMEOUT_MS })
-      : { content: '', sources: [], usage: {} };
+    const canSynthesize = client && !signal?.aborted && (external.status !== 'limited' || external.sources.length)
+      && webResearchEnabled(tenantId, providerStatus.provider);
+    const synthesis = canSynthesize
+      ? await synthesizeResearch({ client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog, signal })
+      : { content: '', sources: [], usage: {}, diagnostics: { outcome: 'skipped' } };
     const usage = await recordUsage({ tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
       ...external.usage,
       promptTokens: (external.usage.promptTokens || 0) + (synthesis.usage.promptTokens || 0),
       completionTokens: (external.usage.completionTokens || 0) + (synthesis.usage.completionTokens || 0),
       toolCallCount: internal.calls, latencyMs: Date.now() - startedAt });
     if (signal?.aborted) throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
-    const status = !synthesis.sources.length && ['completed', 'partial'].includes(external.status)
-      ? 'no_sources' : external.status;
+    const leads = enabled && webResearchEnabled(tenantId, providerStatus.provider) && !synthesis.sources.length
+      ? fallbackResearchLeads(brief, [...external.sources, ...external.leads]) : [];
+    const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics.outcome);
+    const status = !synthesis.sources.length && external.sources.length
+      ? synthesisFailed ? 'synthesis_failed' : 'unverified'
+      : external.status;
+    if (enabled) logger.info({ purpose, status, search: external.diagnostics, synthesis: synthesis.diagnostics,
+      leads: leads.length, webSearchRequests: external.usage.webSearchRequests, latencyMs: Date.now() - startedAt }, 'Copilot web research completed');
     const researchArtifact = { kind: 'web_research', research: {
       brief, status,
-      sources: synthesis.sources, summarized: true,
+      sources: synthesis.sources.length ? synthesis.sources : leads,
+      summarized: true, ...(leads.length ? { leadsOnly: true } : {}),
       ...(enabled ? { checkedAt: new Date().toISOString() } : {}),
     } };
     const artifacts = [researchArtifact, ...internal.artifacts];

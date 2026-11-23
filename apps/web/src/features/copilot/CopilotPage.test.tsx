@@ -127,6 +127,25 @@ describe("Copilot workspace", () => {
     expect(within(restored).queryByRole("link", { name: "View Verified notebook" })).not.toBeInTheDocument();
   });
 
+  it("restores search leads with their verification status and keeps fallback ideas visible", async () => {
+    const research: api.CopilotArtifact = { kind: "web_research", research: {
+      brief: { topic: "kitchen technology and kitchenware", purpose: "listings", region: "India" },
+      status: "unverified", summarized: true, leadsOnly: true,
+      sources: [{ title: "Public kitchenware listing", url: "https://example.com/listing", excerpt: "" }],
+    } };
+    vi.mocked(api.getCopilotConversation).mockResolvedValueOnce({ ...conversation, messages: [{
+      role: "assistant", content: "**Unverified ideas to source**\n\nAsk a supplier about a coffee kit.", artifacts: [research],
+    }] });
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Welcome kits" }));
+    const restored = await screen.findByRole("region", { name: "External research" });
+    expect(restored).toHaveTextContent("The search returned results");
+    expect(restored).not.toHaveTextContent("I couldn’t find public sources");
+    expect(within(restored).getByText("External search leads")).toBeVisible();
+    expect(within(restored).getByRole("link", { name: "Public kitchenware listing" })).toHaveAttribute("href", "https://example.com/listing");
+    expect(screen.getByText("Unverified ideas to source")).toBeVisible();
+  });
+
   it("closes back to the page that launched Copilot", () => {
     localStorage.setItem("sm_workspace_slug", "husain");
     render(

@@ -14,10 +14,11 @@ const webResearchSchema = new mongoose.Schema(
       audience: String,
       budget: { type: new mongoose.Schema({ inr: Number, exclusive: Boolean }, { _id: false }), default: undefined },
     },
-    status: { type: String, enum: ['completed', 'partial', 'unavailable', 'no_sources', 'limited', 'disabled', 'unsupported_topic'] },
+    status: { type: String, enum: ['completed', 'partial', 'unavailable', 'no_sources', 'unverified', 'synthesis_failed', 'limited', 'disabled', 'unsupported_topic'] },
     sources: { type: [webResearchSourceSchema], default: [] },
     checkedAt: String,
     summarized: Boolean,
+    leadsOnly: Boolean,
   },
   { _id: false },
 );
