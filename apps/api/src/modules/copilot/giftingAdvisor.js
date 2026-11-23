@@ -35,7 +35,7 @@ export function isCreativeGiftingRequest(content) {
   return !/\bshelf\s?merch\b|\b(?:in stock|available to order|actual products)\b/i.test(content)
     && /\b(?:creative|innovative|brainstorm|concepts?|imagine|kit ideas)\b/i.test(content)
     && /\b(?:kits?|gifts?|gifting|giveaways?|swag|merchandise)\b/i.test(content)
-    && !/\b(?:suggest|give|show|find|recommend)(?:\s+me)?\s+\d+\b/i.test(content);
+    && (/\bkits?\b/i.test(content) || !/\b(?:suggest|give|show|find|recommend)(?:\s+me)?\s+\d+\b/i.test(content));
 }
 
 export function isGiftingAdvisorRequest(content, conversation = {}) {

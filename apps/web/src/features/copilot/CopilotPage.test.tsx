@@ -81,7 +81,7 @@ describe("Copilot workspace", () => {
   it("shows research progress, keeps citations beside verified cards, and restores them from saved history", async () => {
     const research: api.CopilotArtifact = { kind: "web_research", research: {
       brief: { topic: "corporate gifting and merchandise", purpose: "comparison" },
-      status: "partial", checkedAt: "2026-11-19T12:00:00.000Z",
+      status: "partial", checkedAt: "2026-11-19T12:00:00.000Z", summarized: true,
       sources: [
         { title: "Public merchant listing", url: "https://example.com/listing", excerpt: "A notebook for corporate gifting." },
         { title: "Unsafe link", url: "javascript:alert(1)", excerpt: "This link must not render." },
@@ -92,7 +92,7 @@ describe("Copilot workspace", () => {
     vi.mocked(api.streamCopilotMessage).mockImplementationOnce((id, _prompt, handlers) => new Promise(resolve => {
       handlers.onTool?.("web_search", "running");
       complete = () => {
-        handlers.onDelta?.("I found a public source and a verified ShelfMerch option.");
+        handlers.onDelta?.("Consider a notebook for onboarding. [Source 1](<https://example.com/listing>).");
         handlers.onArtifacts?.([research, product]);
         handlers.onDone?.({ conversationId: id, title: "Welcome kits" });
         resolve();
@@ -108,12 +108,14 @@ describe("Copilot workspace", () => {
     const source = await screen.findByRole("link", { name: "Public merchant listing" });
     expect(source).toHaveAttribute("href", "https://example.com/listing");
     expect(source).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByRole("link", { name: "Source 1" })).toHaveAttribute("href", "https://example.com/listing");
+    expect(screen.queryByText("“A notebook for corporate gifting.”")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Unsafe link" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Verified notebook" })).toBeVisible();
     expect(screen.getByText("Verified ShelfMerch products")).toBeVisible();
 
     vi.mocked(api.getCopilotConversation).mockResolvedValueOnce({ ...conversation, messages: [{
-      role: "assistant", content: "Comparison sources", artifacts: [research, product],
+      role: "assistant", content: "Consider a notebook for onboarding. [Source 1](<https://example.com/listing>).", artifacts: [research, product],
     }] });
     view.unmount();
     setup();
@@ -121,6 +123,7 @@ describe("Copilot workspace", () => {
     const restored = await screen.findByRole("region", { name: "External research" });
     expect(restored).toHaveTextContent("These findings are incomplete.");
     expect(within(restored).getByRole("link", { name: "Public merchant listing" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Source 1" })).toBeVisible();
     expect(within(restored).queryByRole("link", { name: "View Verified notebook" })).not.toBeInTheDocument();
   });
 

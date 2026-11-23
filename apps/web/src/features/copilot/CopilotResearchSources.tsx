@@ -36,7 +36,7 @@ export function CopilotResearchSources({ research }: { research: CopilotWebResea
         {sources.map(({ url, title, excerpt }) => <li key={url.href}>
           <a href={url.href} target="_blank" rel="noopener noreferrer">{title}</a>
           {" · "}<span className="sm-copilot-research__domain">{url.hostname}</span>
-          {excerpt ? <p>“{excerpt}”</p> : null}
+          {excerpt && !research.summarized ? <p>“{excerpt}”</p> : null}
         </li>)}
       </ol>
       {research.brief.purpose === "listings" || research.brief.purpose === "comparison"

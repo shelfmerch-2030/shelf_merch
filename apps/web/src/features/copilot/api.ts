@@ -117,6 +117,7 @@ export type CopilotWebResearch = {
   brief: { topic: string | null; purpose: "listings" | "trends" | "comparison" | "research"; region?: string };
   status: "completed" | "partial" | "unavailable" | "no_sources" | "limited" | "disabled" | "unsupported_topic";
   checkedAt?: string;
+  summarized?: boolean;
   sources: Array<{ title: string; url: string; excerpt: string }>;
 };
 

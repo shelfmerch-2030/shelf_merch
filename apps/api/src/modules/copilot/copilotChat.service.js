@@ -41,6 +41,7 @@ import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
 import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
+import { synthesizeResearch } from './copilotResearchRecommendations.js';
 import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
@@ -576,35 +577,50 @@ export async function streamAssistantTurn({
   const research = independentTurn && (!curatorTurn || researchEnabled) && publicResearchRequest(text, priorResearch);
   if (research) {
     const startedAt = Date.now();
-    const { topic, purpose, region, category } = research;
-    const brief = { topic, purpose, ...(region ? { region } : {}) };
+    const { category, company, ...brief } = research;
+    const { topic, purpose } = brief;
     const enabled = topic && researchEnabled;
+    const client = enabled ? createAnthropicClient() : null;
     if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
     const [external, internal] = await Promise.all([
-      enabled ? runCopilotWebResearch({ client: createAnthropicClient(), model: providerStatus.model, brief, signal, tenantId, userId })
+      enabled ? runCopilotWebResearch({ client, model: providerStatus.model, brief, signal, tenantId, userId })
         : Promise.resolve({ status: topic ? 'disabled' : 'unsupported_topic', sources: [], usage: {} }),
       purpose === 'comparison' ? comparisonCatalog({ text, category, toolCtx, role })
         : Promise.resolve({ artifacts: [], status: 'skipped', calls: 0 }),
     ]);
+    const catalog = internal.artifacts.slice(0, 4).map(({ product }) => ({
+      name: product.name, sellingPriceInr: product.sellingPriceInr,
+    }));
+    const synthesis = client && !signal?.aborted && (external.status !== 'limited' || external.sources.length)
+      && webResearchEnabled(tenantId, providerStatus.provider)
+      ? await synthesizeResearch({ client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog, signal,
+        deadline: startedAt + env.EMBEDDED_COPILOT_WEB_SEARCH_TIMEOUT_MS })
+      : { content: '', sources: [], usage: {} };
     const usage = await recordUsage({ tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
-      ...external.usage, toolCallCount: internal.calls, latencyMs: Date.now() - startedAt });
+      ...external.usage,
+      promptTokens: (external.usage.promptTokens || 0) + (synthesis.usage.promptTokens || 0),
+      completionTokens: (external.usage.completionTokens || 0) + (synthesis.usage.completionTokens || 0),
+      toolCallCount: internal.calls, latencyMs: Date.now() - startedAt });
     if (signal?.aborted) throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
+    const status = !synthesis.sources.length && ['completed', 'partial'].includes(external.status)
+      ? 'no_sources' : external.status;
     const researchArtifact = { kind: 'web_research', research: {
-      brief, status: external.status, sources: external.sources,
+      brief, status,
+      sources: synthesis.sources, summarized: true,
       ...(enabled ? { checkedAt: new Date().toISOString() } : {}),
     } };
     const artifacts = [researchArtifact, ...internal.artifacts];
     const content = [
-      external.sources.length ? `I found public sources on ${topic}${region ? ` in ${region}` : ''}. The excerpts show what each source reports.` : '',
+      synthesis.content,
       purpose === 'comparison' ? catalogComparisonSummary(internal.status, internal.artifacts.length) : '',
-      purpose === 'comparison' && external.sources.length && internal.artifacts.length
+      purpose === 'comparison' && synthesis.sources.length && internal.artifacts.length
         ? 'Compare the catalog’s GST-inclusive price and stock with each external listing’s delivered price, minimum quantity and branding options.' : '',
     ].filter(Boolean).join('\n\n');
     conversation.messages.push({ role: 'assistant', content, artifacts });
     await persistTurn();
     if (content) onEvent?.({ type: 'delta', text: content });
     onEvent?.({ type: 'artifacts', artifacts });
-    if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: external.sources.length ? 'done' : 'error' });
+    if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: synthesis.sources.length ? 'done' : 'error' });
     onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
     return conversation;
   }

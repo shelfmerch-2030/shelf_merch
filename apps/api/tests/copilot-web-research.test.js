@@ -42,6 +42,18 @@ const native = (contentBlocks, finishReason = 'end_turn', webSearchRequests = 1)
 });
 const sourceUrl = 'https://example.com/merchant/printed-notebook';
 const found = () => native([searchResult(sourceUrl), { type: 'text', text: 'ignored', citations: [cite(sourceUrl, 'Public merchant listing')] }]);
+const listings = entries => native([
+  ...entries.map(([slug]) => searchResult(`https://example.com/${slug}`)),
+  { type: 'text', text: 'Native raw narration', citations: entries.map(([slug, title, quote]) => ({
+    ...cite(`https://example.com/${slug}`, title), cited_text: quote,
+  })) },
+]);
+const synthesis = (findings, concepts = []) => ({
+  finishReason: 'end_turn', toolCalls: [], text: JSON.stringify({ findings, concepts }),
+});
+const point = (source, name, evidence, price) => ({
+  source, name, evidence, price, reason: 'A practical option for a frequently used gift',
+});
 const tenant = '507f1f77bcf86cd799439011';
 const useQuota = () => vi.fn().mockResolvedValue('reserved');
 
@@ -90,7 +102,7 @@ describe('isolated native research', () => {
     const result = await runCopilotWebResearch({ client: supportedModel(), model: modelId, brief,
       tenantId: tenant, userId: 'user', complete, reserve: useQuota() });
     expect(complete.mock.calls[0][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 }, messages: [
-      { role: 'user', content: JSON.stringify({ purpose: 'trends', topic: 'corporate gifting and merchandise', region: 'India' }) },
+      { role: 'user', content: JSON.stringify({ purpose: 'trends', topic: 'corporate gifting and merchandise', region: 'India', count: 3 }) },
     ] });
     expect(result).toEqual({ status: 'completed', sources: [{ url: sourceUrl, title: 'Public merchant listing',
       excerpt: 'Public listing excerpt' }], usage: { promptTokens: 50, completionTokens: 20, webSearchRequests: 1 } });
@@ -162,6 +174,84 @@ describe('isolated native research', () => {
 });
 
 describe('embedded Milestone 1 routing and storage', () => {
+  it('recommends three concrete kitchen gadgets in India and rejects industry reports and unsupported price claims', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const entries = [
+      ['report', 'India Kitchen Appliance Market Research', 'Indian kitchen appliance market research and forecasts'],
+      ['frother', 'Rechargeable Milk Frother', 'Rechargeable Milk Frother price ₹399.'],
+      ['thermometer', 'Digital Food Thermometer', 'Digital Food Thermometer posts no unit price'],
+      ['scale', 'Compact Digital Kitchen Scale', 'Compact Digital Kitchen Scale for ₹599 per piece'],
+    ];
+    stream.mockResolvedValueOnce(listings(entries)).mockResolvedValueOnce(synthesis([
+      ...entries.map(([, title, quote], index) => point(index + 1, title, quote, [undefined, '₹399', '₹299', '₹599'][index])),
+      point(999, 'Invented product', 'Fabricated evidence', '₹25'),
+    ]));
+    const { reply } = await chat.turn('Search the web for three kitchen-tech gadgets available in India for Toast employees. Include source links.');
+    const [search, compose] = stream.mock.calls.map(([request]) => request);
+    expect(search.systemPrompt).toMatch(/direct product pages/);
+    expect(JSON.parse(search.messages[0].content)).toMatchObject({ purpose: 'listings', region: 'India', count: 3, audience: 'employee gifting' });
+    expect(search.messages[0].content).not.toContain('Toast');
+    expect(compose.tools).toEqual([]);
+    expect(compose.webSearch).toBeUndefined();
+    expect(JSON.parse(compose.messages[0].content).brief.company).toBe('Toast');
+    expect(reply.content).toMatch(/Sourced recommendations in India.*Milk Frother.*₹399.*Food Thermometer.*Unit price unknown.*Kitchen Scale/s);
+    expect(reply.content).not.toMatch(/Market Research|₹299|Invented product|Native raw narration/);
+    expect(reply.artifacts[0].research).toMatchObject({ summarized: true, status: 'completed', sources: [
+      { url: 'https://example.com/frother' }, { url: 'https://example.com/thermometer' }, { url: 'https://example.com/scale' },
+    ] });
+    expect(evaluateReservation).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a five-item budget request private and separates priced listings from unverified ideas', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const entries = [
+      ['bottle', 'Reusable Bottle', 'Reusable Bottle for ₹499 per piece.'],
+      ['notebook', 'Pocket Notebook', 'Pocket Notebook for ₹500 per piece.'],
+      ['keyring', 'Keyring', 'Keyring estimated price ₹250 per piece.'],
+      ['tote', 'Canvas Tote', 'Canvas Tote sold as a pack for ₹300 per pack.'],
+    ];
+    const ideas = ['Foldable Tote', 'Seed Card', 'Cable Wrap', 'Notebook Sleeve'].map(name => ({ name, reason: 'Easy for visitors to carry' }));
+    stream.mockResolvedValueOnce(listings(entries)).mockResolvedValueOnce(synthesis(entries.map(([, name, quote], index) =>
+      point(index + 1, name, quote, ['₹499', '₹500', '₹250', '₹300'][index])), ideas));
+    const { reply } = await chat.turn('Find five innovative event giveaways under ₹500.');
+    expect(JSON.parse(stream.mock.calls[0][0].messages[0].content)).toMatchObject({ count: 5, audience: 'event giveaways', affordability: expect.any(String) });
+    expect(stream.mock.calls[0][0].messages[0].content).not.toContain('500');
+    expect(JSON.parse(stream.mock.calls[1][0].messages[0].content).brief.budget).toEqual({ inr: 500, exclusive: true });
+    expect(reply.content).toMatch(/verified 1 of 5.*Reusable Bottle.*₹499.*Unverified ideas to source.*Notebook Sleeve/s);
+    expect(reply.content).not.toMatch(/Pocket Notebook|₹250|₹300/);
+    expect(reply.artifacts[0].research.sources).toHaveLength(1);
+  });
+
+  it('answers the eight-kit creative request without web search or catalog lookup', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const names = ['Coffee prep', 'Breakfast lab', 'Tasting flight', 'Meal prep', 'Tea break', 'Baking bench', 'Recipe lab', 'Travel kitchen'];
+    stream.mockResolvedValueOnce({ finishReason: 'end_turn', toolCalls: [],
+      text: names.map((name, index) => `${index + 1}. ${name} kit — A useful kitchen-tech concept.`).join('\n') });
+    const prompt = 'Suggest eight creative kitchen-tech gifting kits for Toast employees.';
+    const { reply } = await chat.turn(prompt);
+    expect(stream.mock.calls[0][0]).toMatchObject({ tools: [], systemPrompt: expect.stringMatching(/exactly 8 distinct concepts/),
+      messages: [{ role: 'user', content: prompt }] });
+    expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
+    for (const name of names) expect(reply.content).toContain(name);
+    expect(reply.artifacts).toEqual([]);
+  });
+
+  it('offers conceptual recommendations when no direct supplier evidence can be verified', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    stream.mockResolvedValueOnce(native([], 'end_turn')).mockResolvedValueOnce(synthesis([], [
+      { name: 'Rechargeable milk frother', reason: 'Pairs with a coffee-themed welcome kit' },
+      { name: 'Digital food thermometer', reason: 'Useful when meal prepping' },
+      { name: 'Compact kitchen scale', reason: 'Fits in a small baking kit' },
+    ]));
+    const { reply } = await chat.turn('Search the web for three kitchen-tech gadgets available in India.');
+    expect(reply.content).toMatch(/verified 0 of 3.*Unverified ideas to source.*Ask a supplier/s);
+    expect(reply.artifacts[0].research).toMatchObject({ sources: [], status: 'no_sources' });
+  });
+
   it.each([
     'I need innovative kitchen-tech gifting kit ideas for Toast employees.',
     'Give me creative event giveaways under ₹500.',
@@ -180,27 +270,43 @@ describe('embedded Milestone 1 routing and storage', () => {
 
   it.each([
     ['Find innovative products available outside ShelfMerch.', 'listings'],
-    ['What are the latest corporate gifting trends in India?', 'trends'],
-    ['Compare ShelfMerch products with external gifting options.', 'comparison', 'curator'],
+    ['Research recent corporate gifting trends in India.', 'trends'],
+    ['Compare ShelfMerch catalog items with external alternatives.', 'comparison', 'curator'],
   ])('handles %s with isolated research and persists public citations', async (prompt, purpose, mode) => {
     const { stream, client } = mockClaude();
     const chat = await workspace();
-    stream.mockResolvedValue(found());
+    const trend = purpose === 'trends';
+    const title = trend ? '2026 India Employee Gifting Survey' : 'Public merchant listing';
+    const excerpt = trend ? 'The respondents favored useful reusable gifts over single-use items.' : 'Public listing excerpt';
+    const reason = trend ? 'Prioritize useful reusable gifts and let recipients select what they will use.'
+      : purpose === 'comparison' ? 'Consider this as an onboarding alternative to the Catalog notebook.'
+      : 'A practical point to consider when sourcing gifts';
+    const name = trend ? 'Survey respondents prefer reusable gifts' : title;
+    const nativeResult = trend ? native([searchResult(sourceUrl), { type: 'text', citations: [
+      { ...cite(sourceUrl, title), cited_text: excerpt },
+    ] }]) : found();
+    stream.mockResolvedValueOnce(nativeResult).mockResolvedValueOnce({
+      ...synthesis([{ source: 1, name, evidence: excerpt, reason }]), usage: { promptTokens: 24, completionTokens: 18 },
+    });
     const product = await CatalogProduct.create({ sku: 'COMPARE-1', name: 'Catalog notebook', status: 'active', basePriceInr: 225, category: 'Stationery' });
     const { reply, events, saved } = await chat.turn(prompt, mode);
     const research = reply.artifacts.find(row => row.kind === 'web_research').research;
     expect(research).toMatchObject({ status: 'completed', brief: { purpose }, checkedAt: expect.any(String),
-      sources: [{ url: sourceUrl, title: 'Public merchant listing', excerpt: 'Public listing excerpt' }] });
+      sources: [{ url: sourceUrl, title, excerpt }] });
     expect(events).toContainEqual(expect.objectContaining({ type: 'artifacts', artifacts: expect.arrayContaining([
       expect.objectContaining({ kind: 'web_research' }),
     ]) }));
     expect(JSON.stringify(saved.messages)).not.toMatch(/server-only|fabricated price/);
+    expect(reply.content).toContain(reason);
+    expect(reply.content).toContain('[Source 1]');
     expect(stream.mock.calls[0][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 } });
     expect(client.models.retrieve).toHaveBeenCalledWith(modelId, {}, expect.objectContaining({ maxRetries: 0 }));
     const cards = reply.artifacts.filter(row => row.kind === 'product');
     expect(cards.map(row => row.product.id)).toEqual(purpose === 'comparison' ? [product.id] : []);
+    const context = JSON.parse(stream.mock.calls[1][0].messages[0].content);
+    expect(context.verifiedShelfMerch.map(row => row.name)).toEqual(purpose === 'comparison' ? ['Catalog notebook'] : []);
     expect(await CopilotUsage.findOne({ tenantId: chat.tenantId })).toMatchObject({
-      promptTokens: 50, completionTokens: 20, webSearchRequests: 1, estimatedWebSearchCostUsd: 0.01,
+      promptTokens: 74, completionTokens: 38, webSearchRequests: 1, estimatedWebSearchCostUsd: 0.01,
       toolCallCount: purpose === 'comparison' ? 1 : 0,
     });
     expect(evaluateReservation.mock.calls[0].slice(1, 5)).toEqual([2,

@@ -193,20 +193,23 @@ export async function streamAnthropicCompletion({
   messages,
   tools,
   webSearch,
+  maxOutputTokens = env.EMBEDDED_COPILOT_MAX_OUTPUT_TOKENS,
+  maxRetries,
   signal,
   onTextDelta,
 }) {
   const anthropicTools = toAnthropicTools(tools || []);
   if (webSearch) anthropicTools.push({ type: 'web_search_20250305', name: 'web_search', max_uses: webSearch.maxUses });
+  const retries = webSearch ? 0 : maxRetries;
   const stream = client.messages.stream(
     {
       model,
-      max_tokens: env.EMBEDDED_COPILOT_MAX_OUTPUT_TOKENS,
+      max_tokens: maxOutputTokens,
       system: systemPrompt,
       messages,
       ...(anthropicTools.length ? { tools: anthropicTools } : {}),
     },
-    webSearch ? { signal, maxRetries: 0 } : signal ? { signal } : undefined,
+    signal || retries !== undefined ? { ...(signal ? { signal } : {}), ...(retries !== undefined ? { maxRetries: retries } : {}) } : undefined,
   );
 
   let text = '';
