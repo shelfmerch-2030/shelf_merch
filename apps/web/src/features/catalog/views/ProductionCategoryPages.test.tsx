@@ -38,11 +38,10 @@ describe("production category tree through the real controller", () => {
     ["drinkware", "Drinkware", "drinkware-editorial", "Ceramic Mug"],
     ["office", "Office", "stationery-editorial", "Linen Diary"],
     ["technology", "Technology", "electronics-editorial", "Wireless Dock"],
-  ])("renders the designed %s banner, then opens only that collection's products", async (slug, name, imageFolder, productName) => {
+  ])("renders the designed %s banner with only that collection's products", async (slug, name, imageFolder, productName) => {
     const { container, client } = open(`/app/catalog/category/${slug}`);
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(name));
     await waitFor(() => expect(container.querySelector('.sm-cat-page__hero-visual img')?.getAttribute('src')).toContain(imageFolder));
-    fireEvent.click(screen.getByRole("link", { name: `View all ${name}` }));
     const listing = await screen.findByRole("region", { name: `${name} products` });
     await waitFor(() => expect(within(listing).getByRole("status").textContent).toBe("1 product"));
     expect(within(listing).getByRole("link", { name: `View ${productName}` })).toBeTruthy();
@@ -54,8 +53,8 @@ describe("production category tree through the real controller", () => {
 
   it("keeps Office product-type links and the real flat overview names", async () => {
     const { client } = open("/app/catalog/category/office");
-    await screen.findByRole("link", { name: "Diaries category Diaries" });
-    fireEvent.click(screen.getByRole("link", { name: "Diaries category Diaries" }));
+    await screen.findByRole("link", { name: "Diaries" });
+    fireEvent.click(screen.getByRole("link", { name: "Diaries" }));
     const listing = await screen.findByRole("region", { name: "Diaries products" });
     expect(within(listing).getByRole("link", { name: "View Linen Diary" })).toBeTruthy();
     fireEvent.click(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Catalog" }));

@@ -25,14 +25,16 @@ const FACETS = [
 ] as const;
 
 /** Product controls are based on the current category's real product attributes. */
-export function CatalogProductListing({ products, title, home, navigation, loading, error }: {
+export function CatalogProductListing({ products, title, home, navigation, loading, error, headingLevel = 1 }: {
   products: UiProduct[];
   title: string;
   home: string;
   navigation: ReactNode;
   loading: boolean;
   error: string | null;
+  headingLevel?: 1 | 2;
 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const { pathname, search: locationSearch } = useLocation();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState(() => new URLSearchParams(locationSearch).get("sort") === "newest" ? "newest" : "recommended");
@@ -104,7 +106,7 @@ export function CatalogProductListing({ products, title, home, navigation, loadi
       </aside>
       <section className="sm-catalog-shop__results" aria-label={`${title} products`}>
         <div className="sm-catalog-shop__toolbar">
-          <div><h1>{title}</h1><p role="status">{loading ? "Loading products…" : `${filtered.length} ${filtered.length === 1 ? "product" : "products"}`}</p></div>
+          <div><Heading>{title}</Heading><p role="status">{loading ? "Loading products…" : `${filtered.length} ${filtered.length === 1 ? "product" : "products"}`}</p></div>
           <div className="sm-catalog-sort"><span>Sort by</span>
             <Select value={sort} onValueChange={setSort}>
               <SelectTrigger className="sm-catalog-sort__trigger" aria-label="Sort by"><SelectValue /></SelectTrigger>

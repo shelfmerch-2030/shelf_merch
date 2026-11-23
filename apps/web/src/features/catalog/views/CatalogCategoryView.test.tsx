@@ -97,96 +97,47 @@ describe("category shopping flow", () => {
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Classic Tee" } });
     expect(within(listing).getByRole("status").textContent).toBe("1 product");
   });
-  it.each(["/app/catalog", "/apps/catalog", "/husain/catalog", "/dashboard/catalog"])("supports Electronics groups, featured products and both category slugs under %s", (home) => {
-    open(`${home}/category/electronics-gadgets`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Electronics & Gadgets");
-    const featured = screen.getByRole("region", { name: "The latest in Electronics & Gadgets" });
-    expect(within(featured).getByRole("link", { name: "View Wireless Charging Dock" }).getAttribute("href")).toBe(`${home}/charger`);
-    expect(within(featured).queryByRole("link", { name: "View Linen Diary" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: "Gadgets category Gadgets" }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Gadgets");
-    expect(screen.getByRole("link", { name: "View Wireless Charging Dock" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "View Cable Organiser" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: "Electronics & Gadgets" }));
-    fireEvent.click(screen.getByRole("link", { name: "View all Electronics & Gadgets" }));
-    expect(screen.getByRole("status").textContent).toBe("2 products");
-    expect(screen.getByRole("link", { name: "View Cable Organiser" })).toBeTruthy();
+  describe.each(["/app/catalog", "/apps/catalog", "/husain/catalog", "/dashboard/catalog"])("direct category products under %s", (home) => {
+    it.each([
+      ["apparel", "Apparel", ["Classic Tee", "Premium Tee", "Team Polo"]],
+      ["electronics-gadgets", "Electronics & Gadgets", ["Wireless Charging Dock", "Cable Organiser"]],
+      ["home-appliances", "Home Appliances", ["Stick Vacuum", "Garment Steamer"]],
+      ["kitchenware", "Kitchenware", ["Pop-Up Toaster", "Glass Kettle"]],
+      ["travel-accessories", "Travel Accessories", ["Neck & Shoulder Massager"]],
+      ["bags", "Bags", ["Canvas Tote", "Work Laptop Bag", "Everyday Carry"]],
+      ["drinkware", "Drinkware", ["Ceramic Mug", "Blue Bottle"]],
+      ["stationery", "Stationery", ["Linen Diary", "Metal Pen"]],
+    ] as const)("shows the %s hero and scoped products together", (slug, name, names) => {
+      const { container } = open(home + "/category/" + slug);
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(name);
+      const listing = screen.getByRole("region", { name: name + " products" });
+      expect(within(listing).getByRole("status").textContent).toBe(names.length + " " + (names.length === 1 ? "product" : "products"));
+      for (const product of products) {
+        const link = within(listing).queryByRole("link", { name: "View " + product.nm });
+        if ((names as readonly string[]).includes(product.nm)) {
+          expect(link?.getAttribute("href")).toBe(home + "/" + product.id);
+        } else {
+          expect(link).toBeNull();
+        }
+      }
+      expect(container.querySelector(".sm-cat-type-grid, .sm-editorial-grid, .sm-editorial-promo")).toBeNull();
+      expect(screen.queryByRole("link", { name: /Explore custom kits/ })).toBeNull();
+      const heroImage = container.querySelector(".sm-cat-page__hero-visual img")?.getAttribute("src");
+      fireEvent.click(screen.getByRole("link", { name: "View all " + name }));
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(name);
+      expect(container.querySelector(".sm-cat-page__hero-visual img")?.getAttribute("src")).toBe(heroImage);
+      expect(screen.getByRole("region", { name: name + " products" })).toBeTruthy();
+    });
   });
-  it.each(["/app/catalog", "/apps/catalog"])("keeps Home Appliances separate from Kitchenware under %s", (home) => {
-    open(`${home}/category/home-appliances`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Home Appliances");
-    const collection = screen.getByRole("region", { name: "Home Appliances collection" });
-    expect(within(collection).getByRole("link", { name: "View Stick Vacuum" }).getAttribute("href")).toBe(`${home}/vacuum`);
-    expect(within(collection).queryByRole("link", { name: "View Pop-Up Toaster" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: "View all Home Appliances" }));
-    expect(screen.getByRole("status").textContent).toBe("2 products");
-    expect(screen.getByRole("link", { name: "View Garment Steamer" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "View Glass Kettle" })).toBeNull();
-  });
-  it.each(["/app/catalog", "/apps/catalog"])("shows the Kitchenware landing and scopes all products under %s", (home) => {
-    open(`${home}/category/kitchenware`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Kitchenware");
-    const collection = screen.getByRole("region", { name: "Kitchenware collection" });
-    expect(within(collection).getByRole("link", { name: "View Pop-Up Toaster" }).getAttribute("href")).toBe(`${home}/toaster`);
-    expect(within(collection).queryByRole("link", { name: "View Stick Vacuum" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Explore custom kits/ }).getAttribute("href")).toBe(`${home}/category/kits`);
-    fireEvent.click(screen.getByRole("link", { name: "View all Kitchenware" }));
-    expect(screen.getByRole("status").textContent).toBe("2 products");
-    expect(screen.getByRole("link", { name: "View Glass Kettle" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "View Stick Vacuum" })).toBeNull();
-  });
-  it.each(["/app/catalog", "/apps/catalog"])("opens the flat Travel Accessories collection and its products under %s", (home) => {
-    open(`${home}/category/travel-accessories`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Travel Accessories");
-    const essentials = screen.getByRole("region", { name: "Travel essentials" });
-    expect(within(essentials).getByRole("link", { name: "View Neck & Shoulder Massager" }).getAttribute("href")).toBe(`${home}/massager`);
-    expect(within(essentials).queryByRole("link", { name: "View Ceramic Mug" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Explore custom kits/ }).getAttribute("href")).toBe(`${home}/category/kits`);
-    fireEvent.click(screen.getByRole("link", { name: "View all Travel Accessories" }));
-    expect(screen.getByRole("status").textContent).toBe("1 product");
-    expect(screen.getByRole("link", { name: "View Neck & Shoulder Massager" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "View Work Laptop Bag" })).toBeNull();
-  });
-  it.each(["/app/catalog", "/apps/catalog"])("supports Bags types, promotions and all products under %s", (home) => {
-    open(`${home}/category/bags`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Bags");
-    expect(screen.queryByRole("link", { name: "Bags category Bags" })).toBeNull();
-    expect(screen.getByRole("link", { name: /Shop by use case/ }).getAttribute("href")).toBe("/request-demo");
-    expect(screen.getByRole("link", { name: /Explore swag management/ }).getAttribute("href")).toBe("/platform");
-    expect(screen.getByRole("link", { name: /Explore custom kits/ }).getAttribute("href")).toBe(`${home}/category/kits`);
-    fireEvent.click(screen.getByRole("link", { name: "Totes category Totes" }));
-    expect(screen.getByRole("link", { name: "View Canvas Tote" }).getAttribute("href")).toBe(`${home}/tote`);
-    expect(screen.queryByRole("link", { name: "View Work Laptop Bag" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: "Bags" }));
-    fireEvent.click(screen.getByRole("link", { name: "View all Bags" }));
-    expect(screen.getByRole("status").textContent).toBe("3 products");
-    expect(screen.getByRole("link", { name: "View Everyday Carry" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "View Ceramic Mug" })).toBeNull();
-  });
-  it.each(["/app/catalog", "/apps/catalog"])("shows real Drinkware arrivals and opens newest products under %s", (home) => {
-    open(`${home}/category/drinkware`);
-    const latest = screen.getByRole("region", { name: "The latest in Drinkware" });
-    expect(within(latest).getAllByRole("link", { name: /View (Blue Bottle|Ceramic Mug)/ }).map((link) => link.getAttribute("href"))).toEqual([`${home}/bottle`, `${home}/mug`]);
-    expect(within(latest).queryByRole("link", { name: "View Linen Diary" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: /New arrivals/ }));
+
+  it("preserves direct newest-arrival links", () => {
+    open("/apps/catalog/category/drinkware?view=products&sort=newest");
     expect(screen.getByRole("combobox", { name: "Sort by" }).textContent).toBe("Newest arrivals");
-    expect(screen.getByRole("status").textContent).toBe("2 products");
     const results = screen.getByRole("region", { name: "Drinkware products" });
-    expect(within(results).getAllByRole("link")[0].getAttribute("href")).toBe(`${home}/bottle`);
+    expect(within(results).getAllByRole("link")[0].getAttribute("href")).toBe("/apps/catalog/bottle");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Drinkware");
   });
-  it.each(["/app/catalog", "/apps/catalog"])("supports the Stationery editorial flow under %s", (home) => {
-    open(`${home}/category/stationery`);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Stationery");
-    expect(screen.getByRole("link", { name: /Explore custom kits/ }).getAttribute("href")).toBe(`${home}/category/kits`);
-    fireEvent.click(screen.getByRole("link", { name: "Diaries category Diaries" }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Diaries");
-    expect(screen.getByRole("link", { name: "View Linen Diary" }).getAttribute("href")).toBe(`${home}/diary`);
-    expect(screen.queryByRole("link", { name: "View Metal Pen" })).toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: "Stationery" }));
-    fireEvent.click(screen.getByRole("link", { name: "View all Stationery" }));
-    expect(screen.getByRole("status").textContent).toBe("2 products");
-    expect(screen.queryByRole("link", { name: "View Ceramic Mug" })).toBeNull();
-  });
+
   it.each(["/app/catalog", "/apps/catalog"])("keeps the Accessories overview distinct from Stationery under %s", (home) => {
     open(`${home}/category/accessories`);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Accessories");
@@ -203,9 +154,9 @@ describe("category shopping flow", () => {
     }
     expect(screen.queryByRole("link", { name: "Bags category Bags" })).toBeNull();
   });
-  it("opens T-Shirts from the Apparel image card and shows only T-shirts", () => {
+  it("opens T-Shirts from the Apparel product-type navigation and shows only T-shirts", () => {
     open();
-    fireEvent.click(screen.getByRole("link", { name: "T-Shirts category T-Shirts" }));
+    fireEvent.click(screen.getByRole("link", { name: "T-Shirts" }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("T-Shirts");
     expect(screen.getByRole("status").textContent).toBe("2 products");
     expect(screen.queryByRole("link", { name: "View Team Polo" })).toBeNull();
@@ -232,7 +183,7 @@ describe("category shopping flow", () => {
     expect(screen.getByRole("status").textContent).toBe("1 product");
   });
 
-  it("View all Apparel opens products rather than category cards", () => {
+  it("View all Apparel keeps the hero and products on the same category page", () => {
     open();
     fireEvent.click(screen.getByRole("link", { name: "View all Apparel" }));
     expect(screen.getByRole("status").textContent).toBe("3 products");
@@ -241,7 +192,7 @@ describe("category shopping flow", () => {
 
   it("supports the same flow for Drinkware and Mugs", () => {
     open("/apps/catalog/category/drinkware");
-    fireEvent.click(screen.getByRole("link", { name: "Mugs category Mugs" }));
+    fireEvent.click(screen.getByRole("link", { name: "Mugs" }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Mugs");
     expect(screen.getByRole("link", { name: "View Ceramic Mug" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "View Classic Tee" })).toBeNull();

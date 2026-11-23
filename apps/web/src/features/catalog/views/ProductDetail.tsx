@@ -251,8 +251,6 @@ export function ProductDetail({ product }: { product: UiProduct; index: number }
             </p>
           ) : null}
 
-          <p className="catalog-pdp-ready">Mockups can be requested from your bag.</p>
-
           <ProductInfoTabs
             product={product}
             variant="catalog"

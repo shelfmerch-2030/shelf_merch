@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { detailRows } from "../types";
 import { SizeGuideTable } from "@/components/SizeGuideTable";
 import { FilePrintingGuidelines } from "./FilePrintingGuidelines";
+import "./product-info-tabs.css";
 
 type SectionId = "info" | "features" | "size" | "printing";
 
@@ -72,7 +73,11 @@ export function ProductInfoTabs({
   const sectionContent = useMemo(
     () => ({
       info: desc ? (
-        <p className="pd-accordion__desc">{detailText(desc)}</p>
+        <div className="pd-product-description">
+          {desc.split(/\r?\n+/).filter((line) => line.trim()).map((line, index) => (
+            <p key={index} className="pd-accordion__desc">{line}</p>
+          ))}
+        </div>
       ) : (
         <p className="muted">No product information available.</p>
       ),
