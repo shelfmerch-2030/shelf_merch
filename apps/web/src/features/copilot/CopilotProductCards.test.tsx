@@ -395,6 +395,29 @@ describe("Copilot product/kit cards", () => {
     expect(screen.getByRole("link", { name: /Smart Kitchen Scale/i })).toHaveAttribute("href", "https://example.com/scale");
   });
 
+  it("renders a merchant imageUrl on external product cards and falls back when the image errors", () => {
+    const { container } = render(<MemoryRouter><CopilotArtifacts artifacts={[{
+      kind: "external_product",
+      product: {
+        verification: "verified_listing",
+        name: "Milk Frother",
+        productUrl: "https://shop.example.com/frother",
+        sourceUrl: "https://shop.example.com/frother",
+        sourceTitle: "Milk Frother",
+        merchantHostname: "shop.example.com",
+        availability: "unknown",
+        retrievedAt: "2026-11-23T10:00:00.000Z",
+        imageUrl: "https://cdn.shop.example.com/products/frother.jpg",
+        imageProvenance: "merchant_og",
+      },
+    }]} /></MemoryRouter>);
+    const img = container.querySelector('img[src="https://cdn.shop.example.com/products/frother.jpg"]');
+    expect(img).toBeTruthy();
+    expect(img).toHaveAttribute("alt", "Milk Frother");
+    fireEvent.error(img!);
+    expect(screen.getByLabelText("No merchant image available")).toBeInTheDocument();
+  });
+
   it("renders gift kit ideas with verified and concept components and incomplete budget", () => {
     render(<MemoryRouter><CopilotArtifacts artifacts={[{
       kind: "gift_kit_idea",

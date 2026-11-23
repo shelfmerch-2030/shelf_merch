@@ -3,9 +3,12 @@ import dns from 'node:dns/promises';
 import { Agent, fetch as undiciFetch } from 'undici';
 import { env } from '../../config/env.js';
 
-const MAX_HTML_BYTES = 512 * 1024;
+/** Keep a bounded HTML prefix for OG/meta parsing (tags live in <head>). Truncate — do not discard. */
+const MAX_HTML_BYTES = 768 * 1024;
 const MAX_IMAGE_URL_LENGTH = 2048;
+const MAX_SAFE_REDIRECTS = 3;
 const UNSUITABLE_IMAGE = /(?:1x1|pixel|spacer|blank|placeholder|sprite|logo[_-]?only|favicon|tracking|badge|icon[_-]?\d{0,3}\.(?:png|gif|svg)|data:image\/svg)/i;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Same public HTTPS constraints as research sourceUrl — never fetch user-supplied URLs.
@@ -27,6 +30,29 @@ export function publicHttpsUrl(raw) {
   } catch {
     return null;
   }
+}
+
+/** Image URLs from merchant meta may be http or protocol-relative; upgrade when the https form is public. */
+export function publicHttpsImageUrl(raw, pageUrl) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  let candidate = raw.trim();
+  if (candidate.startsWith('//') && pageUrl) {
+    try { candidate = new URL(candidate, pageUrl).href; } catch { return null; }
+  } else if (pageUrl && !/^https?:\/\//i.test(candidate)) {
+    try { candidate = new URL(candidate, pageUrl).href; } catch { return null; }
+  }
+  if (/^http:\/\//i.test(candidate)) {
+    candidate = `https://${candidate.slice('http://'.length)}`;
+  }
+  const safe = publicHttpsUrl(candidate);
+  if (!safe || UNSUITABLE_IMAGE.test(safe)) return null;
+  try {
+    const path = new URL(safe).pathname;
+    if (/\.(?:svg|xml)(?:$|\?)/i.test(path)) return null;
+  } catch {
+    return null;
+  }
+  return safe;
 }
 
 /** True when the address must never be contacted by enrichment (SSRF). */
@@ -102,24 +128,43 @@ function decodeHtmlEntities(value) {
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
 }
 
+/** Parse one meta/link tag's attributes regardless of order or quote style. */
+function tagAttributes(tag) {
+  const attrs = {};
+  for (const match of tag.matchAll(/([a-zA-Z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g)) {
+    attrs[match[1].toLowerCase()] = decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? '').trim();
+  }
+  return attrs;
+}
+
 function metaContent(html, property) {
-  const patterns = [
-    new RegExp(`<meta[^>]+(?:property|name)=["']${property}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i'),
-    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${property}["'][^>]*>`, 'i'),
-  ];
-  for (const pattern of patterns) {
-    const match = html.match(pattern);
-    if (match?.[1]) return decodeHtmlEntities(match[1].trim());
+  const wanted = property.toLowerCase();
+  for (const match of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const attrs = tagAttributes(match[0]);
+    const key = (attrs.property || attrs.name || '').toLowerCase();
+    if (key === wanted && attrs.content) return attrs.content;
   }
   return null;
 }
 
-function resolveAgainst(baseUrl, candidate) {
-  try {
-    return new URL(candidate, baseUrl).href;
-  } catch {
-    return null;
+function linkImageHref(html) {
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    const attrs = tagAttributes(match[0]);
+    const rel = (attrs.rel || '').toLowerCase();
+    if ((rel === 'image_src' || rel === 'thumbnail') && attrs.href) return attrs.href;
   }
+  return null;
+}
+
+function itempropImage(html) {
+  for (const match of html.matchAll(/<(?:meta|img|link)\b[^>]*>/gi)) {
+    const attrs = tagAttributes(match[0]);
+    if ((attrs.itemprop || '').toLowerCase() !== 'image') continue;
+    if (attrs.content) return attrs.content;
+    if (attrs.src) return attrs.src;
+    if (attrs.href) return attrs.href;
+  }
+  return null;
 }
 
 export function extractListingImageUrl(html, pageUrl) {
@@ -127,39 +172,56 @@ export function extractListingImageUrl(html, pageUrl) {
   const slice = html.slice(0, MAX_HTML_BYTES);
   const raw = metaContent(slice, 'og:image')
     || metaContent(slice, 'og:image:secure_url')
+    || metaContent(slice, 'og:image:url')
     || metaContent(slice, 'twitter:image')
-    || metaContent(slice, 'twitter:image:src');
+    || metaContent(slice, 'twitter:image:src')
+    || linkImageHref(slice)
+    || itempropImage(slice);
   if (!raw) return null;
-  const absolute = resolveAgainst(pageUrl, raw);
-  const safe = publicHttpsUrl(absolute);
-  if (!safe || UNSUITABLE_IMAGE.test(safe)) return null;
-  const path = new URL(safe).pathname;
-  if (/\.(?:svg|xml)(?:$|\?)/i.test(path)) return null;
-  return safe;
+  return publicHttpsImageUrl(raw, pageUrl);
 }
 
+export function imageProvenanceFromHtml(html) {
+  if (metaContent(html, 'og:image') || metaContent(html, 'og:image:secure_url') || metaContent(html, 'og:image:url')) {
+    return 'merchant_og';
+  }
+  return 'merchant_meta';
+}
+
+/**
+ * Read up to maxBytes and return the prefix. Oversized bodies are truncated so <head> OG tags remain usable.
+ * Returns { buffer, truncated }.
+ */
 async function readCappedBody(response, maxBytes = MAX_HTML_BYTES) {
-  const length = Number(response.headers.get('content-length') || 0);
-  if (length && length > maxBytes) return null;
   if (!response.body || typeof response.body.getReader !== 'function') {
     const buffer = Buffer.from(await response.arrayBuffer());
-    return buffer.length > maxBytes ? null : buffer;
+    if (buffer.length <= maxBytes) return { buffer, truncated: false };
+    return { buffer: buffer.subarray(0, maxBytes), truncated: true };
   }
   const reader = response.body.getReader();
   const chunks = [];
   let total = 0;
+  let truncated = false;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     if (!value?.byteLength) continue;
-    total += value.byteLength;
-    if (total > maxBytes) {
+    if (total >= maxBytes) {
+      truncated = true;
       try { await reader.cancel(); } catch { /* ignore */ }
-      return null;
+      break;
     }
-    chunks.push(Buffer.from(value));
+    const remaining = maxBytes - total;
+    const piece = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+    chunks.push(Buffer.from(piece));
+    total += piece.byteLength;
+    if (value.byteLength > remaining) {
+      truncated = true;
+      try { await reader.cancel(); } catch { /* ignore */ }
+      break;
+    }
   }
-  return Buffer.concat(chunks, total);
+  return { buffer: Buffer.concat(chunks, total), truncated };
 }
 
 function pinnedAgent(hostname, addresses) {
@@ -190,50 +252,138 @@ function pinnedAgent(hostname, addresses) {
   });
 }
 
+function emptyDiagnostics(overrides = {}) {
+  return {
+    attempted: false,
+    skipped: false,
+    skipReason: null,
+    urlsConsidered: 0,
+    urlsProcessed: 0,
+    htmlFetched: 0,
+    htmlTruncated: 0,
+    dnsRejected: 0,
+    redirectsFollowed: 0,
+    redirectsRejected: 0,
+    timeouts: 0,
+    httpErrors: 0,
+    contentTypeRejected: 0,
+    fetchErrors: 0,
+    missingImageMeta: 0,
+    unsuitableOrInvalidImage: 0,
+    imagesAttached: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * Fetch listing HTML with DNS pinning. Dangerous redirects (non-https / private DNS / credentialed)
+ * are rejected; limited public-https hops are followed with per-hop revalidation.
+ * Returns { html, failure, truncated, redirectsFollowed } — never throws for expected soft failures.
+ */
 export async function fetchListingHtml(url, {
   signal,
   timeoutMs = env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_TIMEOUT_MS,
   fetchImpl,
   lookup = dns.lookup,
+  maxRedirects = MAX_SAFE_REDIRECTS,
 } = {}) {
-  const safe = publicHttpsUrl(url);
-  if (!safe) return null;
-  const parsed = new URL(safe);
-  const addresses = await resolvePublicHostname(parsed.hostname, lookup);
-  if (!addresses) return null;
+  let current = publicHttpsUrl(url);
+  if (!current) return { html: null, failure: 'invalid_url', truncated: false, redirectsFollowed: 0 };
 
   const deadline = AbortSignal.timeout(timeoutMs);
   const requestSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
-  const dispatcher = fetchImpl ? undefined : pinnedAgent(parsed.hostname, addresses);
-  try {
-    const response = await (fetchImpl || undiciFetch)(safe, {
-      method: 'GET',
-      redirect: 'error',
-      signal: requestSignal,
-      ...(dispatcher ? { dispatcher } : {}),
-      headers: {
-        Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-        'User-Agent': 'ShelfMerchCopilotResearch/1.0',
-      },
-    });
-    if (!response.ok) return null;
-    const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-    if (!type || (!type.includes('html') && !type.includes('xhtml'))) return null;
-    const buffer = await readCappedBody(response, MAX_HTML_BYTES);
-    if (!buffer) return null;
-    return buffer.toString('utf8');
-  } catch {
-    return null;
-  } finally {
-    if (dispatcher) {
-      try { await dispatcher.close(); } catch { /* ignore */ }
+  const visited = new Set();
+  let redirectsFollowed = 0;
+  let lastFailure = 'fetch_error';
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (requestSignal.aborted) {
+      return {
+        html: null,
+        failure: signal?.aborted ? 'cancelled' : deadline.aborted ? 'timeout' : 'aborted',
+        truncated: false,
+        redirectsFollowed,
+      };
+    }
+    if (!current || visited.has(current)) {
+      return { html: null, failure: 'redirect_rejected', truncated: false, redirectsFollowed };
+    }
+    visited.add(current);
+
+    const parsed = new URL(current);
+    const addresses = await resolvePublicHostname(parsed.hostname, lookup);
+    if (!addresses) {
+      return { html: null, failure: 'dns_rejected', truncated: false, redirectsFollowed };
+    }
+
+    const dispatcher = fetchImpl ? undefined : pinnedAgent(parsed.hostname, addresses);
+    try {
+      requestSignal.throwIfAborted();
+      const response = await (fetchImpl || undiciFetch)(current, {
+        method: 'GET',
+        // Manual hops keep SSRF checks on every Location; never auto-follow into private space.
+        redirect: 'manual',
+        signal: requestSignal,
+        ...(dispatcher ? { dispatcher } : {}),
+        headers: {
+          Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+          'User-Agent': 'ShelfMerchCopilotResearch/1.0 (+https://shelfmerch.io)',
+          'Accept-Language': 'en-IN,en;q=0.8',
+        },
+      });
+
+      if (REDIRECT_STATUSES.has(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) {
+          return { html: null, failure: 'redirect_rejected', truncated: false, redirectsFollowed };
+        }
+        let next;
+        try {
+          next = publicHttpsUrl(new URL(location, current).href);
+        } catch {
+          next = null;
+        }
+        if (!next) {
+          return { html: null, failure: 'redirect_rejected', truncated: false, redirectsFollowed };
+        }
+        redirectsFollowed++;
+        if (redirectsFollowed > maxRedirects) {
+          return { html: null, failure: 'redirect_rejected', truncated: false, redirectsFollowed };
+        }
+        current = next;
+        continue;
+      }
+
+      if (!response.ok) {
+        return { html: null, failure: 'http_error', truncated: false, redirectsFollowed };
+      }
+      const type = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!type || (!type.includes('html') && !type.includes('xhtml'))) {
+        return { html: null, failure: 'content_type', truncated: false, redirectsFollowed };
+      }
+      const { buffer, truncated } = await readCappedBody(response, MAX_HTML_BYTES);
+      if (!buffer?.length) {
+        return { html: null, failure: 'empty_body', truncated: false, redirectsFollowed };
+      }
+      return { html: buffer.toString('utf8'), failure: null, truncated, redirectsFollowed };
+    } catch (err) {
+      if (signal?.aborted) lastFailure = 'cancelled';
+      else if (deadline.aborted) lastFailure = 'timeout';
+      else lastFailure = 'fetch_error';
+      return { html: null, failure: lastFailure, truncated: false, redirectsFollowed };
+    } finally {
+      if (dispatcher) {
+        try { await dispatcher.close(); } catch { /* ignore */ }
+      }
     }
   }
+
+  return { html: null, failure: 'redirect_rejected', truncated: false, redirectsFollowed };
 }
 
 /**
  * Enrich verified listing URLs with merchant OG/meta images.
- * Returns Map<productUrl, { imageUrl, provenance }>. Failures omit the entry (UI uses placeholder).
+ * Returns { images: Map, diagnostics }. Failures omit the entry (UI uses placeholder).
  * Image URLs are validated with publicHttpsUrl only (browser-fetched); listing HTML fetches are DNS-pinned.
  */
 export async function enrichListingImages(productUrls, {
@@ -246,16 +396,53 @@ export async function enrichListingImages(productUrls, {
   const images = new Map();
   const unique = [...new Set((productUrls || []).map(url => publicHttpsUrl(url)).filter(Boolean))]
     .slice(0, Math.max(0, max));
+  const diagnostics = emptyDiagnostics({
+    attempted: true,
+    urlsConsidered: (productUrls || []).length,
+    urlsProcessed: unique.length,
+  });
+
   for (const url of unique) {
-    if (signal?.aborted) break;
-    const html = await fetchListingHtml(url, { signal, timeoutMs, fetchImpl, lookup });
-    if (!html) continue;
-    const imageUrl = extractListingImageUrl(html, url);
-    if (!imageUrl || !publicHttpsUrl(imageUrl)) continue;
-    const provenance = (metaContent(html, 'og:image') || metaContent(html, 'og:image:secure_url'))
-      ? 'merchant_og'
-      : 'merchant_meta';
-    images.set(url, { imageUrl, provenance });
+    if (signal?.aborted) {
+      diagnostics.timeouts += 1;
+      break;
+    }
+    const result = await fetchListingHtml(url, { signal, timeoutMs, fetchImpl, lookup });
+    if (result.redirectsFollowed) diagnostics.redirectsFollowed += result.redirectsFollowed;
+    if (!result.html) {
+      switch (result.failure) {
+        case 'dns_rejected': diagnostics.dnsRejected += 1; break;
+        case 'redirect_rejected': diagnostics.redirectsRejected += 1; break;
+        case 'timeout': case 'aborted': case 'cancelled': diagnostics.timeouts += 1; break;
+        case 'http_error': diagnostics.httpErrors += 1; break;
+        case 'content_type': diagnostics.contentTypeRejected += 1; break;
+        default: diagnostics.fetchErrors += 1; break;
+      }
+      continue;
+    }
+    diagnostics.htmlFetched += 1;
+    if (result.truncated) diagnostics.htmlTruncated += 1;
+
+    const imageUrl = extractListingImageUrl(result.html, url);
+    if (!imageUrl) {
+      // Distinguish missing meta vs rejected image URL when raw meta exists.
+      const raw = metaContent(result.html, 'og:image')
+        || metaContent(result.html, 'og:image:secure_url')
+        || metaContent(result.html, 'twitter:image')
+        || metaContent(result.html, 'twitter:image:src');
+      if (raw) diagnostics.unsuitableOrInvalidImage += 1;
+      else diagnostics.missingImageMeta += 1;
+      continue;
+    }
+    if (!publicHttpsUrl(imageUrl)) {
+      diagnostics.unsuitableOrInvalidImage += 1;
+      continue;
+    }
+    images.set(url, { imageUrl, provenance: imageProvenanceFromHtml(result.html) });
+    diagnostics.imagesAttached += 1;
   }
-  return images;
+
+  return { images, diagnostics };
 }
+
+export { MAX_HTML_BYTES, emptyDiagnostics };

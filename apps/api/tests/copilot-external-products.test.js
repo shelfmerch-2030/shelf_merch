@@ -11,14 +11,17 @@ import {
   buildExternalProductArtifacts,
   buildGiftKitIdeaArtifacts,
 } from '../src/modules/copilot/copilotExternalProductArtifacts.js';
+import { logger } from '../src/config/logger.js';
 import {
   extractListingImageUrl,
   enrichListingImages,
   fetchListingHtml,
   isBlockedIp,
+  publicHttpsImageUrl,
   publicHttpsUrl,
   resolvePublicHostname,
 } from '../src/modules/copilot/copilotExternalListingMedia.js';
+import * as media from '../src/modules/copilot/copilotExternalListingMedia.js';
 import * as adapter from '../src/modules/copilot/providers/anthropicChatAdapter.js';
 
 const modelId = env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
@@ -180,47 +183,162 @@ describe('Milestone 2 external product discovery', () => {
     expect(await fetchListingHtml('https://shop.example.com/scale', {
       lookup,
       fetchImpl: async () => { throw new Error('must not fetch'); },
-    })).toBeNull();
+    })).toMatchObject({ html: null, failure: 'dns_rejected' });
     expect(lookup).toHaveBeenCalled();
   });
 
-  it('caps HTML body size even when Content-Length is missing', async () => {
+  it('truncates oversized HTML and still reads early og:image metadata', async () => {
     const lookup = vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]);
-    const huge = 'x'.repeat(600 * 1024);
-    const html = await fetchListingHtml('https://shop.example.com/scale', {
+    const head = `<html><head><meta property="og:image" content="https://cdn.shop.example.com/products/scale.jpg"></head><body>`;
+    const huge = `${head}${'x'.repeat(900 * 1024)}</body></html>`;
+    const result = await fetchListingHtml('https://shop.example.com/scale', {
       lookup,
       fetchImpl: async () => new Response(huge, { status: 200, headers: { 'content-type': 'text/html' } }),
     });
-    expect(html).toBeNull();
+    expect(result.truncated).toBe(true);
+    expect(result.html?.startsWith('<html>')).toBe(true);
+    expect(extractListingImageUrl(result.html, 'https://shop.example.com/scale'))
+      .toBe('https://cdn.shop.example.com/products/scale.jpg');
   });
 
-  it('extracts og:image and rejects unsuitable placeholders', () => {
+  it('extracts og:image across attribute orders and upgrades http / protocol-relative image URLs', () => {
     const html = `
       <html><head>
-        <meta property="og:image" content="https://cdn.shop.example.com/products/scale.jpg" />
+        <meta content="https://cdn.shop.example.com/products/scale.jpg" property="og:image" />
         <meta name="twitter:image" content="https://cdn.shop.example.com/1x1.gif" />
       </head></html>`;
-    expect(extractListingImageUrl(html, 'https://example.com/scale'))
+    expect(extractListingImageUrl(html, 'https://shop.example.com/scale'))
       .toBe('https://cdn.shop.example.com/products/scale.jpg');
     expect(extractListingImageUrl(
       '<meta property="og:image" content="https://cdn.shop.example.com/spacer.png" />',
-      'https://example.com/scale',
+      'https://shop.example.com/scale',
     )).toBeNull();
+    expect(extractListingImageUrl(
+      `<meta name='og:image' content='http://cdn.shop.example.com/products/a.jpg'>`,
+      'https://shop.example.com/scale',
+    )).toBe('https://cdn.shop.example.com/products/a.jpg');
+    expect(extractListingImageUrl(
+      `<meta property="og:image" content="//cdn.shop.example.com/products/b.jpg">`,
+      'https://shop.example.com/scale',
+    )).toBe('https://cdn.shop.example.com/products/b.jpg');
+    expect(publicHttpsImageUrl('/images/c.jpg', 'https://shop.example.com/scale'))
+      .toBe('https://shop.example.com/images/c.jpg');
+  });
+
+  it('follows limited public HTTPS redirects and rejects private or credentialed redirect targets', async () => {
+    const lookup = vi.fn(async (host) => {
+      if (host === 'metadata.shop.example.com') return [{ address: '169.254.169.254', family: 4 }];
+      return [{ address: '93.184.216.34', family: 4 }];
+    });
+    const okHtml = '<html><head><meta property="og:image" content="https://cdn.shop.example.com/p.jpg"></head></html>';
+    const hops = [];
+    const result = await fetchListingHtml('https://shop.example.com/old', {
+      lookup,
+      fetchImpl: async (url) => {
+        hops.push(url);
+        if (url === 'https://shop.example.com/old') {
+          return new Response(null, { status: 302, headers: { location: 'https://shop.example.com/new' } });
+        }
+        return new Response(okHtml, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+      },
+    });
+    expect(hops).toEqual(['https://shop.example.com/old', 'https://shop.example.com/new']);
+    expect(result).toMatchObject({ failure: null, redirectsFollowed: 1 });
+    expect(extractListingImageUrl(result.html, 'https://shop.example.com/new'))
+      .toBe('https://cdn.shop.example.com/p.jpg');
+
+    const blockedDns = await fetchListingHtml('https://shop.example.com/trap', {
+      lookup,
+      fetchImpl: async () => new Response(null, {
+        status: 302, headers: { location: 'https://metadata.shop.example.com/latest' },
+      }),
+    });
+    expect(blockedDns).toMatchObject({ html: null, failure: 'dns_rejected' });
+
+    const blockedCreds = await fetchListingHtml('https://shop.example.com/creds', {
+      lookup,
+      fetchImpl: async () => new Response(null, {
+        status: 302, headers: { location: 'https://cdn.shop.example.com/x.jpg?token=secret' },
+      }),
+    });
+    expect(blockedCreds).toMatchObject({ html: null, failure: 'redirect_rejected' });
+  });
+
+  it('records timeouts and missing metadata in enrichment diagnostics without logging URLs', async () => {
+    const lookup = vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]);
+    const timedOut = await enrichListingImages(['https://shop.example.com/slow'], {
+      lookup,
+      timeoutMs: 20,
+      fetchImpl: async (_url, { signal }) => new Promise((_, reject) => {
+        const fail = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        if (signal?.aborted) return fail();
+        signal.addEventListener('abort', fail, { once: true });
+      }),
+    });
+    expect(timedOut.images.size).toBe(0);
+    expect(timedOut.diagnostics).toMatchObject({
+      attempted: true, urlsProcessed: 1, timeouts: 1, imagesAttached: 0,
+    });
+    expect(JSON.stringify(timedOut.diagnostics)).not.toMatch(/shop\.example|https?:/);
+
+    const missing = await enrichListingImages(['https://shop.example.com/empty'], {
+      lookup,
+      fetchImpl: async () => new Response('<html><head><title>No image</title></head></html>', {
+        status: 200, headers: { 'content-type': 'text/html' },
+      }),
+    });
+    expect(missing.diagnostics).toMatchObject({
+      htmlFetched: 1, missingImageMeta: 1, imagesAttached: 0,
+    });
   });
 
   it('soft-fails enrichment when fetch is blocked and still attaches cards without images', async () => {
     const lookup = vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]);
-    const images = await enrichListingImages(['https://example.com/scale'], {
+    const { images, diagnostics } = await enrichListingImages(['https://shop.example.com/scale'], {
       lookup,
       fetchImpl: async () => { throw new Error('blocked'); },
     });
     expect(images.size).toBe(0);
+    expect(diagnostics.fetchErrors).toBe(1);
     const products = applyImageToExternalProducts(buildExternalProductArtifacts([{
       row: { name: 'Smart Kitchen Scale', source: 1 },
-      source: { url: 'https://example.com/scale', title: 'Smart Kitchen Scale', excerpt: 'Smart Kitchen Scale' },
+      source: { url: 'https://shop.example.com/scale', title: 'Smart Kitchen Scale', excerpt: 'Smart Kitchen Scale' },
       price: null, reason: 'Useful',
     }], { retrievedAt: '2026-11-23T10:00:00.000Z' }), images);
     expect(products[0].product.imageUrl).toBeUndefined();
+  });
+
+  it('attaches merchant og:image onto persisted external_product artifacts when enrichment succeeds', async () => {
+    env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED = 'true';
+    const stream = mockClaude();
+    const chat = await workspace();
+    const diagnostics = vi.spyOn(logger, 'info');
+    const entries = [['scale', 'Smart Kitchen Scale', 'Smart Kitchen Scale for ₹1,299 per piece.']];
+    stream.mockResolvedValueOnce(listings(entries)).mockResolvedValueOnce(synthesis([
+      point(1, 'Smart Kitchen Scale', entries[0][2], '₹1,299'),
+    ]));
+    vi.spyOn(media, 'enrichListingImages').mockResolvedValue({
+      images: new Map([
+        ['https://example.com/scale', {
+          imageUrl: 'https://cdn.shop.example.com/products/scale.jpg',
+          provenance: 'merchant_og',
+        }],
+      ]),
+      diagnostics: {
+        attempted: true, urlsConsidered: 1, urlsProcessed: 1, htmlFetched: 1,
+        imagesAttached: 1, missingImageMeta: 0, dnsRejected: 0, timeouts: 0,
+      },
+    });
+    const { reply, saved } = await chat.turn('Search the web for kitchen-tech gadgets available in India.');
+    const product = reply.artifacts.find(row => row.kind === 'external_product')?.product;
+    expect(product).toMatchObject({
+      imageUrl: 'https://cdn.shop.example.com/products/scale.jpg',
+      imageProvenance: 'merchant_og',
+    });
+    expect(JSON.stringify(saved.messages)).toContain('cdn.shop.example.com/products/scale.jpg');
+    const entry = diagnostics.mock.calls.find(([, message]) => message === 'Copilot external image enrichment')?.[0];
+    expect(entry.imageEnrichment).toMatchObject({ attempted: true, imagesAttached: 1, artifactsWithImages: 1 });
+    expect(JSON.stringify(entry)).not.toMatch(/Toast|Search the web|smart kitchen/i);
   });
 
   it('drops image URLs that fail publicHttpsUrl when applying enrichment', () => {

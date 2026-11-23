@@ -640,14 +640,41 @@ export async function streamAssistantTurn({
       if (enabled && imageEnrichmentEnabled(env) && webResearchEnabled(tenantId, providerStatus.provider)
         && externalProducts.length && !signal?.aborted) {
         try {
-          const images = await enrichListingImages(
+          const { images, diagnostics: imageDiagnostics } = await enrichListingImages(
             externalProducts.map(row => row.product.productUrl),
             { signal, max: env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_MAX },
           );
           externalProducts = applyImageToExternalProducts(externalProducts, images);
+          // Counts only — never log merchant URLs, HTML, prompts, or credentials.
+          logger.info({
+            purpose,
+            imageEnrichment: {
+              ...imageDiagnostics,
+              artifactsWithImages: externalProducts.filter(row => row.product?.imageUrl).length,
+            },
+          }, 'Copilot external image enrichment');
         } catch {
+          logger.info({
+            purpose,
+            imageEnrichment: {
+              attempted: true, skipped: false, skipReason: 'enrichment_exception',
+              urlsConsidered: externalProducts.length, imagesAttached: 0,
+            },
+          }, 'Copilot external image enrichment');
           /* soft-fail: cards render with placeholders */
         }
+      } else if (externalProducts.length) {
+        const skipReason = !enabled ? 'research_disabled'
+          : !imageEnrichmentEnabled(env) ? 'flag_off'
+            : signal?.aborted ? 'aborted'
+              : 'ineligible';
+        logger.info({
+          purpose,
+          imageEnrichment: {
+            attempted: false, skipped: true, skipReason,
+            urlsConsidered: externalProducts.length, imagesAttached: 0,
+          },
+        }, 'Copilot external image enrichment');
       }
       let giftKits = [];
       if (brief.kitIntent || /\b(?:kits?|kit ideas)\b/i.test(text)) {
