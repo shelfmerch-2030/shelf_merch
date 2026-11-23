@@ -247,7 +247,7 @@ export function CopilotArtifacts({
   const current = useRef(key); current.current = key;
   const moreLock = useRef(false);
   useEffect(() => { setVisible(4); setExtra([]); setPage(null); setPageCount(null); setCatalogError(null); }, [key]);
-  if (!artifacts?.length) return null;
+  if (!artifacts?.length || artifacts.every(row => row.kind === "web_research")) return null;
   const allProducts = [...artifacts.filter((row) => row.kind === "product"), ...extra.map(product => ({ kind: 'product' as const, product }))];
   const products = swag ? [...new Map(allProducts.map((row, index) => [String(row.product.id || `${row.product.name}-${index}`), row])).values()] : allProducts;
   const catalog = artifacts.find((a): a is Extract<CopilotArtifact, { kind: 'catalog_page' }> => a.kind === 'catalog_page')?.catalog;

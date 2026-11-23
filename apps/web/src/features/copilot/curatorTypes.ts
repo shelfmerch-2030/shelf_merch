@@ -1,6 +1,6 @@
 ﻿export type GiftingBrief = {
   company?: string; occasion?: string; recipients?: number; budgetPerRecipient?: number; totalBudget?: number;
-  currency?: string; exclusions?: string[]; style?: string; source?: "shelfmerch" | "external";
+  currency?: string; exclusions?: string[]; style?: string; source?: "shelfmerch" | "external" | "mixed";
 };
 export type CuratorItem = {
   key: string; id?: string; kind: "product" | "kit" | "idea"; source: "shelfmerch" | "inspiration";

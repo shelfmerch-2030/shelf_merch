@@ -197,13 +197,15 @@ describe('gifting advisor in the existing Copilot conversation', () => {
     expect(isGiftingAdvisorRequest('Show my department budget', conversation)).toBe(false);
     expect(isGiftingAdvisorRequest('Send a Diwali kit to the team', conversation)).toBe(false);
   });
-  it('never converts foreign currency or searches external products', async () => {
+  it('never converts foreign currency and keeps web research disabled by default', async () => {
     const { args, conversation } = await setup();
     plans.push(plan({ budgetPerRecipient: 20, currency: 'USD' })); const events = await turn(args, 'Show onboarding gifts under $20.');
     expect((await last(conversation)).content).toMatch(/not converted/);
     expect(events.some(event => /catalog|kits/.test(event.name || ''))).toBe(false);
     plans.push(plan()); await turn(args, 'Show gifts outside ShelfMerch.');
-    expect((await last(conversation)).content).toMatch(/not connected/);
+    expect((await last(conversation)).artifacts).toEqual([expect.objectContaining({
+      kind: 'web_research', research: expect.objectContaining({ status: 'disabled', sources: [] }),
+    })]);
   });
   it('uses the existing authenticated SSE route and denies cross-tenant history access', async () => {
     const { conversation, member } = await setup(); await seedProducts(3); plans.push(plan());

@@ -192,10 +192,12 @@ export async function streamAnthropicCompletion({
   systemPrompt,
   messages,
   tools,
+  webSearch,
   signal,
   onTextDelta,
 }) {
   const anthropicTools = toAnthropicTools(tools || []);
+  if (webSearch) anthropicTools.push({ type: 'web_search_20250305', name: 'web_search', max_uses: webSearch.maxUses });
   const stream = client.messages.stream(
     {
       model,
@@ -204,7 +206,7 @@ export async function streamAnthropicCompletion({
       messages,
       ...(anthropicTools.length ? { tools: anthropicTools } : {}),
     },
-    signal ? { signal } : undefined,
+    webSearch ? { signal, maxRetries: 0 } : signal ? { signal } : undefined,
   );
 
   let text = '';
@@ -212,50 +214,59 @@ export async function streamAnthropicCompletion({
   let stopReason = null;
   let promptTokens = 0;
   let completionTokens = 0;
+  let webSearchRequests = 0;
+  let contentBlocks;
 
-  for await (const event of stream) {
-    if (signal?.aborted) {
-      try {
-        stream.abort?.();
-      } catch {
-        /* ignore */
+  try {
+    for await (const event of stream) {
+      if (signal?.aborted) {
+        try {
+          stream.abort?.();
+        } catch {
+          /* ignore */
+        }
+        const err = new Error('Request aborted');
+        err.code = 'ABORT_ERR';
+        throw err;
       }
-      const err = new Error('Request aborted');
-      err.code = 'ABORT_ERR';
-      throw err;
-    }
 
-    if (event.type === 'message_start' && event.message?.usage) {
-      promptTokens += event.message.usage.input_tokens || 0;
-    }
-    if (event.type === 'content_block_start') {
-      const block = event.content_block;
-      if (block?.type === 'tool_use') {
-        toolBlocksByIndex.set(event.index, {
-          id: block.id,
-          name: block.name,
-          argumentsJson: '',
-        });
+      if (event.type === 'message_start' && event.message?.usage) {
+        promptTokens += event.message.usage.input_tokens || 0;
+        webSearchRequests = Math.max(webSearchRequests, event.message.usage.server_tool_use?.web_search_requests || 0);
+      }
+      if (event.type === 'content_block_start') {
+        const block = event.content_block;
+        if (block?.type === 'tool_use') {
+          toolBlocksByIndex.set(event.index, {
+            id: block.id,
+            name: block.name,
+            argumentsJson: '',
+          });
+        }
+      }
+      if (event.type === 'content_block_delta') {
+        const delta = event.delta;
+        if (delta?.type === 'text_delta' && delta.text) {
+          text += delta.text;
+          onTextDelta?.(delta.text);
+        }
+        if (delta?.type === 'input_json_delta' && delta.partial_json != null) {
+          const current = toolBlocksByIndex.get(event.index);
+          if (current) current.argumentsJson += delta.partial_json;
+        }
+      }
+      if (event.type === 'message_delta') {
+        if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
+        if (event.usage?.output_tokens != null) completionTokens = event.usage.output_tokens;
+        if (event.usage?.input_tokens != null) {
+          promptTokens = Math.max(promptTokens, event.usage.input_tokens);
+        }
+        webSearchRequests = Math.max(webSearchRequests, event.usage?.server_tool_use?.web_search_requests || 0);
       }
     }
-    if (event.type === 'content_block_delta') {
-      const delta = event.delta;
-      if (delta?.type === 'text_delta' && delta.text) {
-        text += delta.text;
-        onTextDelta?.(delta.text);
-      }
-      if (delta?.type === 'input_json_delta' && delta.partial_json != null) {
-        const current = toolBlocksByIndex.get(event.index);
-        if (current) current.argumentsJson += delta.partial_json;
-      }
-    }
-    if (event.type === 'message_delta') {
-      if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
-      if (event.usage?.output_tokens != null) completionTokens = event.usage.output_tokens;
-      if (event.usage?.input_tokens != null) {
-        promptTokens = Math.max(promptTokens, event.usage.input_tokens);
-      }
-    }
+  } catch (error) {
+    if (!webSearch) throw error;
+    return { text: '', toolCalls: [], usage: { promptTokens, completionTokens }, webSearchRequests, finishReason: null };
   }
 
   let toolCalls = [...toolBlocksByIndex.values()]
@@ -271,9 +282,11 @@ export async function streamAnthropicCompletion({
     if (finalMessage?.usage) {
       promptTokens = finalMessage.usage.input_tokens || promptTokens;
       completionTokens = finalMessage.usage.output_tokens || completionTokens;
+      webSearchRequests = Math.max(webSearchRequests, finalMessage.usage.server_tool_use?.web_search_requests || 0);
     }
     if (finalMessage?.stop_reason) stopReason = finalMessage.stop_reason;
     if (Array.isArray(finalMessage?.content)) {
+      if (webSearch) contentBlocks = finalMessage.content;
       const fromFinal = [];
       let finalText = '';
       for (const block of finalMessage.content) {
@@ -298,6 +311,7 @@ export async function streamAnthropicCompletion({
     toolCalls,
     usage: { promptTokens, completionTokens },
     finishReason: stopReason,
+    ...(webSearch ? { contentBlocks, webSearchRequests } : {}),
   };
 }
 

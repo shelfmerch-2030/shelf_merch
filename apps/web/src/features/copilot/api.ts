@@ -27,6 +27,7 @@ export type CopilotCategory = {
 };
 
 export type CopilotStatus = {
+  webResearchEnabled?: boolean;
   enabled: boolean;
   provider: "openai" | "disabled" | string;
   model: string | null;
@@ -112,7 +113,15 @@ export type CopilotDepartmentBudgetsArtifact = {
   }>;
 };
 
+export type CopilotWebResearch = {
+  brief: { topic: string | null; purpose: "listings" | "trends" | "comparison" | "research"; region?: string };
+  status: "completed" | "partial" | "unavailable" | "no_sources" | "limited" | "disabled" | "unsupported_topic";
+  checkedAt?: string;
+  sources: Array<{ title: string; url: string; excerpt: string }>;
+};
+
 export type CopilotArtifact =
+  | { kind: "web_research"; research: CopilotWebResearch }
   | { kind: 'swag_step'; swag: { conversationId?: string; revision: number; step: import('./swagApi').SwagStep; mode?: string; selectedProducts?: Array<{ id: string; name: string; imageUrl: string }> } }
   | { kind: "catalog_page"; catalog: { query: import("./swagApi").SwagCatalogQuery; pagination: import("./swagApi").SwagCatalogPage["pagination"]; complete?: boolean } }
   | { kind: "curation"; curation: import("./curatorTypes").Curation }

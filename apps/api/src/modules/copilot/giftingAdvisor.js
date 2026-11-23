@@ -26,9 +26,20 @@ export function occasionHints(brief = {}) {
   return OCCASIONS.find(row => row.match.test(brief.occasion || '')) || { exact: [], related: ['gift', 'desk', 'tech', 'stationery', 'wellness', 'apparel', 'bag', 'drinkware'] };
 }
 const BUSINESS = /\b(?:wallet|balance|allocation|allocate|top[- ]?up|debit|payment|invoice|purchase order|campaign|collection|employee management|order status|track(?:ing)? (?:an? |my |the )?(?:order|delivery))\b|\b(?:create|publish|unpublish|update|delete|archive|fund|send|launch|invite|add|remove)\s+(?:(?:a|an|the|my|our|this)\s+)?(?:store|shop|wallet|campaign|collection|employee|contact|points|money|order|kit)\b|\b(?:show|list|find|manage)\s+(?:(?:my|our|the|all)\s+)?(?:stores?|shops?|orders?|employees|contacts)\b/i;
-export function isGiftingAdvisorRequest(content, conversation = {}) {
+export function isCopilotBusinessRequest(content) {
   const businessAction = /\b(?:create|publish|unpublish|update|delete|archive|fund|launch|invite|add|remove)\b(?:\s+[\w'-]+){0,6}\s+(?:stores?|shops?|wallets?|campaigns?|collections?|employees?|contacts?|points|orders?)\b|\b(?:send|purchase|buy|order)\b.{0,80}\b(?:kits?|gifts?|products?|items?)\b|\b(?:department|entity|organization|organisation)\s+budgets?\b/i;
-  if (BUSINESS.test(content) || businessAction.test(content) || /\b(?:do not|don't) call tools\b|\b(?:first|top)\s+\d+\s+(?:catalog\s+)?products\b/i.test(content)) return false;
+  return BUSINESS.test(content) || businessAction.test(content);
+}
+
+export function isCreativeGiftingRequest(content) {
+  return !/\bshelf\s?merch\b|\b(?:in stock|available to order|actual products)\b/i.test(content)
+    && /\b(?:creative|innovative|brainstorm|concepts?|imagine|kit ideas)\b/i.test(content)
+    && /\b(?:kits?|gifts?|gifting|giveaways?|swag|merchandise)\b/i.test(content)
+    && !/\b(?:suggest|give|show|find|recommend)(?:\s+me)?\s+\d+\b/i.test(content);
+}
+
+export function isGiftingAdvisorRequest(content, conversation = {}) {
+  if (isCopilotBusinessRequest(content) || /\b(?:do not|don't) call tools\b|\b(?:first|top)\s+\d+\s+(?:catalog\s+)?products\b/i.test(content)) return false;
   if (/\bgift(?:s|ing)?\b|\b(?:welcome|onboarding|diwali|christmas|appreciation|executive)\s+(?:kits?|merch(?:andise)?)\b|\b(?:suggest|recommend|need|want)\b.*\bkits?\b/i.test(content)) return true;
   const last = [...(conversation.messages || [])].reverse().find(row => row.role === 'assistant' && row.content);
   const active = Boolean(last?.artifacts?.some(artifact => artifact.kind === 'curation' && artifact.curation?.chat));

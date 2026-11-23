@@ -21,8 +21,13 @@ export const conceptPlanSchema = z.object({
 }).strict();
 
 export function curatorSource(content, previous = 'shelfmerch') {
-  if (/\b(?:no|avoid|exclude)\s+external\b|\b(?:back to|switch to|only)\s+(?:the\s+)?shelf\s?merch\b/i.test(content)) return 'shelfmerch';
-  if (/\b(?:outside(?: of)?|beyond|not (?:from|on)|other than)\s+shelf\s?merch\b|\bexternal\b|\bother brands\b|\b(?:not|non)[ -]shelf\s?merch\b/i.test(content)) return 'external';
+  if (/\b(?:no|avoid|exclude|without)\s+external\b|\b(?:back to|switch to|only)(?:\s+from)?\s+(?:the\s+)?shelf\s?merch\b|\bshelf\s?merch only\b/i.test(content)) return 'shelfmerch';
+  const outside = /\b(?:outside(?: of)?|beyond|not (?:from|on)|other than)\s+shelf\s?merch\b|\b(?:not|non)[ -]shelf\s?merch\b/gi;
+  const relevant = content.replace(outside, 'external');
+  const external = /\b(?:external|other brands|other vendors|third.party|outside (?:our|the) catalog)\b/i.test(relevant);
+  if (external && (/\bshelf\s?merch\b/i.test(relevant) && /\b(?:compare|and|with|vs\.?|versus|alongside|both|include|including|also)\b/i.test(relevant)
+    || /\b(?:include|including|also)\b.{0,60}\bexternal\b/i.test(relevant))) return 'mixed';
+  if (external) return 'external';
   if (/\b(?:use|show|from|only|back to|switch to)\s+(?:the\s+)?shelf\s?merch\b|\bshelf\s?merch (?:catalog|only)\b/i.test(content)) return 'shelfmerch';
   return previous;
 }

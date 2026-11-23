@@ -63,11 +63,13 @@ export async function recordUsage({
   provider = 'openai',
   model = null,
   toolCallCount = 0,
+  webSearchRequests = 0,
   latencyMs = 0,
 }) {
   const day = utcDay();
   const totalTokens = promptTokens + completionTokens;
-  const estimatedCostUsd = estimateCostUsd(promptTokens, completionTokens, provider);
+  const estimatedWebSearchCostUsd = Number((webSearchRequests * 0.01).toFixed(6));
+  const estimatedCostUsd = Number((estimateCostUsd(promptTokens, completionTokens, provider) + estimatedWebSearchCostUsd).toFixed(6));
   await CopilotUsage.findOneAndUpdate(
     { day, tenantId, userId },
     {
@@ -78,6 +80,8 @@ export async function recordUsage({
         requestCount: 1,
         estimatedCostUsd,
         toolCallCount,
+        webSearchRequests,
+        estimatedWebSearchCostUsd,
       },
       $set: {
         lastProvider: provider,
@@ -87,5 +91,5 @@ export async function recordUsage({
     },
     { upsert: true, new: true },
   );
-  return { promptTokens, completionTokens, totalTokens, estimatedCostUsd, provider, model };
+  return { promptTokens, completionTokens, totalTokens, estimatedCostUsd, webSearchRequests, estimatedWebSearchCostUsd, provider, model };
 }

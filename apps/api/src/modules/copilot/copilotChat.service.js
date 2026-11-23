@@ -38,8 +38,9 @@ import {
 import { formatAssistantTextForCards, toolContentForModel } from './copilotResponseFormat.js';
 import { enrichWalletArtifacts } from './copilotWalletReconcile.js';
 import { streamCuratorTurn } from './copilotCurator.service.js';
-import { isGiftingAdvisorRequest } from './giftingAdvisor.js';
-import { streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
+import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
+import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
+import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
 import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
@@ -73,6 +74,7 @@ function explicitSwagPriceCeiling(text) {
 export const SYSTEM_PROMPT = [
   SWAG_RULES,
   'You are ShelfMerch AI Copilot, an assistant for corporate gifting, merchandise, and employee rewards inside the ShelfMerch dashboard.',
+  'Answer general questions conversationally. General knowledge and creative concepts can be useful without a catalog lookup. Label concepts as ideas. For claims about actual ShelfMerch inventory, use verified catalog data. Never claim you searched the web or verified current external information without research results.',
   'For an ordinary NEW Send Points request, use campaigns_prepare_send_points to show ONE final confirmation, after resolving store, exact recipients, amount and funding from real tools. Use pointsPerRecipient for displayed store units; the server converts to INR. Ask only for missing/ambiguous details. Never show draft/allocation confirmations as intermediate steps for this request. Explicit save-draft, allocate-only, launch-existing and campaign-management requests keep the separate supported workflows. Search for an existing named campaign before preparing; never recreate or automatically launch one. After the final result, report recorded debit and invitation acknowledgement/scheduling/uncertainty, not guaranteed email delivery. Completed authoritative WRITE outcomes supersede older previews after reload or subsequent messages.',
   'Use tools to fetch real ShelfMerch data. Never invent product ids, prices, stock, kits, budgets, or order status.',
   CATALOG_INVENTORY_RULE,
@@ -109,6 +111,33 @@ function titleFromPrompt(text) {
   const clean = String(text || '').trim().replace(/\s+/g, ' ');
   if (!clean) return 'New conversation';
   return clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
+}
+
+async function comparisonCatalog({ text, category, toolCtx, role }) {
+  const price = text.match(/\b(under|below|less than|up to|at most|within)\s+(?:₹|INR\s*|Rs\.?\s*)\s*([\d,]+(?:\.\d{1,2})?)/i);
+  const hasPriceConstraint = /\b(?:under|below|less than|up to|at most|within)\s+(?:a\s+)?(?:budget|[$€£₹\d]|INR\b|Rs\b|USD\b)/i.test(text);
+  if (hasPriceConstraint && !price) return { artifacts: [], status: 'needs_inr', calls: 0 };
+  const amount = price ? Number(price[2].replaceAll(',', '')) : undefined;
+  const limit = amount === undefined ? undefined
+    : /^(?:under|below|less than)$/i.test(price[1]) ? Math.ceil(amount) - 1 : Math.floor(amount);
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0 || limit > 10_000_000)) {
+    return { artifacts: [], status: 'needs_inr', calls: 0 };
+  }
+  try {
+    const { artifacts } = await runCopilotTool('catalog_search', toolCtx, {
+      limit: 4, ...(category ? { category } : {}), ...(limit === undefined ? {} : { maxSellingPriceInr: limit }),
+    }, role);
+    return { artifacts: artifacts.filter(row => row.kind === 'product'), status: 'verified', calls: 1 };
+  } catch {
+    return { artifacts: [], status: 'unavailable', calls: 1 };
+  }
+}
+
+function catalogComparisonSummary(status, count) {
+  if (status === 'needs_inr') return 'Share a per-item price in INR to filter the ShelfMerch side of the comparison.';
+  if (status === 'unavailable') return 'I couldn’t verify ShelfMerch catalog matches for this comparison.';
+  return count ? `The ShelfMerch side includes ${count} verified catalog ${count === 1 ? 'option' : 'options'} for comparison.`
+    : 'I found no verified ShelfMerch products for these filters.';
 }
 
 async function scopedConversation(tenantId, userId, conversationId) {
@@ -532,7 +561,54 @@ export async function streamAssistantTurn({
     return conversation;
   }
 
-  if (mode === 'curator' || (mode !== 'chat' && conversation.curator?.enabled)) {
+  const curatorTurn = mode === 'curator' || (mode !== 'chat' && conversation.curator?.enabled);
+  const researchEnabled = webResearchEnabled(tenantId, providerStatus.provider);
+  const explicitPointsWrite = /\b(?:send|allocate|launch|draft)\b[\s\S]{0,100}\bpoints?\b/i.test(text);
+  let swagDesignTurn = designStart || (conversation.swag && !/\b(?:gifts?|kits?|points|wallet|budget|campaign)\b/i.test(text));
+  const swagPriceCeiling = conversation.swag?.step === 'products' && !conversation.swag.lastOutcome?.published
+    ? explicitSwagPriceCeiling(text) : undefined;
+  const independentTurn = !swagDesignTurn && !(conversation.swag && !conversation.swag.lastOutcome?.published)
+    && !attachments.length && !anotherWritePending && !explicitPointsWrite && !isCopilotBusinessRequest(text)
+    && !/\b(?:confirm|approve|execute|transfer|charge|do not call tools|don['’]t call tools)\b/i.test(text);
+  const priorAssistant = conversation.messages.slice(0, initialMessageCount)
+    .findLast(message => message.role === 'assistant' && (message.content || message.artifacts?.length));
+  const priorResearch = priorAssistant?.artifacts?.find(row => row.kind === 'web_research')?.research;
+  const research = independentTurn && (!curatorTurn || researchEnabled) && publicResearchRequest(text, priorResearch);
+  if (research) {
+    const startedAt = Date.now();
+    const { topic, purpose, region, category } = research;
+    const brief = { topic, purpose, ...(region ? { region } : {}) };
+    const enabled = topic && researchEnabled;
+    if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
+    const [external, internal] = await Promise.all([
+      enabled ? runCopilotWebResearch({ client: createAnthropicClient(), model: providerStatus.model, brief, signal, tenantId, userId })
+        : Promise.resolve({ status: topic ? 'disabled' : 'unsupported_topic', sources: [], usage: {} }),
+      purpose === 'comparison' ? comparisonCatalog({ text, category, toolCtx, role })
+        : Promise.resolve({ artifacts: [], status: 'skipped', calls: 0 }),
+    ]);
+    const usage = await recordUsage({ tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
+      ...external.usage, toolCallCount: internal.calls, latencyMs: Date.now() - startedAt });
+    if (signal?.aborted) throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
+    const researchArtifact = { kind: 'web_research', research: {
+      brief, status: external.status, sources: external.sources,
+      ...(enabled ? { checkedAt: new Date().toISOString() } : {}),
+    } };
+    const artifacts = [researchArtifact, ...internal.artifacts];
+    const content = [
+      external.sources.length ? `I found public sources on ${topic}${region ? ` in ${region}` : ''}. The excerpts show what each source reports.` : '',
+      purpose === 'comparison' ? catalogComparisonSummary(internal.status, internal.artifacts.length) : '',
+      purpose === 'comparison' && external.sources.length && internal.artifacts.length
+        ? 'Compare the catalog’s GST-inclusive price and stock with each external listing’s delivered price, minimum quantity and branding options.' : '',
+    ].filter(Boolean).join('\n\n');
+    conversation.messages.push({ role: 'assistant', content, artifacts });
+    await persistTurn();
+    if (content) onEvent?.({ type: 'delta', text: content });
+    onEvent?.({ type: 'artifacts', artifacts });
+    if (enabled) onEvent?.({ type: 'tool', name: 'web_search', status: external.sources.length ? 'done' : 'error' });
+    onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
+    return conversation;
+  }
+  if (curatorTurn) {
     try {
       await streamCuratorTurn({ conversation, modelMessages, content: text, tenantId, userId, role, toolCtx, onEvent, signal, providerStatus });
       return conversation;
@@ -540,10 +616,19 @@ export async function streamAssistantTurn({
       throw mapProviderError(err, providerStatus.provider);
     }
   }
-  const explicitPointsWrite = /\b(?:send|allocate|launch|draft)\b[\s\S]{0,100}\bpoints?\b/i.test(text);
-  let swagDesignTurn = designStart || (conversation.swag && !/\b(?:gifts?|kits?|points|wallet|budget|campaign)\b/i.test(text));
-  const swagPriceCeiling = conversation.swag?.step === 'products' && !conversation.swag.lastOutcome?.published
-    ? explicitSwagPriceCeiling(text) : undefined;
+  if (independentTurn && providerStatus.provider === 'anthropic' && isCreativeGiftingRequest(text)) {
+    const startedAt = Date.now();
+    let reply;
+    try { reply = await creativeGiftingReply({ model: providerStatus.model, content: text, signal }); }
+    catch (err) { throw mapProviderError(err, providerStatus.provider); }
+    conversation.messages.push({ role: 'assistant', content: reply.text, artifacts: [] });
+    await persistTurn();
+    const usage = await recordUsage({ tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
+      ...reply.usage, latencyMs: Date.now() - startedAt });
+    onEvent?.({ type: 'delta', text: reply.text });
+    onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
+    return conversation;
+  }
   if (!swagDesignTurn && !explicitPointsWrite && !attachments.length && isGiftingAdvisorRequest(text, conversation)) {
     try {
       await streamGiftingAdvisorTurn({ conversation, modelMessages, content: text, tenantId, userId, role, toolCtx, onEvent, signal, providerStatus });

@@ -46,6 +46,7 @@ import {
 } from "./attachments";
 import { CopilotArtifacts } from "./CopilotProductCards";
 import { CopilotMarkdown } from "./CopilotMarkdown";
+import { CopilotResearchSources } from "./CopilotResearchSources";
 import { CopilotUserMessage } from "./CopilotUserMessage";
 import { CopilotIcon } from "./CopilotIcon";
 import { CopilotWelcome } from "./CopilotWelcome";
@@ -62,7 +63,7 @@ import { useCopilotStatus } from "./useCopilotStatus";
 import type { CopilotArtifact, CopilotAction } from "./api";
 import "./copilot.css";
 
-type UiMessage = CopilotMessage & { streaming?: boolean; toolStatus?: string };
+type UiMessage = CopilotMessage & { streaming?: boolean; toolStatus?: string; toolName?: string };
 type UiError = { message: string; prompt?: string; reload?: string };
 type StreamingConversation = { messages: UiMessage[]; controller: AbortController };
 
@@ -632,7 +633,7 @@ export function CopilotPage() {
               ...message,
               artifacts: [...(message.artifacts || []), ...rows],
             })),
-          onTool: (_name, toolStatus) => updateAssistant((message) => ({ ...message, toolStatus })),
+          onTool: (toolName, toolStatus) => updateAssistant((message) => ({ ...message, toolName, toolStatus })),
           onDone: ({ title }) => {
             void swag.refresh(id);
             completed = true;
@@ -879,6 +880,7 @@ export function CopilotPage() {
               {timeline.map(({ message, index, artifacts, step, active, completedApproval, artworkResult, suppressCompletedReview, earlierReview, visible }) => {
                 if (!visible) return null;
                 const publishReview = artifacts.find(isSwagPublishReview);
+                const webResearch = artifacts.find(row => row.kind === "web_research")?.research;
                 const publishResult = artifacts.some(a => a.kind === 'success' && a.operation === 'swag.collection' && a.result?.action === 'publish');
                 const reviewPreview = publishReview?.preview;
                 const selected = reviewPreview?.products;
@@ -933,7 +935,7 @@ export function CopilotPage() {
                         <CopilotUserMessage content={message.content || ""} attachments={message.attachments} conversationId={message.uiEventId || !busy ? activeId : undefined} />
                       )}
                     </div>
-                    {message.streaming ? (
+                    {message.streaming && !webResearch ? (
                       <div className="sm-copilot-thinking" role="status">
                         <span className="sm-copilot-thinking__dots" aria-hidden="true">
                           <i />
@@ -941,7 +943,7 @@ export function CopilotPage() {
                           <i />
                         </span>
                         {message.toolStatus === "running"
-                          ? "Checking your workspace…"
+                          ? message.toolName === "web_search" ? "Searching public web sources…" : "Checking your workspace…"
                           : message.toolStatus === "error"
                             ? "Couldn’t complete a workspace lookup"
                             : message.content
@@ -949,6 +951,9 @@ export function CopilotPage() {
                               : "Thinking…"}
                       </div>
                     ) : null}
+                    {webResearch ? <CopilotResearchSources research={webResearch} /> : null}
+                    {webResearch?.brief.purpose === "comparison" && artifacts.some(row => row.kind === "product")
+                      ? <p className="sm-copilot-md sm-copilot-research"><strong>Verified ShelfMerch products</strong></p> : null}
                     <CopilotArtifacts
                       artifacts={completedApproval ? artifacts.filter(a => a !== completedApproval) : artifacts}
                       assistantReply={showsAssistantText ? { text: replyText, streaming: message.streaming } : undefined}

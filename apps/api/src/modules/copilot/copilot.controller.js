@@ -29,6 +29,7 @@ import {
   uploadCopilotAttachment,
 } from './copilotAttachments.service.js';
 import { registeredToolNames, activeCopilotTools } from './copilotTools.js';
+import { webResearchEnabled } from './copilotWebResearch.js';
 import { discoveryForUser } from './copilotDiscovery.js';
 import {
   cancelCopilotStoreCreate,
@@ -113,6 +114,7 @@ export async function status(req, res) {
     provider: provider.provider,
     selectedProvider: provider.selected,
     model: enabled ? provider.model : null,
+    webResearchEnabled: enabled && webResearchEnabled(req.tenantId, provider.provider),
     role: req.user?.role ?? null,
     capabilities: enabled ? capabilitiesForRole(req.user.role) : [],
     discovery: enabled

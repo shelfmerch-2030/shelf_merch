@@ -1239,6 +1239,8 @@
 .sm-copilot-md :is(h3, h4, h5, h6) { font-size: 1.1em; }
 .sm-copilot-md > :first-child { margin-top: 0; }
 .sm-copilot-md strong { font-weight: 600; }
+.sm-copilot-research { margin-top: 12px; }
+.sm-copilot-research__domain { color: var(--cp-muted); }
 .sm-copilot-md em { font-style: italic; }
 .sm-copilot-md ul { list-style: disc; }
 .sm-copilot-md ol { list-style: decimal; }

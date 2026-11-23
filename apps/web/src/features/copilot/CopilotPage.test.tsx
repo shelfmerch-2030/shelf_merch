@@ -78,6 +78,52 @@ function sendProductRequest() {
 }
 
 describe("Copilot workspace", () => {
+  it("shows research progress, keeps citations beside verified cards, and restores them from saved history", async () => {
+    const research: api.CopilotArtifact = { kind: "web_research", research: {
+      brief: { topic: "corporate gifting and merchandise", purpose: "comparison" },
+      status: "partial", checkedAt: "2026-11-19T12:00:00.000Z",
+      sources: [
+        { title: "Public merchant listing", url: "https://example.com/listing", excerpt: "A notebook for corporate gifting." },
+        { title: "Unsafe link", url: "javascript:alert(1)", excerpt: "This link must not render." },
+      ],
+    } };
+    const product: api.CopilotArtifact = { kind: "product", product: { id: "catalog-notebook", name: "Verified notebook", sellingPriceInr: 225 } };
+    let complete!: () => void;
+    vi.mocked(api.streamCopilotMessage).mockImplementationOnce((id, _prompt, handlers) => new Promise(resolve => {
+      handlers.onTool?.("web_search", "running");
+      complete = () => {
+        handlers.onDelta?.("I found a public source and a verified ShelfMerch option.");
+        handlers.onArtifacts?.([research, product]);
+        handlers.onDone?.({ conversationId: id, title: "Welcome kits" });
+        resolve();
+      };
+    }));
+    const view = setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Welcome kits" }));
+    await screen.findByText("A previous reply");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Compare external and ShelfMerch options" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(await screen.findByText("Searching public web sources…")).toBeVisible();
+    await act(async () => complete());
+    const source = await screen.findByRole("link", { name: "Public merchant listing" });
+    expect(source).toHaveAttribute("href", "https://example.com/listing");
+    expect(source).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.queryByRole("link", { name: "Unsafe link" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Verified notebook" })).toBeVisible();
+    expect(screen.getByText("Verified ShelfMerch products")).toBeVisible();
+
+    vi.mocked(api.getCopilotConversation).mockResolvedValueOnce({ ...conversation, messages: [{
+      role: "assistant", content: "Comparison sources", artifacts: [research, product],
+    }] });
+    view.unmount();
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Welcome kits" }));
+    const restored = await screen.findByRole("region", { name: "External research" });
+    expect(restored).toHaveTextContent("These findings are incomplete.");
+    expect(within(restored).getByRole("link", { name: "Public merchant listing" })).toBeVisible();
+    expect(within(restored).queryByRole("link", { name: "View Verified notebook" })).not.toBeInTheDocument();
+  });
+
   it("closes back to the page that launched Copilot", () => {
     localStorage.setItem("sm_workspace_slug", "husain");
     render(

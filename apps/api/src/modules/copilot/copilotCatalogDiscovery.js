@@ -30,7 +30,8 @@ const PRODUCT_TYPES = [
 ];
 
 export function catalogDiscoveryIntent(text, previousReply) {
-  const input = text.trim().replace(/[.!?]+$/, '').trim().replace(/^please\s+/i, '').replace(/,?\s+please$/i, '');
+  const input = text.trim().replace(/[.!?]+$/, '').trim().replace(/^please\s+/i, '').replace(/,?\s+please$/i, '')
+    .replace(/\s+from\s+(?:the\s+)?shelf\s?merch(?:\s+catalog)?$/i, '');
   const request = input.replace(PRODUCT_REQUEST, '');
   const addressedSearch = request !== input;
   const lastPage = previousReply?.artifacts?.findLast(row => row.kind === 'catalog_page')?.catalog;

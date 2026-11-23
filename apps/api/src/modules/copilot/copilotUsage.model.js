@@ -12,6 +12,8 @@ const usageSchema = new mongoose.Schema(
     requestCount: { type: Number, default: 0 },
     estimatedCostUsd: { type: Number, default: 0 },
     toolCallCount: { type: Number, default: 0 },
+    webSearchRequests: { type: Number, default: 0 },
+    estimatedWebSearchCostUsd: { type: Number, default: 0 },
     lastProvider: { type: String, default: null },
     lastModel: { type: String, default: null },
     lastLatencyMs: { type: Number, default: 0 },

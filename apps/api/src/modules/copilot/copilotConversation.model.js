@@ -1,10 +1,29 @@
 import mongoose from 'mongoose';
 
+const webResearchSourceSchema = new mongoose.Schema(
+  { url: String, title: String, excerpt: String },
+  { _id: false },
+);
+const webResearchSchema = new mongoose.Schema(
+  {
+    brief: {
+      topic: String,
+      purpose: { type: String, enum: ['listings', 'trends', 'comparison', 'research'] },
+      region: String,
+    },
+    status: { type: String, enum: ['completed', 'partial', 'unavailable', 'no_sources', 'limited', 'disabled', 'unsupported_topic'] },
+    sources: { type: [webResearchSourceSchema], default: [] },
+    checkedAt: String,
+  },
+  { _id: false },
+);
+
 const artifactSchema = new mongoose.Schema(
   {
-    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation', 'catalog_page', 'swag_step'], required: true },
+    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation', 'catalog_page', 'swag_step', 'web_research'], required: true },
     swag: { type: mongoose.Schema.Types.Mixed },
     catalog: { type: mongoose.Schema.Types.Mixed },
+    research: { type: webResearchSchema, default: undefined },
     curation: { type: mongoose.Schema.Types.Mixed },
     product: { type: mongoose.Schema.Types.Mixed },
     kit: { type: mongoose.Schema.Types.Mixed },
