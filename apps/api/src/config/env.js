@@ -248,6 +248,8 @@ const envSchema = z.object({
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_USES: z.coerce.number().int().min(1).max(10).default(3),
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_CONTINUATIONS: z.coerce.number().int().min(0).max(3).default(1),
   EMBEDDED_COPILOT_WEB_SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(20_000),
+  /** Tool-free synthesis phase only (separate from web-search timeout). Bounded; citation fallback still applies on timeout. */
+  EMBEDDED_COPILOT_RESEARCH_SYNTHESIS_TIMEOUT_MS: z.coerce.number().int().min(4_000).max(30_000).default(12_000),
   EMBEDDED_COPILOT_WEB_SEARCH_DAILY_USER_LIMIT: z.coerce.number().int().min(1).max(10_000).default(30),
   EMBEDDED_COPILOT_WEB_SEARCH_DAILY_TENANT_LIMIT: z.coerce.number().int().min(1).max(100_000).default(300),
   /** Milestone 2: structured external product / gift kit cards (default off). */

@@ -1,14 +1,14 @@
 import type { CopilotWebResearch } from "./api";
 
 const statusText: Partial<Record<CopilotWebResearch["status"], string>> = {
-  partial: "The search returned some sources before it stopped. These findings are incomplete.",
+  partial: "Some findings are incomplete. Confirm prices, stock, and delivery with each external seller before ordering.",
   unavailable: "Web research couldn’t complete for this reply. You can try again.",
   no_sources: "I couldn’t find public sources to verify this request.",
   unverified: "The search returned results, but I couldn’t verify a match for this request.",
   synthesis_failed: "I found sources, but couldn’t finish checking them for this reply.",
   limited: "The web search limit was reached for this reply.",
   disabled: "Web research is currently unavailable in this workspace.",
-  unsupported_topic: "Web research needs a supported public topic, such as corporate gifting, technology, or event giveaways.",
+  unsupported_topic: "I couldn’t start web research for this request. Try asking again with a clearer public topic, or say “search the web”.",
 };
 
 function externalHref(value: string) {

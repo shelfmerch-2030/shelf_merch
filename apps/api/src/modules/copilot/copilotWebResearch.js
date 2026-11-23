@@ -4,7 +4,8 @@ import { ensureRedisReady, getRedis } from '../../config/redis.js';
 import { curatorSource } from './curator.js';
 import { streamAnthropicCompletion } from './providers/anthropicChatAdapter.js';
 
-// Only these server-owned labels may cross into a web-enabled prompt.
+// Catalog / gifting category hints for structured product discovery (Milestone 2).
+// General public research may use a sanitized free-form topic instead — see sanitizeGeneralTopic.
 const topics = [
   [/\bkitchen(?:[- ]tech|ware)?\b|\bcooking\b/i, 'kitchen technology and kitchenware', 'Kitchenware'],
   [/\bbackpacks?\b/i, 'backpacks', 'Backpacks'],
@@ -20,6 +21,33 @@ const topics = [
   [/\b(?:technology|tech news)\b/i, 'technology news'],
   [/\b(?:gifts?|gifting|merch(?:andise)?|swag|kits?|products?|vendors?)\b/i, 'corporate gifting and merchandise'],
 ];
+
+const catalogTopicLabels = new Set(topics.map(([, label]) => label));
+
+/** Bound, instruction-safe topic string for the tool-free web research prompt (not a category whitelist). */
+export function sanitizeGeneralTopic(text) {
+  if (typeof text !== 'string') return null;
+  const cleaned = text.normalize('NFKC')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\b(?:please|can you|could you)\s+/gi, ' ')
+    .replace(/\b(?:search|browse|check)\s+(?:the\s+)?(?:web|internet|online)\b/gi, ' ')
+    .replace(/\b(?:look up|research)\b/gi, ' ')
+    .replace(/\b(?:include|with)\s+(?:official\s+)?(?:source|citation|link)s?\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+  if (cleaned.length < 8) return null;
+  if (/^(?:ignore previous|system prompt|you are|do not follow|developer message)\b/i.test(cleaned)) return null;
+  if (/[<>`]/.test(cleaned)) return null;
+  return cleaned;
+}
+
+export function isAllowedResearchTopic(label) {
+  if (typeof label !== 'string') return false;
+  if (catalogTopicLabels.has(label)) return true;
+  return sanitizeGeneralTopic(label) === label;
+}
 
 const regions = [
   [/\b(?:India|Indian)\b/i, 'India'],
@@ -61,38 +89,50 @@ export function publicResearchRequest(text, priorResearch) {
   if (/\b(?:do not|don't|never)\s+(?:search|browse|use (?:the )?web)\b|\bno web search\b/i.test(text)) return null;
   const source = curatorSource(text, null);
   if (source === 'shelfmerch' || (source == null && /\bshelf\s?merch\b/i.test(text))) return null;
-  const fresh = /\b(?:latest|current|recent|trending|trends|this year)\b/i.test(text);
+  const fresh = /\b(?:latest|current|recent|trending|trends|this year|this month|announced|announcements?)\b/i.test(text);
   const asksTrends = /\b(?:trends?|industry reports?|market (?:research|reports?|size))\b/i.test(text);
   const explicit = /\b(?:search|browse|check)\s+(?:the\s+)?(?:web|internet|online)\b|^(?:(?:please|can you|could you)\s+)*(?:look up|research)\b|\b(?:web|online)\s+sources?\b/i.test(text);
-  const topic = topics.find(([pattern]) => pattern.test(text));
+  const catalogTopic = topics.find(([pattern]) => pattern.test(text));
   const region = regions.find(([pattern]) => pattern.test(text))?.[1];
   const external = source === 'external' || source === 'mixed';
   const productRequest = new RegExp(`\\b${giftNouns}\\b`, 'i').test(text) && !asksTrends;
   const wantsListings = productRequest && (/\b(?:supplier|merchant|where to buy|listings?)\b/i.test(text)
     || (/^(?:please\s+)?(?:search|find|recommend)\b/i.test(text) && /\bavailable in\b/i.test(text))
     || (/^(?:please\s+)?find\b/i.test(text) && /\b(?:gifts?|gifting|giveaways?)\b/i.test(text) && researchBudget(text)));
-  // Natural gifting / kit discovery with a known topic (e.g. kitchen tech kit ideas) without requiring "search the web".
-  const discoveryIntent = productRequest && Boolean(topic) && (
+  // Natural gifting / kit discovery with a catalog category (e.g. kitchen tech kit ideas) without requiring "search the web".
+  const discoveryIntent = productRequest && Boolean(catalogTopic) && (
     /\b(?:recommend|suggest|need|want|find|give(?:\s+me)?|ideas?|innovative|creative|brainstorm)\b/i.test(text)
     || /\b(?:gifting\s+)?kits?\b/i.test(text)
   );
   const kitIntent = /\b(?:kits?|kit ideas|gifting kits?)\b/i.test(text);
+  const currentInfo = fresh && /\b(?:news|updates?|announcements?|forecasts?|research|science|scientific|travel|weather)\b/i.test(text);
   if (!external && !explicit && !wantsListings && !discoveryIntent
-    && !(fresh && (topic || /\b(?:trends?|news|update|forecasts?)\b/i.test(text)))) {
+    && !(fresh && (catalogTopic || currentInfo || /\b(?:trends?|news|update|forecasts?)\b/i.test(text)))) {
     if (priorResearch?.brief && /^(?:more\b|try again\b|anything else\b|what about\b|under\s+|show (?:me )?(?:cheaper|different)\b)/i.test(text.trim())) {
       const { brief } = priorResearch;
-      const savedTopic = topic || topics.find(([, label]) => label === brief.topic);
+      const savedCatalog = catalogTopic || topics.find(([, label]) => label === brief.topic);
+      const savedTopic = savedCatalog?.[1]
+        || (isAllowedResearchTopic(brief.topic) ? brief.topic : null)
+        || sanitizeGeneralTopic(text);
       const savedRegion = regions.find(([, label]) => label === brief.region)?.[1];
-      if (savedTopic && purposes.has(brief.purpose)) return { topic: savedTopic[1], region: region || savedRegion,
-        purpose: brief.purpose, category: savedTopic[2], kitIntent: kitIntent || Boolean(brief.kitIntent),
+      if (savedTopic && purposes.has(brief.purpose)) return { topic: savedTopic, region: region || savedRegion,
+        purpose: brief.purpose, category: savedCatalog?.[2], kitIntent: kitIntent || Boolean(brief.kitIntent),
         ...researchConstraints(text, brief) };
     }
     return null;
   }
+  // Structured shopping / gifting stays on listings|comparison; general public Q&A uses research|trends.
   const purpose = source === 'mixed' ? 'comparison'
     : external || wantsListings || discoveryIntent || (explicit && productRequest) ? 'listings'
-    : asksTrends || fresh ? 'trends' : 'research';
-  return { purpose, topic: topic?.[1] ?? (external ? 'corporate gifting and merchandise' : null), region, category: topic?.[2],
+    : asksTrends || (fresh && /\b(?:trends?|news|updates?|announcements?)\b/i.test(text)) ? 'trends'
+    : 'research';
+  // Listings/comparison keep catalog category labels. Explicit/current-info research prefers a
+  // sanitized free-form topic so "technology news about X" keeps X instead of a broad catalog label.
+  const generalTopic = sanitizeGeneralTopic(text);
+  const topic = ['listings', 'comparison'].includes(purpose)
+    ? (catalogTopic?.[1] ?? (external ? 'corporate gifting and merchandise' : null))
+    : ((explicit || currentInfo) && generalTopic ? generalTopic : (catalogTopic?.[1] ?? generalTopic ?? null));
+  return { purpose, topic, region, category: catalogTopic?.[2],
     kitIntent, ...researchConstraints(text) };
 }
 
@@ -179,7 +219,8 @@ export async function runCopilotWebResearch({
     diagnostics: { ...diagnostics, outcome, citedSources: sources.size },
   });
 
-  const topic = topics.find(([, label]) => label === brief.topic)?.[1];
+  const topic = topics.find(([, label]) => label === brief.topic)?.[1]
+    || (isAllowedResearchTopic(brief.topic) ? brief.topic : null);
   const region = regions.find(([, label]) => label === brief.region)?.[1];
   if (!topic || !purposes.has(brief.purpose) || !webResearchEnabled(tenantId, 'anthropic')) return finish('unavailable', 'ineligible');
   try {

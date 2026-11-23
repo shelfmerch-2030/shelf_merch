@@ -121,7 +121,7 @@ describe("Copilot workspace", () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: "Welcome kits" }));
     const restored = await screen.findByRole("region", { name: "External research" });
-    expect(restored).toHaveTextContent("These findings are incomplete.");
+    expect(restored).toHaveTextContent("Some findings are incomplete.");
     expect(within(restored).getByRole("link", { name: "Public merchant listing" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Source 1" })).toBeVisible();
     expect(within(restored).queryByRole("link", { name: "View Verified notebook" })).not.toBeInTheDocument();
