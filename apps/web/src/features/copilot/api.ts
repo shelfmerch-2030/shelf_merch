@@ -140,6 +140,8 @@ export type CopilotExternalProduct = {
   imageProvenance?: "merchant_og" | "merchant_meta";
   retrievedAt: string;
   reason?: string;
+  /** Optional evidence-backed features from a future contract — never invented client-side. */
+  features?: string[];
 };
 
 export type CopilotGiftKitComponent =

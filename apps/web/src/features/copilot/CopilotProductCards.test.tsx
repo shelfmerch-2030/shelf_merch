@@ -373,8 +373,8 @@ describe("Copilot product/kit cards", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 
-  it("renders verified external listings with merchant link, unknown price placeholder, and image fallback", () => {
-    render(<MemoryRouter><CopilotArtifacts artifacts={[{
+  it("renders verified external products as borderless editorial rows with price fallback", () => {
+    const { container } = render(<MemoryRouter><CopilotArtifacts artifacts={[{
       kind: "external_product",
       product: {
         verification: "verified_listing",
@@ -388,14 +388,58 @@ describe("Copilot product/kit cards", () => {
         reason: "Useful for meal-prep kits",
       },
     }]} /></MemoryRouter>);
-    expect(screen.getByText("Verified external listings")).toBeInTheDocument();
-    expect(screen.getByText("Verified external listing")).toBeInTheDocument();
-    expect(screen.getByText("Unit price unknown")).toBeInTheDocument();
+    const list = screen.getByRole("region", { name: "Verified external products" });
+    expect(list).toHaveClass("sm-copilot-external-list");
+    expect(list.querySelector(".catalog-product-card")).toBeNull();
+    expect(screen.queryByText("Verified external listings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Verified external listing")).not.toBeInTheDocument();
+    expect(screen.getByText("Price unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Useful for meal-prep kits")).toBeInTheDocument();
+    expect(screen.getByText("Merchant: example.com")).toBeInTheDocument();
     expect(screen.getByLabelText("No merchant image available")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Smart Kitchen Scale/i })).toHaveAttribute("href", "https://example.com/scale");
+    expect(screen.getByRole("link", { name: "Smart Kitchen Scale" })).toHaveAttribute("href", "https://example.com/scale");
+    expect(screen.getByRole("link", { name: /View product/i })).toHaveAttribute("href", "https://example.com/scale");
+    expect(container.querySelector(".sm-copilot-external-row")).toBeTruthy();
   });
 
-  it("renders a merchant imageUrl on external product cards and falls back when the image errors", () => {
+  it("renders five external products as separated rows with merchant images and structured features when provided", () => {
+    const products = [
+      ["Scale One", "₹499", "https://cdn.shop.example.com/1.jpg"],
+      ["Scale Two", "₹599", "https://cdn.shop.example.com/2.jpg"],
+      ["Scale Three", undefined, "https://cdn.shop.example.com/3.jpg"],
+      ["Scale Four", "₹799", ""],
+      ["Scale Five With A Very Long Product Name For Alignment", "₹899", "https://cdn.shop.example.com/5.jpg"],
+    ] as const;
+    const { container } = render(<MemoryRouter><CopilotArtifacts artifacts={products.map(([name, price, image], index) => ({
+      kind: "external_product" as const,
+      product: {
+        verification: "verified_listing" as const,
+        name,
+        productUrl: `https://shop.example.com/p/${index + 1}`,
+        sourceUrl: `https://shop.example.com/p/${index + 1}`,
+        sourceTitle: name,
+        merchantHostname: "shop.example.com",
+        availability: "unknown" as const,
+        retrievedAt: "2026-11-23T10:00:00.000Z",
+        ...(price ? { priceText: price, priceNumeric: Number(price.replace(/[^\d]/g, "")), currency: "INR" } : {}),
+        ...(image ? { imageUrl: image, imageProvenance: "merchant_og" as const } : {}),
+        ...(index === 0 ? { features: ["Evidence feature A", "Evidence feature B"] } : {}),
+        reason: index === 1 ? "Compact secondary description" : undefined,
+      },
+    }))} /></MemoryRouter>);
+    const rows = container.querySelectorAll(".sm-copilot-external-row");
+    expect(rows).toHaveLength(5);
+    expect(screen.getByText("₹499")).toBeInTheDocument();
+    expect(screen.getByText("Price unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Compact secondary description")).toBeInTheDocument();
+    expect(screen.getByText("Evidence feature A")).toBeInTheDocument();
+    expect(container.querySelectorAll(".sm-copilot-external-row__features li")).toHaveLength(2);
+    expect(container.querySelector(".catalog-product-card")).toBeNull();
+    expect(container.querySelector('img[src="https://cdn.shop.example.com/1.jpg"]')).toBeTruthy();
+    expect(screen.getAllByText(/Merchant: shop\.example\.com/)).toHaveLength(5);
+  });
+
+  it("renders a merchant imageUrl on external product rows and falls back when the image errors", () => {
     const { container } = render(<MemoryRouter><CopilotArtifacts artifacts={[{
       kind: "external_product",
       product: {

@@ -306,12 +306,11 @@ export function CopilotArtifacts({
         </>
       ) : null}
       {externalProducts.length ? (
-        <>
-          <p className="sm-copilot-section-label sm-swag-full"><strong>Verified external listings</strong></p>
+        <section className="sm-copilot-external-list sm-swag-full" aria-label="Verified external products">
           {externalProducts.map((row, index) => (
             <CopilotExternalProductCard key={`external-${row.product.productUrl}-${index}`} product={row.product} />
           ))}
-        </>
+        </section>
       ) : null}
       {confirmations.map(({ row, index }) => (
         <CopilotConfirmationCard

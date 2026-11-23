@@ -7,12 +7,20 @@ const MARKDOWN_LINK_RE = /\[[^\]]+\]\((https?:\/\/[^)]+|\/[^)]+)\)/g;
 const MARKDOWN_TABLE_LINE_RE = /^\s*\|.*\|\s*$/;
 const MARKDOWN_TABLE_SEP_RE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/;
 const BARE_URL_RE = /https?:\/\/[^\s)\]>"']+/gi;
+const SOURCED_HEADER_RE = /^(?:\*\*)?(?:sourced recommendations|what the research shows)\b/i;
+const VERIFIED_COUNT_RE = /^i verified \d+ of \d+ requested listings\b/i;
+const LISTING_PRICE_NOTE_RE = /\b(?:listed unit price|unit price unknown)\b/i;
+const SOURCE_REF_RE = /\[source\s+\d+\]/i;
 
 function hasCardArtifacts(artifacts?: CopilotArtifact[] | null) {
   return Boolean(
     artifacts?.some((row) => row.kind === "product" || row.kind === "kit"
       || row.kind === "external_product" || row.kind === "gift_kit_idea"),
   );
+}
+
+function hasExternalProducts(artifacts?: CopilotArtifact[] | null) {
+  return Boolean(artifacts?.some((row) => row.kind === "external_product"));
 }
 
 function cardTitles(artifacts?: CopilotArtifact[] | null): string[] {
@@ -31,8 +39,17 @@ function cardTitles(artifacts?: CopilotArtifact[] | null): string[] {
   return names;
 }
 
+function normalizeLine(line: string) {
+  return line
+    .trim()
+    .replace(/^[-*•]\s+/, "")
+    .replace(/^\d+\.\s+/, "")
+    .replace(/\*\*/g, "")
+    .trim();
+}
+
 function lineDuplicatesCard(line: string, titles: string[]): boolean {
-  const trimmed = line.trim().replace(/^[-*•]\s+/, "").replace(/\*\*/g, "").trim();
+  const trimmed = normalizeLine(line);
   if (!trimmed) return false;
   const lower = trimmed.toLowerCase();
   return titles.some((title) => {
@@ -40,8 +57,21 @@ function lineDuplicatesCard(line: string, titles: string[]): boolean {
     if (lower === t) return true;
     if (lower.startsWith(`${t} —`) || lower.startsWith(`${t} -`) || lower.startsWith(`${t}:`)) return true;
     if (lower === `view ${t}` || lower === `view details` || lower.startsWith("view details")) return true;
+    // Numbered sourced-recommendation lines that restate a verified external product.
+    if (lower.includes(t) && (LISTING_PRICE_NOTE_RE.test(lower) || SOURCE_REF_RE.test(lower))) return true;
     return false;
   });
+}
+
+function isDuplicateExternalListingProse(line: string, titles: string[]): boolean {
+  const trimmed = normalizeLine(line);
+  if (!trimmed) return false;
+  if (SOURCED_HEADER_RE.test(trimmed)) return true;
+  if (VERIFIED_COUNT_RE.test(trimmed)) return true;
+  if (lineDuplicatesCard(line, titles)) return true;
+  // Standalone price/source footnotes left after stripping titles.
+  if (LISTING_PRICE_NOTE_RE.test(trimmed) && SOURCE_REF_RE.test(trimmed)) return true;
+  return false;
 }
 
 /**
@@ -60,6 +90,7 @@ export function sanitizeCopilotAssistantText(
     && (!confirmations[0].status || confirmations[0].status === "pending")) return "Review the department setup below before confirming.";
   let text = content.replace(/\r\n/g, "\n");
   const titles = cardTitles(artifacts);
+  const dropExternalListingDupes = hasExternalProducts(artifacts);
 
   if (hasCardArtifacts(artifacts)) {
     const kept: string[] = [];
@@ -77,6 +108,7 @@ export function sanitizeCopilotAssistantText(
         continue;
       }
       IMAGE_URL_RE.lastIndex = 0;
+      if (dropExternalListingDupes && isDuplicateExternalListingProse(trimmed, titles)) continue;
       if (lineDuplicatesCard(trimmed, titles)) continue;
       // Drop lines that are only a markdown/bare link once cards are present.
       const withoutLinks = trimmed

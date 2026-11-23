@@ -100,4 +100,60 @@ describe("sanitizeCopilotAssistantText", () => {
     expect(cleaned).toContain("| Department | Allocated | Remaining |");
     expect(looksLikeRawProductTable(cleaned)).toBe(true);
   });
+
+  it("removes duplicated sourced-listing markdown when external product artifacts exist", () => {
+    const raw = [
+      "Here are a few kitchen options worth a closer look.",
+      "",
+      "I verified 3 of 5 requested listings in India. Current stock and delivery still need confirmation.",
+      "",
+      "**Sourced recommendations in India**",
+      "",
+      "1. **Smart Kitchen Scale** — Useful for meal-prep kits Listed unit price: ₹1,299. [Source 1](https://example.com/scale).",
+      "2. **Milk Frother** — Pairs with coffee kits Unit price unknown. [Source 2](https://example.com/frother).",
+      "",
+      "**Unverified ideas to source**",
+      "",
+      "1. **Notebook Sleeve** — Easy for visitors to carry",
+      "",
+      "Ask a supplier for a per-item quote before ordering.",
+    ].join("\n");
+    const cleaned = sanitizeCopilotAssistantText(raw, [
+      {
+        kind: "external_product",
+        product: {
+          verification: "verified_listing",
+          name: "Smart Kitchen Scale",
+          productUrl: "https://example.com/scale",
+          sourceUrl: "https://example.com/scale",
+          sourceTitle: "Smart Kitchen Scale",
+          merchantHostname: "example.com",
+          availability: "unknown",
+          retrievedAt: "2026-11-23T10:00:00.000Z",
+        },
+      },
+      {
+        kind: "external_product",
+        product: {
+          verification: "verified_listing",
+          name: "Milk Frother",
+          productUrl: "https://example.com/frother",
+          sourceUrl: "https://example.com/frother",
+          sourceTitle: "Milk Frother",
+          merchantHostname: "example.com",
+          availability: "unknown",
+          retrievedAt: "2026-11-23T10:00:00.000Z",
+        },
+      },
+    ]);
+    expect(cleaned).toContain("Here are a few kitchen options worth a closer look.");
+    expect(cleaned).toContain("Unverified ideas to source");
+    expect(cleaned).toContain("Notebook Sleeve");
+    expect(cleaned).toContain("Ask a supplier for a per-item quote before ordering.");
+    expect(cleaned).not.toContain("Sourced recommendations");
+    expect(cleaned).not.toContain("I verified 3 of 5");
+    expect(cleaned).not.toContain("Smart Kitchen Scale");
+    expect(cleaned).not.toContain("Milk Frother");
+    expect(cleaned).not.toContain("Listed unit price");
+  });
 });
