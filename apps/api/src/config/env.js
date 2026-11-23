@@ -250,6 +250,12 @@ const envSchema = z.object({
   EMBEDDED_COPILOT_WEB_SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(20_000),
   EMBEDDED_COPILOT_WEB_SEARCH_DAILY_USER_LIMIT: z.coerce.number().int().min(1).max(10_000).default(30),
   EMBEDDED_COPILOT_WEB_SEARCH_DAILY_TENANT_LIMIT: z.coerce.number().int().min(1).max(100_000).default(300),
+  /** Milestone 2: structured external product / gift kit cards (default off). */
+  EMBEDDED_COPILOT_EXTERNAL_PRODUCT_CARDS_ENABLED: z.enum(['true', 'false']).default('false'),
+  /** Milestone 2: OG/meta image enrichment for verified listing URLs only (default off). */
+  EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('false'),
+  EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(500).max(10_000).default(3_000),
+  EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_MAX: z.coerce.number().int().min(0).max(12).default(6),
   /** Optional USD per million tokens for usage estimates, not billing. */
   EMBEDDED_COPILOT_OPENAI_INPUT_USD_PER_MTOK: z.coerce.number().min(0).optional().default(0.4),
   EMBEDDED_COPILOT_OPENAI_OUTPUT_USD_PER_MTOK: z.coerce.number().min(0).optional().default(1.6),

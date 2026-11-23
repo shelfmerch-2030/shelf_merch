@@ -25,7 +25,7 @@ const webResearchSchema = new mongoose.Schema(
 
 const artifactSchema = new mongoose.Schema(
   {
-    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation', 'catalog_page', 'swag_step', 'web_research'], required: true },
+    kind: { type: String, enum: ['product', 'kit', 'confirmation', 'success', 'wallet_balance', 'department_budgets', 'curation', 'catalog_page', 'swag_step', 'web_research', 'external_product', 'gift_kit_idea'], required: true },
     swag: { type: mongoose.Schema.Types.Mixed },
     catalog: { type: mongoose.Schema.Types.Mixed },
     research: { type: webResearchSchema, default: undefined },

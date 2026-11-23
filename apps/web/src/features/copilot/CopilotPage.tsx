@@ -952,8 +952,8 @@ export function CopilotPage() {
                       </div>
                     ) : null}
                     {webResearch ? <CopilotResearchSources research={webResearch} /> : null}
-                    {webResearch?.brief.purpose === "comparison" && artifacts.some(row => row.kind === "product")
-                      ? <p className="sm-copilot-md sm-copilot-research"><strong>Verified ShelfMerch products</strong></p> : null}
+                    {artifacts.some(row => row.kind === "product" || row.kind === "kit")
+                      ? <p className="sm-copilot-md sm-copilot-research sm-copilot-section-label"><strong>Verified ShelfMerch products</strong></p> : null}
                     <CopilotArtifacts
                       artifacts={completedApproval ? artifacts.filter(a => a !== completedApproval) : artifacts}
                       assistantReply={showsAssistantText ? { text: replyText, streaming: message.streaming } : undefined}

@@ -41,6 +41,15 @@ import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
 import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
+import {
+  applyImageToExternalProducts,
+  buildExternalProductArtifacts,
+  buildGiftKitIdeaArtifacts,
+  cardsEnabled,
+  imageEnrichmentEnabled,
+  syncKitImagesFromProducts,
+} from './copilotExternalProductArtifacts.js';
+import { enrichListingImages } from './copilotExternalListingMedia.js';
 import { fallbackResearchLeads, synthesizeResearch } from './copilotResearchRecommendations.js';
 import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
 
@@ -574,7 +583,11 @@ export async function streamAssistantTurn({
   const priorAssistant = conversation.messages.slice(0, initialMessageCount)
     .findLast(message => message.role === 'assistant' && (message.content || message.artifacts?.length));
   const priorResearch = priorAssistant?.artifacts?.find(row => row.kind === 'web_research')?.research;
-  const research = independentTurn && (!curatorTurn || researchEnabled) && publicResearchRequest(text, priorResearch);
+  const researchCandidate = independentTurn && (!curatorTurn || researchEnabled) && publicResearchRequest(text, priorResearch);
+  // When web research is off, keep creative kit brainstorming on the tool-free creative lane.
+  // When research is on, natural gifting/kit prompts use research + conceptual kit fill instead.
+  const research = researchCandidate && (researchEnabled || !isCreativeGiftingRequest(text))
+    ? researchCandidate : null;
   if (research) {
     const startedAt = Date.now();
     const { category, company, ...brief } = research;
@@ -610,13 +623,45 @@ export async function streamAssistantTurn({
       : external.status;
     if (enabled) logger.info({ purpose, status, search: external.diagnostics, synthesis: synthesis.diagnostics,
       leads: leads.length, webSearchRequests: external.usage.webSearchRequests, latencyMs: Date.now() - startedAt }, 'Copilot web research completed');
+    const checkedAt = enabled ? new Date().toISOString() : undefined;
     const researchArtifact = { kind: 'web_research', research: {
       brief, status,
       sources: synthesis.sources.length ? synthesis.sources : leads,
       summarized: true, ...(leads.length ? { leadsOnly: true } : {}),
-      ...(enabled ? { checkedAt: new Date().toISOString() } : {}),
+      ...(checkedAt ? { checkedAt } : {}),
     } };
-    const artifacts = [researchArtifact, ...internal.artifacts];
+    let milestoneArtifacts = [];
+    if (cardsEnabled(env) && ['listings', 'comparison'].includes(purpose)) {
+      let externalProducts = buildExternalProductArtifacts(synthesis.findings || [], { retrievedAt: checkedAt || new Date().toISOString() });
+      // Enrichment only runs inside the allowlisted research lane with both M2 flags on.
+      if (enabled && imageEnrichmentEnabled(env) && webResearchEnabled(tenantId, providerStatus.provider)
+        && externalProducts.length && !signal?.aborted) {
+        try {
+          const images = await enrichListingImages(
+            externalProducts.map(row => row.product.productUrl),
+            { signal, max: env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_MAX },
+          );
+          externalProducts = applyImageToExternalProducts(externalProducts, images);
+        } catch {
+          /* soft-fail: cards render with placeholders */
+        }
+      }
+      let giftKits = [];
+      if (brief.kitIntent || /\b(?:kits?|kit ideas)\b/i.test(text)) {
+        giftKits = buildGiftKitIdeaArtifacts({
+          findings: synthesis.findings || [],
+          concepts: synthesis.concepts || [],
+          kitPlans: synthesis.kitPlans || [],
+          externalProducts,
+          requestedCount: brief.count || 3,
+          company,
+          audience: brief.audience,
+        });
+        giftKits = syncKitImagesFromProducts(giftKits, externalProducts);
+      }
+      milestoneArtifacts = [...externalProducts, ...giftKits];
+    }
+    const artifacts = [researchArtifact, ...milestoneArtifacts, ...internal.artifacts];
     const content = [
       synthesis.content,
       purpose === 'comparison' ? catalogComparisonSummary(internal.status, internal.artifacts.length) : '',

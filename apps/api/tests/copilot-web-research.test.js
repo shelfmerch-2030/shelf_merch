@@ -318,9 +318,10 @@ describe('embedded Milestone 1 routing and storage', () => {
     expect(reply.artifacts[0].research.sources).toHaveLength(1);
   });
 
-  it('answers the eight-kit creative request without web search or catalog lookup', async () => {
+  it('answers the eight-kit creative request without web search when research is disabled', async () => {
     const { stream } = mockClaude();
     const chat = await workspace();
+    env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED = 'false';
     const names = ['Coffee prep', 'Breakfast lab', 'Tasting flight', 'Meal prep', 'Tea break', 'Baking bench', 'Recipe lab', 'Travel kitchen'];
     stream.mockResolvedValueOnce({ finishReason: 'end_turn', toolCalls: [],
       text: names.map((name, index) => `${index + 1}. ${name} kit — A useful kitchen-tech concept.`).join('\n') });

@@ -372,4 +372,64 @@ describe("Copilot product/kit cards", () => {
     expect(screen.getAllByText("Marketing")).toHaveLength(1);
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
+
+  it("renders verified external listings with merchant link, unknown price placeholder, and image fallback", () => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[{
+      kind: "external_product",
+      product: {
+        verification: "verified_listing",
+        name: "Smart Kitchen Scale",
+        productUrl: "https://example.com/scale",
+        sourceUrl: "https://example.com/scale",
+        sourceTitle: "Smart Kitchen Scale",
+        merchantHostname: "example.com",
+        availability: "unknown",
+        retrievedAt: "2026-11-23T10:00:00.000Z",
+        reason: "Useful for meal-prep kits",
+      },
+    }]} /></MemoryRouter>);
+    expect(screen.getByText("Verified external listings")).toBeInTheDocument();
+    expect(screen.getByText("Verified external listing")).toBeInTheDocument();
+    expect(screen.getByText("Unit price unknown")).toBeInTheDocument();
+    expect(screen.getByLabelText("No merchant image available")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Smart Kitchen Scale/i })).toHaveAttribute("href", "https://example.com/scale");
+  });
+
+  it("renders gift kit ideas with verified and concept components and incomplete budget", () => {
+    render(<MemoryRouter><CopilotArtifacts artifacts={[{
+      kind: "gift_kit_idea",
+      kit: {
+        name: "Coffee lab kit",
+        rationale: "A practical welcome kit for kitchen-tech fans.",
+        packagingSuggestion: "Branded sleeve with a welcome note.",
+        recipientFit: "Practical corporate gifting fit for Toast employees.",
+        components: [
+          {
+            role: "verified_listing",
+            name: "Milk Frother",
+            externalProductIndex: 0,
+            productUrl: "https://example.com/frother",
+            priceText: "₹899",
+            priceNumeric: 899,
+            currency: "INR",
+          },
+          { role: "concept", name: "Recipe card set", reason: "A complementary concept to source from a printer." },
+        ],
+        budget: {
+          status: "partial",
+          currency: "INR",
+          knownSubtotal: 899,
+          missingPriceCount: 1,
+          note: "Item prices only when source-verified. Packaging, branding, GST and shipping are not included.",
+        },
+        imagePolicy: "none",
+      },
+    }]} /></MemoryRouter>);
+    expect(screen.getByText("Gifting kit ideas")).toBeInTheDocument();
+    expect(screen.getByText("Concept")).toBeInTheDocument();
+    expect(screen.getByText(/Recipe card set/)).toBeInTheDocument();
+    expect(screen.getByText(/1 price needs confirmation/i)).toBeInTheDocument();
+    expect(screen.getByText(/No complete kit photograph/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Milk Frother" })).toHaveAttribute("href", "https://example.com/frother");
+  });
 });

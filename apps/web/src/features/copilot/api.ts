@@ -28,6 +28,8 @@ export type CopilotCategory = {
 
 export type CopilotStatus = {
   webResearchEnabled?: boolean;
+  externalProductCardsEnabled?: boolean;
+  externalImageEnrichmentEnabled?: boolean;
   enabled: boolean;
   provider: "openai" | "disabled" | string;
   model: string | null;
@@ -122,6 +124,53 @@ export type CopilotWebResearch = {
   sources: Array<{ title: string; url: string; excerpt: string }>;
 };
 
+export type CopilotExternalProduct = {
+  verification: "verified_listing";
+  name: string;
+  productUrl: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  merchantHostname: string;
+  merchantDisplayName?: string;
+  priceText?: string;
+  priceNumeric?: number;
+  currency?: string;
+  availability: "unknown";
+  imageUrl?: string;
+  imageProvenance?: "merchant_og" | "merchant_meta";
+  retrievedAt: string;
+  reason?: string;
+};
+
+export type CopilotGiftKitComponent =
+  | {
+      role: "verified_listing";
+      name: string;
+      externalProductIndex: number;
+      priceText?: string;
+      priceNumeric?: number;
+      currency?: string;
+      imageUrl?: string;
+      productUrl?: string;
+    }
+  | { role: "concept"; name: string; reason: string };
+
+export type CopilotGiftKitIdea = {
+  name: string;
+  rationale: string;
+  packagingSuggestion: string;
+  recipientFit: string;
+  components: CopilotGiftKitComponent[];
+  budget: {
+    status: "complete" | "partial" | "unavailable";
+    currency?: string;
+    knownSubtotal?: number;
+    missingPriceCount: number;
+    note: string;
+  };
+  imagePolicy: "none";
+};
+
 export type CopilotArtifact =
   | { kind: "web_research"; research: CopilotWebResearch }
   | { kind: 'swag_step'; swag: { conversationId?: string; revision: number; step: import('./swagApi').SwagStep; mode?: string; selectedProducts?: Array<{ id: string; name: string; imageUrl: string }> } }
@@ -129,6 +178,8 @@ export type CopilotArtifact =
   | { kind: "curation"; curation: import("./curatorTypes").Curation }
   | { kind: "product"; product: Record<string, unknown> }
   | { kind: "kit"; kit: Record<string, unknown> }
+  | { kind: "external_product"; product: CopilotExternalProduct }
+  | { kind: "gift_kit_idea"; kit: CopilotGiftKitIdea }
   | CopilotConfirmationArtifact
   | CopilotSuccessArtifact
   | CopilotWalletBalanceArtifact

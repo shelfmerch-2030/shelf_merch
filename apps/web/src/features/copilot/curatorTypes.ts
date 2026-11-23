@@ -39,7 +39,11 @@ export interface GiftConceptImageProvider {
     imageUrl: string; provenance: "generated-concept"; generatedAt: string;
   }>;
 }
-/** Future verified external research must supply provenance, not model-invented shopping data. */
+/**
+ * Runtime Milestone 2 uses Anthropic web research + structured artifacts
+ * (`external_product` / `gift_kit_idea`). This interface remains the provenance contract
+ * for any future shopping provider — not installed in v1.
+ */
 export interface ExternalGiftResearchProvider {
   search(input: { query: string; currency?: string; signal?: AbortSignal }): Promise<Array<{
     name: string; source: string; productUrl: string; imageUrl?: string; price?: number; currency?: string;

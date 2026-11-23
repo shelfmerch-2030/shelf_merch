@@ -115,6 +115,8 @@ export async function status(req, res) {
     selectedProvider: provider.selected,
     model: enabled ? provider.model : null,
     webResearchEnabled: enabled && webResearchEnabled(req.tenantId, provider.provider),
+    externalProductCardsEnabled: enabled && env.EMBEDDED_COPILOT_EXTERNAL_PRODUCT_CARDS_ENABLED === 'true',
+    externalImageEnrichmentEnabled: enabled && env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED === 'true',
     role: req.user?.role ?? null,
     capabilities: enabled ? capabilitiesForRole(req.user.role) : [],
     discovery: enabled

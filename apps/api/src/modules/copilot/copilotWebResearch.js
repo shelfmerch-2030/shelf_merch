@@ -71,21 +71,29 @@ export function publicResearchRequest(text, priorResearch) {
   const wantsListings = productRequest && (/\b(?:supplier|merchant|where to buy|listings?)\b/i.test(text)
     || (/^(?:please\s+)?(?:search|find|recommend)\b/i.test(text) && /\bavailable in\b/i.test(text))
     || (/^(?:please\s+)?find\b/i.test(text) && /\b(?:gifts?|gifting|giveaways?)\b/i.test(text) && researchBudget(text)));
-  if (!external && !explicit && !wantsListings && !(fresh && (topic || /\b(?:trends?|news|update|forecasts?)\b/i.test(text)))) {
+  // Natural gifting / kit discovery with a known topic (e.g. kitchen tech kit ideas) without requiring "search the web".
+  const discoveryIntent = productRequest && Boolean(topic) && (
+    /\b(?:recommend|suggest|need|want|find|give(?:\s+me)?|ideas?|innovative|creative|brainstorm)\b/i.test(text)
+    || /\b(?:gifting\s+)?kits?\b/i.test(text)
+  );
+  const kitIntent = /\b(?:kits?|kit ideas|gifting kits?)\b/i.test(text);
+  if (!external && !explicit && !wantsListings && !discoveryIntent
+    && !(fresh && (topic || /\b(?:trends?|news|update|forecasts?)\b/i.test(text)))) {
     if (priorResearch?.brief && /^(?:more\b|try again\b|anything else\b|what about\b|under\s+|show (?:me )?(?:cheaper|different)\b)/i.test(text.trim())) {
       const { brief } = priorResearch;
       const savedTopic = topic || topics.find(([, label]) => label === brief.topic);
       const savedRegion = regions.find(([, label]) => label === brief.region)?.[1];
       if (savedTopic && purposes.has(brief.purpose)) return { topic: savedTopic[1], region: region || savedRegion,
-        purpose: brief.purpose, category: savedTopic[2], ...researchConstraints(text, brief) };
+        purpose: brief.purpose, category: savedTopic[2], kitIntent: kitIntent || Boolean(brief.kitIntent),
+        ...researchConstraints(text, brief) };
     }
     return null;
   }
   const purpose = source === 'mixed' ? 'comparison'
-    : external || wantsListings || (explicit && productRequest) ? 'listings'
+    : external || wantsListings || discoveryIntent || (explicit && productRequest) ? 'listings'
     : asksTrends || fresh ? 'trends' : 'research';
   return { purpose, topic: topic?.[1] ?? (external ? 'corporate gifting and merchandise' : null), region, category: topic?.[2],
-    ...researchConstraints(text) };
+    kitIntent, ...researchConstraints(text) };
 }
 
 export function webResearchEnabled(tenantId, provider) {

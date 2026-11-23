@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { browseSwagCatalog, type SwagCatalogQuery } from "./swagApi";
 import { Link } from "react-router";
-import { ImageOff, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useCatalogProduct } from "@/features/catalog/model";
 import { CatalogPrice } from "@/features/catalog/views/CatalogPrice";
@@ -19,11 +19,16 @@ import type {
   CopilotWalletBalanceArtifact,
 } from "./api";
 import { CopilotConfirmationCard, CopilotWriteSuccess } from "./CopilotConfirmationCard";
+import { CopilotExternalProductCard } from "./CopilotExternalProductCard";
+import { CopilotGiftKitIdeaCard } from "./CopilotGiftKitIdeaCard";
+import { CardImage } from "./CopilotCardImage";
 import type { Curation } from "./curatorTypes";
 import {
   CopilotDepartmentBudgetsReply,
   CopilotWalletBalanceReply,
 } from "./CopilotBalanceReply";
+
+export { CardImage } from "./CopilotCardImage";
 
 function formatInr(value: unknown) {
   if (value == null || value === "") return "";
@@ -71,21 +76,6 @@ export function productImageSrc(product: Record<string, unknown>): string {
   const gallery = Array.isArray(product.images) ? product.images : [];
   const raw = product.primaryImageUrl || product.imageUrl || urls[0] || gallery[0] || "";
   return resolveMediaUrl(String(raw || "")) || "";
-}
-
-export function CardImage({ src, alt, emptyLabel }: { src: string; alt: string; emptyLabel: string }) {
-  const [failed, setFailed] = useState(false);
-  if (!src || failed) {
-    return <ImageOff size={22} aria-label={emptyLabel} />;
-  }
-  return (
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
 }
 
 /** Customer-facing availability only — never exact stock counts. */
@@ -248,6 +238,8 @@ export function CopilotArtifacts({
   const moreLock = useRef(false);
   useEffect(() => { setVisible(4); setExtra([]); setPage(null); setPageCount(null); setCatalogError(null); }, [key]);
   if (!artifacts?.length || artifacts.every(row => row.kind === "web_research")) return null;
+  const externalProducts = artifacts.filter((row): row is Extract<CopilotArtifact, { kind: "external_product" }> => row.kind === "external_product");
+  const giftKitIdeas = artifacts.filter((row): row is Extract<CopilotArtifact, { kind: "gift_kit_idea" }> => row.kind === "gift_kit_idea");
   const allProducts = [...artifacts.filter((row) => row.kind === "product"), ...extra.map(product => ({ kind: 'product' as const, product }))];
   const products = swag ? [...new Map(allProducts.map((row, index) => [String(row.product.id || `${row.product.name}-${index}`), row])).values()] : allProducts;
   const catalog = artifacts.find((a): a is Extract<CopilotArtifact, { kind: 'catalog_page' }> => a.kind === 'catalog_page')?.catalog;
@@ -305,6 +297,22 @@ export function CopilotArtifacts({
     {balanceResults}
     <div className={`sm-copilot-products${swag ? ' sm-copilot-products--swag' : ''}`} aria-label="Results">
       {artifacts.filter((row): row is Extract<CopilotArtifact, { kind: "curation" }> => row.kind === "curation" && Boolean(row.curation.chat)).map((row, index) => <GiftingChatGroups key={`gifting-${index}`} curation={row.curation} />)}
+      {giftKitIdeas.length ? (
+        <>
+          <p className="sm-copilot-section-label sm-swag-full"><strong>Gifting kit ideas</strong></p>
+          {giftKitIdeas.map((row, index) => (
+            <CopilotGiftKitIdeaCard key={`gift-kit-${row.kit.name}-${index}`} kit={row.kit} />
+          ))}
+        </>
+      ) : null}
+      {externalProducts.length ? (
+        <>
+          <p className="sm-copilot-section-label sm-swag-full"><strong>Verified external listings</strong></p>
+          {externalProducts.map((row, index) => (
+            <CopilotExternalProductCard key={`external-${row.product.productUrl}-${index}`} product={row.product} />
+          ))}
+        </>
+      ) : null}
       {confirmations.map(({ row, index }) => (
         <CopilotConfirmationCard
           key={row.confirmationId || index}

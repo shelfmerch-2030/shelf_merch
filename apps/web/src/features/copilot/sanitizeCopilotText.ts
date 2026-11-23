@@ -10,7 +10,8 @@ const BARE_URL_RE = /https?:\/\/[^\s)\]>"']+/gi;
 
 function hasCardArtifacts(artifacts?: CopilotArtifact[] | null) {
   return Boolean(
-    artifacts?.some((row) => row.kind === "product" || row.kind === "kit"),
+    artifacts?.some((row) => row.kind === "product" || row.kind === "kit"
+      || row.kind === "external_product" || row.kind === "gift_kit_idea"),
   );
 }
 
@@ -18,11 +19,11 @@ function cardTitles(artifacts?: CopilotArtifact[] | null): string[] {
   if (!artifacts?.length) return [];
   const names: string[] = [];
   for (const row of artifacts) {
-    if (row.kind === "product") {
+    if (row.kind === "product" || row.kind === "external_product") {
       const name = String(row.product?.name || "").trim();
       if (name) names.push(name);
     }
-    if (row.kind === "kit") {
+    if (row.kind === "kit" || row.kind === "gift_kit_idea") {
       const name = String(row.kit?.name || "").trim();
       if (name) names.push(name);
     }
