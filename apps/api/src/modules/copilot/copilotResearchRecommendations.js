@@ -42,6 +42,7 @@ const instructions = [
 ].join(' ');
 
 const currencyAmount = /^(₹|INR|Rs\.?|\$|USD|€|EUR|£|GBP|CAD|AUD)\s*([\d,]+(?:\.\d{1,2})?)$/i;
+const excerptPrice = /(?:₹|INR|Rs\.?|\$|USD|€|EUR|£|GBP|CAD|AUD)\s*[\d,]+(?:\.\d{1,2})?/gi;
 const marketReport = /\b(?:market size|market research|market report|market analysis|industry report|industry analysis|market outlook|market forecast)\b/i;
 const unsupportedProse = /https?:|www\.|\b(?:in stock|out of stock|free shipping|ships to|available (?:at|from|in)|sold by|minimum order)\b|[₹€£$]\s*\d|\b\d[\d,.]*\s*(?:rupees|dollars|pounds|euros|INR|USD)\b/i;
 const normalize = value => value.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -49,6 +50,7 @@ const words = value => normalize(value).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const namesProduct = (value, name) => ` ${words(value)} `.includes(` ${words(name)} `);
 const markdownText = value => value.replace(/[\\`*_[\]{}<>!]/g, '\\$&').replace(/[\r\n]/g, ' ').trim();
 const isProductResearch = brief => ['listings', 'comparison'].includes(brief.purpose);
+const FALLBACK_REASON = 'Cited merchant listing recovered from web search evidence.';
 
 export function fallbackResearchLeads(brief, sources) {
   return sources.filter(source => !isProductResearch(brief) || !marketReport.test(source.title)).slice(0, 5);
@@ -64,6 +66,63 @@ function postedPrice(value, excerpt) {
   const numeric = Number(amount[2].replaceAll(',', ''));
   const currency = currencyFromPriceText(price);
   return numeric > 0 && currency ? { text: price, numeric, currency, inr: currency === 'INR' } : null;
+}
+
+/** Only claim a unit price when the cited excerpt already posts one. Never invent. */
+function postedPriceFromExcerpt(excerpt) {
+  if (typeof excerpt !== 'string' || !excerpt.trim()) return null;
+  for (const raw of excerpt.match(excerptPrice) || []) {
+    const price = postedPrice(raw.replace(/\s+/g, ' ').trim(), excerpt);
+    if (price) return price;
+  }
+  return null;
+}
+
+/** Deterministic product name from a cited title — never invents merchants, prices, or specs. */
+export function productNameFromCitedTitle(title) {
+  if (typeof title !== 'string') return null;
+  if (marketReport.test(title) || unsupportedProse.test(title)) return null;
+  const segment = title.split(/\s+[|–—•·]\s+|\s+-{1,2}\s+/)[0].replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (segment.length < 3 || marketReport.test(segment) || unsupportedProse.test(segment)) return null;
+  if (words(segment).length < 3) return null;
+  return segment;
+}
+
+/**
+ * Evidence-grounded findings from cited titles/excerpts when the synthesis model times out.
+ * Prices and supplier claims are never invented; budget rules match selectFindings.
+ */
+export function findingsFromCitedSources(sources, brief) {
+  if (!isProductResearch(brief) || !Array.isArray(sources) || !sources.length) return [];
+  const selected = [];
+  const rejected = { shape: 0, evidence: 0, budget: 0, duplicate: 0 };
+  sources.forEach((source, index) => {
+    if (selected.length >= brief.count) return;
+    const name = productNameFromCitedTitle(source?.title);
+    if (!name || !source?.url) { rejected.evidence++; return; }
+    if (marketReport.test(source.title)) { rejected.evidence++; return; }
+    if (!namesProduct(source.title, name) && !namesProduct(source.excerpt || '', name)) {
+      rejected.evidence++;
+      return;
+    }
+    const price = postedPriceFromExcerpt(source.excerpt || '');
+    if (brief.budget && (!price?.inr || price.numeric > brief.budget.inr
+      || (brief.budget.exclusive && price.numeric === brief.budget.inr))) {
+      rejected.budget++;
+      return;
+    }
+    if (selected.some(item => item.source === source || words(item.row.name) === words(name))) {
+      rejected.duplicate++;
+      return;
+    }
+    selected.push({
+      row: { source: index + 1, name, reason: FALLBACK_REASON },
+      source,
+      price,
+      reason: FALLBACK_REASON,
+    });
+  });
+  return { selected, rejected };
 }
 
 function selectFindings(plan, sources, brief) {
@@ -143,6 +202,57 @@ export function selectKitPlans(plan, findings, concepts, brief) {
   return kits;
 }
 
+function composeResearchContent(brief, findings, concepts, kitPlans, { citationFallback = false } = {}) {
+  const products = isProductResearch(brief);
+  const target = brief.budget
+    ? ` ${brief.budget.exclusive ? 'under' : 'up to'} ₹${brief.budget.inr.toLocaleString('en-IN')}` : '';
+  const place = brief.region ? ` in ${brief.region}` : '';
+  return [
+    citationFallback && findings.length
+      ? `Synthesis timed out, so I recovered ${findings.length} listing${findings.length === 1 ? '' : 's'} from cited page titles and excerpts only. Prices appear only when a unit price was posted in the excerpt.`
+      : '',
+    products && findings.length < brief.count
+      ? `I verified ${findings.length} of ${brief.count} requested listings${place}${target}. ${findings.length ? 'Current stock and delivery still need confirmation.' : 'I couldn’t verify a matching supplier listing.'}` : '',
+    findings.length ? [
+      products ? `**Sourced recommendations${place}${target}**` : '**What the research shows**',
+      ...findings.map(({ row, price, source, reason }, index) => {
+        const priceNote = products ? ` ${price ? `Listed unit price: ${price.text}.` : 'Unit price unknown.'}` : '';
+        const explanation = reason ? ` — ${markdownText(reason)}` : '';
+        return `${index + 1}. **${markdownText(row.name)}**${explanation}${priceNote} [Source ${index + 1}](<${source.url}>).`;
+      }),
+    ].join('\n\n') : '',
+    brief.kitIntent && (kitPlans.length || concepts.length) ? [
+      '**Gifting kit ideas**',
+      'Verified listing components are source-backed. Concept components are creative ideas to source — not purchasable listings.',
+    ].join('\n\n') : '',
+    concepts.length && !brief.kitIntent ? [
+      '**Unverified ideas to source**',
+      ...concepts.map((row, index) => `${index + 1}. **${markdownText(row.name)}** — ${markdownText(row.reason)}`),
+      'Ask a supplier for a per-item quote, availability, minimum quantity, GST and delivery before ordering.',
+    ].join('\n\n') : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+function researchPayload({ usage, findings, concepts, kitPlans, brief, rejected, candidates, outcome, citationFallback = false }) {
+  return {
+    usage,
+    content: composeResearchContent(brief, findings, concepts, kitPlans, { citationFallback }),
+    sources: findings.map(item => item.source),
+    findings,
+    concepts,
+    kitPlans,
+    diagnostics: {
+      outcome,
+      candidates,
+      rejected,
+      recommendations: findings.length,
+      concepts: concepts.length,
+      kits: kitPlans.length,
+      ...(citationFallback ? { citationFallback: true } : {}),
+    },
+  };
+}
+
 export async function synthesizeResearch({ client, model, brief, sources, catalog = [], signal }) {
   const usage = { promptTokens: 0, completionTokens: 0 };
   const products = isProductResearch(brief);
@@ -150,8 +260,27 @@ export async function synthesizeResearch({ client, model, brief, sources, catalo
     usage, content: '', sources: [], findings: [], concepts: [], kitPlans: [], diagnostics: { outcome },
   });
   if (!sources.length && !products) return empty('no_evidence');
-  // One bounded, tool-free request. Native search time cannot exhaust this phase's budget.
-  const budgetSignal = AbortSignal.timeout(8_000);
+  // Bounded, tool-free request. Native search time cannot exhaust this phase's budget.
+  const budgetMs = env.EMBEDDED_COPILOT_RESEARCH_SYNTHESIS_TIMEOUT_MS;
+  const budgetSignal = AbortSignal.timeout(budgetMs);
+
+  const citationTimeoutFallback = (outcome) => {
+    if (outcome !== 'timeout' || !products || !sources.length) return empty(outcome);
+    const { selected: findings, rejected } = findingsFromCitedSources(sources, brief);
+    if (!findings.length) return empty(outcome);
+    return researchPayload({
+      usage,
+      findings,
+      concepts: [],
+      kitPlans: [],
+      brief,
+      rejected,
+      candidates: sources.length,
+      outcome: 'timeout_citation_fallback',
+      citationFallback: true,
+    });
+  };
+
   try {
     const requestSignal = signal ? AbortSignal.any([signal, budgetSignal]) : budgetSignal;
     requestSignal.throwIfAborted();
@@ -175,40 +304,18 @@ export async function synthesizeResearch({ client, model, brief, sources, catalo
     const { selected: findings, rejected } = selectFindings(plan, sources, brief);
     const concepts = selectConcepts(plan, brief, findings.length);
     const kitPlans = selectKitPlans(plan, findings, concepts, brief);
-    const selectedSources = findings.map(item => item.source);
-    const target = brief.budget
-      ? ` ${brief.budget.exclusive ? 'under' : 'up to'} ₹${brief.budget.inr.toLocaleString('en-IN')}` : '';
-    const place = brief.region ? ` in ${brief.region}` : '';
-    const content = [
-      products && findings.length < brief.count
-        ? `I verified ${findings.length} of ${brief.count} requested listings${place}${target}. ${findings.length ? 'Current stock and delivery still need confirmation.' : 'I couldn’t verify a matching supplier listing.'}` : '',
-      findings.length ? [
-        products ? `**Sourced recommendations${place}${target}**` : '**What the research shows**',
-        ...findings.map(({ row, price, source, reason }, index) => {
-          const priceNote = products ? ` ${price ? `Listed unit price: ${price.text}.` : 'Unit price unknown.'}` : '';
-          const explanation = reason ? ` — ${markdownText(reason)}` : '';
-          return `${index + 1}. **${markdownText(row.name)}**${explanation}${priceNote} [Source ${index + 1}](<${source.url}>).`;
-        }),
-      ].join('\n\n') : '',
-      brief.kitIntent && (kitPlans.length || concepts.length) ? [
-        '**Gifting kit ideas**',
-        'Verified listing components are source-backed. Concept components are creative ideas to source — not purchasable listings.',
-      ].join('\n\n') : '',
-      concepts.length && !brief.kitIntent ? [
-        '**Unverified ideas to source**',
-        ...concepts.map((row, index) => `${index + 1}. **${markdownText(row.name)}** — ${markdownText(row.reason)}`),
-        'Ask a supplier for a per-item quote, availability, minimum quantity, GST and delivery before ordering.',
-      ].join('\n\n') : '',
-    ].filter(Boolean).join('\n\n');
-    return {
-      usage, content, sources: selectedSources, findings, concepts, kitPlans,
-      diagnostics: {
-        outcome: findings.length ? 'matched' : sources.length ? 'no_verified_findings' : 'no_evidence',
-        candidates: plan.findings.length, rejected, recommendations: findings.length, concepts: concepts.length,
-        kits: kitPlans.length,
-      },
-    };
+    return researchPayload({
+      usage,
+      findings,
+      concepts,
+      kitPlans,
+      brief,
+      rejected,
+      candidates: plan.findings.length,
+      outcome: findings.length ? 'matched' : sources.length ? 'no_verified_findings' : 'no_evidence',
+    });
   } catch {
-    return empty(signal?.aborted ? 'cancelled' : budgetSignal.aborted ? 'timeout' : 'provider_error');
+    const outcome = signal?.aborted ? 'cancelled' : budgetSignal.aborted ? 'timeout' : 'provider_error';
+    return citationTimeoutFallback(outcome);
   }
 }

@@ -32,6 +32,7 @@ const config = {
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_CONTINUATIONS: 1,
   EMBEDDED_COPILOT_EXTERNAL_PRODUCT_CARDS_ENABLED: 'true',
   EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED: 'false',
+  EMBEDDED_COPILOT_RESEARCH_SYNTHESIS_TIMEOUT_MS: 12_000,
 };
 const previousEnv = Object.fromEntries(Object.keys(config).map(key => [key, env[key]]));
 const { evaluateReservation } = vi.hoisted(() => ({ evaluateReservation: vi.fn() }));
@@ -278,5 +279,42 @@ describe('Milestone 2 external product discovery', () => {
     ]));
     const { reply } = await chat.turn('Search the web for kitchen-tech gadgets available in India.');
     expect(reply.artifacts.every(row => row.kind === 'web_research')).toBe(true);
+  });
+
+  it('emits verified external_product cards from cited titles when synthesis times out', async () => {
+    env.EMBEDDED_COPILOT_RESEARCH_SYNTHESIS_TIMEOUT_MS = 40;
+    const stream = mockClaude();
+    const chat = await workspace();
+    const entries = [
+      ['frother', 'Rechargeable Milk Frother — Merchant', 'Rechargeable Milk Frother price ₹399.'],
+      ['scale', 'Compact Digital Kitchen Scale', 'Compact Digital Kitchen Scale for ₹599 per piece'],
+    ];
+    stream.mockResolvedValueOnce(listings(entries)).mockImplementationOnce(async ({ signal }) => new Promise((_, reject) => {
+      const fail = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      if (signal?.aborted) return fail();
+      signal.addEventListener('abort', fail, { once: true });
+    }));
+    const { reply } = await chat.turn(
+      'Search the web for 5 innovative kitchen-tech gadgets available in India. Show product names, verified prices where available, suppliers, and source links.',
+    );
+    const products = reply.artifacts.filter(row => row.kind === 'external_product');
+    expect(reply.artifacts[0].research).toMatchObject({ status: 'partial' });
+    expect(reply.artifacts[0].research.leadsOnly).toBeFalsy();
+    expect(products).toHaveLength(2);
+    expect(products[0].product).toMatchObject({
+      verification: 'verified_listing',
+      name: 'Rechargeable Milk Frother',
+      merchantHostname: 'example.com',
+      priceText: '₹399',
+      currency: 'INR',
+      availability: 'unknown',
+    });
+    expect(products[1].product).toMatchObject({
+      name: 'Compact Digital Kitchen Scale',
+      priceText: '₹599',
+      currency: 'INR',
+    });
+    expect(products.every(row => !row.product.imageUrl)).toBe(true);
+    expect(reply.content).not.toMatch(/sold by|in stock|Flipkart|Amazon/i);
   });
 });

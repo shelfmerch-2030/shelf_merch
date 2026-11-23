@@ -617,10 +617,13 @@ export async function streamAssistantTurn({
     if (signal?.aborted) throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
     const leads = enabled && webResearchEnabled(tenantId, providerStatus.provider) && !synthesis.sources.length
       ? fallbackResearchLeads(brief, [...external.sources, ...external.leads]) : [];
+    // Citation fallback after a synthesis timeout returns verified sources; keep that distinct from hard synthesis_failed.
     const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics.outcome);
-    const status = !synthesis.sources.length && external.sources.length
-      ? synthesisFailed ? 'synthesis_failed' : 'unverified'
-      : external.status;
+    const status = synthesis.sources.length
+      ? (synthesis.diagnostics?.citationFallback && external.status === 'completed' ? 'partial' : external.status)
+      : external.sources.length
+        ? (synthesisFailed ? 'synthesis_failed' : 'unverified')
+        : external.status;
     if (enabled) logger.info({ purpose, status, search: external.diagnostics, synthesis: synthesis.diagnostics,
       leads: leads.length, webSearchRequests: external.usage.webSearchRequests, latencyMs: Date.now() - startedAt }, 'Copilot web research completed');
     const checkedAt = enabled ? new Date().toISOString() : undefined;
