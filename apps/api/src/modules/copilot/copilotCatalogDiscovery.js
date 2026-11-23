@@ -1,8 +1,11 @@
+import { CatalogProduct } from '../catalog/catalogProduct.model.js';
+import { applyPriceLimits, catalogSearchMongoFilter, toCatalogSearchItem } from '../mcp/catalogSearch.js';
+
 const CATALOG_DISCOVERY_QUESTION = 'Sure! What type of products are you looking for?';
 
-const PRODUCT_REQUEST = /^(?:(?:(?:can|could|would) (?:you|u)\s+)?(?:show(?: me)?|list|find(?: me)?|browse|search for)|(?:(?:can|could|may) i |let me |(?:i want|i would like|i['’]d like) to )(?:see|browse))\s+/i;
+const PRODUCT_REQUEST = /^(?:(?:(?:can|could|would) (?:you|u)\s+)?(?:show(?: me)?|list|find(?: me)?|browse|explore|search for)|(?:(?:can|could|may) i |let me |(?:i want|i would like|i['’]d like) to )(?:see|browse|explore))\s+/i;
 const GENERIC_PRODUCTS = /^(?:(?:the|some|a few|your|some of your)\s+)?(?:(?:shelfmerch |catalog )?products?|(?:shelfmerch )?catalog)$/i;
-const ANY_PRODUCTS = /^(?:all|everything|anything|anything is fine|any type|any (?:products?|category)|no preference|whatever you have|all (?:catalog )?products|(?:the )?(?:whole|entire|full) catalog)$/i;
+const ANY_PRODUCTS = /^(?:all|everything|anything|anything is fine|any type|any (?:products?|category)|no preference|whatever you have|(?:all|explore all) (?:the )?(?:catalog |shelfmerch )?products|(?:the )?(?:whole|entire|full) catalog)$/i;
 const BUDGET = /(?:^|\s)(under|below|less than|up to|at most|within)\s+(?:(?:₹|inr\b|rs\.?)\s*)?([\d,]+(?:\.\d{1,2})?)$/i;
 
 // Use catalog category names first, with a name search for older unclassified products.
@@ -33,14 +36,9 @@ export function catalogDiscoveryIntent(text, previousReply) {
   const lastPage = previousReply?.artifacts?.findLast(row => row.kind === 'catalog_page')?.catalog;
   const answeringQuestion = previousReply?.content === CATALOG_DISCOVERY_QUESTION;
   const pageRequest = request.match(/^(?:(?:next|more)(?: (?:page|products))?|previous page|page (\d+))$/i);
-  if (lastPage && pageRequest) {
-    const { page, totalPages, limit } = lastPage.pagination;
-    const target = pageRequest[1] ? Number(pageRequest[1]) : page + (/^previous/i.test(request) ? -1 : 1);
-    if (target < 1 || target > totalPages || target > 10_000) {
-      return { content: target < 1 ? 'You’re already on the first page.' : 'There are no more pages for this search.', lastPage };
-    }
-    return { query: { ...lastPage.query, page: target, limit } };
-  }
+  if (lastPage && pageRequest) return lastPage.complete
+    ? { content: 'All matching products are already shown above.', lastPage }
+    : { query: lastPage.query };
 
   const hasCatalogContext = answeringQuestion || lastPage || !previousReply;
   if (/^what (?:catalog )?products (?:do you have|are available)$/i.test(input)) return { content: CATALOG_DISCOVERY_QUESTION };
@@ -52,8 +50,8 @@ export function catalogDiscoveryIntent(text, previousReply) {
 
   const budget = request.match(BUDGET);
   const subject = budget ? request.slice(0, budget.index).trim() : request;
-  const type = PRODUCT_TYPES.find(([match]) => match.test(subject));
-  const budgetOnly = budget && (!subject || GENERIC_PRODUCTS.test(subject));
+  const type = PRODUCT_TYPES.find(([match]) => match.test(subject.replace(/^all\s+(?:the\s+)?/i, '')));
+  const budgetOnly = budget && (!subject || GENERIC_PRODUCTS.test(subject) || ANY_PRODUCTS.test(subject));
   if (!type && !budgetOnly) return null;
 
   const amount = budget ? Number(budget[2].replaceAll(',', '')) : null;
@@ -62,13 +60,69 @@ export function catalogDiscoveryIntent(text, previousReply) {
   if (upperLimit > 10_000_000) return null;
 
   // A bare budget reply keeps the current type; an explicit request for products across the catalog does not.
+  if (!subject && lastPage?.queries?.length) return null;
   const existingType = !subject && lastPage ? { category: lastPage.query?.category, query: lastPage.query?.query } : {};
   const filter = { ...(type ? { category: type[1] } : existingType), ...(budget ? { maxSellingPriceInr: upperLimit } : {}), limit: 4 };
   return { query: filter, fallbackQuery: type?.[2] };
 }
 
-export function catalogDiscoveryReply({ items, pagination }) {
-  if (!items.length) return 'I couldn’t find any catalog products that match. Try another product type or price range.';
-  if (pagination.page < pagination.totalPages) return 'Here are some matches from the catalog. Say “next page” to see more.';
-  return 'Here’s what I found in the catalog.';
+export function catalogDiscoveryReply(count, complete) {
+  if (!complete) return count
+    ? `I loaded ${count} matching catalog ${count === 1 ? 'product' : 'products'} before the search stopped. These results are incomplete.`
+    : 'I couldn’t complete the catalog search.';
+  if (!count) return 'I couldn’t find any catalog products that match. Try another product type or price range.';
+  return `I found ${count} matching catalog ${count === 1 ? 'product' : 'products'}. Here ${count === 1 ? 'it is' : 'they are'}.`;
+}
+
+/** Expand an authorized tool search for the embedded UI only. Provider history keeps the tool sample. */
+export async function collectCatalogDiscovery(sample, { signal, onBatch, onIncomplete }) {
+  const { limit: _limit, page: _page, ...query } = sample.catalogQuery;
+  const size = 25;
+  const matched = [];
+  let batch = [];
+  function add(item) {
+    // Cards need official images, colors and availability, rather than full variant records.
+    const { description, variants, ...product } = item;
+    const colors = [...new Set(variants.map(row => row.color).filter(Boolean))];
+    const artifact = { kind: 'product', product: {
+      ...product,
+      inStock: variants.length ? variants.some(row => row.stock > 0) : null,
+      variants: colors.map(color => ({ color })),
+    } };
+    matched.push(artifact);
+    batch.push(artifact);
+    if (batch.length === size) flush();
+  }
+  function flush() {
+    if (batch.length) onBatch?.(batch);
+    batch = [];
+  }
+
+  let complete = true;
+  if (sample.pagination.page === 1 && sample.items.length === sample.pagination.total) {
+    sample.items.forEach(add);
+  } else {
+    const cursor = CatalogProduct.find(catalogSearchMongoFilter(query))
+      .select('sku name brand category subcategory childCategory basePriceInr gstRate moq primaryImageUrl variants')
+      .sort({ name: 1, sku: 1, _id: 1 }).lean().cursor({ batchSize: size });
+    try {
+      for await (const row of cursor) {
+        signal?.throwIfAborted();
+        const item = applyPriceLimits(toCatalogSearchItem(row), query.minSellingPriceInr, query.maxSellingPriceInr);
+        if (item) add(item);
+      }
+    } catch (error) {
+      signal?.throwIfAborted();
+      complete = false;
+      onIncomplete?.(error);
+    } finally {
+      await cursor.close().catch(() => {});
+    }
+  }
+  signal?.throwIfAborted();
+  flush();
+  const total = matched.length;
+  return { products: matched, meta: { kind: 'catalog_page', catalog: {
+    query, complete, pagination: { page: 1, limit: size, total, totalPages: Math.ceil(total / size) },
+  } } };
 }

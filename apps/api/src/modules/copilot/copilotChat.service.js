@@ -40,7 +40,7 @@ import { enrichWalletArtifacts } from './copilotWalletReconcile.js';
 import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
-import { catalogDiscoveryIntent, catalogDiscoveryReply } from './copilotCatalogDiscovery.js';
+import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
 // becoming a full publication on a later ambiguous answer or provider tool call.
@@ -556,6 +556,12 @@ export async function streamAssistantTurn({
   const previous = conversation.messages[initialMessageCount - 1];
   const previousCatalogReply = previous?.role === 'assistant' ? previous : undefined;
   const discovery = canDiscoverCatalog && catalogDiscoveryIntent(text, previousCatalogReply);
+  const emitCatalogBatch = artifacts => onEvent?.({ type: 'artifacts', artifacts });
+  const completeCatalog = (sample, onBatch = emitCatalogBatch) => collectCatalogDiscovery(sample, {
+    signal,
+    onBatch,
+    onIncomplete: error => logger.warn({ errName: error?.name }, 'Copilot catalog discovery returned partial results'),
+  });
   if (discovery) {
     let { content } = discovery;
     let artifacts = discovery.lastPage ? [{ kind: 'catalog_page', catalog: discovery.lastPage }] : [];
@@ -566,12 +572,13 @@ export async function streamAssistantTurn({
       if (!search.result.items.length && discovery.fallbackQuery) {
         search = await runCopilotTool('catalog_search', toolCtx, { ...discovery.query, category: undefined, query: discovery.fallbackQuery }, role);
       }
-      content = catalogDiscoveryReply(search.result);
-      artifacts = search.artifacts;
+      const full = await completeCatalog(search.result);
+      content = catalogDiscoveryReply(full.products.length, full.meta.catalog.complete);
+      artifacts = [...full.products, full.meta];
       const toolCallId = `toolu_${randomUUID()}`;
       conversation.messages.push(
         { role: 'assistant', toolCalls: [{ id: toolCallId, name: 'catalog_search', arguments: JSON.stringify(search.result.catalogQuery) }] },
-        { role: 'tool', toolCallId, toolName: 'catalog_search', content: toolContentForModel('catalog_search', search.result, artifacts) },
+        { role: 'tool', toolCallId, toolName: 'catalog_search', content: toolContentForModel('catalog_search', search.result, search.artifacts) },
       );
       await CopilotAudit.create({ tenantId, userId, conversationId: conversation._id, toolName: 'catalog_search', ok: true, latencyMs: Date.now() - startedAt });
       onEvent?.({ type: 'tool', name: 'catalog_search', status: 'done' });
@@ -579,12 +586,12 @@ export async function streamAssistantTurn({
     conversation.messages.push({ role: 'assistant', content, artifacts });
     await persistTurn();
     onEvent?.({ type: 'delta', text: content });
-    if (artifacts.length) onEvent?.({ type: 'artifacts', artifacts });
+    if (artifacts.length) onEvent?.({ type: 'artifacts', artifacts: artifacts.filter(row => row.kind !== 'product') });
     onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title });
     return conversation;
   }
 
-  const catalogGuidance = 'For general catalog discovery, a generic request to browse products needs one question about the product type. Search immediately when the user gives a type, keyword, or budget, including when they supply it as a short reply to that question. A budget alone searches across categories. Show mixed paginated results when the user asks to browse everything. Keep filters when paging.';
+  const catalogGuidance = 'For general catalog discovery, a generic request to browse products needs one question about the product type. Search immediately when the user gives a type, keyword, or budget, including when they supply it as a short reply to that question. A budget alone searches across categories. Use an unfiltered search to browse everything. The UI expands general searches with the requested filters. Do not offer pages or broaden filters to fill the gallery.';
   const systemPrompt = canDiscoverCatalog ? `${SYSTEM_PROMPT} ${catalogGuidance}` : SYSTEM_PROMPT;
 
   // Authorized READ + enabled PREPARE only — EXECUTE never included (modelVisible:false).
@@ -600,6 +607,9 @@ export async function streamAssistantTurn({
   let completionTokens = 0;
   let toolCallCount = 0;
   const collectedArtifacts = [];
+  const deferredCatalogSearches = [];
+  let latestCatalogSearches = [];
+  let otherToolUsed = false;
   let walletBalanceLookupFailed = false;
   let assistantText = '';
   let observedSwagRevision = conversation.swag?.revision;
@@ -668,7 +678,7 @@ export async function streamAssistantTurn({
               signal,
               onTextDelta: (delta) => {
                 assistantText += delta;
-                if (!checkWalletNarration) onEvent?.({ type: 'delta', text: delta });
+                if (!checkWalletNarration && !deferredCatalogSearches.length) onEvent?.({ type: 'delta', text: delta });
               },
             })
           : await streamOpenAiCompletion({
@@ -680,7 +690,7 @@ export async function streamAssistantTurn({
               signal,
               onTextDelta: (delta) => {
                 assistantText += delta;
-                if (!checkWalletNarration) onEvent?.({ type: 'delta', text: delta });
+                if (!checkWalletNarration && !deferredCatalogSearches.length) onEvent?.({ type: 'delta', text: delta });
               },
             });
 
@@ -690,7 +700,7 @@ export async function streamAssistantTurn({
       // Adapters normally stream via onTextDelta; apply full text if none was streamed (mocks / buffered).
       if (turn.text && !assistantText) {
         assistantText = turn.text;
-        if (!checkWalletNarration) onEvent?.({ type: 'delta', text: turn.text });
+        if (!checkWalletNarration && !deferredCatalogSearches.length) onEvent?.({ type: 'delta', text: turn.text });
       }
 
       const pendingToolCalls = turn.toolCalls || [];
@@ -725,9 +735,11 @@ export async function streamAssistantTurn({
       assistantText = '';
 
       const anthropicResults = [];
+      const roundCatalogSearches = [];
       for (const call of pendingToolCalls) {
         toolCallCount += 1;
         const name = call.name;
+        if (name !== 'catalog_search' && name !== 'catalog_list_categories') otherToolUsed = true;
         let args = {};
         try {
           args = call.arguments ? JSON.parse(call.arguments) : {};
@@ -769,8 +781,13 @@ export async function streamAssistantTurn({
               && /^(?:(?:i (?:want|would like) to|let'?s)\s+)?design(?: a| some)? swag[.!?]*$/i.test(previousUser);
           }
           callArtifacts = artifacts || [];
-          for (const artifact of callArtifacts) collectedArtifacts.push(artifact);
-          if (callArtifacts.length) onEvent?.({ type: 'artifacts', artifacts: callArtifacts });
+          if (canDiscoverCatalog && name === 'catalog_search') {
+            deferredCatalogSearches.push(...callArtifacts);
+            roundCatalogSearches.push(result);
+          } else {
+            for (const artifact of callArtifacts) collectedArtifacts.push(artifact);
+            if (callArtifacts.length) onEvent?.({ type: 'artifacts', artifacts: callArtifacts });
+          }
         } catch (err) {
           ok = false;
           errorCode = err?.code || err?.name || 'TOOL_ERROR';
@@ -809,12 +826,45 @@ export async function streamAssistantTurn({
         });
         onEvent?.({ type: 'tool', name, status: ok ? 'done' : 'error' });
       }
+      if (roundCatalogSearches.length) latestCatalogSearches = roundCatalogSearches;
       if (providerName === 'anthropic' && anthropicResults.length) {
         appendAnthropicToolResults(anthropicTranscript, anthropicResults);
       }
       if (ordinaryNamingTurn || swagTurnSuperseded) break;
     }
 
+    let catalogReply;
+    if (deferredCatalogSearches.length) {
+      if (swagDesignTurn || otherToolUsed) {
+        collectedArtifacts.push(...deferredCatalogSearches);
+        emitCatalogBatch(deferredCatalogSearches);
+      } else {
+        const unique = new Map();
+        const summaries = [];
+        let complete = true;
+        for (const sample of latestCatalogSearches) {
+          const result = await completeCatalog(sample, batch => {
+            const newItems = batch.filter(artifact => {
+              if (unique.has(artifact.product.id)) return false;
+              unique.set(artifact.product.id, artifact);
+              return true;
+            });
+            if (newItems.length) emitCatalogBatch(newItems);
+          });
+          summaries.push(result.meta.catalog);
+          complete &&= result.meta.catalog.complete;
+        }
+        const catalog = summaries[0];
+        const meta = { kind: 'catalog_page', catalog: {
+          ...catalog, complete,
+          ...(summaries.length > 1 ? { queries: summaries.map(row => row.query) } : {}),
+          pagination: { ...catalog.pagination, total: unique.size, totalPages: Math.ceil(unique.size / catalog.pagination.limit) },
+        } };
+        collectedArtifacts.push(...unique.values(), meta);
+        onEvent?.({ type: 'artifacts', artifacts: [meta] });
+        catalogReply = catalogDiscoveryReply(unique.size, complete);
+      }
+    }
     const enrichedArtifacts = enrichWalletArtifacts(collectedArtifacts);
     let finalText = formatAssistantTextForCards(assistantText, enrichedArtifacts);
     if (checkWalletNarration) {
@@ -822,6 +872,7 @@ export async function streamAssistantTurn({
         ? 'I couldn’t fetch the current wallet balance. Please try again.'
         : walletSetupNarration(finalText, writeOutcomes);
     }
+    if (catalogReply) finalText = catalogReply;
     let timelineState;
     if (swagDesignTurn && isWriteFlagEnabled('collections') && (conversation.swag || observedSwagRevision !== undefined)) {
       timelineState = await configureSwagForCaller({ ...toolCtx, copilotConversationId: String(conversation._id) }, {});
@@ -859,7 +910,8 @@ export async function streamAssistantTurn({
       await persistSwagRequest();
       await persistSwagReply(conversation.messages.slice(initialMessageCount + 1), timelineState);
     } else await persistTurn();
-    if (checkWalletNarration && finalText) onEvent?.({ type: 'delta', text: finalText });
+    if (deferredCatalogSearches.length) onEvent?.({ type: 'delta', text: finalText, replace: true });
+    else if (checkWalletNarration && finalText) onEvent?.({ type: 'delta', text: finalText });
     const usage = await recordUsage({
       tenantId,
       userId,

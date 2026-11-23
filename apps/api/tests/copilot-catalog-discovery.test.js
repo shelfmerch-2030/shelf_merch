@@ -82,28 +82,58 @@ it('uses GST-inclusive upper limits for a product type and for a mixed budget se
   expect(products(budget).map(row => row.name)).toEqual(['Black Backpack', 'Ceramic Mug', 'Cotton Crew Neck']);
 });
 
-it.each(['Show all', 'Anything'])('paginates mixed catalog results when the user says %s', async content => {
+it.each(['Show all', 'Anything'])('returns every mixed catalog result when the user says %s', async content => {
   await seedCatalog();
   await turn('Show me products');
   const first = await turn(content);
-  expect(products(first)).toHaveLength(4);
+  expect(products(first)).toHaveLength(7);
   expect(new Set(products(first).map(row => row.category)).size).toBeGreaterThan(1);
   const second = await turn('Next page');
-  expect(page(second).pagination).toMatchObject({ page: 2, limit: 4, total: 7 });
-  expect(products(second)).toHaveLength(3);
-  expect(products(second).some(product => products(first).some(previous => previous.id === product.id))).toBe(false);
+  expect(second.content).toBe('All matching products are already shown above.');
+  expect(products(second)).toHaveLength(0);
 });
 
-it('retains the price filter when paging and recognizes a legacy product name', async () => {
+it('retains the price filter in complete results and recognizes a legacy product name', async () => {
   await seedCatalog();
   await CatalogProduct.create({ sku: 'DISCOVERY-LEGACY', name: 'Canvas Hoodie', category: 'Apparel', basePriceInr: 290, status: 'active' });
   const hoodies = await turn('Show me hoodies');
   expect(page(hoodies).query.query).toBe('Hoodie');
   expect(products(hoodies).map(row => row.name)).toEqual(['Canvas Hoodie']);
   const first = await turn('Show me products under ₹1,000');
-  expect(products(first)).toHaveLength(4);
-  const second = await turn('Next page');
-  expect(page(second).query).toMatchObject({ maxSellingPriceInr: 999, page: 2 });
+  expect(products(first)).toHaveLength(8);
+  expect(page(first).query).toMatchObject({ maxSellingPriceInr: 999 });
+});
+
+it('streams all 8 bags, 45 budget-matching T-shirts and 117 products without calling the model', async () => {
+  const records = [
+    ...Array.from({ length: 8 }, (_, i) => [`Travel bag ${i}`, 'Bags', 'Backpacks', 430]),
+    ...Array.from({ length: 45 }, (_, i) => [`Cotton tee ${i}`, 'Apparel', 'T-Shirts', 799]),
+    ['Over-budget tee', 'Apparel', 'T-Shirts', 800],
+    ...Array.from({ length: 63 }, (_, i) => [`Catalog mug ${i}`, 'Drinkware', 'Mugs', 499]),
+  ];
+  await CatalogProduct.create(records.map(([name, category, childCategory, basePriceInr], i) => ({
+    sku: `COMPLETE-${i}`, name, category, childCategory, basePriceInr, status: 'active',
+    primaryImageUrl: `https://catalog.example.com/complete-${i}.png`,
+    variants: [{ sku: `COMPLETE-V-${i}`, color: 'Black', size: 'One size', stock: i === 0 ? 0 : 2 }],
+  })));
+  for (const [prompt, count, filter] of [
+    ['Show me bags', 8, { category: 'Bags' }],
+    ['Show me T-shirts under ₹800', 45, { childCategory: 'T-Shirts', sellingPriceInr: 799 }],
+    ['Explore all products', 117, {}],
+  ]) {
+    const reply = await turn(prompt);
+    expect(reply.content).toContain(`I found ${count} matching catalog products`);
+    expect(page(reply)).toMatchObject({ complete: true, pagination: { total: count } });
+    expect(new Set(products(reply).map(row => row.id)).size).toBe(count);
+    expect(products(reply)).toEqual(Array.from({ length: count }, () => expect.objectContaining({
+      ...filter, primaryImageUrl: expect.stringContaining('https://catalog.example.com/'),
+    })));
+    const batches = reply.events.filter(event => event.type === 'artifacts')
+      .map(event => event.artifacts.filter(row => row.kind === 'product').length).filter(Boolean);
+    expect(batches.reduce((sum, size) => sum + size, 0)).toBe(count);
+    expect(Math.max(...batches)).toBeLessThanOrEqual(25);
+  }
+  expect(model).not.toHaveBeenCalled();
 });
 
 it('passes arbitrary product keywords to the existing model-assisted search after the clarification', async () => {
@@ -113,8 +143,58 @@ it('passes arbitrary product keywords to the existing model-assisted search afte
     expect(JSON.stringify(messages)).toContain('What type of products are you looking for?');
     expect(systemPrompt).toContain('Search immediately');
     return { finishReason: 'tool_use', toolCalls: [{ id: 'toolu_vacuum', name: 'catalog_search', arguments: '{"query":"Vacuum","limit":4}' }] };
-  }).mockResolvedValueOnce({ finishReason: 'end_turn', text: 'I found a handheld option.' });
-  expect(products(await turn('Vacuum cleaners'))).toEqual([expect.objectContaining({ id: vacuum.id })]);
+  }).mockImplementationOnce(async ({ messages }) => {
+    expect(JSON.stringify(messages)).not.toContain('Vacuum 18');
+    return { finishReason: 'end_turn', text: 'I found a handheld option. Want the next page?' };
+  });
+  await CatalogProduct.create(Array.from({ length: 30 }, (_, index) => ({
+    sku: `DISCOVERY-V-${index}`, name: `Vacuum ${index}`, category: 'Home', basePriceInr: 900, status: 'active',
+  })));
+  const result = await turn('Vacuum cleaners');
+  expect(products(result)).toHaveLength(31);
+  expect(products(result)).toContainEqual(expect.objectContaining({ id: vacuum.id }));
+  expect(result.content).toBe('I found 31 matching catalog products. Here they are.');
+  expect(result.events).toContainEqual({ type: 'delta', text: result.content, replace: true });
+  expect(result.events.filter(event => event.type === 'delta').map(event => event.text).join('')).not.toContain('next page');
+});
+
+it('marks a result incomplete when the expanded cursor stops early', async () => {
+  const [verified] = await seedCatalog();
+  const originalFind = CatalogProduct.find;
+  vi.spyOn(CatalogProduct, 'find')
+    .mockImplementationOnce(originalFind)
+    .mockImplementationOnce(() => ({
+      select() { return this; },
+      sort() { return this; },
+      lean() { return this; },
+      cursor() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            yield verified.toObject();
+            throw new Error('Catalog cursor interrupted');
+          },
+          async close() {},
+        };
+      },
+    }));
+  const reply = await turn('Explore all products');
+  expect(products(reply).map(row => row.id)).toEqual([verified.id]);
+  expect(page(reply)).toMatchObject({ complete: false, pagination: { total: 1 } });
+  expect(reply.content).toMatch(/these results are incomplete/i);
+  expect(model).not.toHaveBeenCalled();
+});
+
+it('combines and deduplicates multiple filtered searches from the same model round', async () => {
+  await seedCatalog();
+  model.mockResolvedValueOnce({ finishReason: 'tool_use', toolCalls: [
+    { id: 'toolu_bags', name: 'catalog_search', arguments: '{"category":"Bags","limit":1}' },
+    { id: 'toolu_backpacks', name: 'catalog_search', arguments: '{"query":"Backpack","limit":1}' },
+    { id: 'toolu_drinkware', name: 'catalog_search', arguments: '{"category":"Drinkware","maxSellingPriceInr":499,"limit":1}' },
+  ] }).mockResolvedValueOnce({ finishReason: 'end_turn', text: 'I found your matches.' });
+  const reply = await turn('Show backpacks and drinkware under ₹500');
+  expect(products(reply).map(row => row.name)).toEqual(['Black Backpack', 'Ceramic Mug']);
+  expect(reply.content).toBe('I found 2 matching catalog products. Here they are.');
+  expect(page(reply).queries).toHaveLength(3);
 });
 
 it('returns an empty match instead of dropping a supplied budget', async () => {

@@ -122,6 +122,26 @@ describe("Copilot product/kit cards", () => {
     expect(link).toHaveTextContent(/₹\s*499/);
   });
 
+  it("appends complete catalog batches without replacing existing cards", () => {
+    const products = Array.from({ length: 117 }, (_, index) => ({
+      kind: "product" as const,
+      product: { id: `product-${index}`, name: `Catalog product ${index + 1}`, sellingPriceInr: 499,
+        primaryImageUrl: "/official.png", inStock: index !== 0, variants: [{ color: "Black" }] },
+    }));
+    const renderBatch = (size: number) => <MemoryRouter>
+      <CopilotArtifacts conversationId="catalog-search" artifacts={products.slice(0, size)} />
+    </MemoryRouter>;
+    const { rerender } = render(renderBatch(25));
+    const first = screen.getByRole("link", { name: "View Catalog product 1" });
+    expect(within(first).getByRole("img", { name: "Catalog product 1" })).toHaveAttribute("loading", "lazy");
+    expect(within(first).getByText("₹499 incl. GST")).toBeVisible();
+    expect(within(first).getByText("Out of stock")).toBeVisible();
+    rerender(renderBatch(117));
+    expect(screen.getAllByRole("link", { name: /View Catalog product/ })).toHaveLength(117);
+    expect(screen.getByRole("link", { name: "View Catalog product 1" })).toBe(first);
+    expect(screen.queryByRole("button", { name: /explore more|load more|next page/i })).not.toBeInTheDocument();
+  });
+
   it("shows catalog swatches and minimum quantities on both discovery and Swag cards", () => {
     const product = { ...catalogHit.product, moq: 3, images: ["https://official.test/tee.png"], variants: [
       { color: "Navy", stock: 2 }, { color: "Navy", stock: 1 }, { color: "White", stock: 6 },

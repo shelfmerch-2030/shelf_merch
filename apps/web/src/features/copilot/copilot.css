@@ -604,6 +604,7 @@
   transform: none;
 }
 .sm-copilot-transcript {
+  flex: none;
   width: 100%;
   max-width: 740px;
   margin: 0 auto;
@@ -669,6 +670,7 @@
   animation-delay: 0.3s;
 }
 .sm-copilot-compose-area {
+  position: relative;
   flex: none;
   width: 100%;
   max-width: 812px;
@@ -1163,12 +1165,14 @@
   text-decoration: underline;
 }
 .sm-copilot-jump {
-  align-self: center;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  margin-top: -35px;
   z-index: 1;
   background: var(--cp-surface);
   border: 1px solid var(--cp-line);

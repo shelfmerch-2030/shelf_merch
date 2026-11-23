@@ -114,7 +114,7 @@ export type CopilotDepartmentBudgetsArtifact = {
 
 export type CopilotArtifact =
   | { kind: 'swag_step'; swag: { conversationId?: string; revision: number; step: import('./swagApi').SwagStep; mode?: string; selectedProducts?: Array<{ id: string; name: string; imageUrl: string }> } }
-  | { kind: "catalog_page"; catalog: { query: import("./swagApi").SwagCatalogQuery; pagination: import("./swagApi").SwagCatalogPage["pagination"] } }
+  | { kind: "catalog_page"; catalog: { query: import("./swagApi").SwagCatalogQuery; pagination: import("./swagApi").SwagCatalogPage["pagination"]; complete?: boolean } }
   | { kind: "curation"; curation: import("./curatorTypes").Curation }
   | { kind: "product"; product: Record<string, unknown> }
   | { kind: "kit"; kit: Record<string, unknown> }
@@ -196,7 +196,7 @@ export async function deleteCopilotConversation(id: string) {
 }
 
 export type StreamHandlers = {
-  onDelta?: (text: string) => void;
+  onDelta?: (text: string, replace?: boolean) => void;
   onArtifacts?: (artifacts: CopilotArtifact[]) => void;
   onTool?: (name: string, status: string) => void;
   onDone?: (payload: { conversationId: string; title: string }) => void;
@@ -313,6 +313,7 @@ export async function streamCopilotMessage(
         const event = JSON.parse(data) as {
           type: string;
           text?: string;
+          replace?: boolean;
           artifacts?: CopilotArtifact[];
           name?: string;
           status?: string;
@@ -321,7 +322,7 @@ export async function streamCopilotMessage(
           message?: string;
           code?: string;
         };
-        if (event.type === "delta" && event.text) handlers.onDelta?.(event.text);
+        if (event.type === "delta" && typeof event.text === "string") handlers.onDelta?.(event.text, event.replace);
         if (event.type === "artifacts" && event.artifacts) handlers.onArtifacts?.(event.artifacts);
         if (event.type === "tool" && event.name) handlers.onTool?.(event.name, event.status || "");
         if (event.type === "done") {

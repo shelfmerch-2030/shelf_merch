@@ -104,7 +104,9 @@ export function stockLabel(product: Record<string, unknown>) {
     known = true;
     if (n > 0) available = true;
   }
-  if (!known) return "Availability unknown";
+  if (!known) return typeof product.inStock === "boolean"
+    ? product.inStock ? "In stock" : "Out of stock"
+    : "Availability unknown";
   return available ? "In stock" : "Out of stock";
 }
 
@@ -240,7 +242,8 @@ export function CopilotArtifacts({
   const [loading, setLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [catalogPreview, setCatalogPreview] = useState<(CatalogPreview & { conversationId: typeof conversationId }) | null>(null);
-  const key = `${conversationId}:${JSON.stringify((artifacts || []).filter(a => a.kind === 'product' || a.kind === 'catalog_page'))}`;
+  const key = swag ? `${conversationId}:${JSON.stringify((artifacts || []).filter(a => a.kind === 'product' || a.kind === 'catalog_page'))}`
+    : conversationId || "";
   const current = useRef(key); current.current = key;
   const moreLock = useRef(false);
   useEffect(() => { setVisible(4); setExtra([]); setPage(null); setPageCount(null); setCatalogError(null); }, [key]);
@@ -323,7 +326,8 @@ export function CopilotArtifacts({
         const name = String(product.name || "Product");
         const productPending = swag?.pendingProductId === id;
         const href = id ? tenantPath(`/catalog/${encodeURIComponent(id)}`) : undefined;
-        const body = <CatalogCardBody product={product} name={name} showAvailability={Boolean(swag || product.recommendation || showProductAvailability)} />;
+        const body = <CatalogCardBody product={product} name={name}
+          showAvailability={Boolean(swag || product.recommendation || showProductAvailability || Object.hasOwn(product, "inStock"))} />;
         if (swag && id && href) return <div key={id} className={`${copilotCatalogCardClass} sm-copilot-product--selectable`}>
           {body}<div className="sm-swag-product-actions">
           <Link className="sm-swag-product-detail" to={href} aria-label={`View ${name}`}>Details</Link>

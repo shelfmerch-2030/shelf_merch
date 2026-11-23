@@ -109,6 +109,10 @@ export function CopilotPage() {
   const lockRef = useRef(false);
   const mounted = useRef(true);
   const nearBottom = useRef(true);
+  const lastScrollTop = useRef(0);
+  const savedScrollPositions = useRef(new Map<string, number>());
+  const scrollIntent = useRef<"sent" | "latest" | { top: number } | null>(null);
+  const previousTranscript = useRef({ count: 0, busy: false });
   const [selection, setSelection] = useState<{ conversationId: string; productId: string; source: 'card' | 'chip' } | null>(null);
   const selectionAction = useRef<typeof selection>(null);
   const selectionScroll = useRef<{ conversationId: string; top: number } | null>(null);
@@ -249,20 +253,41 @@ export function CopilotPage() {
   useEffect(() => {
     if (status?.enabled) void loadHistory();
   }, [status?.enabled, loadHistory]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    const previous = previousTranscript.current;
+    previousTranscript.current = { count: messages.length, busy };
+    const intent = scrollIntent.current;
+    scrollIntent.current = null;
     if (showWelcome) el.scrollTop = 0;
-    else if (nearBottom.current && selectionScroll.current?.conversationId !== viewKeyRef.current) el.scrollTop = el.scrollHeight;
-  }, [messages, busy, showWelcome, selectedCategoryId]);
+    else if (intent === "latest") el.scrollTop = el.scrollHeight;
+    else if (intent === "sent") {
+      const submitted = transcriptRef.current?.querySelector<HTMLElement>(
+        ".sm-copilot-message--user:nth-last-child(2), .sm-copilot-message--user:last-child",
+      );
+      if (submitted) {
+        const viewport = el.getBoundingClientRect();
+        const rect = submitted.getBoundingClientRect();
+        if (rect.top < viewport.top || rect.bottom > viewport.bottom - 16) {
+          el.scrollTop += rect.bottom - viewport.bottom + 16;
+        }
+      }
+    } else if (intent) el.scrollTop = intent.top;
+    else if (!busy && !previous.busy && messages.length > previous.count && nearBottom.current
+      && selectionScroll.current?.conversationId !== viewKeyRef.current) el.scrollTop = el.scrollHeight;
+    lastScrollTop.current = el.scrollTop;
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+    nearBottom.current = gap <= 2 || (nearBottom.current && gap < 90);
+    setScrolledUp(!showWelcome && gap >= 24);
+  }, [messages.length, busy, showWelcome, selectedCategoryId, activeId, opening]);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      if (showWelcome) el.scrollTop = 0;
-      else if (nearBottom.current && selectionScroll.current?.conversationId !== viewKeyRef.current) el.scrollTop = el.scrollHeight;
-    });
-    observer.observe(transcriptRef.current || el);
+    const observer = new ResizeObserver(() =>
+      setScrolledUp(!showWelcome && el.scrollHeight - el.scrollTop - el.clientHeight >= 24));
+    observer.observe(el);
+    if (transcriptRef.current) observer.observe(transcriptRef.current);
     return () => observer.disconnect();
   }, [status?.enabled, showWelcome, activeId]);
   useLayoutEffect(() => {
@@ -459,8 +484,11 @@ export function CopilotPage() {
       const streaming = streamsRef.current.get(id);
       const detail = streaming ? { messages: streaming.messages } : await getCopilotConversation(id);
       if (!isCurrent()) return;
-      nearBottom.current = true;
-      setScrolledUp(false);
+      const currentView = viewKeyRef.current;
+      const currentTop = scrollRef.current?.scrollTop ?? 0;
+      if (typeof currentView === "string") savedScrollPositions.current.set(currentView, currentTop);
+      const savedTop = savedScrollPositions.current.get(id);
+      scrollIntent.current = savedTop === undefined ? "latest" : { top: savedTop };
       setActiveId(id);
       viewKeyRef.current = id;
       setBusy(streamsRef.current.has(id));
@@ -556,8 +584,7 @@ export function CopilotPage() {
       sizeBytes: row.sizeBytes,
     }));
     clearAttachments();
-    nearBottom.current = true;
-    setScrolledUp(false);
+    scrollIntent.current = "sent";
     stream.messages = [
       ...messages,
       {
@@ -598,8 +625,8 @@ export function CopilotPage() {
         id,
         content,
         {
-          onDelta: (text) =>
-            updateAssistant((message) => ({ ...message, content: message.content + text })),
+          onDelta: (text, replace) =>
+            updateAssistant((message) => ({ ...message, content: replace ? text : message.content + text })),
           onArtifacts: (rows) =>
             updateAssistant((message) => ({
               ...message,
@@ -802,8 +829,11 @@ export function CopilotPage() {
           onScroll={() => {
             const el = scrollRef.current;
             if (!el) return;
-            nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
-            setScrolledUp(!nearBottom.current);
+            const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+            nearBottom.current = gap <= 2 || (nearBottom.current && gap < 90 && el.scrollTop >= lastScrollTop.current);
+            lastScrollTop.current = el.scrollTop;
+            if (typeof viewKeyRef.current === "string") savedScrollPositions.current.set(viewKeyRef.current, el.scrollTop);
+            setScrolledUp(!showWelcome && gap >= 24);
           }}
         >
           {!messages.length ? (
@@ -881,7 +911,7 @@ export function CopilotPage() {
                 const replyText = showsAssistantText ? swagPromptForDisplay(message.content || "", step?.swag.step) : "";
                 return (
                 <article
-                  key={message.uiEventId || `${message.role}-${message.createdAt || index}`}
+                  key={`${activeId || "draft"}:${message.uiEventId || `${message.role}-${index}`}`}
                   className={`sm-copilot-message sm-copilot-message--${message.role}`}
                   aria-label={message.role === "user" ? "You" : "Assistant"}
                 >
@@ -951,6 +981,7 @@ export function CopilotPage() {
             </div>
           )}
         </div>
+        <div className="sm-copilot-compose-area">
         {scrolledUp && !opening ? (
           <button
             type="button"
@@ -960,7 +991,7 @@ export function CopilotPage() {
               setScrolledUp(false);
               scrollRef.current?.scrollTo({
                 top: scrollRef.current.scrollHeight,
-                behavior: "smooth",
+                behavior: "auto",
               });
             }}
           >
@@ -968,7 +999,6 @@ export function CopilotPage() {
             Latest message
           </button>
         ) : null}
-        <div className="sm-copilot-compose-area">
           {error ? (
             <div className="sm-copilot-error" role="alert">
               <CircleAlert size={17} aria-hidden="true" />
