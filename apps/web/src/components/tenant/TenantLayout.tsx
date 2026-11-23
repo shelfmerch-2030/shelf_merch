@@ -52,6 +52,7 @@ export default function TenantLayout() {
   const { canWrite } = useTenantAccess();
   const location = useLocation();
   const isCopilotRoute = /\/copilot\/?$/.test(location.pathname);
+  const isCatalogRoute = /^\/[^/]+\/catalog(?:\/|$)/.test(location.pathname);
   const navigate = useNavigate();
   const navigation = useNavigation();
   const params = useParams();
@@ -135,7 +136,7 @@ export default function TenantLayout() {
       </header>
 
       <div className="body">
-        {isCopilotRoute ? null : <CollapsibleSidebar />}
+        {isCopilotRoute || isCatalogRoute ? null : <CollapsibleSidebar />}
 
         <main className="main scroll">
           <div className="wrap fade-in">
