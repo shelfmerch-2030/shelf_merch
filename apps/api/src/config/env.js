@@ -258,6 +258,10 @@ const envSchema = z.object({
   EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('false'),
   EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(500).max(10_000).default(3_000),
   EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_MAX: z.coerce.number().int().min(0).max(12).default(6),
+  /** Optional OpenAI Responses illustrative image search (not merchant listing photos). Default off. */
+  EMBEDDED_COPILOT_OPENAI_IMAGE_SEARCH_ENABLED: z.enum(['true', 'false']).default('false'),
+  EMBEDDED_COPILOT_OPENAI_IMAGE_SEARCH_MAX: z.coerce.number().int().min(1).max(8).default(4),
+  EMBEDDED_COPILOT_OPENAI_IMAGE_SEARCH_MODEL: z.string().optional().default(''),
   /** Optional USD per million tokens for usage estimates, not billing. */
   EMBEDDED_COPILOT_OPENAI_INPUT_USD_PER_MTOK: z.coerce.number().min(0).optional().default(0.4),
   EMBEDDED_COPILOT_OPENAI_OUTPUT_USD_PER_MTOK: z.coerce.number().min(0).optional().default(1.6),

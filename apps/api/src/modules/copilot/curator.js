@@ -22,7 +22,7 @@ export const conceptPlanSchema = z.object({
 
 export function curatorSource(content, previous = 'shelfmerch') {
   if (/\b(?:no|avoid|exclude|without)\s+external\b|\b(?:back to|switch to|only)(?:\s+from)?\s+(?:the\s+)?shelf\s?merch\b|\bshelf\s?merch only\b/i.test(content)) return 'shelfmerch';
-  const outside = /\b(?:outside(?: of)?|beyond|not (?:from|on)|other than)\s+shelf\s?merch\b|\b(?:not|non)[ -]shelf\s?merch\b/gi;
+  const outside = /\b(?:outside(?: of)?|beyond|not (?:from|on|the)|other than)\s+shelf\s?merch\b|\b(?:not|non)[ -]shelf\s?merch\b|\bexternal sellers?\b/gi;
   const relevant = content.replace(outside, 'external');
   const external = /\b(?:external|other brands|other vendors|third.party|outside (?:our|the) catalog)\b/i.test(relevant);
   if (external && (/\bshelf\s?merch\b/i.test(relevant) && /\b(?:compare|and|with|vs\.?|versus|alongside|both|include|including|also)\b/i.test(relevant)

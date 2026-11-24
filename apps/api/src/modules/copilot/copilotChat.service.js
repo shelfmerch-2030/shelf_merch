@@ -601,7 +601,9 @@ export async function streamAssistantTurn({
     const [external, internal] = await Promise.all([
       enabled ? runCopilotWebResearch({ client, model: providerStatus.model, brief, signal, tenantId, userId })
         : Promise.resolve({ status: topic ? 'disabled' : 'unsupported_topic', sources: [], leads: [], usage: {} }),
-      purpose === 'comparison' ? comparisonCatalog({ text, category, toolCtx, role })
+      // Never pull ShelfMerch catalog into external-only listing research.
+      purpose === 'comparison' && research.source !== 'external'
+        ? comparisonCatalog({ text, category, toolCtx, role })
         : Promise.resolve({ artifacts: [], status: 'skipped', calls: 0 }),
     ]);
     const catalog = internal.artifacts.slice(0, 4).map(({ product }) => ({

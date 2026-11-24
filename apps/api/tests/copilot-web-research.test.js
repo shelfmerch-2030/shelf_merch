@@ -245,7 +245,8 @@ describe('embedded Milestone 1 routing and storage', () => {
       'Search the web for 5 innovative kitchen-tech gadgets available in India. Show product names, verified prices where available, suppliers, and source links.',
     );
     expect(timeout).toHaveBeenCalledWith(40);
-    expect(reply.content).toMatch(/Synthesis timed out.*Sourced recommendations in India.*Milk Frother.*₹399.*Food Thermometer.*Unit price unknown/s);
+    expect(reply.content).toMatch(/I found 2 matching listings.*Sourced recommendations in India.*Milk Frother.*₹399.*Food Thermometer.*Unit price unknown/s);
+    expect(reply.content).not.toMatch(/Synthesis timed out/i);
     expect(reply.content).not.toMatch(/Market Research|Invented|₹299|Native raw narration|External search leads/i);
     expect(reply.artifacts[0].research).toMatchObject({
       status: 'partial', summarized: true,
@@ -407,8 +408,15 @@ describe('embedded Milestone 1 routing and storage', () => {
     stream.mockResolvedValueOnce(listings(entries)).mockResolvedValueOnce(synthesis(entries.map(([, name, quote], index) =>
       point(index + 1, name, quote, ['₹499', '₹500', '₹250', '₹300'][index])), ideas));
     const { reply } = await chat.turn('Find five innovative event giveaways under ₹500.');
-    expect(JSON.parse(stream.mock.calls[0][0].messages[0].content)).toMatchObject({ count: 5, audience: 'event giveaways', affordability: expect.any(String) });
-    expect(stream.mock.calls[0][0].messages[0].content).not.toContain('500');
+    expect(JSON.parse(stream.mock.calls[0][0].messages[0].content)).toMatchObject({
+      count: 5,
+      audience: 'event giveaways',
+      affordability: expect.any(String),
+      maxUnitPriceInr: 500,
+      budgetExclusive: true,
+    });
+    // Search planning may include the numeric ceiling; personal identifiers still must not appear.
+    expect(stream.mock.calls[0][0].messages[0].content).not.toMatch(/@|tenant|attachment/i);
     expect(JSON.parse(stream.mock.calls[1][0].messages[0].content).brief.budget).toEqual({ inr: 500, exclusive: true });
     expect(reply.content).toMatch(/verified 1 of 5.*Reusable Bottle.*₹499.*Unverified ideas to source.*Notebook Sleeve/s);
     expect(reply.content).not.toMatch(/Pocket Notebook|₹250|₹300/);
