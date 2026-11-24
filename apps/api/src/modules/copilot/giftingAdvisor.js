@@ -43,7 +43,7 @@ export function isGiftingAdvisorRequest(content, conversation = {}) {
   if (/\bgift(?:s|ing)?\b|\b(?:welcome|onboarding|diwali|christmas|appreciation|executive)\s+(?:kits?|merch(?:andise)?)\b|\b(?:suggest|recommend|need|want)\b.*\bkits?\b/i.test(content)) return true;
   const last = [...(conversation.messages || [])].reverse().find(row => row.role === 'assistant' && row.content);
   const active = Boolean(last?.artifacts?.some(artifact => artifact.kind === 'curation' && artifact.curation?.chat));
-  return active && /\b(?:more|different|alternatives?|premium|affordable|cheaper|budget|instead|exclude|avoid|allow|include|forget|remove|other categories|for \d+|under|each|per person|per employee)\b/i.test(content);
+  return active && /\b(?:more|different|alternatives?|premium|affordable|cheaper|budget|instead|exclude|avoid|allow|include|forget|remove|other categories|for \d+|under|each|per person|per employee|real products?|(?:first|second|third|another)\s+kit|show\s+(?:me\s+)?(?:products?|kits?|options?))\b/i.test(content);
 }
 export function updateAdvisorBrief(previous = {}, plan, content) {
   const brief = mergeBrief(previous, plan.brief, content, plan.replaceExclusions);

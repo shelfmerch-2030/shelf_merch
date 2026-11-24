@@ -99,8 +99,11 @@ export function publicResearchRequest(text, priorResearch) {
   const wantsListings = productRequest && (/\b(?:supplier|merchant|where to buy|listings?)\b/i.test(text)
     || (/^(?:please\s+)?(?:search|find|recommend)\b/i.test(text) && /\bavailable in\b/i.test(text))
     || (/^(?:please\s+)?find\b/i.test(text) && /\b(?:gifts?|gifting|giveaways?)\b/i.test(text) && researchBudget(text)));
-  // Natural gifting / kit discovery with a catalog category (e.g. kitchen tech kit ideas) without requiring "search the web".
-  const discoveryIntent = productRequest && Boolean(catalogTopic) && (
+  // Specific catalog categories (Kitchenware, Apparel, …) may trigger listing research without
+  // "search the web". The catch-all "corporate gifting" topic alone must NOT — that belongs to
+  // the gifting advisor / creative consultation lanes.
+  const specificCategory = Boolean(catalogTopic?.[2]);
+  const discoveryIntent = productRequest && specificCategory && (
     /\b(?:recommend|suggest|need|want|find|give(?:\s+me)?|ideas?|innovative|creative|brainstorm)\b/i.test(text)
     || /\b(?:gifting\s+)?kits?\b/i.test(text)
   );

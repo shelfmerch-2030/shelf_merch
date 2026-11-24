@@ -607,6 +607,14 @@ describe('general public web research routing', () => {
     });
   });
 
+  it('does not force listing research for generic gift ideation without a product category', () => {
+    expect(publicResearchRequest(
+      'I want to welcome 10 new employees. Suggest some useful gifts for them.',
+    )).toBeNull();
+    expect(publicResearchRequest('Suggest useful gifts for new hires.')).toBeNull();
+    expect(publicResearchRequest('Recommend employee appreciation gifts.')).toBeNull();
+  });
+
   it('does not force web research for ordinary questions without search or freshness intent', () => {
     expect(publicResearchRequest('What is the capital of Belgium?')).toBeNull();
     expect(publicResearchRequest('Explain how recursion works in programming.')).toBeNull();

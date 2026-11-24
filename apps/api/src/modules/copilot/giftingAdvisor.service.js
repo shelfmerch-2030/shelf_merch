@@ -94,8 +94,14 @@ export async function streamGiftingAdvisorTurn({ conversation, modelMessages = c
       if (combinationUnavailable) reply += ' I could not validate the themed grouping this time; products are shown as individual options alongside any existing kits.';
       if (count && brief.occasion && !retrieval.exactMatches) reply += ' These are related merchandise alternatives; the returned records do not explicitly name the occasion.';
       if (count) reply += ' Prices shown are catalog item prices, not a final fulfilment quote. Packaging, branding, customisation and shipping are not added.';
-      if (count && brief.recipients) reply += ' Bulk quantity availability needs confirmation.';
-      if (count && !brief.budgetPerRecipient && !advice.budgetCleared) reply += ' Share a per-person budget to narrow these further.';
+      if (count && brief.recipients) {
+        reply += ` These options are framed for about ${brief.recipients} recipients.`;
+        reply += ' Bulk quantity availability needs confirmation.';
+      }
+      // Soft budget nudge only when many options would benefit from narrowing — not on every first ask.
+      if (count >= 6 && !brief.budgetPerRecipient && !advice.budgetCleared) {
+        reply += ' Share a per-person budget if you want these narrowed further.';
+      }
       if (count && selected.some(item => item.availability === 'Availability unknown')) reply += ' Some availability needs confirmation.';
       if (count && selected.some(item => item.price === null)) reply += ' Some prices are missing; combination estimates remain partial.';
       if (count) reply += ' Ask for more to continue; this is not an exhaustive catalog listing.';

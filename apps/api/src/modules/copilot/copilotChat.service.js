@@ -584,8 +584,11 @@ export async function streamAssistantTurn({
     .findLast(message => message.role === 'assistant' && (message.content || message.artifacts?.length));
   const priorResearch = priorAssistant?.artifacts?.find(row => row.kind === 'web_research')?.research;
   const researchCandidate = independentTurn && (!curatorTurn || researchEnabled) && publicResearchRequest(text, priorResearch);
-  // When web research is off, keep creative kit brainstorming on the tool-free creative lane.
-  // When research is on, natural gifting/kit prompts use research + conceptual kit fill instead.
+  // Orchestration: listing/external research only when publicResearchRequest matches (specific
+  // category discovery, explicit web search, supplier/merchant intent, or outside-ShelfMerch).
+  // Generic "suggest gifts / welcome employees" stays on gifting advisor or creative ideation —
+  // research must not preempt those consultation lanes via the catch-all gifting topic.
+  // When web search is off, keep creative kit brainstorming on the tool-free creative lane.
   const research = researchCandidate && (researchEnabled || !isCreativeGiftingRequest(text))
     ? researchCandidate : null;
   if (research) {

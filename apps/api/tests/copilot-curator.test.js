@@ -8,6 +8,11 @@ describe('curator constraints and provenance', () => {
     expect(brief).toMatchObject({ company: 'Toast', occasion: 'Welcome / Onboarding', recipients: 10, currency: 'INR', budgetPerRecipient: 3000, exclusions: ['mugs', 'bottles', 'apparel', 'bags'] });
     expect(mergeBrief(brief, { style: 'premium' }, 'Something more premium')).toMatchObject({ ...brief, style: 'premium' });
   });
+  it('parses recipient counts from welcome and new-hire phrasing without for/to', () => {
+    expect(mergeBrief({}, {}, 'I want to welcome 10 new employees. Suggest some useful gifts for them.').recipients).toBe(10);
+    expect(mergeBrief({}, {}, 'Welcome 12 new hires next month').recipients).toBe(12);
+    expect(mergeBrief({}, {}, 'Onboarding 8 new joiners with desk kits').recipients).toBe(8);
+  });
   it('keeps external source for follow-ups until explicitly changed', () => {
     expect(curatorSource('Show me products not from ShelfMerch')).toBe('external');
     expect(curatorSource('Show more unusual products', 'external')).toBe('external');

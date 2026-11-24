@@ -55,7 +55,10 @@ export function mergeBrief(previous = {}, patch = {}, content = '', replace = fa
   brief.exclusions = replacingExclusions ? patch.exclusions || [] : [...new Set([...(previous.exclusions || []), ...(patch.exclusions || [])])].slice(0, 12);
   brief.source = curatorSource(content, previous.source || 'shelfmerch');
   // Deterministic preservation of explicit common constraints, even if extraction misses them.
-  const recipients = content.match(/\b(?:for|to)\s+(\d[\d,]*)\s+(?:(?:[A-Z][\w-]*)\s+)?(?:employees?|people|recipients?|staff|new hires?)\b/i);
+  // Cover "for 10 employees", "welcome 10 new employees", and "10 new hires" without requiring for/to.
+  const recipients = content.match(/\b(?:for|to)\s+(\d[\d,]*)\s+(?:(?:[A-Z][\w-]*)\s+)?(?:employees?|people|recipients?|staff|new hires?)\b/i)
+    || content.match(/\b(?:welcome|onboard(?:ing)?)\s+(\d[\d,]*)\s+(?:new\s+)?(?:employees?|hires?|joiners?|people|staff)\b/i)
+    || content.match(/\b(\d[\d,]*)\s+new\s+(?:employees?|hires?|joiners?)\b/i);
   if (recipients) brief.recipients = Number(recipients[1].replaceAll(',', ''));
   const company = content.match(/\b(?:at|from)\s+([A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*){0,2})(?=[,.]|\s+(?:with|under|for|employees)|$)/) || content.match(/\b\d+\s+([A-Z][\w&.-]*)\s+employees\b/);
   if (company) brief.company = company[1];
