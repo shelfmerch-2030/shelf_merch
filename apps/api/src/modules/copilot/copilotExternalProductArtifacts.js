@@ -22,7 +22,7 @@ const externalProductSchema = z.object({
   currency: z.string().min(3).max(8).optional(),
   availability: z.literal('unknown'),
   imageUrl: z.string().url().max(2048).optional(),
-  imageProvenance: z.enum(['merchant_og', 'merchant_meta']).optional(),
+  imageProvenance: z.enum(['merchant_og', 'merchant_meta', 'shopping_result']).optional(),
   retrievedAt: z.string().datetime(),
   reason: z.string().max(240).optional(),
 }).strict();
@@ -305,7 +305,9 @@ export function applyImageToExternalProducts(artifacts, imagesByUrl) {
     const next = {
       ...row.product,
       imageUrl: safeImage,
-      imageProvenance: image.provenance === 'merchant_meta' ? 'merchant_meta' : 'merchant_og',
+      imageProvenance: image.provenance === 'merchant_meta' ? 'merchant_meta'
+        : image.provenance === 'shopping_result' ? 'shopping_result'
+          : 'merchant_og',
     };
     const parsed = externalProductSchema.safeParse(next);
     return parsed.success ? { kind: 'external_product', product: parsed.data } : row;
