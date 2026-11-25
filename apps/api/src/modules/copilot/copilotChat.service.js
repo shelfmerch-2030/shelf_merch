@@ -41,6 +41,7 @@ import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
 import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
+import { isProductShoppingRequest, runSerpShoppingRecommendation, serpShoppingEnabled } from './copilotSerpShopping.js';
 import {
   applyImageToExternalProducts,
   buildExternalProductArtifacts,
@@ -591,6 +592,36 @@ export async function streamAssistantTurn({
   // When web search is off, keep creative kit brainstorming on the tool-free creative lane.
   const research = researchCandidate && (researchEnabled || !isCreativeGiftingRequest(text))
     ? researchCandidate : null;
+  // Shopping fills the gap the research and gifting lanes do not own: a plain
+  // "show me products" request. Explicit web research, creative kits, and the
+  // ShelfMerch gifting advisor keep their existing paths.
+  if (independentTurn && serpShoppingEnabled(env) && isProductShoppingRequest(text)
+    && !research && !isCreativeGiftingRequest(text) && !isGiftingAdvisorRequest(text, conversation)) {
+    const startedAt = Date.now();
+    let shopping = { content: '', products: [], queries: 0 };
+    try {
+      onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
+      shopping = await runSerpShoppingRecommendation({ text, signal });
+    } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
+      logger.info({ outcome: 'error' }, 'Copilot shopping search failed');
+    }
+    if (shopping.products.length) {
+      const artifacts = shopping.products;
+      conversation.messages.push({ role: 'assistant', content: shopping.content, artifacts });
+      await persistTurn();
+      const usage = await recordUsage({
+        tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
+        webSearchRequests: shopping.queries, latencyMs: Date.now() - startedAt,
+      });
+      onEvent?.({ type: 'delta', text: shopping.content });
+      onEvent?.({ type: 'artifacts', artifacts });
+      onEvent?.({ type: 'tool', name: 'web_search', status: 'done' });
+      onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
+      return conversation;
+    }
+    if (!research) onEvent?.({ type: 'tool', name: 'web_search', status: 'error' });
+  }
   if (research) {
     const startedAt = Date.now();
     const { category, company, ...brief } = research;

@@ -137,7 +137,7 @@ export type CopilotExternalProduct = {
   currency?: string;
   availability: "unknown";
   imageUrl?: string;
-  imageProvenance?: "merchant_og" | "merchant_meta";
+  imageProvenance?: "merchant_og" | "merchant_meta" | "shopping_result";
   retrievedAt: string;
   reason?: string;
   /** Optional evidence-backed features from a future contract — never invented client-side. */

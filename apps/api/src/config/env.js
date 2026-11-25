@@ -236,6 +236,8 @@ const envSchema = z.object({
   EMBEDDED_COPILOT_WRITE_EMPLOYEES: z.enum(['true', 'false']).optional().default('false'),
   EMBEDDED_COPILOT_WRITE_ENTITIES: z.enum(['true', 'false']).optional().default('false'),
   OPENAI_API_KEY: z.string().optional().default(''),
+  /** Google Shopping via SerpAPI. Empty disables live product cards (photo, price, link). */
+  SERPAPI_API_KEY: z.string().optional().default(''),
   OPENAI_MODEL: z.string().optional().default('gpt-4.1-mini'),
   EMBEDDED_COPILOT_MAX_TOOL_LOOPS: z.coerce.number().int().min(1).max(8).optional().default(4),
   EMBEDDED_COPILOT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(16_384).optional().default(4_096),
