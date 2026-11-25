@@ -30,6 +30,7 @@ import {
 } from './copilotAttachments.service.js';
 import { registeredToolNames, activeCopilotTools } from './copilotTools.js';
 import { webResearchEnabled } from './copilotWebResearch.js';
+import { readSerpUsage } from './copilotSerpQuota.js';
 import { discoveryForUser } from './copilotDiscovery.js';
 import {
   cancelCopilotStoreCreate,
@@ -114,9 +115,10 @@ export async function status(req, res) {
     provider: provider.provider,
     selectedProvider: provider.selected,
     model: enabled ? provider.model : null,
-    webResearchEnabled: enabled && webResearchEnabled(req.tenantId, provider.provider),
+    webResearchEnabled: enabled && webResearchEnabled(provider.provider),
     externalProductCardsEnabled: enabled && env.EMBEDDED_COPILOT_EXTERNAL_PRODUCT_CARDS_ENABLED === 'true',
     externalImageEnrichmentEnabled: enabled && env.EMBEDDED_COPILOT_EXTERNAL_IMAGE_ENRICHMENT_ENABLED === 'true',
+    shoppingUsage: enabled ? await readSerpUsage({ tenantId: req.tenantId, userId: req.user?.userId }) : null,
     role: req.user?.role ?? null,
     capabilities: enabled ? capabilitiesForRole(req.user.role) : [],
     discovery: enabled
@@ -340,6 +342,7 @@ export async function postMessage(req, res) {
       content,
       attachmentIds,
       mode: req.body?.mode,
+      lane: req.body?.lane,
       toolCtx: buildCopilotToolCtx(req),
       onEvent: writeEvent,
       signal: abort.signal,

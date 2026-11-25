@@ -176,14 +176,11 @@ export function publicResearchRequest(text, priorResearch) {
   };
 }
 
-export function webResearchEnabled(tenantId, provider) {
-  return env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED === 'true'
+export function webResearchEnabled(provider) {
+  return env.EMBEDDED_COPILOT_ENABLED === 'true'
+    && env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED === 'true'
     && env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH !== 'true'
-    && provider === 'anthropic'
-    && env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST.split(',').some(value => {
-      const id = value.trim().toLowerCase();
-      return /^[0-9a-f]{24}$/.test(id) && id === String(tenantId).toLowerCase();
-    });
+    && provider === 'anthropic';
 }
 
 const RESERVE = `
@@ -262,7 +259,7 @@ export async function runCopilotWebResearch({
   const topic = topics.find(([, label]) => label === brief.topic)?.[1]
     || (isAllowedResearchTopic(brief.topic) ? brief.topic : null);
   const region = regions.find(([, label]) => label === brief.region)?.[1];
-  if (!topic || !purposes.has(brief.purpose) || !webResearchEnabled(tenantId, 'anthropic')) return finish('unavailable', 'ineligible');
+  if (!topic || !purposes.has(brief.purpose) || !webResearchEnabled('anthropic')) return finish('unavailable', 'ineligible');
   try {
     const info = await client.models.retrieve(model, {}, { signal: requestSignal, maxRetries: 0 });
     if (info?.capabilities?.server_tools?.web_search?.supported !== true) return finish('unavailable', 'unsupported_model');
@@ -283,7 +280,7 @@ export async function runCopilotWebResearch({
     }) }];
     for (let round = 0; round <= maxContinuations; round++) {
       requestSignal.throwIfAborted();
-      if (!webResearchEnabled(tenantId, 'anthropic')) return finish('unavailable', 'ineligible');
+      if (!webResearchEnabled('anthropic')) return finish('unavailable', 'ineligible');
       const reserved = await reserve({ tenantId, userId, maxUses });
       if (reserved !== 'reserved') return finish(reserved, reserved === 'limited' ? 'quota_limited' : 'quota_unavailable');
       requestSignal.throwIfAborted();

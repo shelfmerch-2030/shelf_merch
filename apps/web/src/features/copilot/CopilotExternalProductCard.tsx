@@ -20,7 +20,7 @@ function evidenceFeatures(product: ExternalProductView): string[] {
  * Borderless, inline editorial row for a verified external listing.
  * Not a catalog card — image left, details right, hairline separator via parent list.
  */
-export function CopilotExternalProductCard({ product }: { product: CopilotExternalProduct }) {
+export function CopilotExternalProductCard({ product, index = 0 }: { product: CopilotExternalProduct; index?: number }) {
   const view = product as ExternalProductView;
   const merchant = merchantLabel(product);
   const features = evidenceFeatures(view);
@@ -38,24 +38,27 @@ export function CopilotExternalProductCard({ product }: { product: CopilotExtern
         />
       </div>
       <div className="sm-copilot-external-row__body">
-        <a
-          className="sm-copilot-external-row__title"
-          href={product.productUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {product.name}
-        </a>
+        <h3 className="sm-copilot-external-row__heading">
+          <span className="sm-copilot-external-row__index">{index + 1}.</span>
+          <a
+            className="sm-copilot-external-row__title"
+            href={product.productUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {product.name}
+          </a>
+        </h3>
         <p className={`sm-copilot-external-row__price${product.priceText ? "" : " sm-copilot-external-row__price--muted"}`}>
           {price}
         </p>
+        <p className="sm-copilot-external-row__merchant">{merchant}</p>
         {reason ? <p className="sm-copilot-external-row__reason">{reason}</p> : null}
         {features.length ? (
           <ul className="sm-copilot-external-row__features">
             {features.map(feature => <li key={feature}>{feature}</li>)}
           </ul>
         ) : null}
-        <p className="sm-copilot-external-row__merchant">Merchant: {merchant}</p>
         <a
           className="sm-copilot-external-row__view"
           href={product.productUrl}

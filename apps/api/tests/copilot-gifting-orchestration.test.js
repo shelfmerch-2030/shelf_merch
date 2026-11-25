@@ -16,7 +16,6 @@ const original = {
   provider: env.COPILOT_AI_PROVIDER,
   key: env.ANTHROPIC_API_KEY,
   web: env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED,
-  allow: env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST,
   kill: env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH,
 };
 
@@ -33,7 +32,6 @@ afterAll(async () => {
     COPILOT_AI_PROVIDER: original.provider,
     ANTHROPIC_API_KEY: original.key,
     EMBEDDED_COPILOT_WEB_SEARCH_ENABLED: original.web,
-    EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST: original.allow,
     EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH: original.kill,
   });
   await disconnectTestDb();
@@ -54,7 +52,6 @@ beforeEach(async () => {
 async function workspace() {
   const tenant = await makeTenant();
   const member = await makeUser(tenant, 'company_admin');
-  env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST = String(tenant._id);
   const conversation = await createConversation({ tenantId: tenant._id, userId: member.user._id });
   const toolCtx = buildCopilotToolCtx({
     tenantId: tenant._id,

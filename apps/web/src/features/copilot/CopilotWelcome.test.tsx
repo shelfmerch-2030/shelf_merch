@@ -22,11 +22,13 @@ describe("Capability discovery", () => {
   it("opens a category before offering a prompt and lets users return to all capabilities", () => {
     const onPrompt = vi.fn();
     render(<Discovery onPrompt={onPrompt} />);
+    expect(screen.queryByText(/Discover merchandise, manage gifting/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Explore products" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stores & Collections" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Products & Kits" }));
     expect(onPrompt).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "What would you like to explore?" })).toHaveFocus();
+    expect(screen.queryByText(/Choose a task to draft a message/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Explore products" }));
     expect(onPrompt).toHaveBeenCalledExactlyOnceWith("Show apparel");
     fireEvent.click(screen.getByRole("button", { name: "All capabilities" }));
@@ -43,6 +45,19 @@ describe("Capability discovery", () => {
     expect(onPrompt).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Check my available budget" }));
     expect(onPrompt).toHaveBeenCalledWith("Show my current available budget.");
+  });
+  it("shows one welcome line on Discover", () => {
+    render(
+      <CopilotWelcome
+        categories={discoveryCategories}
+        selectedCategoryId={null}
+        onCategory={vi.fn()}
+        onPrompt={vi.fn()}
+        lane="discover"
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "What are you looking for?" })).toBeTruthy();
+    expect(screen.queryByText(/Search outside ShelfMerch for product ideas/)).toBeNull();
   });
   it("offers a reload instead of inventing capabilities if discovery is missing", () => {
     const reload = vi.fn();

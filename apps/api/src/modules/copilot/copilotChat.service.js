@@ -41,7 +41,8 @@ import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
 import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
-import { isProductShoppingRequest, runSerpShoppingRecommendation, serpShoppingEnabled } from './copilotSerpShopping.js';
+import { discoverSearchPlan, isProductShoppingRequest, isShoppingFollowUp, prefersShoppingCards, rememberedShoppingPlan, runSerpShoppingRecommendation, serpShoppingEnabled } from './copilotSerpShopping.js';
+import { reserveSerpCall, serpFeatureState, shoppingUnavailableMessage } from './copilotSerpQuota.js';
 import {
   applyImageToExternalProducts,
   buildExternalProductArtifacts,
@@ -52,7 +53,7 @@ import {
 } from './copilotExternalProductArtifacts.js';
 import { enrichListingImages } from './copilotExternalListingMedia.js';
 import { fallbackResearchLeads, synthesizeResearch } from './copilotResearchRecommendations.js';
-import { catalogDiscoveryIntent, catalogDiscoveryReply, collectCatalogDiscovery } from './copilotCatalogDiscovery.js';
+import { catalogDiscoveryIntent, catalogDiscoveryReply, catalogResultRequest, collectCatalogDiscovery, shapeCatalogResults } from './copilotCatalogDiscovery.js';
 
 // The current backend publishes collections. Keep a one-product request from
 // becoming a full publication on a later ambiguous answer or provider tool call.
@@ -301,6 +302,135 @@ function mapProviderError(err, providerName) {
   return new ApiError(502, 'AI provider request failed', 'PROVIDER_ERROR');
 }
 
+const DISCOVER_PRODUCT_TOOL = {
+  type: 'function',
+  function: {
+    name: 'find_outside_products',
+    description: 'Search live India shopping results. Call this only when the person wants products, prices, or links, including show them and show more. Do not call it while they are still planning.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['queries'],
+      properties: {
+        queries: { type: 'array', items: { type: 'string' }, description: 'One short shopping search per product type, at most 5.' },
+        budgetInr: { type: 'integer', description: 'Budget in INR when the person gave one.' },
+        perItem: { type: 'boolean', description: 'True when the budget applies to each product. False when one budget covers the whole kit.' },
+        exclusive: { type: 'boolean', description: 'True when the person said under or below the budget.' },
+        exclude: { type: 'array', items: { type: 'string' }, description: 'Product words the person said to leave out.' },
+      },
+    },
+  },
+};
+
+const DISCOVER_PROMPT = 'You are ShelfMerch Discover. Answer the latest question directly, using the conversation. Discuss gift plans, budgets, occasions, and ordinary questions. When you list items, options, or questions, use Markdown bullets or numbers and put each point on its own line. Do not write a list as one paragraph. When the person wants products to buy, or says show them or show more, call find_outside_products. You are able to search. Do not say you cannot look up products. Never invent a price, a store, or a link. Do not use the ShelfMerch catalog, wallets, points, campaigns, or orders. If they ask for those, tell them to use the ShelfMerch tab. While they are planning, reply briefly and do not call the tool. For a vague gift or tech request, pass up to 5 different product searches. Put skipped products in exclude. Set perItem to false when one budget covers the whole kit.';
+
+function toolArguments(call) {
+  if (!call?.arguments) return {};
+  if (typeof call.arguments === 'object') return call.arguments;
+  try {
+    const parsed = JSON.parse(call.arguments);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEvent, tenantId, userId }) {
+  const complete = providerStatus.provider === 'anthropic' ? streamAnthropicCompletion : streamOpenAiCompletion;
+  const client = providerStatus.provider === 'anthropic' ? createAnthropicClient() : createOpenAiClient();
+  const recent = messages
+    .filter(message => (message.role === 'user' || message.role === 'assistant') && message.content)
+    .slice(-8)
+    .map(message => ({ role: message.role, content: String(message.content).slice(0, 800) }));
+  let turn = { text: '', toolCalls: [], usage: {} };
+  try {
+    if (client) {
+      turn = await complete({
+        client, model: providerStatus.model, systemPrompt: DISCOVER_PROMPT, messages: recent,
+        tools: [DISCOVER_PRODUCT_TOOL], maxOutputTokens: 700, signal,
+      });
+    }
+  } catch (error) {
+    if (signal?.aborted || error?.name === 'AbortError') throw error;
+    logger.info({ outcome: 'discover_chat_failed' }, 'Copilot discover chat failed');
+  }
+  const call = (turn.toolCalls || []).find((item) => item.name === 'find_outside_products');
+  const toolArgs = toolArguments(call);
+  const shoppingCards = Boolean(call)
+    || isProductShoppingRequest(text)
+    || isShoppingFollowUp(text, messages)
+    || prefersShoppingCards(text)
+    || Boolean(rememberedShoppingPlan(text, messages));
+  const replyText = String(turn.text || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const usableReply = replyText.length >= 12 && replyText.length <= 2000 && !/\b(?:cannot|can't|unable to)\b/i.test(replyText)
+    ? replyText
+    : '';
+  if (!shoppingCards) {
+    return {
+      content: replyText || 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.',
+      products: [],
+      queries: 0,
+      followUp: false,
+      copyUsage: turn.usage || {},
+    };
+  }
+  const feature = serpFeatureState(env);
+  if (feature !== 'ready') {
+    const note = shoppingUnavailableMessage(feature);
+    return {
+      content: usableReply ? `${usableReply}\n\n${note}` : note,
+      products: [],
+      queries: 0,
+      followUp: false,
+      copyUsage: turn.usage || {},
+      notice: note,
+    };
+  }
+  if (shoppingCards) onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
+  const shopping = await runSerpShoppingRecommendation({
+    text, signal, messages, discover: true, tenantId, userId, reserve: reserveSerpCall,
+    plan: discoverSearchPlan({ text, messages, toolArgs: call ? toolArgs : null }) || undefined,
+    describeCards: (input) => describeShoppingCards({ ...input, signal, providerStatus }),
+  });
+  if (!shopping.products?.length && shopping.notice) shopping.content = shopping.notice;
+  else if (usableReply) shopping.content = shopping.notice ? `${usableReply}\n\n${shopping.notice}` : usableReply;
+  shopping.copyUsage = {
+    promptTokens: (turn.usage?.promptTokens || 0) + (shopping.copyUsage?.promptTokens || 0),
+    completionTokens: (turn.usage?.completionTokens || 0) + (shopping.copyUsage?.completionTokens || 0),
+  };
+  return shopping;
+}
+
+async function describeShoppingCards({ ask, cards, signal, providerStatus }) {
+  const complete = providerStatus.provider === 'anthropic' ? streamAnthropicCompletion : streamOpenAiCompletion;
+  const client = providerStatus.provider === 'anthropic' ? createAnthropicClient() : createOpenAiClient();
+  if (!client) return null;
+  const turn = await complete({
+    client,
+    model: providerStatus.model,
+    systemPrompt: 'You write the short text above shopping cards and one line under each card. Use only details present in the product name. Do not invent features, ratings, shipping, or prices. Reply with JSON only: {"intro":"one or two sentences about these picks","reasons":["one sentence per product, same order"]}. Each reason is under 18 words and includes the product name.',
+    messages: [{ role: 'user', content: JSON.stringify({ ask, cards }) }],
+    tools: [],
+    maxOutputTokens: 500,
+    signal,
+  });
+  const raw = String(turn?.text || '').trim();
+  const json = raw.match(/\{[\s\S]*\}/)?.[0];
+  if (!json) return null;
+  const parsed = JSON.parse(json);
+  return {
+    intro: typeof parsed.intro === 'string' ? parsed.intro : '',
+    reasons: Array.isArray(parsed.reasons) ? parsed.reasons.map((row) => String(row || '')) : [],
+    usage: turn.usage || {},
+  };
+}
+
 /**
  * Stream one user turn. Calls onEvent for SSE-friendly chunks:
  * { type: 'delta'|'artifacts'|'tool'|'done'|'error', ... }
@@ -313,6 +443,7 @@ export async function streamAssistantTurn({
   content,
   attachmentIds = [],
   mode,
+  lane,
   toolCtx,
   onEvent,
   signal,
@@ -365,8 +496,10 @@ export async function streamAssistantTurn({
   });
   // Persist the user's Swag turn before asynchronous tools, so a later UI
   // action cannot overtake it. Responses still append only after acknowledgement.
-  let isSwagUserTurn = Boolean(sentLogo) || /\bdesign\w*\b.{0,40}\bswag\b|\bswag\b.{0,40}\bdesign\w*\b/i.test(text)
-    || (conversation.swag && !/\b(?:gifts?|kits?|points|wallet|budget|campaign)\b/i.test(text));
+  const discoverLane = lane === 'discover';
+  const shelfmerchLane = lane === 'shelfmerch';
+  let isSwagUserTurn = !discoverLane && (Boolean(sentLogo) || /\bdesign\w*\b.{0,40}\bswag\b|\bswag\b.{0,40}\bdesign\w*\b/i.test(text)
+    || (conversation.swag && !/\b(?:gifts?|kits?|points|wallet|budget|campaign)\b/i.test(text)));
   const swagRequestId = `swag:request:${randomUUID()}`;
   let swagRequestPersisted = false;
   async function persistSwagRequest() {
@@ -394,7 +527,7 @@ export async function streamAssistantTurn({
   const modelMessages = [...messagesWithWriteOutcomes(conversation.messages, writeOutcomes)];
 
   const anotherWritePending = writeOutcomes.some(outcome => outcome.workflow !== 'swag.collection' && ['pending', 'consumed'].includes(outcome.state));
-  if (conversation.swag && !conversation.swag.lastOutcome?.published && !anotherWritePending && isWriteFlagEnabled('collections')) {
+  if (!discoverLane && conversation.swag && !conversation.swag.lastOutcome?.published && !anotherWritePending && isWriteFlagEnabled('collections')) {
     const steps = ['name', 'products', 'artwork', 'design', 'stores', 'review'];
     const phase = conversation.swag.step || (conversation.swag.name ? 'products' : 'name');
     const scopedSwag = { ...toolCtx, copilotConversationId: String(conversation._id), swagRequestId };
@@ -573,7 +706,7 @@ export async function streamAssistantTurn({
   }
 
   const curatorTurn = mode === 'curator' || (mode !== 'chat' && conversation.curator?.enabled);
-  const researchEnabled = webResearchEnabled(tenantId, providerStatus.provider);
+  const researchEnabled = webResearchEnabled(providerStatus.provider);
   const explicitPointsWrite = /\b(?:send|allocate|launch|draft)\b[\s\S]{0,100}\bpoints?\b/i.test(text);
   let swagDesignTurn = designStart || (conversation.swag && !/\b(?:gifts?|kits?|points|wallet|budget|campaign)\b/i.test(text));
   const swagPriceCeiling = conversation.swag?.step === 'products' && !conversation.swag.lastOutcome?.published
@@ -595,23 +728,72 @@ export async function streamAssistantTurn({
   // Shopping fills the gap the research and gifting lanes do not own: a plain
   // "show me products" request. Explicit web research, creative kits, and the
   // ShelfMerch gifting advisor keep their existing paths.
-  if (independentTurn && serpShoppingEnabled(env) && isProductShoppingRequest(text)
-    && !research && !isCreativeGiftingRequest(text) && !isGiftingAdvisorRequest(text, conversation)) {
+  const shoppingFollowUp = isShoppingFollowUp(text, conversation.messages);
+  const remembered = discoverLane ? rememberedShoppingPlan(text, conversation.messages) : null;
+  const shoppingCards = isProductShoppingRequest(text) || shoppingFollowUp || prefersShoppingCards(text) || Boolean(remembered);
+  const runShopping = !discoverLane && !shelfmerchLane && independentTurn && serpShoppingEnabled(env) && shoppingCards
+    && !research
+    && (!isCreativeGiftingRequest(text) || prefersShoppingCards(text))
+    && (!isGiftingAdvisorRequest(text, conversation) || prefersShoppingCards(text));
+  if (discoverLane) {
     const startedAt = Date.now();
-    let shopping = { content: '', products: [], queries: 0 };
+    let shopping = { content: '', products: [], queries: 0, followUp: false, copyUsage: {} };
     try {
-      onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
-      shopping = await runSerpShoppingRecommendation({ text, signal });
+      shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
+    } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
+      logger.info({ outcome: 'error' }, 'Copilot discover turn failed');
+      shopping.content = 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.';
+    }
+    if (!shopping.content) shopping.content = shopping.products?.length
+      ? 'Here are the products that match.'
+      : 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.';
+    const artifacts = shopping.products || [];
+    conversation.messages.push({ role: 'assistant', content: shopping.content, artifacts });
+    await persistTurn();
+    const usage = await recordUsage({
+      tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
+      promptTokens: shopping.copyUsage?.promptTokens || 0,
+      completionTokens: shopping.copyUsage?.completionTokens || 0,
+      webSearchRequests: shopping.queries || 0,
+      latencyMs: Date.now() - startedAt,
+    });
+    onEvent?.({ type: 'delta', text: shopping.content });
+    if (artifacts.length) onEvent?.({ type: 'artifacts', artifacts });
+    if (artifacts.length) onEvent?.({ type: 'tool', name: 'web_search', status: 'done' });
+    onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
+    return conversation;
+  }
+  if (runShopping) {
+    const startedAt = Date.now();
+    let shopping = { content: '', products: [], queries: 0, followUp: shoppingFollowUp || discoverLane };
+    try {
+      if (!serpShoppingEnabled(env)) {
+        const note = shoppingUnavailableMessage(serpFeatureState(env));
+        shopping = { content: note, products: [], queries: 0, followUp: true, notice: note };
+      } else {
+        onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
+        shopping = await runSerpShoppingRecommendation({
+          text, signal, messages: conversation.messages, discover: discoverLane, tenantId, userId, reserve: reserveSerpCall,
+          describeCards: (input) => describeShoppingCards({ ...input, signal, providerStatus }),
+        });
+      }
     } catch (error) {
       if (signal?.aborted || error?.name === 'AbortError') throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
       logger.info({ outcome: 'error' }, 'Copilot shopping search failed');
+      if (shoppingFollowUp) shopping.content = 'I could not find more distinct products beyond the ones already shown.';
     }
-    if (shopping.products.length) {
+    if (discoverLane && !shopping.content) {
+      shopping.content = 'I could not find outside products for that search.';
+    }
+    if (shopping.products.length || shopping.followUp || discoverLane || shopping.notice) {
       const artifacts = shopping.products;
       conversation.messages.push({ role: 'assistant', content: shopping.content, artifacts });
       await persistTurn();
       const usage = await recordUsage({
         tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
+        promptTokens: shopping.copyUsage?.promptTokens || 0,
+        completionTokens: shopping.copyUsage?.completionTokens || 0,
         webSearchRequests: shopping.queries, latencyMs: Date.now() - startedAt,
       });
       onEvent?.({ type: 'delta', text: shopping.content });
@@ -641,7 +823,7 @@ export async function streamAssistantTurn({
       name: product.name, sellingPriceInr: product.sellingPriceInr,
     }));
     const canSynthesize = client && !signal?.aborted && (external.status !== 'limited' || external.sources.length)
-      && webResearchEnabled(tenantId, providerStatus.provider);
+      && webResearchEnabled(providerStatus.provider);
     const synthesis = canSynthesize
       ? await synthesizeResearch({ client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog, signal })
       : { content: '', sources: [], usage: {}, diagnostics: { outcome: 'skipped' } };
@@ -651,7 +833,7 @@ export async function streamAssistantTurn({
       completionTokens: (external.usage.completionTokens || 0) + (synthesis.usage.completionTokens || 0),
       toolCallCount: internal.calls, latencyMs: Date.now() - startedAt });
     if (signal?.aborted) throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
-    const leads = enabled && webResearchEnabled(tenantId, providerStatus.provider) && !synthesis.sources.length
+    const leads = enabled && webResearchEnabled(providerStatus.provider) && !synthesis.sources.length
       ? fallbackResearchLeads(brief, [...external.sources, ...external.leads]) : [];
     // Citation fallback after a synthesis timeout returns verified sources; keep that distinct from hard synthesis_failed.
     const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics.outcome);
@@ -672,8 +854,8 @@ export async function streamAssistantTurn({
     let milestoneArtifacts = [];
     if (cardsEnabled(env) && ['listings', 'comparison'].includes(purpose)) {
       let externalProducts = buildExternalProductArtifacts(synthesis.findings || [], { retrievedAt: checkedAt || new Date().toISOString() });
-      // Enrichment only runs inside the allowlisted research lane with both M2 flags on.
-      if (enabled && imageEnrichmentEnabled(env) && webResearchEnabled(tenantId, providerStatus.provider)
+      // Enrichment only runs inside an enabled research turn with both M2 flags on.
+      if (enabled && imageEnrichmentEnabled(env) && webResearchEnabled(providerStatus.provider)
         && externalProducts.length && !signal?.aborted) {
         try {
           const { images, diagnostics: imageDiagnostics } = await enrichListingImages(
@@ -791,9 +973,21 @@ export async function streamAssistantTurn({
       if (!search.result.items.length && discovery.fallbackQuery) {
         search = await runCopilotTool('catalog_search', toolCtx, { ...discovery.query, category: undefined, query: discovery.fallbackQuery }, role);
       }
-      const full = await completeCatalog(search.result);
-      content = catalogDiscoveryReply(full.products.length, full.meta.catalog.complete);
-      artifacts = [...full.products, full.meta];
+      const selection = catalogResultRequest(text);
+      const full = await completeCatalog(search.result, selection ? () => {} : undefined);
+      const shaped = selection && full.meta.catalog.complete ? shapeCatalogResults(full.products, selection) : null;
+      const shown = shaped ? shaped.products : full.products;
+      content = shaped?.reply || catalogDiscoveryReply(shown.length, full.meta.catalog.complete);
+      const catalog = {
+        ...full.meta.catalog,
+        pagination: {
+          ...full.meta.catalog.pagination,
+          total: shown.length,
+          totalPages: Math.max(1, Math.ceil(shown.length / (full.meta.catalog.pagination.limit || shown.length || 1))),
+        },
+      };
+      artifacts = [...shown, { kind: 'catalog_page', catalog }];
+      if (selection && shown.length) emitCatalogBatch(shown);
       const toolCallId = `toolu_${randomUUID()}`;
       conversation.messages.push(
         { role: 'assistant', toolCalls: [{ id: toolCallId, name: 'catalog_search', arguments: JSON.stringify(search.result.catalogQuery) }] },
@@ -1058,11 +1252,12 @@ export async function streamAssistantTurn({
         collectedArtifacts.push(...deferredCatalogSearches);
         emitCatalogBatch(deferredCatalogSearches);
       } else {
+        const selection = catalogResultRequest(text);
         const unique = new Map();
         const summaries = [];
         let complete = true;
         for (const sample of latestCatalogSearches) {
-          const result = await completeCatalog(sample, batch => {
+          const result = await completeCatalog(sample, selection ? () => {} : batch => {
             const newItems = batch.filter(artifact => {
               if (unique.has(artifact.product.id)) return false;
               unique.set(artifact.product.id, artifact);
@@ -1070,18 +1265,27 @@ export async function streamAssistantTurn({
             });
             if (newItems.length) emitCatalogBatch(newItems);
           });
+          if (selection) {
+            for (const artifact of result.products) {
+              if (!unique.has(artifact.product.id)) unique.set(artifact.product.id, artifact);
+            }
+          }
           summaries.push(result.meta.catalog);
           complete &&= result.meta.catalog.complete;
         }
+        let shown = [...unique.values()];
+        const shaped = selection && complete ? shapeCatalogResults(shown, selection) : null;
+        if (shaped) shown = shaped.products;
         const catalog = summaries[0];
         const meta = { kind: 'catalog_page', catalog: {
           ...catalog, complete,
           ...(summaries.length > 1 ? { queries: summaries.map(row => row.query) } : {}),
-          pagination: { ...catalog.pagination, total: unique.size, totalPages: Math.ceil(unique.size / catalog.pagination.limit) },
+          pagination: { ...catalog.pagination, total: shown.length, totalPages: Math.ceil(shown.length / catalog.pagination.limit) },
         } };
-        collectedArtifacts.push(...unique.values(), meta);
+        collectedArtifacts.push(...shown, meta);
+        if (selection && shown.length) emitCatalogBatch(shown);
         onEvent?.({ type: 'artifacts', artifacts: [meta] });
-        catalogReply = catalogDiscoveryReply(unique.size, complete);
+        catalogReply = shaped?.reply || catalogDiscoveryReply(shown.length, complete);
       }
     }
     const enrichedArtifacts = enrichWalletArtifacts(collectedArtifacts);

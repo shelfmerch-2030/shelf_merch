@@ -8,14 +8,17 @@ import {
 } from "react";
 import {
   ArrowUp,
+  ChevronDown,
   FileImage,
   FileText,
+  History,
   LoaderCircle,
   Paperclip,
   Plus,
   RefreshCw,
   X,
 } from "lucide-react";
+import type { CopilotShoppingUsage } from "./api";
 import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_LIMITS,
@@ -86,6 +89,122 @@ const MENU_ITEMS: MenuItem[] = [
   },
 ];
 
+function formatReset(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const now = new Date();
+  const sameDay = date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+  if (sameDay) return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+}
+
+function remainingPercent(remaining: number | null, limit: number) {
+  if (remaining == null || limit <= 0) return null;
+  return Math.round((remaining / limit) * 100);
+}
+
+function CopilotShoppingUsage({
+  usage,
+  onOpen,
+}: {
+  usage: CopilotShoppingUsage;
+  onOpen?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("click", onOutsideClick, true);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("click", onOutsideClick, true);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  const showCounts = usage.remaining != null && usage.tenantRemaining != null
+    && (usage.state === "ready" || usage.state === "user_limited" || usage.state === "tenant_limited");
+  const daily = remainingPercent(usage.remaining, usage.limit);
+  const workspace = remainingPercent(usage.tenantRemaining, usage.tenantLimit);
+  const reset = formatReset(usage.resetsAt);
+  const status = usage.state === "disabled" || usage.state === "unconfigured"
+    ? "Product search is turned off."
+    : usage.state === "paused"
+      ? "Product search is paused."
+      : usage.state === "unavailable"
+        ? "Usage is temporarily unavailable."
+        : usage.exhausted
+          ? "Allowance used"
+          : null;
+  return (
+    <div ref={root} className="sm-copilot-usage">
+      <button
+        ref={trigger}
+        type="button"
+        className="sm-copilot-usage__button"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen(!open);
+          if (!open) onOpen?.();
+        }}
+      >
+        <History size={15} aria-hidden="true" />
+        <span>Usage remaining</span>
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div className="sm-copilot-usage__panel" role="dialog" aria-label="Shopping API usage">
+          <div className="sm-copilot-usage__heading">
+            <History size={18} aria-hidden="true" />
+            <strong>Shopping usage</strong>
+            <button
+              type="button"
+              className="sm-copilot-icon-button"
+              aria-label="Close shopping usage"
+              onClick={() => {
+                setOpen(false);
+                trigger.current?.focus();
+              }}
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+          {status && !showCounts ? <p>{status}</p> : null}
+          {showCounts && daily != null && workspace != null ? (
+            <>
+              <div className="sm-copilot-usage__row">
+                <span>Daily calls</span>
+                <strong>{daily}%</strong>
+                <progress max={100} value={daily} aria-label="Daily allowance remaining" />
+              </div>
+              <div className="sm-copilot-usage__row">
+                <span>Workspace</span>
+                <strong>{workspace}%</strong>
+                <progress max={100} value={workspace} aria-label="Workspace allowance remaining" />
+              </div>
+              {reset ? <p>{reset}</p> : null}
+              {status ? <p>{status}</p> : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CopilotComposer({
   draft,
   onDraft,
@@ -99,6 +218,11 @@ export function CopilotComposer({
   onUploadAttachment,
   onRetryAttachment,
   onRemoveAttachment,
+  lane = "shelfmerch",
+  onLane,
+  shoppingUsage = null,
+  onUsageOpen,
+  showLanes = true,
 }: {
   draft: string;
   onDraft: (value: string) => void;
@@ -112,6 +236,11 @@ export function CopilotComposer({
   onUploadAttachment: (row: CopilotAttachmentDraft) => void;
   onRetryAttachment: (localId: string) => void;
   onRemoveAttachment: (localId: string) => void;
+  lane?: "shelfmerch" | "discover";
+  onLane?: (lane: "shelfmerch" | "discover") => void;
+  shoppingUsage?: CopilotShoppingUsage | null;
+  onUsageOpen?: () => void;
+  showLanes?: boolean;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -392,7 +521,7 @@ export function CopilotComposer({
               event.preventDefault();
               applyFiles("file", items, { imagesOnly: true });
             }}
-            placeholder={unavailable ? "Chat is currently unavailable" : "Ask ShelfMerch Copilot…"}
+            placeholder={unavailable ? "Chat is currently unavailable" : lane === "discover" ? "Search outside ShelfMerch…" : "Ask ShelfMerch Copilot…"}
             disabled={disabled}
             readOnly={busy}
             aria-describedby="copilot-input-hint"
@@ -411,6 +540,32 @@ export function CopilotComposer({
           </button>
         </form>
       </div>
+      {showLanes || (lane === "discover" && shoppingUsage) ? (
+      <div className={`sm-copilot-composer-foot${showLanes ? (shoppingUsage ? " sm-copilot-composer-foot--with-tabs-and-usage" : "") : " sm-copilot-composer-foot--usage"}`}>
+      {lane === "discover" && shoppingUsage ? (
+        <CopilotShoppingUsage usage={shoppingUsage} onOpen={onUsageOpen} />
+      ) : null}
+      {showLanes ? (
+      <div className="sm-copilot-lanes" role="tablist" aria-label="Copilot source">
+        {([
+          ["shelfmerch", "ShelfMerch"],
+          ["discover", "Discover"],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={lane === id}
+            className={`sm-copilot-lane${lane === id ? " is-selected" : ""}`}
+            onClick={() => onLane?.(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      ) : null}
+      </div>
+      ) : null}
 
       {/* Always mounted outside the menu so closing the menu cannot drop the change event. */}
       {MENU_ITEMS.map((item) => (
@@ -428,9 +583,6 @@ export function CopilotComposer({
       <p className="sr-only" id="copilot-input-hint">
         Enter to send. Shift + Enter for a new line. Use Add attachment for a reference product image,
         purchase order, store logo, or file. You can also drag or paste an image.
-      </p>
-      <p className="sm-copilot-footnote">
-        AI can make mistakes. Review important details before taking action.
       </p>
     </div>
   );

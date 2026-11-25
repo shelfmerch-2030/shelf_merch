@@ -67,6 +67,41 @@ export function catalogDiscoveryIntent(text, previousReply) {
   return { query: filter, fallbackQuery: type?.[2] };
 }
 
+/** A counted or price-ranked ask must not expand into the whole catalog. */
+export function catalogResultRequest(text) {
+  const input = String(text || '');
+  const countMatch = input.match(/\b(?:top|first|only|just)\s+(\d{1,2})\b/i)
+    || input.match(/\b(\d{1,2})\s+(?:products?|items?)\b/i);
+  const count = countMatch ? Math.min(25, Math.max(1, Number(countMatch[1]))) : null;
+  const highest = /\b(?:highest|most expensive|priciest|costliest)\b/i.test(input)
+    || /\bhigh(?:est)?[- ]pric(?:e|ed)\b/i.test(input);
+  const lowest = /\b(?:cheapest|lowest|least expensive|most affordable)\b/i.test(input)
+    || /\blow(?:est)?[- ]pric(?:e|ed)\b/i.test(input);
+  const ranking = highest && !lowest ? 'highest' : lowest && !highest ? 'lowest' : null;
+  if (!count && !ranking) return null;
+  return { count, ranking };
+}
+
+export function shapeCatalogResults(products, request) {
+  if (!request) return { products, reply: null };
+  let rows = [...products];
+  if (request.ranking) {
+    const direction = request.ranking === 'highest' ? -1 : 1;
+    rows.sort((a, b) => {
+      const price = Number(a.product?.sellingPriceInr || 0) - Number(b.product?.sellingPriceInr || 0);
+      if (price) return price * direction;
+      return String(a.product?.name || '').localeCompare(String(b.product?.name || ''));
+    });
+  }
+  if (request.count) rows = rows.slice(0, request.count);
+  const count = rows.length;
+  const noun = count === 1 ? 'product' : 'products';
+  let reply = catalogDiscoveryReply(count, true);
+  if (count && request.ranking === 'highest') reply = `Here ${count === 1 ? 'is the' : 'are the'} ${count} highest-priced catalog ${noun}.`;
+  if (count && request.ranking === 'lowest') reply = `Here ${count === 1 ? 'is the' : 'are the'} ${count} lowest-priced catalog ${noun}.`;
+  return { products: rows, reply };
+}
+
 export function catalogDiscoveryReply(count, complete) {
   if (!complete) return count
     ? `I loaded ${count} matching catalog ${count === 1 ? 'product' : 'products'} before the search stopped. These results are incomplete.`

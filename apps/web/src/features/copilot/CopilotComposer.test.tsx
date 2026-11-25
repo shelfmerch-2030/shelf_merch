@@ -238,3 +238,75 @@ describe("Copilot composer attachments", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+const resetsAt = "2026-11-26T00:00:00.000Z";
+const usage = {
+  label: "shopping API calls",
+  used: 3,
+  limit: 7,
+  remaining: 4,
+  tenantUsed: 9,
+  tenantLimit: 11,
+  tenantRemaining: 2,
+  resetsAt,
+  state: "ready",
+  exhausted: false,
+};
+
+function expectedReset(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  const sameDay = date.getFullYear() === now.getFullYear()
+    && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+  if (sameDay) return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+}
+
+describe("Discover shopping usage", () => {
+  it("opens a usage row with remaining percent and the reset time", () => {
+    const onUsageOpen = vi.fn();
+    renderComposer({ lane: "discover", shoppingUsage: usage, onUsageOpen });
+    const button = screen.getByRole("button", { name: /Usage remaining/ });
+    expect(button).not.toHaveTextContent("%");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(button);
+    expect(onUsageOpen).toHaveBeenCalledOnce();
+    const panel = screen.getByRole("dialog", { name: "Shopping API usage" });
+    const reset = expectedReset(resetsAt);
+    expect(panel).toHaveTextContent("Daily calls");
+    expect(panel).toHaveTextContent("57%");
+    expect(panel).toHaveTextContent("Workspace");
+    expect(panel).toHaveTextContent("18%");
+    expect(panel).toHaveTextContent(reset);
+    expect(panel).not.toHaveTextContent("product searches");
+  });
+
+  it("dismisses usage on outside click or Escape", () => {
+    renderComposer({ lane: "discover", shoppingUsage: usage });
+    const button = screen.getByRole("button", { name: "Usage remaining" });
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("dialog", { name: "Shopping API usage" }));
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(document.body);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(button);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Shopping API usage" })).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it("states when the allowance is used and hides the control on ShelfMerch", () => {
+    const { rerender, props } = renderComposer({
+      lane: "discover",
+      shoppingUsage: { ...usage, used: 7, remaining: 0, exhausted: true, state: "user_limited" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Usage remaining/ }));
+    const panel = screen.getByRole("dialog", { name: "Shopping API usage" });
+    expect(panel).toHaveTextContent("0%");
+    expect(panel).toHaveTextContent("Allowance used");
+    rerender(<CopilotComposer {...props} lane="shelfmerch" />);
+    expect(screen.queryByRole("button", { name: /Usage remaining/ })).toBeNull();
+  });
+});

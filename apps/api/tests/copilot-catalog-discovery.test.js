@@ -8,7 +8,12 @@ import { createConversation, streamAssistantTurn } from '../src/modules/copilot/
 import { buildCopilotToolCtx } from '../src/modules/copilot/buildCallerCtx.js';
 import * as adapter from '../src/modules/copilot/providers/anthropicChatAdapter.js';
 
-const original = { COPILOT_AI_PROVIDER: env.COPILOT_AI_PROVIDER, ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY };
+const original = {
+  COPILOT_AI_PROVIDER: env.COPILOT_AI_PROVIDER,
+  ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+  EMBEDDED_COPILOT_SERPAPI_ENABLED: env.EMBEDDED_COPILOT_SERPAPI_ENABLED,
+  EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH: env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH,
+};
 let turn, model;
 beforeAll(connectTestDb);
 afterAll(async () => {
@@ -19,7 +24,12 @@ afterAll(async () => {
 beforeEach(async () => {
   vi.restoreAllMocks();
   await clearTestDb();
-  Object.assign(env, { COPILOT_AI_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'test-only-no-network' });
+  Object.assign(env, {
+    COPILOT_AI_PROVIDER: 'anthropic',
+    ANTHROPIC_API_KEY: 'test-only-no-network',
+    EMBEDDED_COPILOT_SERPAPI_ENABLED: 'false',
+    EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH: 'false',
+  });
   model = vi.spyOn(adapter, 'streamAnthropicCompletion').mockRejectedValue(new Error('Unexpected model call'));
   const tenant = await makeTenant();
   const { user } = await makeUser(tenant, 'company_admin');
@@ -195,6 +205,33 @@ it('combines and deduplicates multiple filtered searches from the same model rou
   expect(products(reply).map(row => row.name)).toEqual(['Black Backpack', 'Ceramic Mug']);
   expect(reply.content).toBe('I found 2 matching catalog products. Here they are.');
   expect(page(reply).queries).toHaveLength(3);
+});
+
+it('returns only the requested highest-priced products', async () => {
+  await seedCatalog();
+  model.mockResolvedValueOnce({
+    finishReason: 'tool_use',
+    toolCalls: [{ id: 'toolu_top', name: 'catalog_search', arguments: '{"limit":10}' }],
+  }).mockResolvedValueOnce({ finishReason: 'end_turn', text: 'Here are six products.' });
+  const reply = await turn('Give me the top 3 products of shelfmerch having highest price');
+  expect(products(reply).map(row => [row.name, row.sellingPriceInr])).toEqual([
+    ['Team Polo at Limit', 800],
+    ['Team Polo', 799],
+    ['Workshop T-shirt', 510],
+  ]);
+  expect(reply.content).toBe('Here are the 3 highest-priced catalog products.');
+  expect(page(reply).pagination.total).toBe(3);
+});
+
+it('finds tees stored as Crew Neck or Oversized when the user asks for T-shirts', async () => {
+  await CatalogProduct.create([
+    { sku: 'TEE-CREW', name: 'Classic Crew Neck', category: 'Apparel', subcategory: 'Apparel', childCategory: 'Crew Neck', basePriceInr: 400, status: 'active' },
+    { sku: 'TEE-OVER', name: 'Over Size Crew Neck', category: 'Apparel', subcategory: 'Apparel', childCategory: 'Oversized', basePriceInr: 450, status: 'active' },
+    { sku: 'TEE-POLO', name: 'Corporate Polo', category: 'Apparel', subcategory: 'Apparel', childCategory: 'Polo', basePriceInr: 500, status: 'active' },
+    { sku: 'TEE-CAP', name: 'Customized Cap', category: 'Apparel', subcategory: 'Apparel', childCategory: 'Caps', basePriceInr: 200, status: 'active' },
+  ]);
+  const message = await turn('Show me T-shirts');
+  expect(products(message).map(row => row.name).sort()).toEqual(['Classic Crew Neck', 'Over Size Crew Neck']);
 });
 
 it('returns an empty match instead of dropping a supplied budget', async () => {

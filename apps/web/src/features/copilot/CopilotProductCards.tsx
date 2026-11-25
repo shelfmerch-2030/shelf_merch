@@ -142,45 +142,161 @@ const copilotCatalogCardClass = `${catalogProductCardClass} sm-copilot-product--
 
 type CatalogPreview = { id: string; name: string; href: string; trigger: HTMLAnchorElement };
 
-function CatalogProductPreview({ selection, onClose }: { selection: CatalogPreview; onClose: () => void }) {
+function CatalogProductPreview({
+  selection,
+  onClose,
+}: {
+  selection: CatalogPreview;
+  onClose: () => void;
+}) {
   const { data, isPending, isError, refetch } = useCatalogProduct(selection.id);
   const title = useRef<HTMLHeadingElement>(null);
   const product = data?.id === selection.id ? data : undefined;
   const name = product?.nm?.trim() || selection.name;
-  const image = resolveMediaUrl(product?.photoUrl || product?.imageUrls?.[0] || product?.baseImageUrl) || "";
+  const image =
+    resolveMediaUrl(product?.photoUrl || product?.imageUrls?.[0] || product?.baseImageUrl) || "";
   const variants = product?.variants ?? [];
-  const sizes = [...new Set(variants.flatMap(row => row.size?.trim() ? [row.size.trim()] : []))];
-  const knownStock = variants.filter((row): row is typeof row & { stock: number } => "stock" in row && typeof row.stock === "number" && Number.isFinite(row.stock));
-  const price = product?.basePriceInr && product.basePriceInr > 0 ? formatInr(product.basePriceInr) : "";
+  const sizes = [
+    ...new Set(variants.flatMap((row) => (row.size?.trim() ? [row.size.trim()] : []))),
+  ];
+  const knownStock = variants.filter(
+    (row): row is typeof row & { stock: number } =>
+      "stock" in row && typeof row.stock === "number" && Number.isFinite(row.stock),
+  );
+  const price =
+    product?.basePriceInr && product.basePriceInr > 0 ? formatInr(product.basePriceInr) : "";
+  const description = (product?.description ?? "")
+    .split(/\\(?=\s|$)|\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const features = (product?.keyFeatures ?? "")
+    .split(/\r?\n|[•●▪]|(?<=[.!?])\s+(?=[A-Z])/)
+    .map((line) => line.trim().replace(/^(?:[-*–—]|\d+[.)])\s+/, ""))
+    .filter(Boolean);
 
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-    <DialogContent className="sm-copilot-dialog sm-copilot-catalog-preview"
-      onOpenAutoFocus={event => { event.preventDefault(); title.current?.focus({ preventScroll: true }); }}
-      onCloseAutoFocus={event => { event.preventDefault(); selection.trigger.focus({ preventScroll: true }); }}>
-      <DialogTitle ref={title} tabIndex={-1}>{name}</DialogTitle>
-      <DialogDescription className="sr-only">Catalog product details</DialogDescription>
-      {product ? <div className="sm-copilot-catalog-preview__grid">
-        <div className="sm-copilot-catalog-preview__image"><CardImage key={image} src={image} alt={name} emptyLabel="No product image available" /></div>
-        <div className="sm-copilot-catalog-preview__info">
-          <div className="sm-copilot-catalog-preview__price"><strong>{price || "Price on request"}</strong>{price ? <small> incl. GST</small> : null}</div>
-          <p className="sm-copilot-catalog-preview__availability">{stockLabel({ variants: knownStock })}</p>
-          <dl>
-            {product.brand ? <div><dt>Brand</dt><dd>{product.brand}</dd></div> : null}
-            {product.category ? <div><dt>Category</dt><dd>{product.category}</dd></div> : null}
-            {product.colors?.length ? <div><dt>Colors</dt><dd>{product.colors.join(", ")}</dd></div> : null}
-            {sizes.length ? <div><dt>Sizes</dt><dd>{sizes.join(", ")}</dd></div> : null}
-          </dl>
-          {product.description?.trim() ? <p className="sm-copilot-catalog-preview__description">{product.description}</p> : null}
-          {product.keyFeatures?.trim() ? <details><summary>Key features</summary><p className="sm-copilot-catalog-preview__description">{product.keyFeatures}</p></details> : null}
-          {isError ? <p role="status">Could not refresh these catalog details.</p> : null}
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        className="sm-copilot-dialog sm-copilot-catalog-preview"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          title.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          selection.trigger.focus({ preventScroll: true });
+        }}
+      >
+        <header className="sm-copilot-catalog-preview__header">
+          <DialogTitle ref={title} tabIndex={-1}>
+            {name}
+          </DialogTitle>
+          <DialogDescription className="sr-only">Catalog product details</DialogDescription>
+        </header>
+        <div className="sm-copilot-catalog-preview__body">
+          {product ? (
+            <>
+              <div className="sm-copilot-catalog-preview__grid">
+                <div className="sm-copilot-catalog-preview__image">
+                  <CardImage
+                    key={image}
+                    src={image}
+                    alt={name}
+                    emptyLabel="No product image available"
+                  />
+                </div>
+                <div className="sm-copilot-catalog-preview__info">
+                  <div className="sm-copilot-catalog-preview__price">
+                    <strong>{price || "Price on request"}</strong>
+                    {price ? <small> incl. GST</small> : null}
+                  </div>
+                  <p className="sm-copilot-catalog-preview__availability">
+                    {stockLabel({ variants: knownStock })}
+                  </p>
+                  <dl>
+                    {product.brand ? (
+                      <div>
+                        <dt>Brand</dt>
+                        <dd>{product.brand}</dd>
+                      </div>
+                    ) : null}
+                    {product.category ? (
+                      <div>
+                        <dt>Category</dt>
+                        <dd>{product.category}</dd>
+                      </div>
+                    ) : null}
+                    {product.colors?.length ? (
+                      <div>
+                        <dt>Colors</dt>
+                        <dd className="sm-copilot-catalog-preview__options">
+                          {product.colors.map((color) => (
+                            <span key={color}>{color}</span>
+                          ))}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {sizes.length ? (
+                      <div>
+                        <dt>Sizes</dt>
+                        <dd className="sm-copilot-catalog-preview__options">
+                          {sizes.map((size) => (
+                            <span key={size}>{size}</span>
+                          ))}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  {isError ? <p role="status">Could not refresh these catalog details.</p> : null}
+                </div>
+              </div>
+              {description.length > 0 ? (
+                <section className="sm-copilot-catalog-preview__section">
+                  <h3>Product description</h3>
+                  {description.map((paragraph, index) => (
+                    <p key={index}>{paragraph}</p>
+                  ))}
+                </section>
+              ) : null}
+              {features.length > 0 ? (
+                <section className="sm-copilot-catalog-preview__section">
+                  <h3>Key features</h3>
+                  <ul>
+                    {features.map((feature, index) => (
+                      <li key={index}>{feature}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </>
+          ) : isPending ? (
+            <p role="status">Loading catalog details…</p>
+          ) : (
+            <div role="alert">
+              <p>Could not load catalog details.</p>
+              <button
+                type="button"
+                className="sm-copilot-catalog-preview__link"
+                onClick={() => void refetch()}
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </div>
-      </div> : isPending ? <p role="status">Loading catalog details…</p> : <div role="alert">
-        <p>Could not load catalog details.</p>
-        <button type="button" className="sm-copilot-catalog-preview__link" onClick={() => void refetch()}>Try again</button>
-      </div>}
-      <footer><Link className="sm-copilot-catalog-preview__link" to={selection.href}>Open full catalog page</Link></footer>
-    </DialogContent>
-  </Dialog>;
+        <footer className="sm-copilot-catalog-preview__footer">
+          <Link className="sm-copilot-catalog-preview__link" to={selection.href}>
+            Open full catalog page
+          </Link>
+        </footer>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function kitHref(kit: Record<string, unknown>) {
@@ -308,7 +424,7 @@ export function CopilotArtifacts({
       {externalProducts.length ? (
         <section className="sm-copilot-external-list sm-swag-full" aria-label="Verified external products">
           {externalProducts.map((row, index) => (
-            <CopilotExternalProductCard key={`external-${row.product.productUrl}-${index}`} product={row.product} />
+            <CopilotExternalProductCard key={`external-${row.product.productUrl}-${index}`} product={row.product} index={index} />
           ))}
         </section>
       ) : null}
