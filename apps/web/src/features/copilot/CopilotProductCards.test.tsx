@@ -50,7 +50,9 @@ describe("Copilot product/kit cards", () => {
   it("opens verified details in chat and restores focus to the same product card", async () => {
     vi.mocked(fetchCatalogProduct).mockResolvedValue({
       id: catalogHit.product.id, nm: "Navy Tee", g: "tee", brand: "Catalog Brand", price: "", sw: 1,
-      category: "Apparel", basePriceInr: 529, description: "Catalog-supplied cotton tee.",
+      category: "Apparel", basePriceInr: 529,
+      description: "Catalog-supplied cotton tee.\\\nDesigned for everyday wear.",
+      keyFeatures: "• Recycled cotton\n- Structured fit. Customizable branding.",
       colors: ["Navy"], variants: [{ size: "M", stock: 3 } as { size: string; stock: number }],
     });
     renderCatalogHit();
@@ -60,6 +62,11 @@ describe("Copilot product/kit cards", () => {
     const dialog = await screen.findByRole("dialog", { name: "Navy Tee" });
     expect(await within(dialog).findByText("₹529")).toBeInTheDocument();
     expect(within(dialog).getByText("Catalog-supplied cotton tee.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Designed for everyday wear.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Key features" })).toBeVisible();
+    expect(within(dialog).getAllByRole("listitem").map(item => item.textContent)).toEqual([
+      "Recycled cotton", "Structured fit.", "Customizable branding.",
+    ]);
     expect(within(dialog).getByText("In stock")).toBeInTheDocument();
     expect(within(dialog).getByText("Navy")).toBeInTheDocument();
     expect(within(dialog).getByText("M")).toBeInTheDocument();
@@ -395,7 +402,7 @@ describe("Copilot product/kit cards", () => {
     expect(screen.queryByText("Verified external listing")).not.toBeInTheDocument();
     expect(screen.getByText("Price unavailable")).toBeInTheDocument();
     expect(screen.getByText("Useful for meal-prep kits")).toBeInTheDocument();
-    expect(screen.getByText("Merchant: example.com")).toBeInTheDocument();
+    expect(screen.getByText("example.com")).toBeInTheDocument();
     expect(screen.getByLabelText("No merchant image available")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Smart Kitchen Scale" })).toHaveAttribute("href", "https://example.com/scale");
     expect(screen.getByRole("link", { name: /View product/i })).toHaveAttribute("href", "https://example.com/scale");
@@ -436,7 +443,9 @@ describe("Copilot product/kit cards", () => {
     expect(container.querySelectorAll(".sm-copilot-external-row__features li")).toHaveLength(2);
     expect(container.querySelector(".catalog-product-card")).toBeNull();
     expect(container.querySelector('img[src="https://cdn.shop.example.com/1.jpg"]')).toBeTruthy();
-    expect(screen.getAllByText(/Merchant: shop\.example\.com/)).toHaveLength(5);
+    expect(screen.getAllByText("shop.example.com")).toHaveLength(5);
+    expect(screen.getByText("1.")).toBeInTheDocument();
+    expect(screen.getByText("5.")).toBeInTheDocument();
   });
 
   it("renders a merchant imageUrl on external product rows and falls back when the image errors", () => {

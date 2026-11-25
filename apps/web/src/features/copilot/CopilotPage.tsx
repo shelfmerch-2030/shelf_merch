@@ -82,6 +82,9 @@ export function CopilotPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [lane, setLane] = useState<"shelfmerch" | "discover">("shelfmerch");
+  const laneRef = useRef(lane);
+  laneRef.current = lane;
   const [attachments, setAttachments] = useState<CopilotAttachmentDraft[]>([]);
   const attachmentRows = useRef(attachments);
   attachmentRows.current = attachments;
@@ -463,6 +466,10 @@ export function CopilotPage() {
     }
     if (action.availability === "available" && "prompt" in action) {
       setStoreCreateOpen(false);
+      if (!providerDisabled && !attachments.length) {
+        void sendPrompt(action.prompt);
+        return;
+      }
       setDraft(action.prompt);
       document.getElementById("copilot-input")?.focus();
     }
@@ -636,6 +643,7 @@ export function CopilotPage() {
           onTool: (toolName, toolStatus) => updateAssistant((message) => ({ ...message, toolName, toolStatus })),
           onDone: ({ title }) => {
             void swag.refresh(id);
+            if (laneRef.current === "discover") void refetch();
             completed = true;
             if (!mounted.current) return;
             setConversations((prev) => prev.map((row) => row.id === id
@@ -661,6 +669,7 @@ export function CopilotPage() {
         stream.controller.signal,
         attachmentIds,
         "chat",
+        laneRef.current,
       );
       if (!completed && !failed) throw new Error("The reply was interrupted. Please try again.");
     } catch (err) {
@@ -731,6 +740,77 @@ export function CopilotPage() {
       </section>
     );
   }
+  const composer = (
+    <div className="sm-copilot-compose-area">
+      {scrolledUp && !opening ? (
+        <button
+          type="button"
+          className="sm-copilot-jump"
+          onClick={() => {
+            nearBottom.current = true;
+            setScrolledUp(false);
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: "auto",
+            });
+          }}
+        >
+          <ArrowDown size={14} aria-hidden="true" />
+          Latest message
+        </button>
+      ) : null}
+      {error ? (
+        <div className="sm-copilot-error" role="alert">
+          <CircleAlert size={17} aria-hidden="true" />
+          <span>{error.message}</span>
+          {error.reload ? <button type="button" className="sm-copilot-text-button" disabled={locked} onClick={() => void openConversation(error.reload!, true)}>Reload conversation</button> : null}
+          {error.prompt ? (
+            <button
+              type="button"
+              className="sm-copilot-text-button"
+              data-action="retry"
+              disabled={locked}
+              onClick={() => {
+                setDraft(error.prompt || "");
+                setError(null);
+                document.getElementById("copilot-input")?.focus();
+              }}
+            >
+              <RotateCcw size={14} aria-hidden="true" />
+              Edit & retry
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="sm-copilot-icon-button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      <CopilotComposer
+        draft={draft}
+        onDraft={setDraft}
+        onSend={(prompt) => void sendPrompt(prompt)}
+        lane={lane}
+        onLane={setLane}
+        showLanes={showWelcome}
+        busy={busy}
+        disabled={opening || deleting || (swag.busy && !activeSelection) || swagUiBusy}
+        sendBlocked={Boolean(activeSelection)}
+        unavailable={providerDisabled}
+        attachments={attachments}
+        onAttachmentsChange={setAttachments}
+        onUploadAttachment={(row) => void uploadAttachmentRow(row)}
+        onRetryAttachment={retryAttachmentRow}
+        onRemoveAttachment={(localId) => void removeAttachmentRow(localId)}
+        shoppingUsage={status?.shoppingUsage}
+        onUsageOpen={() => void refetch()}
+      />
+    </div>
+  );
   return (
     <div
       className={`sm-copilot-page${collapsed ? " sm-copilot-page--collapsed" : ""}${showWelcome ? " sm-copilot-page--welcome" : ""}`}
@@ -840,6 +920,7 @@ export function CopilotPage() {
           {!messages.length ? (
             <>
               <CopilotWelcome
+                lane={lane}
                 categories={status.discovery?.categories || []}
                 selectedCategoryId={selectedCategoryId}
                 onCategory={setSelectedCategoryId}
@@ -849,7 +930,9 @@ export function CopilotPage() {
                   document.getElementById("copilot-input")?.focus();
                 }}
                 onAction={handleDiscoveryAction}
-              />
+              >
+                {composer}
+              </CopilotWelcome>
               {storeCreateOpen && status.writeToolsEnabled ? (
                 <div className="sm-copilot-store-panel">
                   <CopilotStoreCreateForm
@@ -986,70 +1069,7 @@ export function CopilotPage() {
             </div>
           )}
         </div>
-        <div className="sm-copilot-compose-area">
-        {scrolledUp && !opening ? (
-          <button
-            type="button"
-            className="sm-copilot-jump"
-            onClick={() => {
-              nearBottom.current = true;
-              setScrolledUp(false);
-              scrollRef.current?.scrollTo({
-                top: scrollRef.current.scrollHeight,
-                behavior: "auto",
-              });
-            }}
-          >
-            <ArrowDown size={14} aria-hidden="true" />
-            Latest message
-          </button>
-        ) : null}
-          {error ? (
-            <div className="sm-copilot-error" role="alert">
-              <CircleAlert size={17} aria-hidden="true" />
-              <span>{error.message}</span>
-              {error.reload ? <button type="button" className="sm-copilot-text-button" disabled={locked} onClick={() => void openConversation(error.reload!, true)}>Reload conversation</button> : null}
-              {error.prompt ? (
-                <button
-                  type="button"
-                  className="sm-copilot-text-button"
-                  data-action="retry"
-                  disabled={locked}
-                  onClick={() => {
-                    setDraft(error.prompt || "");
-                    setError(null);
-                    document.getElementById("copilot-input")?.focus();
-                  }}
-                >
-                  <RotateCcw size={14} aria-hidden="true" />
-                  Edit & retry
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="sm-copilot-icon-button"
-                onClick={() => setError(null)}
-                aria-label="Dismiss error"
-              >
-                <X size={15} aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
-          <CopilotComposer
-            draft={draft}
-            onDraft={setDraft}
-            onSend={(prompt) => void sendPrompt(prompt)}
-            busy={busy}
-            disabled={opening || deleting || (swag.busy && !activeSelection) || swagUiBusy}
-            sendBlocked={Boolean(activeSelection)}
-            unavailable={providerDisabled}
-            attachments={attachments}
-            onAttachmentsChange={setAttachments}
-            onUploadAttachment={(row) => void uploadAttachmentRow(row)}
-            onRetryAttachment={retryAttachmentRow}
-            onRemoveAttachment={(localId) => void removeAttachmentRow(localId)}
-          />
-        </div>
+        {showWelcome ? null : composer}
       </section>
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent className="sm-copilot-dialog">

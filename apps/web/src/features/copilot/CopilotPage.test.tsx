@@ -68,13 +68,9 @@ const setup = () =>
     </MemoryRouter>,
   );
 
-function draftProductRequest() {
+function clickExploreProducts() {
   fireEvent.click(screen.getByRole("button", { name: "Products & Kits" }));
   fireEvent.click(screen.getByRole("button", { name: "Explore products" }));
-}
-function sendProductRequest() {
-  draftProductRequest();
-  fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 }
 
 describe("Copilot workspace", () => {
@@ -173,6 +169,8 @@ describe("Copilot workspace", () => {
     expect(screen.queryByRole("button", { name: /Curate Gifts/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Gift recommendations")).not.toBeInTheDocument();
     expect(document.querySelectorAll("[data-category-id]")).toHaveLength(discoveryCategories.length);
+    expect(screen.getByRole("tab", { name: "ShelfMerch" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Discover" })).toBeInTheDocument();
     expect(api.createCopilotConversation).not.toHaveBeenCalled();
   });
   it("opens a saved curator conversation in normal chat and explicitly sends chat mode", async () => {
@@ -183,30 +181,33 @@ describe("Copilot workspace", () => {
     setup();
     fireEvent.click(await screen.findByRole("button", { name: /Welcome kits/ }));
     expect(await screen.findByText("Saved gifting conversation")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Discover" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Curate Gifts|Normal Copilot/ })).not.toBeInTheDocument();
     expect(document.querySelector(".sm-curator-layout")).toBeNull();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Show my products" } });
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
-    await waitFor(() => expect(api.streamCopilotMessage).toHaveBeenCalledWith("c1", "Show my products", expect.any(Object), expect.any(AbortSignal), [], "chat"));
+    await waitFor(() => expect(api.streamCopilotMessage).toHaveBeenCalledWith("c1", "Show my products", expect.any(Object), expect.any(AbortSignal), [], "chat", "shelfmerch"));
     expect(await screen.findByText("Here is a reply")).toBeInTheDocument();
   });
-  it("drafts the selected request and creates no conversation until the user sends", async () => {
+  it.each(discoveryCategories.flatMap(category =>
+    category.actions.flatMap(action => action.availability === "available"
+      ? [{ category: category.title, title: action.title, prompt: action.prompt }]
+      : []),
+  ))("sends $title directly when clicked", async ({ category, title, prompt }) => {
     setup();
-    draftProductRequest();
-    expect(screen.getByRole("textbox")).toHaveValue("Show apparel");
-    expect(screen.getByRole("textbox")).toHaveFocus();
-    expect(api.createCopilotConversation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: category }));
     expect(api.streamCopilotMessage).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: title }));
     expect(await screen.findByText("Here is a reply")).toBeTruthy();
     expect(api.createCopilotConversation).toHaveBeenCalledOnce();
     expect(api.streamCopilotMessage).toHaveBeenCalledWith(
       "c2",
-      "Show apparel",
+      prompt,
       expect.any(Object),
       expect.any(AbortSignal),
       [],
       "chat",
+      "shelfmerch",
     );
   });
   it("opens a saved conversation and returns to an empty new chat without creating a server record", async () => {
@@ -234,7 +235,7 @@ describe("Copilot workspace", () => {
       handlers.onError?.({ message: "Connection interrupted" });
     });
     setup();
-    sendProductRequest();
+    clickExploreProducts();
     expect(await screen.findByRole("alert")).toHaveTextContent("Connection interrupted");
     fireEvent.click(screen.getByRole("button", { name: "Edit & retry" }));
     expect(screen.getByRole("textbox")).toHaveValue("Show apparel");
@@ -253,7 +254,7 @@ describe("Copilot workspace", () => {
       },
     );
     const view = setup();
-    sendProductRequest();
+    clickExploreProducts();
     await waitFor(() => expect(api.streamCopilotMessage).toHaveBeenCalledOnce());
     expect(screen.getByRole("button", { name: /Welcome kits/ })).not.toBeDisabled();
     expect(screen.getAllByRole("button", { name: "New chat" })[0]).not.toBeDisabled();
@@ -271,7 +272,7 @@ describe("Copilot workspace", () => {
     setup();
     expect(screen.getByRole("textbox")).not.toBeDisabled();
     expect(screen.getByRole("textbox")).toHaveAttribute("placeholder", "Chat is currently unavailable");
-    draftProductRequest();
+    clickExploreProducts();
     expect(screen.getByRole("textbox")).toHaveValue("Show apparel");
     expect(screen.getByRole("textbox")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
@@ -377,7 +378,7 @@ describe("Copilot sidebar during streaming", () => {
       handlers = incoming; signal = incomingSignal!;
       return new Promise<void>(resolve => { finish = resolve; });
     });
-    setup(); sendProductRequest();
+    setup(); clickExploreProducts();
     await waitFor(() => expect(api.streamCopilotMessage).toHaveBeenCalledOnce());
     act(() => handlers.onDelta?.("Background reply"));
     fireEvent.click(screen.getByRole("button", { name: /Welcome kits/ }));
@@ -397,7 +398,7 @@ describe("Copilot sidebar during streaming", () => {
   it("adds a new conversation once and retains its title when a slower initial history fetch completes", async () => {
     let finishHistory!: (value: { items: api.CopilotConversationSummary[] }) => void;
     vi.mocked(api.listCopilotConversations).mockImplementationOnce(() => new Promise(resolve => { finishHistory = resolve; }));
-    setup(); sendProductRequest();
+    setup(); clickExploreProducts();
     expect(await screen.findByText("Here is a reply")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Gifting ideas/ })).toHaveAttribute("aria-current", "true");
     expect(screen.queryByText(/Loading conversations/)).toBeNull();
@@ -409,7 +410,7 @@ describe("Copilot sidebar during streaming", () => {
   });
   it('offers read-only conversation reload for a genuinely unreconciled reply without resending it', async () => {
     vi.mocked(api.streamCopilotMessage).mockImplementationOnce(async (_id,_content,handlers)=>{handlers.onError?.({code:'SWAG_REPLY_RELOAD_REQUIRED',message:'Your latest design is saved. Reload this conversation to continue.'});});
-    setup();sendProductRequest();const reload=await screen.findByRole('button',{name:'Reload conversation'});
+    setup();clickExploreProducts();const reload=await screen.findByRole('button',{name:'Reload conversation'});
     expect(screen.queryByRole('button',{name:'Edit & retry'})).not.toBeInTheDocument();fireEvent.click(reload);
     expect(await screen.findByText('A previous reply')).toBeInTheDocument();expect(api.streamCopilotMessage).toHaveBeenCalledTimes(1);expect(api.getCopilotConversation).toHaveBeenCalledTimes(1);
   });
@@ -418,7 +419,7 @@ describe("Copilot sidebar during streaming", () => {
     vi.mocked(api.streamCopilotMessage).mockRejectedValueOnce(new Error("Message failed"));
     const view = setup();
     await screen.findByRole("button", { name: /Welcome kits/ });
-    sendProductRequest();
+    clickExploreProducts();
     expect(await screen.findByRole("alert")).toHaveTextContent("Message failed");
     expect(screen.getByRole("button", { name: /Welcome kits/ })).not.toBeDisabled();
     expect(screen.getByRole("button", { name: /New conversation/ })).toBeInTheDocument();
@@ -435,7 +436,7 @@ describe("Copilot sidebar during streaming", () => {
       handlers = incoming;
       return new Promise<void>(resolve => { finish = resolve; });
     });
-    setup(); sendProductRequest();
+    setup(); clickExploreProducts();
     await waitFor(() => expect(api.streamCopilotMessage).toHaveBeenCalledOnce());
     fireEvent.click(screen.getByRole("button", { name: "Open conversation history" }));
     const dialog = await screen.findByRole("dialog", { name: "Conversation history" });

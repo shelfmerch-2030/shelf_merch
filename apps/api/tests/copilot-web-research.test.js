@@ -7,6 +7,8 @@ import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { CopilotConversation } from '../src/modules/copilot/copilotConversation.model.js';
 import { CopilotUsage } from '../src/modules/copilot/copilotUsage.model.js';
 import { createConversation, streamAssistantTurn } from '../src/modules/copilot/copilotChat.service.js';
+import { isCopilotRole } from '../src/modules/copilot/copilotCapabilities.js';
+import { resolveTenant } from '../src/middleware/tenant.middleware.js';
 import { buildCopilotToolCtx } from '../src/modules/copilot/buildCallerCtx.js';
 import { prepareMcpWrite } from '../src/modules/mcp/mcpWriteSafety.js';
 import { workflowsFromCatalog } from '../src/modules/copilot/copilotMcpCatalog.js';
@@ -28,11 +30,11 @@ vi.mock('../src/config/redis.js', async importOriginal => ({
 
 const modelId = env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 const config = {
+  EMBEDDED_COPILOT_ENABLED: 'true',
   COPILOT_AI_PROVIDER: 'anthropic',
   ANTHROPIC_API_KEY: 'synthetic-no-network',
   EMBEDDED_COPILOT_WEB_SEARCH_ENABLED: 'true',
   EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH: 'false',
-  EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST: '',
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_USES: 3,
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_CONTINUATIONS: 1,
   EMBEDDED_COPILOT_RESEARCH_SYNTHESIS_TIMEOUT_MS: 12_000,
@@ -69,15 +71,15 @@ beforeAll(connectTestDb);
 beforeEach(async () => {
   vi.restoreAllMocks();
   evaluateReservation.mockReset().mockResolvedValue(1);
-  Object.assign(env, { ...config, EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST: tenant });
+  Object.assign(env, { ...config });
   await clearTestDb();
 });
 afterAll(async () => { Object.assign(env, previousEnv); await disconnectTestDb(); });
 
-async function workspace({ allowResearch = true, role = 'company_admin' } = {}) {
+async function workspace({ webSearch = true, role = 'company_admin' } = {}) {
   const tenant = await makeTenant();
   const { user } = await makeUser(tenant, role);
-  env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST = allowResearch ? tenant.id : '507f1f77bcf86cd799439012';
+  env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED = webSearch ? 'true' : 'false';
   const scope = { tenantId: tenant._id, userId: user._id, role };
   const conversation = await createConversation(scope);
   const toolCtx = buildCopilotToolCtx({ tenantId: scope.tenantId, user: { userId: scope.userId, role } });
@@ -532,17 +534,36 @@ describe('embedded Milestone 1 routing and storage', () => {
     expect(stream.mock.calls.every(([request]) => !request.webSearch)).toBe(true);
   });
 
-  it('keeps disabled, killed, and non-allowlisted workspaces away from Claude search', async () => {
+  it('lets every eligible workspace use web search, and still blocks a disabled flag or kill switch', async () => {
     const { create, stream } = mockClaude();
-    const chat = await workspace({ allowResearch: false });
-    expect(webResearchEnabled(chat.tenantId, 'anthropic')).toBe(false);
-    expect((await chat.turn('Find products outside ShelfMerch.')).reply.artifacts[0].research.status).toBe('disabled');
-    env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST = String(chat.tenantId);
+    const first = await workspace();
+    const second = await workspace();
+    expect(String(first.tenantId)).not.toBe(String(second.tenantId));
+    expect(webResearchEnabled('anthropic')).toBe(true);
+    expect(webResearchEnabled('openai')).toBe(false);
+    env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED = 'false';
+    expect(webResearchEnabled('anthropic')).toBe(false);
+    expect((await first.turn('Find products outside ShelfMerch.')).reply.artifacts[0].research.status).toBe('disabled');
+    env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED = 'true';
     env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH = 'true';
-    expect((await chat.turn('Find products outside ShelfMerch.')).reply.artifacts[0].research.status).toBe('disabled');
+    expect(webResearchEnabled('anthropic')).toBe(false);
+    expect((await second.turn('Find products outside ShelfMerch.')).reply.artifacts[0].research.status).toBe('disabled');
+    env.EMBEDDED_COPILOT_ENABLED = 'false';
+    env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH = 'false';
+    expect(webResearchEnabled('anthropic')).toBe(false);
     expect(create).not.toHaveBeenCalled();
     expect(stream).not.toHaveBeenCalled();
     expect(evaluateReservation).not.toHaveBeenCalled();
+  });
+
+  it('keeps Copilot off for a role outside catalog read and rejects a suspended workspace', async () => {
+    expect(isCopilotRole('company_admin')).toBe(true);
+    expect(isCopilotRole('entity_manager')).toBe(true);
+    expect(isCopilotRole('employee')).toBe(false);
+    const paused = await makeTenant({ status: 'suspended' });
+    const next = vi.fn();
+    await resolveTenant({ user: { role: 'company_admin', tenantId: paused._id } }, {}, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/suspended/i) }));
   });
 
   it('keeps pending approvals on the existing path even when the user asks for web research', async () => {

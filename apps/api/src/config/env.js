@@ -238,6 +238,12 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional().default(''),
   /** Google Shopping via SerpAPI. Empty disables live product cards (photo, price, link). */
   SERPAPI_API_KEY: z.string().optional().default(''),
+  /** Discover product search. Off until a deployment turns it on. The kill switch is read on every call. */
+  EMBEDDED_COPILOT_SERPAPI_ENABLED: z.enum(['true', 'false']).default('false'),
+  EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH: z.enum(['true', 'false']).default('false'),
+  EMBEDDED_COPILOT_SERPAPI_DAILY_USER_LIMIT: z.coerce.number().int().min(1).max(10_000).default(20),
+  EMBEDDED_COPILOT_SERPAPI_DAILY_TENANT_LIMIT: z.coerce.number().int().min(1).max(100_000).default(100),
+  EMBEDDED_COPILOT_SERPAPI_MAX_CALLS_PER_TURN: z.coerce.number().int().min(1).max(20).default(8),
   OPENAI_MODEL: z.string().optional().default('gpt-4.1-mini'),
   EMBEDDED_COPILOT_MAX_TOOL_LOOPS: z.coerce.number().int().min(1).max(8).optional().default(4),
   EMBEDDED_COPILOT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(16_384).optional().default(4_096),
@@ -246,7 +252,6 @@ const envSchema = z.object({
   EMBEDDED_COPILOT_DAILY_TENANT_TOKENS: z.coerce.number().int().min(1_000).max(50_000_000).optional().default(1_000_000),
   EMBEDDED_COPILOT_WEB_SEARCH_ENABLED: z.enum(['true', 'false']).default('false'),
   EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH: z.enum(['true', 'false']).default('false'),
-  EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST: z.string().default(''),
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_USES: z.coerce.number().int().min(1).max(10).default(3),
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_CONTINUATIONS: z.coerce.number().int().min(0).max(3).default(1),
   EMBEDDED_COPILOT_WEB_SEARCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(20_000),

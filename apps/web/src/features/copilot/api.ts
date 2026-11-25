@@ -1,5 +1,5 @@
 import { API_BASE } from "@/services/config";
-import { apiFetch } from "@/services/api";
+import { apiFetch, errorFromResponse, SESSION_EXPIRED_MESSAGE } from "@/services/api";
 import { getAccessToken } from "@/services/auth-store";
 
 export type CopilotCapability = {
@@ -26,10 +26,24 @@ export type CopilotCategory = {
   actions: CopilotAction[];
 };
 
+export type CopilotShoppingUsage = {
+  label: string;
+  used: number;
+  limit: number;
+  remaining: number | null;
+  tenantUsed: number;
+  tenantLimit: number;
+  tenantRemaining: number | null;
+  resetsAt: string;
+  state: string;
+  exhausted?: boolean;
+};
+
 export type CopilotStatus = {
   webResearchEnabled?: boolean;
   externalProductCardsEnabled?: boolean;
   externalImageEnrichmentEnabled?: boolean;
+  shoppingUsage?: CopilotShoppingUsage | null;
   enabled: boolean;
   provider: "openai" | "disabled" | string;
   model: string | null;
@@ -330,6 +344,7 @@ export async function streamCopilotMessage(
   signal?: AbortSignal,
   attachmentIds: string[] = [],
   mode?: "chat" | "curator",
+  lane?: "shelfmerch" | "discover",
 ) {
   const token = getAccessToken();
   const res = await fetch(`${API_BASE}/copilot/conversations/${conversationId}/messages`, {
@@ -340,20 +355,18 @@ export async function streamCopilotMessage(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     credentials: "include",
-    body: JSON.stringify({ content, attachmentIds, ...(mode ? { mode } : {}) }),
+    body: JSON.stringify({ content, attachmentIds, ...(mode ? { mode } : {}), ...(lane ? { lane } : {}) }),
     signal,
   });
 
   if (!res.ok || !res.body) {
-    let message = "Copilot request failed";
-    let code: string | undefined;
-    try {
-      const body = await res.json();
-      message = body?.error?.message || message;
-      code = body?.error?.code;
-    } catch {
-      /* ignore */
-    }
+    const body: unknown = await res.json().catch(() => null);
+    const { message: apiMessage, code } = errorFromResponse(res.status, body);
+    const message = body && apiMessage !== "Request failed" ? apiMessage
+      : res.status === 401 ? SESSION_EXPIRED_MESSAGE
+      : res.status >= 500 ? `Copilot is temporarily unavailable (HTTP ${res.status}). Please try again.`
+      : code === "PAYLOAD_TOO_LARGE" ? apiMessage
+      : `Copilot couldn’t start the reply (HTTP ${res.status}).`;
     handlers.onError?.({ message, code });
     return;
   }

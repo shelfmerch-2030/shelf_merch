@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -30,6 +30,8 @@ export function CopilotWelcome({
   onPrompt,
   onAction,
   onReload,
+  lane = "shelfmerch",
+  children,
 }: {
   categories: CopilotCategory[];
   selectedCategoryId: string | null;
@@ -37,14 +39,14 @@ export function CopilotWelcome({
   onPrompt: (prompt: string) => void;
   onAction?: (action: CopilotAction) => void;
   onReload?: () => void;
+  lane?: "shelfmerch" | "discover";
+  children?: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const initial = useRef(true);
-  const selected = categories.find((category) => category.id === selectedCategoryId);
+  const discover = lane === "discover";
+  const selected = discover ? undefined : categories.find((category) => category.id === selectedCategoryId);
   const Icon = selected ? icons[selected.id] || Package : Package;
-  const hasPending = selected?.actions.some(
-    (action) => action.availability === "integration_pending",
-  );
   useEffect(() => {
     if (initial.current) {
       initial.current = false;
@@ -55,7 +57,7 @@ export function CopilotWelcome({
 
   return (
     <section
-      className={`sm-copilot-welcome sm-copilot-discovery${selected ? " sm-copilot-discovery--selected" : ""}`}
+      className={`sm-copilot-welcome sm-copilot-discovery${selected ? " sm-copilot-discovery--selected" : ""}${discover ? " sm-copilot-discovery--external" : ""}`}
       aria-labelledby="copilot-title"
     >
       {selected ? (
@@ -75,14 +77,12 @@ export function CopilotWelcome({
         </div>
       ) : null}
       <h1 id="copilot-title" ref={heading} tabIndex={-1}>
-        {selected?.heading || "How can I help you today?"}
+        <span key={lane} className="sm-copilot-discovery__title">
+          {discover ? "What are you looking for?" : selected?.heading || "How can I help you today?"}
+        </span>
       </h1>
-      <p className="sm-copilot-welcome__sub">
-        {selected
-          ? "Choose a task to draft a message. You can edit it before sending."
-          : "Discover merchandise, manage gifting and explore your ShelfMerch workspace."}
-      </p>
-      {!categories.length ? (
+      {children}
+      {discover ? null : !categories.length ? (
         <div className="sm-copilot-discovery__empty" role="status">
           <p>Your capabilities couldn’t be loaded. You can still write a message below.</p>
           {onReload ? (
@@ -110,7 +110,7 @@ export function CopilotWelcome({
                     className={`sm-copilot-action${available ? "" : " sm-copilot-action--pending"}`}
                     disabled={!available}
                     aria-label={action.title}
-                    title={available ? "Draft this request" : action.explanation}
+                    title={available ? undefined : action.explanation}
                     onClick={() => {
                       if (action.availability !== "available") return;
                       if (onAction) onAction(action);
@@ -140,13 +140,8 @@ export function CopilotWelcome({
                 );
               })}
           </div>
-          <p className="sm-copilot-discovery__note">
-            {hasPending
-              ? "Actions marked “Coming to Copilot” cannot run here yet. Other tasks prepare an editable message; nothing is sent automatically."
-              : "Selecting a task prepares a message. You decide when to send it."}
-          </p>
         </>
-      ) : (
+      ) : discover ? null : (
         <div className="sm-copilot-capability-grid" aria-label="Copilot capabilities">
           {categories.map((category) => {
             const CategoryIcon = icons[category.id] || Package;

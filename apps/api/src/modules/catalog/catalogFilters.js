@@ -54,6 +54,9 @@ const CATEGORY_INCLUDES = {
   ],
   // Direct filters and older links still match products stored under these names.
   'Office Supplies': ['Office Supplies', 'Card Holders'],
+  // Live apparel uses these child labels instead of the canonical T-Shirts / Polo Shirts names.
+  'T-Shirts': ['T-Shirts', 'Crew Neck', 'Oversized'],
+  'Polo Shirts': ['Polo Shirts', 'Polo'],
 };
 
 /**

@@ -26,11 +26,11 @@ import * as adapter from '../src/modules/copilot/providers/anthropicChatAdapter.
 
 const modelId = env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 const config = {
+  EMBEDDED_COPILOT_ENABLED: 'true',
   COPILOT_AI_PROVIDER: 'anthropic',
   ANTHROPIC_API_KEY: 'synthetic-no-network',
   EMBEDDED_COPILOT_WEB_SEARCH_ENABLED: 'true',
   EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH: 'false',
-  EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST: '',
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_USES: 3,
   EMBEDDED_COPILOT_WEB_SEARCH_MAX_CONTINUATIONS: 1,
   EMBEDDED_COPILOT_EXTERNAL_PRODUCT_CARDS_ENABLED: 'true',
@@ -78,7 +78,6 @@ afterAll(async () => { Object.assign(env, previousEnv); await disconnectTestDb()
 async function workspace() {
   const tenant = await makeTenant();
   const { user } = await makeUser(tenant, 'company_admin');
-  env.EMBEDDED_COPILOT_WEB_SEARCH_TENANT_ALLOWLIST = tenant.id;
   const scope = { tenantId: tenant._id, userId: user._id, role: 'company_admin' };
   const conversation = await createConversation(scope);
   const toolCtx = buildCopilotToolCtx({ tenantId: scope.tenantId, user: { userId: scope.userId, role: 'company_admin' } });

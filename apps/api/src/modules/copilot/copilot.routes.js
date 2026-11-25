@@ -217,6 +217,7 @@ router.post(
       content: z.string().max(20_000).optional().default(''),
       attachmentIds: z.array(objectId).max(5).optional().default([]),
       mode: z.enum(['chat', 'curator']).optional(),
+      lane: z.enum(['shelfmerch', 'discover']).optional(),
     }),
   }),
   asyncHandler(controller.postMessage),
