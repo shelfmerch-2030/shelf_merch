@@ -56,7 +56,10 @@ function placementWithoutArtwork(placement) {
 // ---------------------------------------------------------------------------
 
 function buildOrderFilter(query) {
-  const filter = {};
+  // Test-mode API orders never enter ops views unless explicitly asked for.
+  // String check too: req.query under Express 5 is the raw (unparsed) query.
+  const includeTest = query.includeTest === true || query.includeTest === 'true';
+  const filter = includeTest ? {} : { testMode: { $ne: true } };
   if (query.status) filter.status = query.status;
   if (query.tenantId) filter.tenantId = query.tenantId;
   if (query.vendorId) filter.vendorId = query.vendorId;
@@ -127,10 +130,15 @@ export async function getPlatformOrderDetail(orderId) {
   const order = await getPlatformOrder(orderId);
   const [tenant, campaign, recipient, shipment, productionTask] = await Promise.all([
     Tenant.findOne({ _id: order.tenantId }).select('name slug status').lean(),
-    Campaign.findOne({ _id: order.campaignId, tenantId: order.tenantId }).select('name type shopId kitId').lean(),
-    Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId })
-      .select('name email phone redemptionStatus')
-      .lean(),
+    // External orders have neither — don't query by undefined (Mongoose would match any row).
+    order.campaignId
+      ? Campaign.findOne({ _id: order.campaignId, tenantId: order.tenantId }).select('name type shopId kitId').lean()
+      : null,
+    order.recipientId
+      ? Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId })
+          .select('name email phone redemptionStatus')
+          .lean()
+      : null,
     Shipment.findOne({ orderId: order._id, tenantId: order.tenantId }).lean(),
     latestProductionTask(order._id).lean(),
   ]);
@@ -287,7 +295,8 @@ export async function getPlatformOrderDetail(orderId) {
     validNextStatuses: validNextStatuses('order', order.status),
     tenant,
     campaign,
-    recipient,
+    // External orders: show the client's end customer in the recipient slot.
+    recipient: recipient ?? (obj.customerSnapshot ? { ...obj.customerSnapshot } : null),
     shipment,
     productionTask,
     qcStatus: qcStatus(productionTask),
@@ -309,10 +318,8 @@ export async function updatePlatformOrderStatus({ orderId, status, note, actor }
     });
     if (!activeTask) await createProductionTask({ orderId: order._id, actor });
   }
-  scheduleOrderDispatchedSlackNotification(
-    order,
-    priorStatus !== 'shipped' && order.status === 'shipped',
-  );
+  const becameShipped = priorStatus !== 'shipped' && order.status === 'shipped';
+  scheduleOrderDispatchedSlackNotification(order, becameShipped);
   return order;
 }
 
@@ -373,8 +380,11 @@ export async function createReplacementOrder({ orderId, reason, actor }) {
   const obj = original.toObject();
   const replacement = await Order.create({
     tenantId: obj.tenantId,
+    source: obj.source ?? 'campaign',
     campaignId: obj.campaignId,
     recipientId: obj.recipientId,
+    // externalRef is deliberately not copied: it is unique per client order.
+    customerSnapshot: obj.customerSnapshot,
     orderNumber: await nextOrderNumber(),
     items: obj.items.map(({ _id, ...item }) => item),
     shippingAddress: obj.shippingAddress,
@@ -387,7 +397,7 @@ export async function createReplacementOrder({ orderId, reason, actor }) {
     replacementOfOrderId: original._id,
   });
 
-  scheduleOrderInvoiceGeneration(replacement);
+  if (replacement.campaignId) scheduleOrderInvoiceGeneration(replacement);
   await original.save();
   return { original, replacement };
 }
@@ -399,7 +409,7 @@ export async function createReplacementOrder({ orderId, reason, actor }) {
 export async function getProductionBoard() {
   const [tasks, orders] = await Promise.all([
     ProductionTask.find({ status: { $nin: ['completed'] } }).sort({ createdAt: -1 }).lean(),
-    Order.find({ status: { $in: PRODUCTION_ORDER_STATUSES } })
+    Order.find({ status: { $in: PRODUCTION_ORDER_STATUSES }, testMode: { $ne: true } })
       .setOptions({ skipTenantGuard: true })
       .sort({ createdAt: -1 })
       .lean(),
@@ -672,11 +682,11 @@ export async function getDashboard() {
   ] = await Promise.all([
     Tenant.countDocuments({ status: { $in: ['active', 'trial'] } }),
     Order.aggregate([
-      { $match: { status: { $nin: ['cancelled'] } } },
+      { $match: { status: { $nin: ['cancelled'] }, testMode: { $ne: true } } },
       { $group: { _id: null, gmv: { $sum: '$amountBreakdown.total' } } },
     ]),
-    Order.countDocuments({ status: { $in: OPEN_ORDER_STATUSES } }).setOptions({ skipTenantGuard: true }),
-    Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Order.countDocuments({ status: { $in: OPEN_ORDER_STATUSES }, testMode: { $ne: true } }).setOptions({ skipTenantGuard: true }),
+    Order.aggregate([{ $match: { testMode: { $ne: true } } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     ProductionTask.aggregate([
       { $match: { status: { $ne: 'completed' } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -704,13 +714,13 @@ export async function getDashboard() {
       { $sort: { outstanding: -1 } },
     ]),
     Order.aggregate([
-      { $match: { status: { $nin: ['cancelled'] } } },
+      { $match: { status: { $nin: ['cancelled'] }, testMode: { $ne: true } } },
       { $group: { _id: '$tenantId', gmv: { $sum: '$amountBreakdown.total' }, orders: { $sum: 1 } } },
       { $sort: { gmv: -1 } },
       { $limit: 5 },
     ]),
     Order.aggregate([
-      { $match: { status: { $nin: ['cancelled'] } } },
+      { $match: { status: { $nin: ['cancelled'] }, testMode: { $ne: true } } },
       { $unwind: '$items' },
       { $group: { _id: '$items.name', qty: { $sum: '$items.qty' } } },
       { $sort: { qty: -1 } },

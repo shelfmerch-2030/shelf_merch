@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../plugins/tenantScope.plugin.js';
 import { softDeletePlugin } from '../../plugins/softDelete.plugin.js';
+import { publicStatus } from './publicStatus.js';
 
 export const ORDER_STATUSES = [
   'created',
@@ -37,10 +38,58 @@ export function sanitizeOrderItems(items = []) {
   });
 }
 
+/**
+ * Where an order came from. Campaign orders (gifting) always carry
+ * campaignId + recipientId; external orders are pulled from a client's own
+ * store/API (modules/orderSources) and carry externalRef + customerSnapshot.
+ */
+export const ORDER_SOURCES = ['campaign', 'external', 'api'];
+
+function isCampaignOrder() {
+  return (this.source ?? 'campaign') === 'campaign';
+}
+
 const orderSchema = new mongoose.Schema(
   {
-    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true, index: true },
-    recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Recipient', required: true, index: true },
+    source: { type: String, enum: ORDER_SOURCES, default: 'campaign', index: true },
+    campaignId: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: isCampaignOrder, index: true },
+    recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Recipient', required: isCampaignOrder, index: true },
+    /** External orders only: the client-side order this was created from. */
+    externalRef: {
+      type: {
+        connectionId: { type: mongoose.Schema.Types.ObjectId, ref: 'OrderSourceConnection' },
+        externalOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExternalOrder' },
+        externalId: String,
+        externalNumber: String,
+        provider: String,
+      },
+      default: undefined,
+      _id: false,
+    },
+    /** External/API orders: end customer as given by the client's system. */
+    customerSnapshot: {
+      type: { name: String, email: String, phone: String },
+      default: undefined,
+      _id: false,
+    },
+    /** Public Orders API only: which key submitted it and the client's own order id. */
+    apiRef: {
+      type: {
+        apiKeyId: { type: mongoose.Schema.Types.ObjectId, ref: 'ApiKey' },
+        externalId: String,
+      },
+      default: undefined,
+      _id: false,
+    },
+    /** Client-supplied key/value pairs (public API), echoed back on reads and webhooks. */
+    metadata: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    /** Client-supplied note for production/shipping (public API). */
+    notes: { type: String, default: undefined },
+    /**
+     * Placed with a test API key: never enters production, inventory or ops
+     * queues; can be advanced with the sandbox simulate endpoint.
+     */
+    testMode: { type: Boolean, default: false, index: true },
     orderNumber: { type: String, required: true, unique: true },
     // Non-negotiable #4: full product snapshot at order time (price, cost,
     // GST, HSN, image). costPriceInr is internal-only — see sanitizeOrderItems.
@@ -131,8 +180,43 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+/**
+ * Webhook events for public-API orders, emitted from one place: every code
+ * path that changes an order's status (ops UI, production, shipments, API,
+ * sandbox) ends in order.save(). Only changes of the *public* status emit
+ * (e.g. in_production → qc_pending is silent). Updates via updateOne bypass
+ * this by design — they are repairs, not workflow transitions.
+ */
+orderSchema.post('init', function rememberLoadedStatus() {
+  this.$locals.loadedStatus = this.status;
+});
+orderSchema.pre('save', function markNew() {
+  this.$locals.wasNew = this.isNew;
+});
+orderSchema.post('save', function emitPublicStatusEvent(doc) {
+  if (doc.source !== 'api' || !doc.status) return;
+  const before = doc.$locals.wasNew ? null : doc.$locals.loadedStatus;
+  doc.$locals.loadedStatus = doc.status;
+  if (!doc.$locals.wasNew && (before === undefined || publicStatus(before) === publicStatus(doc.status))) return;
+  const type = doc.$locals.wasNew ? 'order.received' : `order.${publicStatus(doc.status)}`;
+  void import('../webhooks/webhooks.service.js')
+    .then(({ scheduleOrderEvent }) => scheduleOrderEvent(doc, type))
+    .catch(() => {});
+});
+
 orderSchema.plugin(tenantScopePlugin);
 orderSchema.plugin(softDeletePlugin);
 orderSchema.index({ tenantId: 1, status: 1 });
+// Second guard (after ExternalOrder's own unique key) against creating two
+// Orders for one client order. Replacements do not copy externalRef.
+orderSchema.index(
+  { 'externalRef.connectionId': 1, 'externalRef.externalId': 1 },
+  { unique: true, partialFilterExpression: { 'externalRef.externalId': { $exists: true } } },
+);
+// One ShelfMerch order per client order id, per tenant and mode (test ids never block live ones).
+orderSchema.index(
+  { tenantId: 1, testMode: 1, 'apiRef.externalId': 1 },
+  { unique: true, partialFilterExpression: { 'apiRef.externalId': { $exists: true } } },
+);
 
 export const Order = mongoose.model('Order', orderSchema);

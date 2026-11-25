@@ -16,5 +16,12 @@ export function useOrdersController() {
         else next.delete("qcStatus");
         return next;
       }),
+    onIncludeTest: (value: boolean) =>
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
+        if (value) next.set("includeTest", "true");
+        else next.delete("includeTest");
+        return next;
+      }),
   };
 }

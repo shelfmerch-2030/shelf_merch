@@ -16,7 +16,13 @@ export function idempotency({ required = false, recover = false } = {}) {
       return next();
     }
 
-    const scope = { key, tenantId: req.tenantId ?? null, userId: req.user?.userId ?? null };
+    // API-key requests have no user: scope by the key's ObjectId (unique across
+    // collections, and storable in the Mongo fallback's ObjectId field).
+    const scope = {
+      key,
+      tenantId: req.tenantId ?? null,
+      userId: req.user?.userId ?? req.user?.apiKeyId ?? null,
+    };
 
     try {
       const result = await beginIdempotency(scope, {

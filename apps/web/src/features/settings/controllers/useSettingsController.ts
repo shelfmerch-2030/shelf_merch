@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { useInvalidateWorkspace, useWorkspace } from "@/hooks/useWorkspace";
 import { useTenantAccess } from "@/hooks/useTenantAccess";
@@ -16,7 +16,7 @@ import {
 } from "../model";
 import type { WorkspaceOwner } from "../model";
 
-export type SettingsTab = "workspace" | "sso";
+export type SettingsTab = "workspace" | "sso" | "developers";
 
 const LOGO_ACCEPT = /\.(svg|png|webp|jpe?g)$/i;
 const LOGO_MAX = 5 * 1024 * 1024;
@@ -69,7 +69,12 @@ export function useSettingsController(): SettingsVm {
   const userId = getStoredUser()?.id;
   const userPatch = workspace?.userPatch;
 
-  const [tab, setTab] = useState<SettingsTab>("workspace");
+  // Deep link: /settings?tab=developers (e.g. from a webhook-disabled notification).
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<SettingsTab>(
+    requestedTab === "sso" || (requestedTab === "developers" && canEditWorkspace) ? requestedTab : "workspace",
+  );
   const [name, setName] = useState(account);
   const [logoUrl, setLogoUrl] = useState(savedLogoUrl);
   const [slug, setSlug] = useState(account.toLowerCase());

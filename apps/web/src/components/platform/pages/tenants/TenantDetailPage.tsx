@@ -1,3 +1,5 @@
+import { ApiAccessTab } from "./ApiAccessTab";
+import { CatalogMatchTab } from "./CatalogMatchTab";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { getStoredUser } from "@/services/auth-store";
@@ -42,6 +44,8 @@ const TABS = [
   { id: "orders", label: "Orders" },
   { id: "wallet", label: "Wallet" },
   { id: "settings", label: "Settings" },
+  { id: "api", label: "API access" },
+  { id: "catalog-match", label: "Catalog matching" },
   { id: "audit", label: "Audit Log" },
 ] as const;
 
@@ -169,6 +173,8 @@ export function TenantDetailPage() {
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+      {tab === "api" && <ApiAccessTab tenantId={tenantId} canWrite={canWrite} />}
+      {tab === "catalog-match" && <CatalogMatchTab tenantId={tenantId} />}
       {tab === "audit" && <AuditTab tenantId={tenantId} />}
 
       {managing && rowForModal && (

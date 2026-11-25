@@ -14,6 +14,8 @@ export const listPlatformOrdersQuery = z.object({
   vendorId: objectId.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
+  /** Include test-mode (sandbox API) orders. */
+  includeTest: z.enum(["true", "false"]).transform((v) => v === "true").optional(),
 });
 
 export const orderIdParam = z.object({ id: objectId });

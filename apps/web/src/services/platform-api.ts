@@ -153,8 +153,11 @@ export async function fetchPlatformOrders(params?: {
   limit?: number;
   tenantId?: string;
   page?: number;
+  /** Include sandbox (test API key) orders, hidden by default. */
+  includeTest?: boolean;
 }) {
   const search = new URLSearchParams();
+  if (params?.includeTest) search.set("includeTest", "true");
   if (params?.qcStatus) search.set("qcStatus", params.qcStatus);
   if (params?.status) search.set("status", params.status);
   if (params?.limit) search.set("limit", String(params.limit));

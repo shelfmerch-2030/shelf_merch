@@ -9,7 +9,7 @@ import { loadActiveKitEntriesForInvoice } from './orderInvoice.kit.js';
 import { uploadBuffer } from '../../services/storage.service.js';
 import { sendEmail } from '../../services/email.service.js';
 import { logger } from '../../config/logger.js';
-import { NotFoundError } from '../../utils/errors.js';
+import { ApiError, NotFoundError } from '../../utils/errors.js';
 import { amountInWordsInr } from '../../utils/amountInWords.js';
 import { buildOrderInvoiceLines, buildHsnSummary } from './orderInvoice.lines.js';
 import { computeInvoiceTotals, renderOrderInvoicePdf } from './orderInvoice.pdf.js';
@@ -86,6 +86,10 @@ export async function generateAndStoreOrderInvoice(orderDoc, { force = false, sk
   const existing = await OrderInvoice.findOne({ orderId: order._id, tenantId });
   if (existing?.pdfUrl && !force) return existing;
 
+  if (!order.campaignId) {
+    // Billing for client-store orders is not wired yet (no wallet/campaign to bill against).
+    throw new ApiError(422, 'Invoices are not yet supported for external orders', 'EXTERNAL_ORDER_INVOICE_UNSUPPORTED');
+  }
   const campaign = await Campaign.findOne({ _id: order.campaignId, tenantId }).lean();
   if (!campaign) throw new NotFoundError('Campaign not found for order');
 

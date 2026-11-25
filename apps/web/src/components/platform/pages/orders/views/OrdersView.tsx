@@ -33,6 +33,17 @@ const columns: {
     ),
   },
   { key: "tenantName", label: "Tenant" },
+  {
+    key: "source",
+    label: "Source",
+    render: (r) => {
+      const source = String(r.source ?? "campaign");
+      if (source === "api") {
+        return <span className={`tag ${r.testMode ? "tag-draft" : "tag-proc"}`}>{r.testMode ? "API · test" : "API"}</span>;
+      }
+      return <span className="tag">{source === "external" ? "Store sync" : "Campaign"}</span>;
+    },
+  },
   { key: "status", label: "Status", render: (r) => <StatusTag status={String(r.status)} /> },
   {
     key: "qcStatus",
@@ -64,7 +75,7 @@ const columns: {
 ];
 
 /** Cross-tenant orders table. */
-export function OrdersView({ data, error, loading, qcFilter, onQcFilter }: OrdersVm) {
+export function OrdersView({ data, error, loading, qcFilter, onQcFilter, includeTest, onIncludeTest }: OrdersVm) {
   return (
     <>
       <PlatformPageHeader title="Orders" subtitle="Cross-tenant order pipeline." />
@@ -85,6 +96,10 @@ export function OrdersView({ data, error, loading, qcFilter, onQcFilter }: Order
           ))}
         </select>
       </div>
+      <label className="row" style={{ gap: 6, alignItems: "center", marginBottom: 12 }}>
+        <input type="checkbox" checked={includeTest} onChange={(e) => onIncludeTest(e.target.checked)} />
+        Show test (sandbox API) orders
+      </label>
       {loading && <PlatformLoading />}
       {error && <PlatformError message={error} />}
       {data && <DataTable empty="No orders yet." rows={data.items} columns={columns} />}

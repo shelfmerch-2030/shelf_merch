@@ -29,7 +29,8 @@ async function loadKitContext(campaign, tenantId) {
 async function main() {
   await connectDb();
 
-  const filter = {};
+  // External (client-store) orders have no campaign — never look one up by an undefined id.
+  const filter = { campaignId: { $ne: null } };
   if (orderNumberArg) filter.orderNumber = orderNumberArg;
 
   const orders = await Order.find(filter).setOptions({ skipTenantGuard: true }).lean();

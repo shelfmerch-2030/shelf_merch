@@ -427,7 +427,7 @@ function dateMatch(query) {
 
 export async function gmvReport({ query }) {
   const rows = await Order.aggregate([
-    { $match: { status: { $nin: ['cancelled'] }, ...dateMatch(query) } },
+    { $match: { status: { $nin: ['cancelled'] }, testMode: { $ne: true }, ...dateMatch(query) } },
     {
       $group: {
         _id: {
@@ -460,7 +460,7 @@ export async function gmvReport({ query }) {
 /** Margin = sell − cost from the order-item snapshot (§3.8). */
 export async function marginReport({ query }) {
   const rows = await Order.aggregate([
-    { $match: { status: { $nin: ['cancelled'] }, ...dateMatch(query) } },
+    { $match: { status: { $nin: ['cancelled'] }, testMode: { $ne: true }, ...dateMatch(query) } },
     { $unwind: '$items' },
     {
       $group: {

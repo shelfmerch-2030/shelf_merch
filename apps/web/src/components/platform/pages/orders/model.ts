@@ -23,11 +23,12 @@ export function usePlatformOrders() {
   const [searchParams] = useSearchParams();
   const tenantId = searchParams.get("tenantId") || undefined;
   const qcStatus = searchParams.get("qcStatus") || undefined;
+  const includeTest = searchParams.get("includeTest") === "true";
   const result = useLoad(
-    () => fetchPlatformOrders({ limit: 100, tenantId, qcStatus }),
-    [tenantId, qcStatus],
+    () => fetchPlatformOrders({ limit: 100, tenantId, qcStatus, ...(includeTest ? { includeTest } : {}) }),
+    [tenantId, qcStatus, includeTest],
   );
-  return { ...result, qcFilter: qcStatus ?? "" };
+  return { ...result, qcFilter: qcStatus ?? "", includeTest };
 }
 
 /** Single platform order; bump `reloadKey` to refetch after a mutation. */

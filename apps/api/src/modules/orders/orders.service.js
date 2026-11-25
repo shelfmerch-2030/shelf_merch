@@ -24,8 +24,39 @@ async function campaignIdsForUser(tenantId, user) {
   return campaigns.map((c) => c._id);
 }
 
+/**
+ * External orders (source: 'external') have no campaign or recipient.
+ * Never query by an undefined id — Mongoose drops it and matches any row.
+ */
+function findCampaignFor(order, tenantId) {
+  return order.campaignId ? Campaign.findOne({ _id: order.campaignId, tenantId }) : null;
+}
+
+function findRecipientFor(order, tenantId) {
+  return order.recipientId ? Recipient.findOne({ _id: order.recipientId, tenantId }) : null;
+}
+
+function externalLabel(order) {
+  if (order.source === 'api') {
+    return `${order.testMode ? 'Test API' : 'API'} · ${order.apiRef?.externalId ?? ''}`.trim();
+  }
+  if (order.source !== 'external') return '';
+  const ref = order.externalRef ?? {};
+  return `External order ${ref.externalNumber || ref.externalId || ''}`.trim();
+}
+
+function recipientFor(order, recipient) {
+  if (recipient) return { name: recipient.name, email: recipient.email };
+  if (order.customerSnapshot?.name || order.customerSnapshot?.email) {
+    return { name: order.customerSnapshot.name ?? '', email: order.customerSnapshot.email ?? '' };
+  }
+  return null;
+}
+
 async function assertOrderAccess({ tenantId, user, order }) {
   if (user.scopeType !== 'entity') return;
+  // Entity-scoped users only see their entities' campaign orders.
+  if (!order.campaignId) throw new NotFoundError('Order not found');
   const campaign = await Campaign.findOne({ _id: order.campaignId, tenantId }).select('entityId');
   if (!campaign) throw new NotFoundError('Order not found');
   const allowed = (user.assignedEntityIds ?? []).map(String);
@@ -111,7 +142,7 @@ export async function listOrders({ tenantId, user, query }) {
     Order.countDocuments(filter),
   ]);
 
-  const campaignIds = [...new Set(items.map((o) => String(o.campaignId)))];
+  const campaignIds = [...new Set(items.filter((o) => o.campaignId).map((o) => String(o.campaignId)))];
   const orderIds = items.map((o) => o._id);
   const [campaigns, invoices] = await Promise.all([
     Campaign.find({ _id: { $in: campaignIds }, tenantId }).select(
@@ -129,7 +160,7 @@ export async function listOrders({ tenantId, user, query }) {
     const invoice = invoiceByOrderId[String(o._id)];
     const amountBreakdown = alignKitOrderBreakdown(o, campaign, { hasInvoice: Boolean(invoice) });
     return withMeta(o, {
-      campaignName: campaign?.name ?? '',
+      campaignName: campaign?.name ?? externalLabel(o),
       amountBreakdown,
       invoicePdfUrl: invoice?.pdfUrl || '',
       invoiceNumber: invoice?.invoiceNumber || o.orderNumber,
@@ -145,10 +176,10 @@ export async function getOrder({ tenantId, user, orderId }) {
   await assertOrderAccess({ tenantId, user, order });
 
   const [campaign, recipient, invoice] = await Promise.all([
-    Campaign.findOne({ _id: order.campaignId, tenantId }).select(
+    findCampaignFor(order, tenantId)?.select(
       'name entityId type totalBudget recipientCount fulfillmentMode packaging shopId',
     ),
-    Recipient.findOne({ _id: order.recipientId, tenantId }).select('name email'),
+    findRecipientFor(order, tenantId)?.select('name email'),
     OrderInvoice.findOne({ orderId: order._id, tenantId }).select('pdfUrl invoiceNumber').lean(),
   ]);
 
@@ -158,8 +189,8 @@ export async function getOrder({ tenantId, user, orderId }) {
   });
 
   return withMeta(order, {
-    campaignName: campaign?.name ?? '',
-    recipient: recipient ? { name: recipient.name, email: recipient.email } : null,
+    campaignName: campaign?.name ?? externalLabel(order),
+    recipient: recipientFor(order, recipient),
     amountBreakdown,
     invoicePdfUrl: invoice?.pdfUrl || '',
     invoiceNumber: invoice?.invoiceNumber || order.orderNumber,
@@ -234,7 +265,9 @@ export async function searchOrdersRead({ tenantId, user, query }) {
     Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Order.countDocuments(filter),
   ]);
-  const campaignIds = [...new Set(rows.map((order) => String(order.campaignId)))];
+  const campaignIds = [
+    ...new Set(rows.filter((order) => order.campaignId).map((order) => String(order.campaignId))),
+  ];
   const [campaigns, invoiceByOrderId] = await Promise.all([
     Campaign.find({ _id: { $in: campaignIds }, tenantId }).select('name').lean(),
     invoiceNumbersByOrder(tenantId, rows.map((order) => order._id)),
@@ -242,7 +275,7 @@ export async function searchOrdersRead({ tenantId, user, query }) {
   const campaignNameById = Object.fromEntries(campaigns.map((campaign) => [String(campaign._id), campaign.name]));
   const items = rows.map((order) =>
     publicOrderSummary(order, {
-      campaignName: campaignNameById[String(order.campaignId)] ?? '',
+      campaignName: campaignNameById[String(order.campaignId)] ?? externalLabel(order),
       invoiceNumber: invoiceByOrderId[String(order._id)],
     }),
   );
@@ -256,16 +289,16 @@ export async function getOrderRead({ tenantId, user, orderId }) {
   await assertOrderAccess({ tenantId, user, order });
 
   const [campaign, recipient, invoiceByOrderId] = await Promise.all([
-    Campaign.findOne({ _id: order.campaignId, tenantId }).select('name').lean(),
-    Recipient.findOne({ _id: order.recipientId, tenantId }).select('name').lean(),
+    findCampaignFor(order, tenantId)?.select('name').lean(),
+    findRecipientFor(order, tenantId)?.select('name').lean(),
     invoiceNumbersByOrder(tenantId, [order._id]),
   ]);
   return {
     ...publicOrderSummary(order, {
-      campaignName: campaign?.name ?? '',
+      campaignName: campaign?.name ?? externalLabel(order),
       invoiceNumber: invoiceByOrderId[String(order._id)],
     }),
-    recipientName: recipient?.name ?? '',
+    recipientName: recipient?.name ?? order.customerSnapshot?.name ?? '',
   };
 }
 
@@ -289,10 +322,8 @@ export async function updateOrderStatus({ tenantId, user, orderId, status, note,
   transitionState('order', order, status, { userId: user.userId }, note);
   if (trackingNumber) order.trackingNumber = trackingNumber;
   await order.save();
-  scheduleOrderDispatchedSlackNotification(
-    order,
-    priorStatus !== 'shipped' && order.status === 'shipped',
-  );
+  const becameShipped = priorStatus !== 'shipped' && order.status === 'shipped';
+  scheduleOrderDispatchedSlackNotification(order, becameShipped);
 
   return getOrder({ tenantId, user, orderId: order._id });
 }

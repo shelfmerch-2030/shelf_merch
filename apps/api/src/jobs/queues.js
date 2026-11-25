@@ -80,6 +80,41 @@ export async function enqueueShopifyImport({ jobId, domain, accessToken, only })
   }
 }
 
+let webhookQueue = null;
+
+export function getWebhookQueue() {
+  if (!webhookQueue) webhookQueue = makeQueue('webhook-delivery');
+  return webhookQueue;
+}
+
+/**
+ * Queue one webhook delivery attempt. WebhookDelivery rows are the durable
+ * outbox: if this job is lost, the worker's sweep still attempts it when due.
+ * Without Redis, a due attempt runs in this process now; later retries wait for the sweep.
+ */
+export async function enqueueWebhookDelivery({ deliveryId, delayMs = 0 }) {
+  try {
+    if (!(await ensureRedisReady())) throw new Error('Redis not ready');
+    await getWebhookQueue().add(
+      'deliver',
+      { deliveryId: String(deliveryId) },
+      { delay: Math.max(0, delayMs), removeOnComplete: true, removeOnFail: 100, attempts: 1 },
+    );
+    return { queued: true };
+  } catch {
+    if (delayMs > 0) return { queued: false };
+    setImmediate(async () => {
+      try {
+        const { attemptDelivery } = await import('../modules/webhooks/webhooks.service.js');
+        await attemptDelivery(deliveryId);
+      } catch (e) {
+        logger.error({ err: e?.message, deliveryId: String(deliveryId) }, 'Inline webhook delivery failed');
+      }
+    });
+    return { queued: true, inline: true };
+  }
+}
+
 export function getNotificationQueue() {
   if (!notificationQueue) notificationQueue = makeQueue('notifications');
   return notificationQueue;

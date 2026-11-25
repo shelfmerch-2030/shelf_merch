@@ -244,9 +244,11 @@ export async function resendTrackingLink({ shipmentId }) {
   });
   if (!order) throw new NotFoundError('Order not found for this shipment');
 
-  const recipient = await Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId }).setOptions({
-    skipTenantGuard: true,
-  });
+  const recipient = order.recipientId
+    ? await Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId }).setOptions({
+        skipTenantGuard: true,
+      })
+    : order.customerSnapshot ?? null; // external orders: the client's end customer
   if (!recipient?.email) {
     throw new ApiError(422, 'No recipient email on file for this order', 'NO_RECIPIENT_EMAIL');
   }

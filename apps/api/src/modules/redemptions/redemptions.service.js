@@ -23,6 +23,7 @@ import {
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { filterEnabledVariants } from '../catalog/catalogFilters.js';
 import { Order, sanitizeOrderItems } from '../orders/order.model.js';
+import { createOrderWithNumber } from '../orders/orderNumber.js';
 import { scheduleOrderInvoiceGeneration } from '../orderInvoices/orderInvoice.hooks.js';
 import { Contact } from '../contacts/contact.model.js';
 import { transitionRedemption, finalizeRecipientRedemption } from '../campaigns/campaigns.service.js';
@@ -712,47 +713,6 @@ export async function getKitContents(token) {
     kitVariants,
     requiresKitVariant: curatedBundle && variantImages.length > 0,
   };
-}
-
-async function nextOrderNumber() {
-  const year = new Date().getFullYear();
-  const prefix = `SM-${year}-`;
-  // Must use max sequence, not count — gaps / deleted rows make count+1 collide
-  // with an existing unique orderNumber (Mongo 409 DUPLICATE).
-  const latest = await Order.findOne({ orderNumber: { $regex: `^${prefix}` } })
-    .sort({ orderNumber: -1 })
-    .select('orderNumber')
-    .setOptions({ skipTenantGuard: true, includeDeleted: true })
-    .lean();
-  let seq = 1;
-  if (latest?.orderNumber) {
-    const parsed = Number.parseInt(String(latest.orderNumber).slice(prefix.length), 10);
-    if (Number.isFinite(parsed) && parsed >= 0) seq = parsed + 1;
-  }
-  return `${prefix}${String(seq).padStart(6, '0')}`;
-}
-
-async function createOrderWithNumber(doc, { attempts = 5 } = {}) {
-  let lastErr;
-  for (let i = 0; i < attempts; i += 1) {
-    try {
-      return await Order.create({
-        ...doc,
-        orderNumber: doc.orderNumber || (await nextOrderNumber()),
-      });
-    } catch (err) {
-      lastErr = err;
-      if (err?.code !== 11000) throw err;
-      // Retry only orderNumber collisions (keyPattern or keyValue, message may vary by driver).
-      const isOrderNumberClash =
-        Boolean(err?.keyPattern?.orderNumber) ||
-        Boolean(err?.keyValue && Object.prototype.hasOwnProperty.call(err.keyValue, 'orderNumber')) ||
-        String(err?.message || '').includes('orderNumber');
-      if (!isOrderNumberClash) throw err;
-      doc = { ...doc, orderNumber: undefined };
-    }
-  }
-  throw lastErr;
 }
 
 async function applyOrderInventory(order, campaign) {

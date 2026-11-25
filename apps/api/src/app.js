@@ -100,6 +100,10 @@ import { workspaceSlugForPath } from './modules/seo/resolvePublicSeo.js';
 import { sendContentArticle, sendContentIndex, sendContentSitemap } from './modules/seo/contentPublic.controller.js';
 import { sendCatalogProductSeo } from './modules/seo/catalogProductSeo.controller.js';
 import { Tenant } from './modules/tenants/tenant.model.js';
+import { publicApiRouter } from './modules/publicApi/publicApi.routes.js';
+import { developersRouter } from './modules/apiKeys/developers.routes.js';
+import { platformApiAccessRouter } from './modules/apiKeys/platformApiAccess.routes.js';
+import { platformCatalogMatchRouter, tenantCatalogMatchRouter } from './modules/catalogMatching/catalogMatch.routes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = path.resolve(__dirname, '../../web/dist');
@@ -323,6 +327,8 @@ export function createApp() {
   api.use('/payments', paymentsRoutes);
   api.use('/invoices', invoicesRoutes);
   api.use('/orders', ordersRoutes);
+  api.use('/developers/catalog-match', tenantCatalogMatchRouter);
+  api.use('/developers', developersRouter);
   api.use('/order-invoices', orderInvoiceRoutes);
   api.use('/support-tickets', tenantSupportRouter);
   // Platform control plane (SUPER_ADMIN_FLOW) — /api/v1/platform/*
@@ -334,6 +340,8 @@ export function createApp() {
   api.use('/platform/vendors', vendorsRoutes);
   api.use('/platform/shipments', shipmentsRoutes);
   api.use('/platform/orders', platformOrdersRouter);
+  api.use('/platform/api-access', platformApiAccessRouter);
+  api.use('/platform/catalog-match', platformCatalogMatchRouter);
   api.use('/platform/production', platformProductionRouter);
   api.use('/platform/finance', platformFinanceRoutes);
   api.use('/platform/demo-leads', platformDemoLeadsRouter);
@@ -347,6 +355,9 @@ export function createApp() {
   api.use('/platform/impersonate', platformImpersonateRouter);
 
   app.use('/api/v1', api);
+
+  // Public Orders API for client systems (API-key auth, own error envelope).
+  app.use('/api/public/v1', globalHttpRateLimit, publicApiRouter);
 
   /**
    * Zoho People OAuth + sync — mounted at /api/integrations/zoho/* so the

@@ -1,0 +1,62 @@
+.api-docs h1 {
+  font-size: 32px;
+  margin: 8px 0 8px;
+}
+
+.api-lead {
+  font-size: 16px;
+  color: var(--ink-2, #444);
+  max-width: 70ch;
+}
+
+.api-code {
+  background: #0f1219;
+  color: #e6e9ef;
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 10px 0 18px;
+}
+
+.api-endpoint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 6px;
+}
+
+.api-method {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #fff;
+  background: #555;
+}
+
+.api-method--get { background: #1f7a4d; }
+.api-method--post { background: #2457c5; }
+.api-method--patch { background: #a05a00; }
+.api-method--delete { background: #b42318; }
+
+.api-table-wrap {
+  overflow: auto;
+  margin: 10px 0 18px;
+}
+
+.api-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+}
+
+.api-table th,
+.api-table td {
+  border-bottom: 1px solid rgba(15, 18, 25, 0.08);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}

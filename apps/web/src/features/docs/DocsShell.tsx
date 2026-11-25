@@ -12,17 +12,27 @@ export const ZOHO_DOCS_NAV = [
 
 type Crumb = { label: string; to?: string };
 
+export type DocsNavItem = { to: string; label: string };
+
 type DocsShellProps = {
   className?: string;
   activePath: string;
   breadcrumbs: Crumb[];
   children: ReactNode;
+  /** Sidebar section; defaults to the Zoho People guide. In-page anchors ("#id") are allowed. */
+  nav?: readonly DocsNavItem[];
+  navTitle?: string;
 };
 
-function NavLinks({ activePath }: { activePath: string }) {
+function NavLinks({ activePath, nav }: { activePath: string; nav: readonly DocsNavItem[] }) {
   return (
     <>
-      {ZOHO_DOCS_NAV.map((item) => (
+      {nav.map((item) =>
+        item.to.startsWith("#") ? (
+          <a key={item.to} href={item.to}>
+            {item.label}
+          </a>
+        ) : (
         <Link
           key={item.to}
           to={item.to}
@@ -30,13 +40,21 @@ function NavLinks({ activePath }: { activePath: string }) {
         >
           {item.label}
         </Link>
-      ))}
+        ),
+      )}
     </>
   );
 }
 
 /** Shared chrome for public Zoho People documentation pages. */
-export function DocsShell({ activePath, breadcrumbs, children, className = "" }: DocsShellProps) {
+export function DocsShell({
+  activePath,
+  breadcrumbs,
+  children,
+  className = "",
+  nav = ZOHO_DOCS_NAV,
+  navTitle = "Zoho People",
+}: DocsShellProps) {
   const [navOpen, setNavOpen] = useState(false);
 
   return (
@@ -47,6 +65,7 @@ export function DocsShell({ activePath, breadcrumbs, children, className = "" }:
             <ShelfMerchLogo height={32} />
           </Link>
           <nav className="docs-top-nav" aria-label="Site">
+            <Link to="/docs/api">API</Link>
             <Link to="/docs/zoho-people">Docs</Link>
             <Link to="/legal/privacy-policy">Privacy</Link>
             <Link to="/legal/terms-of-service">Terms</Link>
@@ -57,8 +76,8 @@ export function DocsShell({ activePath, breadcrumbs, children, className = "" }:
 
       <div className="docs-layout">
         <aside className="docs-side" aria-label="Documentation">
-          <h2>Zoho People</h2>
-          <NavLinks activePath={activePath} />
+          <h2>{navTitle}</h2>
+          <NavLinks activePath={activePath} nav={nav} />
         </aside>
 
         <div>
@@ -73,7 +92,7 @@ export function DocsShell({ activePath, breadcrumbs, children, className = "" }:
             </button>
             {navOpen ? (
               <nav className="docs-mobile-panel" onClick={() => setNavOpen(false)}>
-                <NavLinks activePath={activePath} />
+                <NavLinks activePath={activePath} nav={nav} />
               </nav>
             ) : null}
           </div>

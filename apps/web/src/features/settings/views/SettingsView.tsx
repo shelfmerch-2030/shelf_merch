@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/tenant/PageHeader";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
 import type { SettingsVm } from "../controllers/useSettingsController";
 import { TransferOwnershipDialog } from "../TransferOwnershipDialog";
+import { DevelopersPanel } from "../developers/DevelopersPanel";
 import "../settings-page.css";
 
 function ownerInitials(name: string) {
@@ -28,6 +29,8 @@ export function SettingsView(vm: SettingsVm) {
             [
               ["workspace", "Workspace settings"],
               ["sso", "SSO"],
+              // API keys are company-admin only.
+              ...(vm.canEditWorkspace ? ([["developers", "Developers"]] as const) : []),
             ] as const
           ).map(([key, label]) => (
             <button
@@ -44,7 +47,13 @@ export function SettingsView(vm: SettingsVm) {
         </div>
 
         <div className="settings-main">
-          {vm.tab === "workspace" ? <WorkspaceSettingsView {...vm} /> : <SsoSettingsView {...vm} />}
+          {vm.tab === "workspace" ? (
+            <WorkspaceSettingsView {...vm} />
+          ) : vm.tab === "developers" ? (
+            <DevelopersPanel canWrite={vm.canEditWorkspace} />
+          ) : (
+            <SsoSettingsView {...vm} />
+          )}
         </div>
       </div>
     </div>
