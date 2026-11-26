@@ -389,6 +389,102 @@ describe('SerpAPI shopping product cards', () => {
     expect(more.followUp).toBe(true);
   });
 
+  it('searches earbuds as earbuds and drops headphone titles', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        shopping_results: [
+          listing('Yaroh Wireless Bluetooth Headphones', '₹500', 500),
+          listing('OnePlus Nord Buds earbuds', '₹1299', 1299),
+        ],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await runSerpShoppingRecommendation({
+      text: 'show me wireless earbuds under 2000',
+      discover: true,
+    });
+    const query = new URL(String(fetchMock.mock.calls[0][0])).searchParams.get('q');
+    expect(query).toContain('wireless earbuds');
+    expect(query).not.toContain('headphones');
+    expect(result.products.map((row) => row.product.name)).toEqual(['OnePlus Nord Buds earbuds']);
+  });
+
+  it('lowers the cap and skips the cards already shown when the user asks to make it cheaper', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    const shown = listing('Premium earbuds', '₹1800', 1800);
+    const stillHigh = listing('Other earbuds', '₹1700', 1700);
+    const cheap = listing('Basic earbuds', '₹799', 799);
+    const messages = [
+      { role: 'user', content: 'show me wireless earbuds under 2000' },
+      {
+        role: 'assistant',
+        artifacts: [{
+          kind: 'external_product',
+          product: {
+            imageProvenance: 'shopping_result',
+            name: shown.title,
+            productUrl: shown.link,
+            priceNumeric: 1800,
+          },
+        }],
+      },
+    ];
+    expect(isShoppingFollowUp('make it cheaper', messages)).toBe(true);
+    expect(isShoppingFollowUp('Exclude these', messages)).toBe(true);
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const parsed = new URL(String(url));
+      expect(parsed.searchParams.get('q')).toContain('wireless earbuds');
+      const page = parsed.searchParams.get('start') === '20' ? [] : [shown, stillHigh, cheap];
+      return { ok: true, json: async () => ({ shopping_results: page }) };
+    }));
+    const cheaper = await runSerpShoppingRecommendation({
+      text: 'make it cheaper',
+      messages,
+      discover: true,
+    });
+    expect(cheaper.products.map((row) => row.product.name)).toEqual(['Other earbuds', 'Basic earbuds']);
+    expect(cheaper.followUp).toBe(true);
+  });
+
+  it('keeps the same search and drops the cards on screen when the user says exclude these', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    const shown = listing('Premium earbuds', '₹1800', 1800);
+    const next = listing('Basic earbuds', '₹799', 799);
+    const messages = [
+      { role: 'user', content: 'show me wireless earbuds' },
+      {
+        role: 'assistant',
+        artifacts: [{
+          kind: 'external_product',
+          product: {
+            imageProvenance: 'shopping_result',
+            name: shown.title,
+            productUrl: shown.link,
+            priceNumeric: 1800,
+          },
+        }],
+      },
+    ];
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const page = new URL(String(url)).searchParams.get('start') === '20' ? [] : [shown, next];
+      return { ok: true, json: async () => ({ shopping_results: page }) };
+    }));
+    const excluded = await runSerpShoppingRecommendation({
+      text: 'Exclude these',
+      messages,
+      discover: true,
+    });
+    expect(excluded.products.map((row) => row.product.name)).toEqual(['Basic earbuds']);
+  });
+
   it('keeps later Google Shopping links when only the query string differs', () => {
     const shown = 'https://www.google.com/search?ibp=oshop&q=bottle-a';
     const next = 'https://www.google.com/search?ibp=oshop&q=bottle-b';

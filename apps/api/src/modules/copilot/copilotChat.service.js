@@ -407,6 +407,58 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
   return shopping;
 }
 
+function discoverCitationRequest(text, messages) {
+  if (isProductShoppingRequest(text) || isShoppingFollowUp(text, messages) || prefersShoppingCards(text) || rememberedShoppingPlan(text, messages)) return null;
+  const prior = [...messages].reverse().find((message) => message.role === 'assistant'
+    && message.artifacts?.some?.((row) => row.kind === 'web_research'));
+  const priorResearch = prior?.artifacts?.find((row) => row.kind === 'web_research')?.research;
+  const request = publicResearchRequest(text, priorResearch);
+  if (!request?.topic || !['research', 'trends'].includes(request.purpose)) return null;
+  const { category, company, ...brief } = request;
+  return { brief: { ...brief, source: 'external' }, company };
+}
+
+async function citeDiscoverQuestion({ brief, company, signal, providerStatus, onEvent, tenantId, userId }) {
+  const client = createAnthropicClient();
+  if (!client) return null;
+  onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
+  const external = await runCopilotWebResearch({
+    client, model: providerStatus.model, brief, signal, tenantId, userId,
+  });
+  const canSynthesize = !signal?.aborted && (external.status !== 'limited' || external.sources.length);
+  const synthesis = canSynthesize
+    ? await synthesizeResearch({
+      client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog: [], signal,
+    })
+    : { content: '', sources: [], usage: {}, diagnostics: { outcome: 'skipped' } };
+  const leads = synthesis.sources.length ? [] : fallbackResearchLeads(brief, [...external.sources, ...external.leads]);
+  const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics?.outcome);
+  const status = synthesis.sources.length
+    ? (synthesis.diagnostics?.citationFallback && external.status === 'completed' ? 'partial' : external.status)
+    : external.sources.length
+      ? (synthesisFailed ? 'synthesis_failed' : 'unverified')
+      : external.status;
+  return {
+    content: synthesis.content || '',
+    cited: synthesis.sources.length > 0,
+    copyUsage: {
+      promptTokens: (external.usage?.promptTokens || 0) + (synthesis.usage?.promptTokens || 0),
+      completionTokens: (external.usage?.completionTokens || 0) + (synthesis.usage?.completionTokens || 0),
+    },
+    webSearchRequests: external.usage?.webSearchRequests || 0,
+    artifact: {
+      kind: 'web_research',
+      research: {
+        brief, status,
+        sources: synthesis.sources.length ? synthesis.sources : leads,
+        summarized: true,
+        ...(leads.length ? { leadsOnly: true } : {}),
+        checkedAt: new Date().toISOString(),
+      },
+    },
+  };
+}
+
 async function describeShoppingCards({ ask, cards, signal, providerStatus }) {
   const complete = providerStatus.provider === 'anthropic' ? streamAnthropicCompletion : streamOpenAiCompletion;
   const client = providerStatus.provider === 'anthropic' ? createAnthropicClient() : createOpenAiClient();
@@ -738,8 +790,29 @@ export async function streamAssistantTurn({
   if (discoverLane) {
     const startedAt = Date.now();
     let shopping = { content: '', products: [], queries: 0, followUp: false, copyUsage: {} };
+    let researchArtifact = null;
+    let citedSearches = 0;
+    let searched = false;
     try {
-      shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
+      const citation = discoverCitationRequest(text, conversation.messages);
+      if (citation && webResearchEnabled(providerStatus.provider)) {
+        searched = true;
+        const cited = await citeDiscoverQuestion({
+          ...citation, signal, providerStatus, onEvent, tenantId, userId,
+        });
+        citedSearches = cited?.webSearchRequests || 0;
+        researchArtifact = cited?.artifact || null;
+        if (cited?.content) {
+          shopping = { content: cited.content, products: [], queries: 0, followUp: false, copyUsage: cited.copyUsage || {} };
+        } else {
+          shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
+        }
+      } else {
+        if (citation) {
+          researchArtifact = { kind: 'web_research', research: { brief: citation.brief, status: 'disabled', sources: [], summarized: true } };
+        }
+        shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
+      }
     } catch (error) {
       if (signal?.aborted || error?.name === 'AbortError') throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
       logger.info({ outcome: 'error' }, 'Copilot discover turn failed');
@@ -748,19 +821,20 @@ export async function streamAssistantTurn({
     if (!shopping.content) shopping.content = shopping.products?.length
       ? 'Here are the products that match.'
       : 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.';
-    const artifacts = shopping.products || [];
+    const artifacts = [...(researchArtifact ? [researchArtifact] : []), ...(shopping.products || [])];
     conversation.messages.push({ role: 'assistant', content: shopping.content, artifacts });
     await persistTurn();
     const usage = await recordUsage({
       tenantId, userId, provider: providerStatus.provider, model: providerStatus.model,
       promptTokens: shopping.copyUsage?.promptTokens || 0,
       completionTokens: shopping.copyUsage?.completionTokens || 0,
-      webSearchRequests: shopping.queries || 0,
+      webSearchRequests: (shopping.queries || 0) + citedSearches,
       latencyMs: Date.now() - startedAt,
     });
     onEvent?.({ type: 'delta', text: shopping.content });
     if (artifacts.length) onEvent?.({ type: 'artifacts', artifacts });
-    if (artifacts.length) onEvent?.({ type: 'tool', name: 'web_search', status: 'done' });
+    if (searched) onEvent?.({ type: 'tool', name: 'web_search', status: ['completed', 'partial'].includes(researchArtifact?.research?.status) ? 'done' : 'error' });
+    else if (shopping.products?.length) onEvent?.({ type: 'tool', name: 'web_search', status: 'done' });
     onEvent?.({ type: 'done', conversationId: String(conversation._id), title: conversation.title, usage });
     return conversation;
   }

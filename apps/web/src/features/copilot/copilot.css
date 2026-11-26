@@ -350,6 +350,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .sm-copilot-page--welcome {
   background:
@@ -641,11 +642,13 @@
 }
 .sm-copilot-compose-area {
   position: relative;
+  z-index: 2;
   flex: none;
   width: 100%;
   max-width: 812px;
   padding: 10px 28px 12px;
   margin: 0 auto;
+  background: var(--cp-chat);
 }
 .sm-copilot-composer-wrap {
   width: 100%;
@@ -1777,6 +1780,7 @@
 .sm-copilot-page--welcome .sm-copilot-compose-area {
   max-width: none;
   padding: 18px 0 8px;
+  background: transparent;
 }
 .sm-copilot-composer-foot--usage {
   display: flex;

@@ -85,9 +85,9 @@ async function workspace({ webSearch = true, role = 'company_admin' } = {}) {
   const toolCtx = buildCopilotToolCtx({ tenantId: scope.tenantId, user: { userId: scope.userId, role } });
   return {
     ...scope, id: conversation.id,
-    async turn(content, mode = 'chat') {
+    async turn(content, mode = 'chat', lane) {
       const events = [];
-      await streamAssistantTurn({ ...scope, conversationId: conversation.id, toolCtx, content, mode, onEvent: event => events.push(event) });
+      await streamAssistantTurn({ ...scope, conversationId: conversation.id, toolCtx, content, mode, ...(lane ? { lane } : {}), onEvent: event => events.push(event) });
       const saved = await CopilotConversation.findById(conversation.id).lean();
       return { reply: saved.messages.at(-1), events, saved };
     },
@@ -681,5 +681,49 @@ describe('general public web research routing', () => {
     expect(reply.content).toMatch(/Faster Lambda cold starts/);
     expect(reply.artifacts.some(row => row.kind === 'product' || row.kind === 'external_product')).toBe(false);
     expect(JSON.parse(stream.mock.calls[0][0].messages[0].content).topic).toMatch(/AWS Lambda/i);
+  });
+
+  it('cites public sources on Discover without shopping cards or the ShelfMerch catalog', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const excerpt = 'The respondents favored useful reusable gifts over single-use items.';
+    stream.mockResolvedValueOnce(native([
+      searchResult(sourceUrl),
+      { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, '2026 India Employee Gifting Survey'), cited_text: excerpt }] },
+    ])).mockResolvedValueOnce(synthesis([{
+      source: 1,
+      name: 'Survey respondents prefer reusable gifts',
+      evidence: excerpt,
+      reason: 'Prioritize useful reusable gifts and let recipients select what they will use.',
+    }]));
+    const { reply } = await chat.turn('Research recent corporate gifting trends in India.', 'chat', 'discover');
+    const research = reply.artifacts.find((row) => row.kind === 'web_research').research;
+    expect(research).toMatchObject({
+      status: 'completed',
+      brief: { purpose: 'trends', source: 'external' },
+      sources: [{ url: sourceUrl, title: '2026 India Employee Gifting Survey', excerpt }],
+    });
+    expect(reply.content).toContain('Prioritize useful reusable gifts');
+    expect(reply.content).toContain('[Source 1]');
+    expect(reply.artifacts.some((row) => row.kind === 'product' || row.kind === 'external_product')).toBe(false);
+    expect(stream.mock.calls[0][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 } });
+    expect(JSON.parse(stream.mock.calls[1][0].messages[0].content).verifiedShelfMerch).toEqual([]);
+  });
+
+  it('keeps a Discover answer and skips web search when the research kill switch is on', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH = 'true';
+    stream.mockResolvedValueOnce({
+      text: 'Reusable gifts are the current corporate gifting trend in India.',
+      finishReason: 'end_turn',
+      toolCalls: [],
+      usage: { promptTokens: 10, completionTokens: 8 },
+    });
+    const { reply } = await chat.turn('Research recent corporate gifting trends in India.', 'chat', 'discover');
+    expect(reply.content).toMatch(/Reusable gifts/);
+    expect(reply.artifacts[0].research.status).toBe('disabled');
+    expect(reply.artifacts[0].research.sources).toEqual([]);
+    expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
   });
 });

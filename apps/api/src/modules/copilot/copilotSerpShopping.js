@@ -23,7 +23,8 @@ const NAMED_PRODUCTS = [
   [/\b(?:bluetooth speakers?|mini speakers?)\b/i, DEFAULT_GIFT_QUERIES[2]],
   [/\b(?:notebooks?|diaries|diary|journals?)\b/i, DEFAULT_GIFT_QUERIES[3]],
   [/\b(?:power\s*banks?)\b/i, DEFAULT_GIFT_QUERIES[4]],
-  [/\b(?:headphones?|earbuds?)\b/i, { query: 'wireless headphones', reason: 'A useful audio gift for work and commute.' }],
+  [/\bearbuds?\b|\bearphones?\b|\bbuds\b/i, { query: 'wireless earbuds', reason: 'A compact audio gift for calls and commute.', require: /\b(?:earbuds?|earphones?|buds)\b/i, drop: /\bheadphones?\b/i }],
+  [/\bheadphones?\b/i, { query: 'wireless headphones', reason: 'A useful audio gift for work and commute.', require: /\bheadphones?\b/i }],
   [/\b(?:mugs?)\b/i, { query: 'ceramic coffee mug gift', reason: 'A simple everyday desk gift.', require: /\bmugs?\b/i }],
   [/\bpens?\b/i, { query: 'gel pen', reason: 'A simple pen for notes and meetings.' }],
 ];
@@ -157,9 +158,40 @@ export function rememberedShoppingPlan(text, messages = []) {
   };
 }
 
+const CHEAPER_FOLLOW_UP = /\b(?:cheaper|less expensive|more affordable|lower(?:\s+the)?\s+price|make it cheaper)\b/i;
+const EXCLUDE_FOLLOW_UP = /\b(?:exclude|skip|drop|remove|leave out|without|not)\s+(?:these|those|them|this)\b/i;
+const MORE_FOLLOW_UP = /\b(?:more|another|different|other|else|again|same|repeat|duplicates?|new ones)\b/i;
+
+export function shoppingFollowUpKind(text) {
+  if (typeof text !== 'string') return null;
+  if (CHEAPER_FOLLOW_UP.test(text)) return 'cheaper';
+  if (EXCLUDE_FOLLOW_UP.test(text)) return 'exclude';
+  if (MORE_FOLLOW_UP.test(text)) return 'more';
+  return null;
+}
+
+function shownPrices(messages = []) {
+  const prices = [];
+  for (const message of messages) {
+    for (const artifact of message?.artifacts || []) {
+      const price = Number(artifact?.product?.priceNumeric);
+      if (artifact?.kind === 'external_product' && price > 0) prices.push(price);
+    }
+  }
+  return prices;
+}
+
+function cheaperThanShown(messages, previous) {
+  const prices = shownPrices(messages);
+  const cap = prices.length ? Math.min(...prices) : previous?.inr;
+  if (!(cap > 0)) return previous;
+  return { inr: Math.max(49, Math.floor(cap) - 1), exclusive: true };
+}
+
 export function isShoppingFollowUp(text, messages = []) {
-  if (!shownShoppingProducts(messages).urls.size) return false;
-  return /\b(?:more|another|different|other|else|again|same|repeat|duplicates?|new ones)\b/i.test(text);
+  const shown = shownShoppingProducts(messages);
+  if (!shown.urls.size && !shown.names.size) return false;
+  return Boolean(shoppingFollowUpKind(text));
 }
 
 /** "Show me kitchen ideas" should return product cards, not a concept essay. Kit-writing prompts stay on the creative lane. */
@@ -530,6 +562,7 @@ export function planFromAssistant(toolArgs = {}) {
 }
 
 export function discoverSearchPlan({ text, messages = [], toolArgs } = {}) {
+  if (isShoppingFollowUp(text, messages)) return null;
   const modelPlan = planFromAssistant(toolArgs);
   if (focusedSearch(shoppingText(text)) && (!modelPlan || modelPlan.queries.length < 2)) {
     return shoppingPlan(text, { discover: true });
@@ -555,9 +588,17 @@ export async function runSerpShoppingRecommendation({
       apiCalls: 0,
     };
   }
-  const plan = suppliedPlan
+  let plan = suppliedPlan
     || (discover && rememberedShoppingPlan(text, messages))
     || shoppingPlan(discover ? earlierSearchText(text, messages) : text, { discover });
+  if (shoppingFollowUpKind(text) === 'cheaper' && Array.isArray(plan?.queries)) {
+    const budget = cheaperThanShown(messages, plan.budget);
+    plan = {
+      ...plan,
+      budget,
+      queries: plan.queries.map((query) => ({ ...query, budget })),
+    };
+  }
   const exclude = shownShoppingProducts(messages);
   const more = followUp;
   const retrievedAt = new Date().toISOString();
