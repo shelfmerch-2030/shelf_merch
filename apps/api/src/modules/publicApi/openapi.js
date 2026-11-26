@@ -46,8 +46,88 @@ export function buildOpenApi(serverUrl) {
       { name: 'Orders' },
       { name: 'Products' },
       { name: 'SKU mappings', description: 'Map your own SKUs to ShelfMerch products, then send your SKUs in `items[].sku`. Mappings belong to the workspace and are shared by test and live keys.' },
+      { name: 'Catalog', description: 'Import the ShelfMerch catalog into your platform and keep it in sync. Order imported products by `variant_id` (or `product_id` + size/color) — no SKUs of your own needed.' },
     ],
     paths: {
+      '/catalog/products': {
+        get: {
+          tags: ['Catalog'],
+          summary: 'List catalog products',
+          description:
+            'Ordered by `updated_at`, then id, so paging is stable. For incremental sync pass `updated_since` (your last `sync_checkpoint`); ' +
+            'the response then also includes products discontinued since then (`status: "discontinued"`). Requires `catalog:read`.',
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 250, default: 100 } },
+            { name: 'cursor', in: 'query', description: 'The `next_cursor` of the previous page.', schema: { type: 'string' } },
+            { name: 'updated_since', in: 'query', schema: { type: 'string', format: 'date-time' } },
+            { name: 'status', in: 'query', description: 'Default `active`; `all` when `updated_since` is set.', schema: { type: 'string', enum: ['active', 'discontinued', 'all'] } },
+            { name: 'category', in: 'query', description: 'Category name, label or id.', schema: { type: 'string' } },
+            { name: 'ids', in: 'query', description: 'Up to 100 comma-separated product ids.', schema: { type: 'string' } },
+            { name: 'imported', in: 'query', description: '`true`: only products you imported.', schema: { type: 'string', enum: ['true', 'false'] } },
+          ],
+          responses: {
+            200: { description: 'Products', content: { 'application/json': { schema: { type: 'object', properties: { object: { const: 'list' }, data: { type: 'array', items: ref('CatalogProduct') }, has_more: { type: 'boolean' }, next_cursor: { type: ['string', 'null'] }, sync_checkpoint: { type: ['string', 'null'], format: 'date-time' } } } } } },
+            ...errorResponses(400, 401, 403, 429),
+          },
+        },
+      },
+      '/catalog/products/{id}': {
+        parameters: [{ name: 'id', in: 'path', required: true, description: 'Product id or product SKU.', schema: { type: 'string' } }],
+        get: { tags: ['Catalog'], summary: 'Retrieve a catalog product', responses: { 200: { description: 'Product', content: { 'application/json': { schema: ref('CatalogProduct') } } }, ...errorResponses(401, 403, 404) } },
+      },
+      '/catalog/categories': {
+        get: { tags: ['Catalog'], summary: 'List categories', responses: { 200: { description: 'Flat category tree (parent_id links)', content: { 'application/json': { schema: { type: 'object' } } } }, ...errorResponses(401, 403) } },
+      },
+      '/catalog/imports': {
+        post: {
+          tags: ['Catalog'],
+          summary: 'Import products',
+          description:
+            'Record which products you carry: `{"all": true}` (optionally with `category`) or `{"product_ids": [...]}` (up to 1,000). ' +
+            'Re-importing never duplicates: unchanged products are `skipped`, changed ones `updated`. Imported products get catalog webhooks. Requires `catalog:import`.',
+          parameters: [{ $ref: '#/components/parameters/IdempotencyKeyOptional' }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { all: { const: true }, product_ids: { type: 'array', maxItems: 1000, items: { type: 'string' } }, category: { type: 'string' } } } } } },
+          responses: { 201: { description: 'Completed import with summary', content: { 'application/json': { schema: ref('CatalogImport') } } }, ...errorResponses(400, 401, 403, 429) },
+        },
+        get: {
+          tags: ['Catalog'],
+          summary: 'List recent imports',
+          parameters: [{ name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }],
+          responses: { 200: { description: 'Imports', content: { 'application/json': { schema: { type: 'object', properties: { data: { type: 'array', items: ref('CatalogImport') } } } } } }, ...errorResponses(401, 403) },
+        },
+      },
+      '/catalog/imports/{id}': {
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        get: { tags: ['Catalog'], summary: 'Retrieve an import', responses: { 200: { description: 'Import', content: { 'application/json': { schema: ref('CatalogImport') } } }, ...errorResponses(401, 403, 404) } },
+      },
+      '/catalog/imports/{id}/items': {
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        get: {
+          tags: ['Catalog'],
+          summary: 'Per-product results of an import',
+          parameters: [
+            { name: 'result', in: 'query', description: 'Comma list of imported, updated, skipped, failed.', schema: { type: 'string' } },
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 100 } },
+            { name: 'starting_after', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'Results with `reason` for skipped/failed (`unchanged_since_last_import`, `product_not_found`, `product_discontinued`)', content: { 'application/json': { schema: { type: 'object' } } } }, ...errorResponses(401, 403, 404) },
+        },
+      },
+      '/catalog/imported': {
+        get: {
+          tags: ['Catalog'],
+          summary: 'List products you imported',
+          parameters: [
+            { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 100 } },
+            { name: 'starting_after', in: 'query', schema: { type: 'string' } },
+          ],
+          responses: { 200: { description: 'Imported product ids', content: { 'application/json': { schema: { type: 'object' } } } }, ...errorResponses(401, 403) },
+        },
+      },
+      '/catalog/imported/{product_id}': {
+        parameters: [{ name: 'product_id', in: 'path', required: true, schema: { type: 'string' } }],
+        delete: { tags: ['Catalog'], summary: 'Stop syncing a product (no more catalog webhooks for it)', responses: { 200: { description: 'Removed' }, ...errorResponses(401, 403, 404) } },
+      },
       '/products': {
         get: {
           tags: ['Products'],
@@ -209,6 +289,52 @@ export function buildOpenApi(serverUrl) {
         Sku: { name: 'sku', in: 'path', required: true, description: 'Your SKU, URL-encoded (e.g. `ACME%2FTEE-01`).', schema: { type: 'string', maxLength: 120 } },
       },
       schemas: {
+        CatalogProduct: {
+          type: 'object',
+          properties: {
+            object: { const: 'catalog_product' },
+            id: { type: 'string', description: 'Stable product id — store it; use as product_id in orders.' },
+            sku: { type: 'string' },
+            name: { type: 'string' },
+            status: { type: 'string', enum: ['active', 'discontinued'] },
+            brand: { type: ['string', 'null'] },
+            description: { type: 'string' },
+            category: { type: 'object', properties: { path: { type: 'array', items: { type: 'string' } }, ids: { type: 'array', items: { type: 'string' } }, labels: { type: 'array', items: { type: 'string' } } } },
+            images: { type: 'array', items: { type: 'object', properties: { url: { type: 'string' }, position: { type: 'integer' }, primary: { type: 'boolean' } } } },
+            price: { type: 'object', properties: { amount: { type: 'number' }, currency: { const: 'INR' }, tax_inclusive: { type: 'boolean' }, gst_rate: { type: 'number' } } },
+            availability: { type: 'object', properties: { status: { type: 'string', enum: ['in_stock', 'out_of_stock', 'made_to_order', 'discontinued'] }, quantity: { type: ['integer', 'null'] } } },
+            specifications: { type: 'object', description: 'material, hsn_code, gst_rate, min_order_quantity, production_days, dimensions_in, printable_areas, customization_methods' },
+            variants: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'Stable variant id — use as variant_id in orders.' },
+                  sku: { type: 'string' },
+                  sku_unique: { type: 'boolean', description: 'false when variants share a SKU — order those by variant_id.' },
+                  size: { type: ['string', 'null'] },
+                  color: { type: ['string', 'null'] },
+                  color_hex: { type: ['string', 'null'] },
+                  price: { type: 'object', properties: { amount: { type: 'number' }, currency: { const: 'INR' }, tax_inclusive: { type: 'boolean' } } },
+                  available: { type: 'boolean' },
+                },
+              },
+            },
+            created_at: { type: 'string', format: 'date-time' },
+            updated_at: { type: 'string', format: 'date-time' },
+          },
+        },
+        CatalogImport: {
+          type: 'object',
+          properties: {
+            object: { const: 'catalog_import' },
+            id: { type: 'string' },
+            status: { type: 'string', enum: ['completed', 'failed'] },
+            summary: { type: 'object', properties: { requested: { type: 'integer' }, imported: { type: 'integer' }, updated: { type: 'integer' }, skipped: { type: 'integer' }, failed: { type: 'integer' } } },
+            created_at: { type: 'string', format: 'date-time' },
+            finished_at: { type: ['string', 'null'], format: 'date-time' },
+          },
+        },
         SkuMappingInput: {
           type: 'object',
           required: ['catalog_sku'],
@@ -270,9 +396,12 @@ export function buildOpenApi(serverUrl) {
               maxItems: 100,
               items: {
                 type: 'object',
-                required: ['sku', 'quantity'],
+                required: ['quantity'],
+                description: 'Identify the product with exactly one of `sku`, `product_id` or `variant_id`.',
                 properties: {
                   sku: { type: 'string', description: 'Your mapped SKU, a branded listing id (`collectionId:productId`), or a ShelfMerch catalog/variant SKU.' },
+                  product_id: { type: 'string', description: 'A catalog product `id` (GET /catalog/products); pick the variant with size/color.' },
+                  variant_id: { type: 'string', description: 'A catalog variant `id` — the exact size/colour, no size/color needed.' },
                   quantity: { type: 'integer', minimum: 1, maximum: 10000 },
                   size: { type: 'string', description: '"2XL" and "XXL" are treated as the same size.' },
                   color: { type: 'string' },

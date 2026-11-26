@@ -10,6 +10,14 @@ function leaseKeyFor(scope) {
   return buildIdempotencyKey(scope) + ':lease';
 }
 
+/**
+ * A stored result is only replayed for the same request. Records without a fingerprint (routes that
+ * don't opt in, or stored before this check existed) keep replaying as before.
+ */
+function fingerprintMismatch(stored, incoming) {
+  return Boolean(stored && incoming && stored !== incoming);
+}
+
 function freshLease() {
   return JSON.stringify({ expiresAt: Date.now() + LEASE_MS });
 }
@@ -41,7 +49,8 @@ async function beginRedis(scope, meta = {}) {
   }
   if (raw) {
     try {
-      const { statusCode, response } = JSON.parse(raw);
+      const { statusCode, response, fingerprint } = JSON.parse(raw);
+      if (fingerprintMismatch(fingerprint, meta.fingerprint)) return { action: 'mismatch' };
       return { action: 'replay', statusCode, response };
     } catch {
       return { action: 'in_flight' };
@@ -52,9 +61,10 @@ async function beginRedis(scope, meta = {}) {
   return retry ? { action: 'proceed' } : { action: 'in_flight' };
 }
 
-async function completeRedis(scope, { statusCode, response }) {
+async function completeRedis(scope, { statusCode, response, fingerprint = null }) {
   const redisKey = buildIdempotencyKey(scope);
-  await getRedis().set(redisKey, JSON.stringify({ statusCode, response }), 'EX', IDEMPOTENCY_TTL_SEC);
+  const record = fingerprint ? { statusCode, response, fingerprint } : { statusCode, response };
+  await getRedis().set(redisKey, JSON.stringify(record), 'EX', IDEMPOTENCY_TTL_SEC);
 }
 
 async function releaseRedis(scope) {
@@ -65,6 +75,7 @@ async function beginMongo(scope, meta) {
   const existing = await IdempotencyKey.findOne(scope);
   if (existing) {
     if (existing.response !== null) {
+      if (fingerprintMismatch(existing.fingerprint, meta.fingerprint)) return { action: 'mismatch' };
       return { action: 'replay', statusCode: existing.statusCode, response: existing.response };
     }
     const expiresAt = existing.leaseExpiresAt ? new Date(existing.leaseExpiresAt).getTime() : null;
@@ -90,8 +101,8 @@ async function beginMongo(scope, meta) {
   }
 }
 
-async function completeMongo(scope, { statusCode, response }) {
-  await IdempotencyKey.updateOne(scope, { statusCode, response });
+async function completeMongo(scope, { statusCode, response, fingerprint = null }) {
+  await IdempotencyKey.updateOne(scope, { statusCode, response, ...(fingerprint ? { fingerprint } : {}) });
 }
 
 async function releaseMongo(scope) {

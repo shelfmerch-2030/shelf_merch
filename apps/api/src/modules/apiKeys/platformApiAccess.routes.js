@@ -13,6 +13,7 @@ import { ApiKey } from './apiKey.model.js';
 import { listApiKeys, revokeApiKey } from './apiKeys.service.js';
 import { WebhookEndpoint } from '../webhooks/webhook.models.js';
 import { listEndpoints } from '../webhooks/webhooks.service.js';
+import { ImportedProduct } from '../catalogSync/catalogSync.models.js';
 
 /**
  * /api/v1/platform/api-access — ShelfMerch staff view of a tenant's public-API
@@ -29,12 +30,13 @@ platformApiAccessRouter.get(
   asyncHandler(async (req, res) => {
     const tenantId = req.query.tenantId;
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
-    const [keys, endpoints, orders30d] = await Promise.all([
+    const [keys, endpoints, orders30d, importedProducts] = await Promise.all([
       listApiKeys({ tenantId, includeRevoked: true }),
       listEndpoints({ tenantId }),
       Order.countDocuments({ tenantId, source: 'api', testMode: false, createdAt: { $gte: since } }),
+      ImportedProduct.countDocuments({ tenantId, removedAt: null }),
     ]);
-    res.json({ keys, endpoints, liveApiOrdersLast30Days: orders30d });
+    res.json({ keys, endpoints, liveApiOrdersLast30Days: orders30d, importedProducts });
   }),
 );
 

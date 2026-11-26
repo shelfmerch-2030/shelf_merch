@@ -156,5 +156,8 @@ catalogProductSchema.index({ status: 1, basePriceInr: 1 });
 catalogProductSchema.index({ categoryIds: 1 });
 catalogProductSchema.index({ categoryLabels: 1 });
 catalogProductSchema.index({ 'source.provider': 1, 'source.externalId': 1 });
+// Public Catalog API incremental sync: ?updated_since=… with a stable (updatedAt, _id) cursor.
+catalogProductSchema.index({ updatedAt: 1, _id: 1 });
+catalogProductSchema.index({ 'variants.sku': 1 });
 
 export const CatalogProduct = mongoose.model('CatalogProduct', catalogProductSchema);

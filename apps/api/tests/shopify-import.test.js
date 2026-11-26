@@ -460,6 +460,34 @@ describe('Shopify catalog import', () => {
     });
   });
 
+  it('mergeShopifyVariants keeps the id of matched variants (stable public variant ids)', () => {
+    const merged = mergeShopifyVariants(
+      [
+        { _id: 'v-keep', sku: 'XG-1', size: 'L', color: 'Black' },
+        { _id: 'v-blank', sku: '', size: 'M', color: 'Red' },
+      ],
+      [
+        { sku: 'XG-1', size: 'L', color: 'Black', stock: 3 },
+        { sku: '', size: 'M', color: 'Red', stock: 1 },
+        { sku: 'XG-NEW', size: 'S', color: 'Blue', stock: 1 },
+      ],
+    );
+    expect(merged.map((v) => v._id)).toEqual(['v-keep', 'v-blank', undefined]);
+  });
+
+  it('mergeShopifyVariants matches shared-SKU variants by size/colour, not position', () => {
+    const prev = [
+      { _id: 'navy-l', sku: 'APRN-1007', size: 'L', color: 'Midnight Navy' },
+      { _id: 'red-l', sku: 'APRN-1007', size: 'L', color: 'Heather red' },
+    ];
+    // The store reordered its variants.
+    const merged = mergeShopifyVariants(prev, [
+      { sku: 'APRN-1007', size: 'L', color: 'Heather red' },
+      { sku: 'APRN-1007', size: 'L', color: 'Midnight Navy' },
+    ]);
+    expect(merged.map((v) => [v._id, v.color])).toEqual([['red-l', 'Heather red'], ['navy-l', 'Midnight Navy']]);
+  });
+
   it('prefers India country HSN over the general HS code', () => {
     expect(
       resolveHsnFromInventoryItems([

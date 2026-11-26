@@ -343,23 +343,31 @@ function UsersTab({
 function OrdersTab({ tenantId }: { tenantId: string }) {
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
   const [error, setError] = useState("");
+  // Sandbox (test API key) orders are hidden unless asked for, same as the main Orders list.
+  const [includeTest, setIncludeTest] = useState(false);
 
   useEffect(() => {
-    fetchPlatformOrders({ tenantId, limit: 50 })
+    setRows(null);
+    fetchPlatformOrders({ tenantId, limit: 50, ...(includeTest ? { includeTest } : {}) })
       .then((res) => setRows((res.items as Record<string, unknown>[]) ?? []))
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load orders"));
-  }, [tenantId]);
+  }, [tenantId, includeTest]);
 
   if (error) return <PlatformError message={error} />;
-  if (!rows) return <PlatformLoading message="Loading orders…" />;
 
   return (
     <>
-      <div style={{ marginBottom: 10 }}>
-        <Link to={`/platform/orders?tenantId=${tenantId}`} className="btn btn-ghost btn-sm">
+      <div className="row" style={{ marginBottom: 10, gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <Link to={`/platform/orders?tenantId=${tenantId}${includeTest ? "&includeTest=true" : ""}`} className="btn btn-ghost btn-sm">
           Open in Orders →
         </Link>
+        <label className="row" style={{ gap: 6, alignItems: "center" }}>
+          <input type="checkbox" checked={includeTest} onChange={(e) => setIncludeTest(e.target.checked)} />
+          Show test (sandbox API) orders
+        </label>
       </div>
+      {!rows ? <PlatformLoading message="Loading orders…" /> : null}
+      {rows && (
       <DataTable
         empty="No orders for this tenant."
         rows={rows}
@@ -368,7 +376,10 @@ function OrdersTab({ tenantId }: { tenantId: string }) {
             key: "orderNumber",
             label: "Order",
             render: (r) => (
-              <Link to={`/platform/orders/${String(r._id)}`}>{String(r.orderNumber ?? r._id)}</Link>
+              <>
+                <Link to={`/platform/orders/${String(r._id)}`}>{String(r.orderNumber ?? r._id)}</Link>
+                {r.testMode ? <span className="tag" style={{ marginLeft: 6 }}>Test</span> : null}
+              </>
             ),
           },
           {
@@ -388,6 +399,7 @@ function OrdersTab({ tenantId }: { tenantId: string }) {
           },
         ]}
       />
+      )}
     </>
   );
 }

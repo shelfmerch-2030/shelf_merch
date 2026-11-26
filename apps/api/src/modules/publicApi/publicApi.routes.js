@@ -11,6 +11,8 @@ import { PUBLIC_ORDER_STATUSES } from './publicOrder.serializer.js';
 import * as orders from './publicOrders.service.js';
 import { listApiProducts } from './publicProducts.service.js';
 import * as skuMappings from './publicSkuMappings.service.js';
+import * as catalog from './publicCatalog.service.js';
+import * as catalogImports from '../catalogSync/catalogImport.service.js';
 import { writeAudit } from '../../services/audit.service.js';
 import { buildOpenApi } from './openapi.js';
 
@@ -67,11 +69,18 @@ const createOrderBody = z.object({
   items: z
     .array(
       z.object({
-        sku: str(120),
+        // Exactly one of: sku (yours, a listing id or a ShelfMerch SKU), product_id (+ size/color), variant_id.
+        sku: str(120).optional(),
+        product_id: z.string().regex(/^[a-f\d]{24}$/i, 'product_id must be a catalog product id').optional(),
+        variant_id: z.string().regex(/^[a-f\d]{24}$/i, 'variant_id must be a catalog variant id').optional(),
         quantity: z.number().int().min(1).max(10000),
         size: optStr(40),
         color: optStr(40),
         artwork_url: z.string().trim().url().max(2000).refine((u) => u.startsWith('https://'), 'artwork_url must be https').optional(),
+      })
+      .refine((i) => [i.sku, i.product_id, i.variant_id].filter(Boolean).length === 1, {
+        message: 'Send exactly one of sku, product_id or variant_id',
+        path: ['sku'],
       }),
     )
     .min(1)
@@ -103,6 +112,106 @@ publicApiRouter.get(
   asyncHandler(async (req, res) => res.json(await listApiProducts({ apiKey: req.apiKey, query: req.query }))),
 );
 
+// ---- catalog (import ShelfMerch's catalog into the client's platform and keep it in sync) ----
+publicApiRouter.get(
+  '/catalog/products',
+  requireApiScope('catalog:read'),
+  validate({
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(250).default(100),
+      cursor: optStr(200),
+      updated_since: z.coerce.date().optional(),
+      status: z.enum(['active', 'discontinued', 'all']).optional(),
+      category: optStr(120),
+      ids: optStr(2600),
+      imported: z.enum(['true', 'false']).optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const importedIds = req.query.imported === 'true' ? await catalogImports.importedIdsFor(req.tenantId) : null;
+    res.json(await catalog.listCatalogProducts({ query: req.query, importedIds }));
+  }),
+);
+
+const objectIdStr = z.string().regex(/^[a-f\d]{24}$/i, 'must be a catalog product id');
+
+publicApiRouter.post(
+  '/catalog/imports',
+  requireApiScope('catalog:import'),
+  idempotency({ recover: true, matchRequest: true }),
+  validate({
+    body: z
+      .object({
+        all: z.literal(true).optional(),
+        product_ids: z.array(z.string().trim().min(1).max(40)).min(1).max(catalogImports.MAX_IMPORT_IDS).optional(),
+        category: optStr(120),
+      })
+      .strict()
+      .refine((b) => Boolean(b.all) !== Boolean(b.product_ids), 'Send either "all": true or "product_ids"')
+      .refine((b) => !b.category || b.all, { message: 'category can only be combined with "all": true', path: ['category'] }),
+  }),
+  asyncHandler(async (req, res) => {
+    const result = await catalogImports.runImport({ apiKey: req.apiKey, body: req.body });
+    writeAudit({ req, action: 'catalog.import', entityType: 'CatalogImport', entityId: result.id, after: { via: 'public_api', apiKeyId: req.user.apiKeyId, ...result.summary } });
+    res.status(201).json(result);
+  }),
+);
+
+publicApiRouter.get(
+  '/catalog/imports',
+  requireApiScope('catalog:read'),
+  validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) }) }),
+  asyncHandler(async (req, res) => res.json(await catalogImports.listImports({ tenantId: req.tenantId, query: req.query }))),
+);
+
+publicApiRouter.get(
+  '/catalog/imports/:id',
+  requireApiScope('catalog:read'),
+  validate({ params: z.object({ id: str(40) }) }),
+  asyncHandler(async (req, res) => res.json(await catalogImports.getImport({ tenantId: req.tenantId, id: req.params.id }))),
+);
+
+publicApiRouter.get(
+  '/catalog/imports/:id/items',
+  requireApiScope('catalog:read'),
+  validate({
+    params: z.object({ id: str(40) }),
+    query: z.object({
+      result: z.string().regex(/^(imported|updated|skipped|failed)(,(imported|updated|skipped|failed))*$/).optional(),
+      limit: z.coerce.number().int().min(1).max(1000).default(100),
+      starting_after: z.string().regex(/^\d+$/).optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => res.json(await catalogImports.listImportItems({ tenantId: req.tenantId, id: req.params.id, query: req.query }))),
+);
+
+publicApiRouter.get(
+  '/catalog/imported',
+  requireApiScope('catalog:read'),
+  validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(1000).default(100), starting_after: objectIdStr.optional() }) }),
+  asyncHandler(async (req, res) => res.json(await catalogImports.listImported({ tenantId: req.tenantId, query: req.query }))),
+);
+
+publicApiRouter.delete(
+  '/catalog/imported/:product_id',
+  requireApiScope('catalog:import'),
+  validate({ params: z.object({ product_id: objectIdStr }) }),
+  asyncHandler(async (req, res) => res.json(await catalogImports.removeImported({ tenantId: req.tenantId, productId: req.params.product_id }))),
+);
+
+publicApiRouter.get(
+  '/catalog/products/:id',
+  requireApiScope('catalog:read'),
+  validate({ params: z.object({ id: str(120) }) }),
+  asyncHandler(async (req, res) => res.json(await catalog.getCatalogProduct({ id: req.params.id }))),
+);
+
+publicApiRouter.get(
+  '/catalog/categories',
+  requireApiScope('catalog:read'),
+  asyncHandler(async (req, res) => res.json(await catalog.listCatalogCategories())),
+);
+
 // ---- SKU mappings (the client's SKUs → ShelfMerch products; shared by test and live keys) ----
 const skuParams = z.object({ sku: skuMappings.skuParam });
 
@@ -122,7 +231,7 @@ publicApiRouter.get(
 publicApiRouter.post(
   '/sku-mappings/bulk',
   requireApiScope('sku_mappings:write'),
-  idempotency({ recover: true }),
+  idempotency({ recover: true, matchRequest: true }),
   validate({
     body: z.object({
       mappings: z.array(z.record(z.string(), z.unknown())).min(1).max(skuMappings.BULK_MAX),
@@ -170,7 +279,7 @@ publicApiRouter.delete(
 publicApiRouter.post(
   '/orders',
   requireApiScope('orders:write'),
-  idempotency({ required: true, recover: true }),
+  idempotency({ required: true, recover: true, matchRequest: true }),
   validate({ body: createOrderBody }),
   asyncHandler(async (req, res) => res.status(201).json(await orders.createApiOrder({ apiKey: req.apiKey, body: req.body }))),
 );
@@ -200,7 +309,7 @@ publicApiRouter.get(
 publicApiRouter.patch(
   '/orders/:id',
   requireApiScope('orders:write'),
-  idempotency({ recover: true }),
+  idempotency({ recover: true, matchRequest: true }),
   validate({ params: orderId, body: updateOrderBody }),
   asyncHandler(async (req, res) => res.json(await orders.updateApiOrder({ apiKey: req.apiKey, id: req.params.id, body: req.body }))),
 );
@@ -208,7 +317,7 @@ publicApiRouter.patch(
 publicApiRouter.post(
   '/orders/:id/cancel',
   requireApiScope('orders:write'),
-  idempotency({ recover: true }),
+  idempotency({ recover: true, matchRequest: true }),
   validate({ params: orderId, body: z.object({ reason: optStr(500) }).optional().default({}) }),
   asyncHandler(async (req, res) =>
     res.json(await orders.cancelApiOrder({ apiKey: req.apiKey, id: req.params.id, reason: req.body?.reason })),

@@ -27,6 +27,7 @@ import {
 } from "@/services/developers-api";
 import { CatalogMatchPanel } from "@/features/catalog-match/CatalogMatchPanel";
 import { tenantCatalogMatch } from "@/services/catalog-match-api";
+import { CatalogImportsSection } from "./CatalogImportsSection";
 import { WebhooksSection } from "./WebhooksSection";
 
 const SCOPE_LABEL: Record<ApiKeyScope, string> = {
@@ -35,6 +36,8 @@ const SCOPE_LABEL: Record<ApiKeyScope, string> = {
   "products:read": "Read products",
   "sku_mappings:read": "Read SKU mappings",
   "sku_mappings:write": "Manage SKU mappings",
+  "catalog:read": "Read catalog",
+  "catalog:import": "Import catalog",
 };
 
 const ALL_SCOPES = Object.keys(SCOPE_LABEL) as ApiKeyScope[];
@@ -230,6 +233,8 @@ export function DevelopersPanel({ canWrite }: { canWrite: boolean }) {
         </p>
         <CatalogMatchPanel client={matchClient} searchProducts={searchTenantCatalog} onMappingsChanged={reloadMappings} />
       </section>
+
+      <CatalogImportsSection />
 
       <CreateKeyDialog
         open={createOpen}

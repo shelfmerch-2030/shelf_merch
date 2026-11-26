@@ -27,6 +27,7 @@ vi.mock("@/services/developers-api", () => ({
   sendWebhookTest: vi.fn(),
   listWebhookDeliveries: vi.fn(),
   getWebhookDelivery: vi.fn(),
+  getCatalogImports: vi.fn(),
   resendWebhookDelivery: vi.fn(),
 }));
 
@@ -47,6 +48,7 @@ beforeEach(() => {
   vi.mocked(api.listApiKeys).mockResolvedValue([key]);
   vi.mocked(api.listTenantSkuMappings).mockResolvedValue([]);
   vi.mocked(api.listWebhooks).mockResolvedValue({ items: [], eventTypes: ["order.shipped"] });
+  vi.mocked(api.getCatalogImports).mockResolvedValue({ importedCount: 0, imports: [] });
 });
 afterEach(() => {
   cleanup();
@@ -65,11 +67,13 @@ describe("DevelopersPanel", () => {
     const createButtons = screen.getAllByRole("button", { name: "Create key" });
     fireEvent.click(createButtons[createButtons.length - 1]);
 
-    await waitFor(() => expect(api.createApiKey).toHaveBeenCalledWith({
+    await waitFor(() =>
+      expect(api.createApiKey).toHaveBeenCalledWith({
         name: "ERP",
         mode: "test",
-        scopes: ["orders:write", "orders:read", "products:read", "sku_mappings:read", "sku_mappings:write"],
-      }),);
+        scopes: ["orders:write", "orders:read", "products:read", "sku_mappings:read", "sku_mappings:write", "catalog:read", "catalog:import"],
+      }),
+    );
     expect(await screen.findByText("smk_test_aaaa_bbbb")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "I've saved it" }));
     await waitFor(() => expect(screen.queryByText("smk_test_aaaa_bbbb")).toBeNull());

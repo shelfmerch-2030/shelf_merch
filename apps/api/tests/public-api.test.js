@@ -400,6 +400,45 @@ describe('OpenAPI contract', () => {
   });
 });
 
+describe('Idempotency-Key reuse', () => {
+  it('replays the same request, but rejects the key for a different request instead of returning the old order', async () => {
+    const first = await post(liveKey.token, order({ external_id: 'IDEM-A' }), 'reused-key');
+    expect(first.status).toBe(201);
+
+    const retry = await post(liveKey.token, order({ external_id: 'IDEM-A' }), 'reused-key');
+    expect(retry.status).toBe(201);
+    expect(retry.headers['idempotent-replay']).toBe('true');
+    expect(retry.body.id).toBe(first.body.id);
+
+    const different = await post(liveKey.token, order({ external_id: 'IDEM-B' }), 'reused-key');
+    expect(different.status).toBe(422);
+    expect(different.body.error.code).toBe('idempotency_key_reused');
+    expect(await Order.countDocuments({ tenantId: tenant._id, 'apiRef.externalId': 'IDEM-B' })).toBe(0);
+
+    // Key order in the JSON body doesn't matter.
+    const { external_id, ...rest } = order({ external_id: 'IDEM-A' });
+    const reordered = await post(liveKey.token, { ...rest, external_id }, 'reused-key');
+    expect(reordered.body.id).toBe(first.body.id);
+  });
+});
+
+describe('platform orders list and sandbox orders', () => {
+  it('hides test-key orders by default and shows them with includeTest=true', async () => {
+    const t = (await post(testKey.token, order({ external_id: 'SANDBOX-1' }))).body;
+    expect(t.test).toBe(true);
+    const platform = await makeUser(null, 'platform_super_admin', 'platform');
+    const list = (qs) => request(app).get(`/api/v1/platform/orders?${qs}`).set('Authorization', `Bearer ${platform.token}`);
+
+    const hidden = await list('limit=100');
+    expect(hidden.status).toBe(200);
+    expect(hidden.body.items.map((o) => String(o._id))).not.toContain(t.id);
+
+    const shown = await list('limit=100&includeTest=true');
+    expect(shown.status).toBe(200);
+    expect(shown.body.items.map((o) => String(o._id))).toContain(t.id);
+  });
+});
+
 describe('platform API access view', () => {
   it("lists a tenant's keys and lets a super admin revoke one", async () => {
     const platform = await makeUser(null, 'platform_super_admin', 'platform');

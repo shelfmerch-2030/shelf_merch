@@ -3,7 +3,24 @@ import { apiFetch } from "./api";
 /** Tenant self-serve API access (company admins): keys, webhooks, tenant-wide SKU mappings. */
 
 export type ApiKeyMode = "live" | "test";
-export type ApiKeyScope = "orders:read" | "orders:write" | "products:read" | "sku_mappings:read" | "sku_mappings:write";
+export type ApiKeyScope =
+  | "orders:read"
+  | "orders:write"
+  | "products:read"
+  | "sku_mappings:read"
+  | "sku_mappings:write"
+  | "catalog:read"
+  | "catalog:import";
+
+export type CatalogImportRow = {
+  id: string;
+  status: "running" | "completed" | "failed";
+  mode: ApiKeyMode;
+  scope: { all: boolean; product_ids: string[] | null; category: string | null };
+  summary: { requested: number; imported: number; updated: number; skipped: number; failed: number };
+  created_at: string;
+  finished_at: string | null;
+};
 
 export type ApiKeyRow = {
   id: string;
@@ -59,6 +76,9 @@ export type TenantSkuMapping = {
 };
 
 const base = "/developers";
+
+/** Catalog imports a client made over the public API (read-only in the app). */
+export const getCatalogImports = () => apiFetch<{ importedCount: number; imports: CatalogImportRow[] }>(`${base}/catalog-imports`);
 
 export const getDevelopersOverview = () => apiFetch<DevelopersOverview>(`${base}/overview`);
 

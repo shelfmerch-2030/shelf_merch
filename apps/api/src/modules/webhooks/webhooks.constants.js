@@ -7,7 +7,23 @@ export const WEBHOOK_EVENT_TYPES = [
   'order.delivered',
   'order.on_hold',
   'order.cancelled',
+  ...[
+    'catalog.product.updated',
+    'catalog.product.price_changed',
+    'catalog.product.availability_changed',
+    'catalog.product.discontinued',
+  ],
 ];
+
+/**
+ * Catalog events (for products the client imported) are opt-in: an endpoint with an empty event list
+ * ("all events") keeps receiving only order events, so existing integrations are not flooded.
+ */
+export const CATALOG_EVENT_TYPES = WEBHOOK_EVENT_TYPES.filter((t) => t.startsWith('catalog.'));
+
+/** Scheduled job on the webhook queue that turns catalog changes into events. */
+export const CATALOG_SWEEP_JOB = 'catalog-change-sweep';
+export const CATALOG_SWEEP_EVERY_MS = 2 * 60 * 1000;
 /** Sent only by "Send test event"; endpoints always accept it. */
 export const WEBHOOK_TEST_EVENT = 'webhook.test';
 

@@ -33,6 +33,7 @@ export function serializePublicOrder(order, shipment = null) {
     },
     items: sanitizeOrderItems(o.items ?? []).map((i) => ({
       sku: i.sku ?? '',
+      product_id: i.catalogProductId ?? null,
       name: i.name ?? '',
       quantity: i.qty,
       size: i.variant?.size ?? null,

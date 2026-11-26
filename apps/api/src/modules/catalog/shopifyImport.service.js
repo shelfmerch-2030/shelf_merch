@@ -749,29 +749,35 @@ function catalogFieldFilled(value) {
 
 /**
  * Merge Shopify variants into an existing catalog product.
- * Match by SKU when possible; preserve admin `enabled` / `colorHex` choices.
+ * Match by SKU when it identifies one variant on both sides; otherwise by size + colour (stores often
+ * give every variant the product's SKU, and matching those by position would swap variant ids when
+ * the store reorders them). Preserves admin `enabled` / `colorHex` choices and the variant `_id`.
  */
 export function mergeShopifyVariants(existingVariants = [], mappedVariants = []) {
   const previous = [...(existingVariants ?? [])];
   const used = new Set();
+  const skuOf = (v) => String(v?.sku || '').trim();
+  const counts = (list) => list.reduce((m, v) => (skuOf(v) ? m.set(skuOf(v), (m.get(skuOf(v)) ?? 0) + 1) : m), new Map());
+  const prevCounts = counts(previous);
+  const nextCounts = counts(mappedVariants ?? []);
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const sameOptions = (a, b) => norm(a.size) === norm(b.size) && norm(a.color) === norm(b.color);
 
   return (mappedVariants ?? []).map((incoming) => {
-    const sku = String(incoming.sku || '').trim();
-    let index = sku
-      ? previous.findIndex((variant, i) => !used.has(i) && String(variant.sku || '').trim() === sku)
-      : -1;
-    if (index < 0) {
-      index = previous.findIndex((variant, i) => {
-        if (used.has(i)) return false;
-        return String(variant.size || '') === String(incoming.size || '')
-          && String(variant.color || '') === String(incoming.color || '')
-          && String(variant.sku || '').trim() === '';
-      });
+    const sku = skuOf(incoming);
+    const free = (i) => !used.has(i);
+    let index = -1;
+    if (sku && prevCounts.get(sku) === 1 && nextCounts.get(sku) === 1) {
+      index = previous.findIndex((variant, i) => free(i) && skuOf(variant) === sku);
     }
+    if (index < 0) index = previous.findIndex((variant, i) => free(i) && sameOptions(variant, incoming));
+    if (index < 0 && sku) index = previous.findIndex((variant, i) => free(i) && skuOf(variant) === sku);
     const prior = index >= 0 ? previous[index] : null;
     if (index >= 0) used.add(index);
 
     return {
+      // Keep the variant's id: clients of the public Catalog API reference variants by it.
+      ...(prior?._id ? { _id: prior._id } : {}),
       sku: incoming.sku || prior?.sku || '',
       size: incoming.size || '',
       color: incoming.color || '',

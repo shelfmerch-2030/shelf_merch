@@ -2,7 +2,15 @@ import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../plugins/tenantScope.plugin.js';
 
 export const API_KEY_MODES = ['live', 'test'];
-export const API_KEY_SCOPES = ['orders:read', 'orders:write', 'products:read', 'sku_mappings:read', 'sku_mappings:write'];
+export const API_KEY_SCOPES = [
+  'orders:read',
+  'orders:write',
+  'products:read',
+  'sku_mappings:read',
+  'sku_mappings:write',
+  'catalog:read',
+  'catalog:import',
+];
 
 /**
  * A tenant's credential for the public Orders API.

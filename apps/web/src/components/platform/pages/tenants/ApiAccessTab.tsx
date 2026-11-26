@@ -3,7 +3,7 @@ import { apiFetch } from "@/services/api";
 import type { ApiKeyRow, WebhookEndpoint } from "@/services/developers-api";
 import { PlatformError, PlatformLoading } from "../../platform-ui";
 
-type ApiAccess = { keys: ApiKeyRow[]; endpoints: WebhookEndpoint[]; liveApiOrdersLast30Days: number };
+type ApiAccess = { keys: ApiKeyRow[]; endpoints: WebhookEndpoint[]; liveApiOrdersLast30Days: number; importedProducts?: number };
 
 const when = (v: string | null) => (v ? new Date(v).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—");
 
@@ -35,7 +35,8 @@ export function ApiAccessTab({ tenantId, canWrite }: { tenantId: string; canWrit
   return (
     <div className="card" style={{ padding: 20 }}>
       <p className="muted" style={{ marginTop: 0 }}>
-        Live API orders in the last 30 days: <b>{data.liveApiOrdersLast30Days}</b>. Keys and endpoints are managed by the
+        Live API orders in the last 30 days: <b>{data.liveApiOrdersLast30Days}</b>. Catalog products imported via the API:{" "}
+        <b>{data.importedProducts ?? 0}</b>. Keys and endpoints are managed by the
         tenant's company admins under Settings → Developers.
       </p>
 

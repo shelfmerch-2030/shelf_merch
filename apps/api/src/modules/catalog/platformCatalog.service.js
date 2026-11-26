@@ -214,11 +214,21 @@ export async function duplicateProduct(productId) {
   return getProduct(copy._id);
 }
 
+/**
+ * Variant SKUs identify a variant in client orders (public API), so one SKU must not point at two
+ * different products. Reusing the product's own SKU stays allowed (legacy data does it).
+ */
+async function assertVariantSkuFree(product, sku) {
+  const taken = await CatalogProduct.exists({ _id: { $ne: product._id }, $or: [{ sku }, { 'variants.sku': sku }] });
+  if (taken) throw new ConflictError(`SKU "${sku}" is already used by another product`);
+}
+
 export async function addVariant(productId, variant) {
   const product = await getProduct(productId);
   if (variant.sku && product.variants.some((v) => v.sku === variant.sku)) {
     throw new ConflictError(`Variant SKU "${variant.sku}" already exists on this product`);
   }
+  if (variant.sku) await assertVariantSkuFree(product, variant.sku);
   product.variants.push({ enabled: true, ...variant });
   await product.save();
   return product;
@@ -228,6 +238,13 @@ export async function updateVariant(productId, variantId, patch) {
   const product = await getProduct(productId);
   const variant = product.variants.id(variantId);
   if (!variant) throw new NotFoundError('Variant not found');
+  // Only a changed SKU is checked, so editing price/stock of legacy variants keeps working.
+  if (patch.sku && patch.sku !== variant.sku) {
+    if (product.variants.some((v) => String(v._id) !== String(variantId) && v.sku === patch.sku)) {
+      throw new ConflictError(`Variant SKU "${patch.sku}" already exists on this product`);
+    }
+    await assertVariantSkuFree(product, patch.sku);
+  }
   Object.assign(variant, patch);
   await product.save();
   return product;

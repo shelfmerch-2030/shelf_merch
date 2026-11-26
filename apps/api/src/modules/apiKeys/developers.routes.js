@@ -15,6 +15,8 @@ import { API_KEY_MODES, API_KEY_SCOPES } from './apiKey.model.js';
 import { createApiKey, listApiKeys, revokeApiKey } from './apiKeys.service.js';
 import * as webhooks from '../webhooks/webhooks.service.js';
 import { WEBHOOK_EVENT_TYPES } from '../webhooks/webhooks.constants.js';
+import { listImports } from '../catalogSync/catalogImport.service.js';
+import { ImportedProduct } from '../catalogSync/catalogSync.models.js';
 
 /**
  * /api/v1/developers — a tenant's self-serve API access: keys, webhook
@@ -23,6 +25,18 @@ import { WEBHOOK_EVENT_TYPES } from '../webhooks/webhooks.constants.js';
  */
 export const developersRouter = Router();
 developersRouter.use(authenticate, resolveTenant, requireTenantContext, tenantArea('settings', 'write'));
+
+// Catalog imports made through the public API (read-only here; imports happen over the API).
+developersRouter.get(
+  '/catalog-imports',
+  asyncHandler(async (req, res) => {
+    const [imports, importedCount] = await Promise.all([
+      listImports({ tenantId: req.tenantId, query: { limit: 10 } }),
+      ImportedProduct.countDocuments({ tenantId: req.tenantId, removedAt: null }),
+    ]);
+    res.json({ importedCount, imports: imports.data });
+  }),
+);
 
 developersRouter.get(
   '/overview',

@@ -8,6 +8,8 @@ const idempotencyKeySchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, default: null },
     method: String,
     path: String,
+    /** sha256 of method + path + body, for routes that require the same request on replay. */
+    fingerprint: { type: String, default: null },
     statusCode: { type: Number, default: null },
     response: { type: Object, default: null },
     leaseExpiresAt: { type: Date, default: null },

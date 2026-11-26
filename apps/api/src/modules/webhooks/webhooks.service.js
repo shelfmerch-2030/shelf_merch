@@ -9,6 +9,7 @@ import { Shipment } from '../shipments/shipment.model.js';
 import { serializePublicOrder } from '../publicApi/publicOrder.serializer.js';
 import { WebhookDelivery, WebhookEndpoint, WebhookEvent, publicEndpoint } from './webhook.models.js';
 import {
+  CATALOG_EVENT_TYPES,
   DELIVERY_LOCK_MS,
   DELIVERY_TIMEOUT_MS,
   DISABLE_AFTER_MS,
@@ -59,7 +60,10 @@ async function enqueue(deliveryId, delayMs = 0) {
 /** Create the event + one delivery per subscribed endpoint, then queue them. */
 async function fanOut({ tenantId, mode, type, orderId = null, data, endpointFilter = {} }) {
   const endpoints = await WebhookEndpoint.find({ tenantId, mode, enabled: true, ...endpointFilter }).lean();
-  const subscribed = endpoints.filter((e) => type === WEBHOOK_TEST_EVENT || !e.events?.length || e.events.includes(type));
+  const optIn = CATALOG_EVENT_TYPES.includes(type); // catalog events need an explicit subscription
+  const subscribed = endpoints.filter(
+    (e) => type === WEBHOOK_TEST_EVENT || (!optIn && !e.events?.length) || e.events?.includes(type),
+  );
   if (!subscribed.length) return null;
 
   const publicId = newEventId();
@@ -92,6 +96,16 @@ export async function emitOrderEvent({ tenantId, orderId, type }) {
     orderId: order._id,
     data: { object: serializePublicOrder(order, shipment) },
   });
+}
+
+/**
+ * Catalog change for a product this tenant imported. Catalog data is the same in test and live, so the
+ * event goes to subscribed endpoints of both modes (each gets its own event with the right livemode).
+ */
+export async function emitCatalogEvent({ tenantId, type, data }) {
+  const results = [];
+  for (const mode of ['live', 'test']) results.push(await fanOut({ tenantId, mode, type, data }));
+  return results.filter(Boolean);
 }
 
 /** Fire-and-forget wrapper for hooks: never throws into the caller. */

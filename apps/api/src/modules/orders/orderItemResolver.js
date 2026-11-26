@@ -14,6 +14,8 @@ import { SkuMapping } from '../orderSources/skuMapping.model.js';
  *      (carries the tenant's artwork, print placements and mockup)
  *   3. a ShelfMerch catalog SKU or variant SKU
  * Size/colour pick the catalog variant ("2XL" ≡ "XXL" etc.).
+ * A line may instead carry ShelfMerch ids (public Catalog API): `variantId` (exact variant) or
+ * `productId` (+ size/colour). Those lines skip SKU resolution entirely.
  */
 
 /** Machine-readable reasons a line could not be resolved (public API error codes). */
@@ -37,18 +39,39 @@ export function sizeKey(s) {
   return v;
 }
 
-export function pickCatalogVariant(product, { sku, size, color }) {
-  const variants = (product.variants ?? []).filter((v) => v.enabled !== false);
+/**
+ * Find the catalog variant for a line.
+ * A SKU identifies a variant only when exactly one variant carries it — stores often give every variant
+ * the product's SKU (e.g. 36 × "APRN-1007"), and then size/colour must choose among them.
+ * `requireUnique` (orders): return null unless size/colour leave exactly one variant, so an ambiguous
+ * line is rejected instead of silently getting the first variant. Without it (existence checks), the first
+ * match is returned.
+ */
+export function pickCatalogVariant(product, { sku, size, color }, { requireUnique = false } = {}) {
+  let pool = (product.variants ?? []).filter((v) => v.enabled !== false);
   if (sku) {
-    const bySku = variants.find((v) => v.sku && v.sku === sku);
-    if (bySku) return bySku;
+    const bySku = pool.filter((v) => v.sku && v.sku === sku);
+    if (bySku.length === 1) return bySku[0];
+    if (bySku.length > 1) pool = bySku;
   }
   const lc = (s) => String(s ?? '').trim().toLowerCase();
-  return (
-    variants.find(
-      (v) => (!size || sizeKey(v.size) === sizeKey(size)) && (!color || lc(v.color) === lc(color)),
-    ) ?? null
+  const matches = pool.filter(
+    (v) => (!size || sizeKey(v.size) === sizeKey(size)) && (!color || lc(v.color) === lc(color)),
   );
+  if (!requireUnique) return matches[0] ?? null;
+  // Identical size+colour duplicates are the same variant for production purposes.
+  const distinct = new Set(matches.map((v) => `${sizeKey(v.size)}|${lc(v.color)}`));
+  return distinct.size === 1 ? matches[0] : null;
+}
+
+/** Which options a line must add to pick one variant ("size", "color"). */
+function missingOptions(product, { size, color }) {
+  const variants = (product.variants ?? []).filter((v) => v.enabled !== false);
+  const lc = (s) => String(s ?? '').trim().toLowerCase();
+  const missing = [];
+  if (!size && new Set(variants.map((v) => sizeKey(v.size))).size > 1) missing.push('size');
+  if (!color && new Set(variants.map((v) => lc(v.color))).size > 1) missing.push('color');
+  return missing;
 }
 
 function firstPlacementArtwork(placements = []) {
@@ -72,7 +95,15 @@ function placementWithoutArtwork(p) {
  */
 export async function resolveLineItems({ tenantId, connectionId = null, lines, requireActiveCatalog = false }) {
   const errors = [];
-  const skus = [...new Set(lines.map((l) => String(l.sku ?? '').trim()).filter(Boolean))];
+  const byId = (l) => Boolean(l.variantId || l.productId);
+  const skus = [...new Set(lines.filter((l) => !byId(l)).map((l) => String(l.sku ?? '').trim()).filter(Boolean))];
+
+  // 0. ShelfMerch ids (product / variant) from the public Catalog API.
+  const variantIds = [...new Set(lines.map((l) => l.variantId).filter(Boolean).map(String))];
+  const productIds = [...new Set(lines.map((l) => (l.variantId ? null : l.productId)).filter(Boolean).map(String))];
+  const idFilter = { $or: [{ _id: { $in: productIds } }, { 'variants._id': { $in: variantIds } }] };
+  if (requireActiveCatalog) idFilter.status = 'active';
+  const idProducts = variantIds.length || productIds.length ? await CatalogProduct.find(idFilter).select('+costPriceInr').lean() : [];
 
   // 1. Mappings: connection-specific beats tenant-wide.
   const mappingFilter = { tenantId, externalSku: { $in: skus } };
@@ -106,27 +137,40 @@ export async function resolveLineItems({ tenantId, connectionId = null, lines, r
   const linked = neededIds.length
     ? await CatalogProduct.find({ _id: { $in: [...new Set(neededIds)] } }).select('+costPriceInr').lean()
     : [];
-  const productById = new Map([...linked, ...directProducts].map((p) => [String(p._id), p]));
+  const productById = new Map([...linked, ...directProducts, ...idProducts].map((p) => [String(p._id), p]));
 
   const items = [];
   lines.forEach((line, index) => {
     const sku = String(line.sku ?? '').trim();
     const qty = Number(line.qty);
-    const fail = (code, message) => errors.push({ index, code, message });
+    const field = line.variantId ? 'variant_id' : line.productId ? 'product_id' : 'sku';
+    const fail = (code, message) => errors.push({ index, code, message, field });
 
-    if (!sku) return fail(LINE_ERRORS.missing_sku, `"${line.name || `Line ${index + 1}`}" has no SKU`);
+    if (!sku && !byId(line)) return fail(LINE_ERRORS.missing_sku, `"${line.name || `Line ${index + 1}`}" has no SKU`);
     if (!Number.isInteger(qty) || qty <= 0) return fail(LINE_ERRORS.invalid_quantity, `Quantity for ${sku} must be a whole number above 0`);
 
     let product = null;
     let variantHint = line.variant ?? {};
     let skuHint = '';
     let listingSnap = null;
-    const mapping = mappingBySku.get(sku);
-    const listing = mapping ? null : parseListingKey(sku);
+    let exactVariant = null;
+    const mapping = byId(line) ? null : mappingBySku.get(sku);
+    const listing = mapping || byId(line) ? null : parseListingKey(sku);
 
-    if (mapping) {
+    if (line.variantId) {
+      product = idProducts.find((p) => (p.variants ?? []).some((v) => String(v._id) === String(line.variantId))) ?? null;
+      exactVariant = product?.variants.find((v) => String(v._id) === String(line.variantId)) ?? null;
+      if (!product) return fail(LINE_ERRORS.unknown_sku, `Variant ${line.variantId} is not in the ShelfMerch catalog`);
+      if (exactVariant.enabled === false) return fail(LINE_ERRORS.variant_unavailable, `${product.name} (${[exactVariant.size, exactVariant.color].filter(Boolean).join(' / ')}) is not available`);
+    } else if (line.productId) {
+      product = idProducts.find((p) => String(p._id) === String(line.productId)) ?? null;
+      if (!product) return fail(LINE_ERRORS.unknown_sku, `Product ${line.productId} is not in the ShelfMerch catalog`);
+    } else if (mapping) {
       product = productById.get(String(mapping.catalogProductId)) ?? null;
-      if (mapping.variant?.size || mapping.variant?.color) variantHint = mapping.variant;
+      // A mapping may pin size, colour or both; whatever it leaves open comes from the order line.
+      if (mapping.variant?.size || mapping.variant?.color) {
+        variantHint = { size: mapping.variant.size || variantHint.size, color: mapping.variant.color || variantHint.color };
+      }
       if (!product) return fail(LINE_ERRORS.product_unavailable, `SKU ${sku} is mapped to a product that no longer exists`);
     } else if (listing) {
       const col = collections.find((c) => String(c._id) === listing.collectionId);
@@ -145,12 +189,21 @@ export async function resolveLineItems({ tenantId, connectionId = null, lines, r
       }
     }
 
-    const catalogVariant = pickCatalogVariant(product, { sku: skuHint, size: variantHint.size, color: variantHint.color });
+    const catalogVariant =
+      exactVariant ??
+      pickCatalogVariant(product, { sku: skuHint, size: variantHint.size, color: variantHint.color }, { requireUnique: true });
     if ((product.variants ?? []).some((v) => v.enabled !== false) && !catalogVariant) {
       const wanted = [variantHint.size, variantHint.color].filter(Boolean).join(' / ');
+      const exists = pickCatalogVariant(product, { size: variantHint.size, color: variantHint.color });
+      const missing = missingOptions(product, variantHint);
+      // Never guess: an ambiguous line (e.g. no colour for a tee sold in 6 colours) is rejected.
       return fail(
         LINE_ERRORS.variant_unavailable,
-        wanted ? `${product.name} is not available in ${wanted}` : `${product.name} needs a size/colour`,
+        exists && missing.length
+          ? `${product.name}${wanted ? ` in ${wanted}` : ''} comes in several options — send ${missing.join(' and ')}`
+          : wanted
+            ? `${product.name} is not available in ${wanted}`
+            : `${product.name} needs a size/colour`,
       );
     }
 

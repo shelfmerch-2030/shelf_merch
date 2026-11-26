@@ -2,15 +2,19 @@ import { Worker } from 'bullmq';
 import { getRedis } from '../config/redis.js';
 import { logger } from '../config/logger.js';
 import {
+  CATALOG_SWEEP_EVERY_MS,
+  CATALOG_SWEEP_JOB,
   WEBHOOK_QUEUE,
   WEBHOOK_SWEEP_EVERY_MS,
   WEBHOOK_SWEEP_JOB,
 } from '../modules/webhooks/webhooks.constants.js';
 import { attemptDelivery, sweepDueDeliveries } from '../modules/webhooks/webhooks.service.js';
+import { sweepCatalogChanges } from '../modules/catalogSync/catalogChanges.service.js';
 import { getWebhookQueue } from './queues.js';
 
 export async function processWebhookJob(job) {
   if (job?.name === WEBHOOK_SWEEP_JOB) return sweepDueDeliveries();
+  if (job?.name === CATALOG_SWEEP_JOB) return sweepCatalogChanges();
   if (!job?.data?.deliveryId) return { skipped: true };
   return attemptDelivery(job.data.deliveryId);
 }
@@ -31,5 +35,13 @@ export function startWebhookDeliveryWorker() {
       { name: WEBHOOK_SWEEP_JOB, data: {}, opts: { removeOnComplete: true, removeOnFail: 20 } },
     )
     .catch((err) => logger.error({ err: err?.message }, 'Webhook sweep schedule registration failed'));
+  // Catalog changes → catalog.product.* events for tenants that imported the product.
+  void getWebhookQueue()
+    .upsertJobScheduler(
+      'catalog-change-sweep',
+      { every: CATALOG_SWEEP_EVERY_MS },
+      { name: CATALOG_SWEEP_JOB, data: {}, opts: { removeOnComplete: true, removeOnFail: 20 } },
+    )
+    .catch((err) => logger.error({ err: err?.message }, 'Catalog sweep schedule registration failed'));
   return worker;
 }

@@ -109,12 +109,14 @@ export async function createApiOrder({ apiKey, body }) {
     requireActiveCatalog: true,
     lines: body.items.map((i) => ({
       sku: i.sku,
+      productId: i.product_id,
+      variantId: i.variant_id,
       qty: i.quantity,
       variant: { size: i.size, color: i.color },
       artworkUrl: i.artwork_url,
     })),
   });
-  for (const e of errors) details.push({ param: `items[${e.index}].sku`, code: e.code, message: e.message });
+  for (const e of errors) details.push({ param: `items[${e.index}].${e.field ?? 'sku'}`, code: e.code, message: e.message });
   if (details.length) {
     throw new PublicApiError(422, 'validation_failed', details.length === 1 ? details[0].message : `${details.length} problems with this order`, {
       param: details[0].param,
