@@ -322,6 +322,15 @@ describe('Discover chat while shopping is unavailable', () => {
     expect(paused.fetchMock).not.toHaveBeenCalled();
   });
 
+  it('pauses a Discover product search when the kill switch is on and does not call SerpAPI', async () => {
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'true';
+    const result = await ask('show me a mug under ₹250', 'I can look for a mug.');
+    expect(result.content).toMatch(/paused/);
+    expect(result.content).not.toMatch(/SerpAPI|Redis|test-key/);
+    expect(result.fetchMock).not.toHaveBeenCalled();
+  });
+
   it('keeps the conversation going when Redis cannot reserve a shopping call', async () => {
     env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
     env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
