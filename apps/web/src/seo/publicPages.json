@@ -169,6 +169,11 @@
       "description": "Administrator guide for ShelfMerch for Zoho People: OAuth scopes, security, field mapping, and troubleshooting."
     },
     {
+      "path": "/docs/api",
+      "title": "ShelfMerch Orders API · Documentation",
+      "description": "Send orders to ShelfMerch for printing and shipping, and receive status webhooks."
+    },
+    {
       "path": "/case-studies/zoho-people",
       "title": "Example Employee Onboarding Workflow · ShelfMerch for Zoho People",
       "description": "Example workflow showing how Zoho People and ShelfMerch can support employee onboarding kits and gifts. Not a customer case study."
