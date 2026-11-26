@@ -102,14 +102,21 @@ export function ShipmentManageModalView({
       </button>
 
       <div className="divider" style={{ margin: "18px 0" }} />
-      <button
-        type="button"
-        className="btn btn-ghost btn-sm"
-        disabled={busy}
-        onClick={onResendTracking}
-      >
-        Resend tracking email
-      </button>
+      {row.clientNotifiesCustomer ? (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          Client order — the client notifies its own customer from our <code>order.shipped</code> /{" "}
+          <code>order.delivered</code> webhooks. ShelfMerch doesn't email their customers.
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          disabled={busy}
+          onClick={onResendTracking}
+        >
+          Resend tracking email
+        </button>
+      )}
     </PlatformModal>
   );
 }
