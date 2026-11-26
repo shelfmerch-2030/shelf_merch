@@ -31,15 +31,20 @@ export async function listShipments({ query }) {
   const orderIds = items.map((s) => s.orderId);
   const orders = await Order.find({ _id: { $in: orderIds } })
     .setOptions({ skipTenantGuard: true })
-    .select('orderNumber status shippingAddress.name')
+    .select('orderNumber status shippingAddress.name recipientId source')
     .lean();
   const orderById = Object.fromEntries(orders.map((o) => [String(o._id), o]));
 
-  const enriched = items.map((s) => ({
-    ...s,
-    orderNumber: orderById[String(s.orderId)]?.orderNumber ?? '',
-    recipientName: orderById[String(s.orderId)]?.shippingAddress?.name ?? '',
-  }));
+  const enriched = items.map((s) => {
+    const order = orderById[String(s.orderId)];
+    return {
+      ...s,
+      orderNumber: order?.orderNumber ?? '',
+      recipientName: order?.shippingAddress?.name ?? '',
+      // API / external orders: the client emails its own customer (from our webhooks); we never do.
+      clientNotifiesCustomer: Boolean(order && !order.recipientId),
+    };
+  });
 
   return paginatedResponse(enriched, total, { page, limit });
 }
@@ -244,11 +249,18 @@ export async function resendTrackingLink({ shipmentId }) {
   });
   if (!order) throw new NotFoundError('Order not found for this shipment');
 
-  const recipient = order.recipientId
-    ? await Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId }).setOptions({
-        skipTenantGuard: true,
-      })
-    : order.customerSnapshot ?? null; // external orders: the client's end customer
+  // ShelfMerch never contacts a client's end customers: for API / external orders the client is
+  // notified by webhooks (order.shipped carries courier, AWB and tracking URL) and emails its own customers.
+  if (!order.recipientId) {
+    throw new ApiError(
+      409,
+      'This order came from a client integration — the client notifies its own customer (via the order.shipped webhook). ShelfMerch does not email end customers of API orders.',
+      'CLIENT_NOTIFIES_CUSTOMER',
+    );
+  }
+  const recipient = await Recipient.findOne({ _id: order.recipientId, tenantId: order.tenantId }).setOptions({
+    skipTenantGuard: true,
+  });
   if (!recipient?.email) {
     throw new ApiError(422, 'No recipient email on file for this order', 'NO_RECIPIENT_EMAIL');
   }

@@ -422,6 +422,25 @@ describe('Idempotency-Key reuse', () => {
   });
 });
 
+describe('ShelfMerch never emails a client’s end customers', () => {
+  it('refuses "Resend tracking" for API orders and flags them in the shipments list', async () => {
+    const { Shipment } = await import('../src/modules/shipments/shipment.model.js');
+    const created = (await post(liveKey.token, order({ external_id: 'NOMAIL-1' }))).body;
+    const shipment = await Shipment.create({ tenantId: tenant._id, orderId: created.id, courier: 'Delhivery', awb: 'AWB-NOMAIL' });
+    const platform = await makeUser(null, 'platform_super_admin', 'platform');
+
+    const res = await request(app)
+      .post(`/api/v1/platform/shipments/${shipment._id}/resend-tracking`)
+      .set('Authorization', `Bearer ${platform.token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.error?.code ?? res.body.code).toMatch(/CLIENT_NOTIFIES_CUSTOMER/i);
+
+    const list = await request(app).get('/api/v1/platform/shipments').set('Authorization', `Bearer ${platform.token}`);
+    const row = list.body.items.find((s) => String(s._id) === String(shipment._id));
+    expect(row.clientNotifiesCustomer).toBe(true);
+  });
+});
+
 describe('platform orders list and sandbox orders', () => {
   it('hides test-key orders by default and shows them with includeTest=true', async () => {
     const t = (await post(testKey.token, order({ external_id: 'SANDBOX-1' }))).body;
