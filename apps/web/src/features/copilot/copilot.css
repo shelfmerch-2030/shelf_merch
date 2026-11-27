@@ -2235,15 +2235,22 @@
   overflow-wrap: anywhere;
 }
 .sm-copilot-external-row__view {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-top: 2px;
   width: fit-content;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
-  color: var(--cp-accent);
+  color: var(--cp-ink);
   text-decoration: none;
 }
-.sm-copilot-external-row__view:hover { text-decoration: underline; text-underline-offset: 2px; }
+.sm-copilot-external-row__view span {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.sm-copilot-external-row__view:hover span { text-decoration-style: solid; }
 .sm-copilot-external-row__view:focus-visible {
   outline: 2px solid var(--cp-accent);
   outline-offset: 2px;

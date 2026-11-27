@@ -205,6 +205,11 @@ export function prefersShoppingCards(text) {
 function shoppingBudget(text) {
   const parsed = researchBudget(text);
   if (parsed) return parsed;
+  const bare = String(text || '').match(/\b(under|below|less than|up to|at most|within)\s+(\d[\d,]*)\b/i);
+  if (bare) {
+    const inr = Number(bare[2].replaceAll(',', ''));
+    if (inr > 0 && inr <= 10_000_000) return { inr, exclusive: /^(?:under|below|less than)$/i.test(bare[1]) };
+  }
   const phrase = text.match(/\bbudget(?:\s+is|\s+of)?\s*(?:about|around|₹|INR|Rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
   if (!phrase) return undefined;
   const inr = Number(phrase[1].replaceAll(',', ''));
@@ -274,6 +279,48 @@ function discoverSearchQuery(text) {
   return cleaned.length >= 3 ? cleaned : '';
 }
 
+/** A shopping query is a short product search, not the person's whole sentence. */
+export function isConcreteShoppingQuery(query) {
+  const words = String(query || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 6) return false;
+  const productWords = words.filter((word) => !/^(?:my|the|a|an|me|some|products?|items?|options?|gifts?|budget|is|rs|inr|rupees?|under|below|above|show|find|for|and|with|of|\d+)$/i.test(word));
+  return productWords.length >= 1;
+}
+
+/** How many cards the person asked for. Unspecified stays at 5. Never above 10. */
+export function requestedCardCount(text) {
+  if (typeof text !== 'string') return null;
+  const match = text.match(/\b(?:top|first|only|just)\s+(\d{1,2})\b|\b(\d{1,2})\s+(?:products?|items?|options?|gifts?)\b/i);
+  const value = Number(match?.[1] || match?.[2]);
+  if (!Number.isInteger(value) || value < 1) return null;
+  return Math.min(10, value);
+}
+
+function applyRequestedCount(plan, text) {
+  if (!plan) return plan;
+  const fromText = requestedCardCount(text);
+  const fromPlan = Number(plan.limit);
+  const limit = fromText || (Number.isInteger(fromPlan) && fromPlan >= 1 ? Math.min(10, fromPlan) : 5);
+  const perQuery = Array.isArray(plan.queries) && plan.queries.length === 1 ? limit : plan.perQuery;
+  return { ...plan, limit, perQuery };
+}
+
+function capPlanToStatedBudget(plan, text) {
+  const stated = shoppingBudget(text);
+  if (!stated || !plan) return plan;
+  const current = plan.budget;
+  const inr = current?.inr > 0 ? Math.min(current.inr, stated.inr) : stated.inr;
+  const budget = { inr, exclusive: Boolean(stated.exclusive || current?.exclusive) };
+  return {
+    ...plan,
+    budget,
+    queries: (plan.queries || []).map((query) => {
+      const share = query.budget?.inr > 0 ? Math.min(query.budget.inr, budget.inr) : budget.inr;
+      return { ...query, budget: { inr: share, exclusive: budget.exclusive || Boolean(query.budget?.exclusive) } };
+    }),
+  };
+}
+
 export function shoppingPlan(text, { discover = false } = {}) {
   const budget = shoppingBudget(text);
   const recipientMatch = text.match(/\b(\d{1,4})\s*(?:emp(?:loyee)?s?|staff|people|recipients?)\b/i);
@@ -321,7 +368,7 @@ export function shoppingPlan(text, { discover = false } = {}) {
   }
   if (discover) {
     const query = discoverSearchQuery(text);
-    if (query) {
+    if (query && isConcreteShoppingQuery(query)) {
       return {
         mode: 'focused',
         queries: [{ query, reason: 'A current shopping result for this search.' }],
@@ -330,6 +377,8 @@ export function shoppingPlan(text, { discover = false } = {}) {
         recipientCount,
       };
     }
+    // A vague sentence is not a shopping query. Claude's tool plan supplies the searches.
+    return { mode: 'focused', queries: [], budget, recipientCount, drop };
   }
   return { mode: 'employee_gifts', queries: DEFAULT_GIFT_QUERIES, perQuery: 1, budget, recipientCount };
 }
@@ -540,13 +589,15 @@ function dropsForWords(words) {
 export function planFromAssistant(toolArgs = {}) {
   const cleaned = [...new Set((Array.isArray(toolArgs?.queries) ? toolArgs.queries : [])
     .map((query) => String(query || '').replace(/\s+/g, ' ').trim().slice(0, 80))
-    .filter((query) => query.length >= 3))].slice(0, 5);
+    .filter((query) => query.length >= 3 && isConcreteShoppingQuery(query)))].slice(0, 5);
   if (!cleaned.length) return null;
   const amount = Number(toolArgs?.budgetInr);
   const budget = amount > 0 && amount <= 10_000_000
     ? { inr: Math.round(amount), exclusive: Boolean(toolArgs?.exclusive) }
     : undefined;
   const drop = dropsForWords((Array.isArray(toolArgs?.exclude) ? toolArgs.exclude : []).map((word) => String(word || '').trim()));
+  const asked = Number(toolArgs?.count);
+  const limit = Number.isInteger(asked) && asked >= 1 ? Math.min(10, asked) : undefined;
   let queries = cleaned.map((query) => {
     const named = namedQueries(query)[0];
     return { ...(named || { query, reason: '' }), budget, drop };
@@ -558,16 +609,21 @@ export function planFromAssistant(toolArgs = {}) {
     perQuery: queries.length > 1 ? 1 : 5,
     budget,
     drop,
+    ...(limit ? { limit } : {}),
   };
+}
+
+function finishDiscoverPlan(plan, text) {
+  return plan ? applyRequestedCount(capPlanToStatedBudget(plan, text), text) : null;
 }
 
 export function discoverSearchPlan({ text, messages = [], toolArgs } = {}) {
   if (isShoppingFollowUp(text, messages)) return null;
   const modelPlan = planFromAssistant(toolArgs);
   if (focusedSearch(shoppingText(text)) && (!modelPlan || modelPlan.queries.length < 2)) {
-    return shoppingPlan(text, { discover: true });
+    return finishDiscoverPlan(shoppingPlan(text, { discover: true }), text);
   }
-  return modelPlan || rememberedShoppingPlan(text, messages);
+  return finishDiscoverPlan(modelPlan || rememberedShoppingPlan(text, messages), text);
 }
 
 export async function runSerpShoppingRecommendation({
@@ -598,6 +654,12 @@ export async function runSerpShoppingRecommendation({
       budget,
       queries: plan.queries.map((query) => ({ ...query, budget })),
     };
+  } else {
+    plan = capPlanToStatedBudget(plan, shoppingFollowUpKind(text) ? earlierSearchText(text, messages) : text);
+  }
+  plan = applyRequestedCount(plan, text);
+  if (!plan?.queries?.length) {
+    return { content: '', products: [], queries: 0, followUp, notice: '', apiCalls: 0, copyUsage: {} };
   }
   const exclude = shownShoppingProducts(messages);
   const more = followUp;
@@ -606,6 +668,8 @@ export async function runSerpShoppingRecommendation({
   const turnLimit = Number(config.EMBEDDED_COPILOT_SERPAPI_MAX_CALLS_PER_TURN) || 8;
   let calls = 0;
   let stopReason = null;
+  let sawTimeout = false;
+  const continuableFailure = new Set(['timeout', 'rejected']);
   const guardedSearch = async (query, options) => {
     if (stopReason || calls >= turnLimit) {
       if (calls >= turnLimit) stopReason = stopReason || 'turn';
@@ -627,33 +691,38 @@ export async function runSerpShoppingRecommendation({
     }
     try {
       const payload = await search(query, options);
-      if (payload?.failure) stopReason = stopReason || payload.failure;
+      if (payload?.failure === 'timeout') sawTimeout = true;
+      if (payload?.failure && !continuableFailure.has(payload.failure)) stopReason = stopReason || payload.failure;
       return payload || { shopping_results: [] };
     } catch (error) {
       if (signal?.aborted || (error?.name === 'AbortError' && signal?.aborted)) throw error;
       if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
-        stopReason = stopReason || 'timeout';
-        return { shopping_results: [] };
+        sawTimeout = true;
+        return { shopping_results: [], failure: 'timeout' };
       }
       throw error;
     }
   };
-  const batches = [];
-  for (const item of plan.queries) {
-    if (stopReason) break;
-    try {
-      batches.push(await listingsForQuery(item, { plan, search: guardedSearch, signal, apiKey, exclude, retrievedAt }));
-    } catch (error) {
-      if (error?.name === 'AbortError') throw error;
-      logger.info({ outcome: 'query_failed', errorName: error?.name || 'Error' }, 'Copilot shopping search failed');
-      batches.push([]);
-    }
-  }
+  const limit = plan.limit || 5;
   const seen = new Set();
   const names = new Set();
   const families = new Set();
   const products = [];
-  for (const batch of batches) {
+  for (const item of plan.queries) {
+    if (stopReason || products.length >= limit) break;
+    let batch = [];
+    try {
+      const room = limit - products.length;
+      const expand = requestedCardCount(text) && plan.mode !== 'variety';
+      const take = expand ? Math.min(limit, Math.max(plan.perQuery || 1, room)) : plan.perQuery;
+      batch = await listingsForQuery(item, {
+        plan: { ...plan, perQuery: take }, search: guardedSearch, signal, apiKey, exclude, retrievedAt,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      logger.info({ outcome: 'query_failed', errorName: error?.name || 'Error' }, 'Copilot shopping search failed');
+      sawTimeout = true;
+    }
     for (const artifact of batch) {
       const key = artifact.product.productUrl;
       const nameKey = normalizeName(artifact.product.name);
@@ -664,15 +733,17 @@ export async function runSerpShoppingRecommendation({
       if (nameKey) names.add(nameKey);
       if (family) families.add(family);
       products.push(artifact);
-      if (products.length >= 5) break;
+      if (products.length >= limit) break;
     }
-    if (products.length >= 5) break;
   }
   let content = replyFor(plan, products.length, { more });
   let notice = '';
-  if (stopReason && !(stopReason === 'turn' && products.length >= 5)) {
+  if (stopReason && !(stopReason === 'turn' && products.length >= limit)) {
     notice = shoppingUnavailableMessage(stopReason);
     if (!products.length) content = notice;
+  } else if (!products.length && sawTimeout) {
+    notice = shoppingUnavailableMessage('timeout');
+    content = notice;
   }
   let copyUsage = {};
   if (describeCards && products.length) {

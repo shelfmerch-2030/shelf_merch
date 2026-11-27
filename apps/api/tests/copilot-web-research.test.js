@@ -683,11 +683,33 @@ describe('general public web research routing', () => {
     expect(JSON.parse(stream.mock.calls[0][0].messages[0].content).topic).toMatch(/AWS Lambda/i);
   });
 
-  it('cites public sources on Discover without shopping cards or the ShelfMerch catalog', async () => {
+  it('does not search Discover from research wording unless Claude calls the web tool', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    stream.mockResolvedValueOnce({
+      text: 'Reusable gifts are common in corporate gifting. I can look up current reports if you want.',
+      finishReason: 'end_turn',
+      toolCalls: [],
+      usage: { promptTokens: 4, completionTokens: 12 },
+    });
+    const { reply } = await chat.turn('Research recent corporate gifting trends in India.', 'chat', 'discover');
+    expect(reply.content).toMatch(/Reusable gifts/);
+    expect(reply.artifacts.filter((row) => row.kind === 'web_research')).toEqual([]);
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
+    expect(stream.mock.calls[0][0].tools.map((tool) => tool.function.name)).toEqual(['find_outside_products', 'search_public_web']);
+  });
+
+  it('cites public sources on Discover when Claude calls web search', async () => {
     const { stream } = mockClaude();
     const chat = await workspace();
     const excerpt = 'The respondents favored useful reusable gifts over single-use items.';
-    stream.mockResolvedValueOnce(native([
+    stream.mockResolvedValueOnce({
+      text: '',
+      finishReason: 'tool_use',
+      toolCalls: [{ name: 'search_public_web', arguments: { question: 'recent corporate gifting trends in India' } }],
+      usage: { promptTokens: 8, completionTokens: 6 },
+    }).mockResolvedValueOnce(native([
       searchResult(sourceUrl),
       { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, '2026 India Employee Gifting Survey'), cited_text: excerpt }] },
     ])).mockResolvedValueOnce(synthesis([{
@@ -700,17 +722,159 @@ describe('general public web research routing', () => {
     const research = reply.artifacts.find((row) => row.kind === 'web_research').research;
     expect(research).toMatchObject({
       status: 'completed',
-      brief: { purpose: 'trends', source: 'external' },
+      brief: { purpose: 'research', topic: 'recent corporate gifting trends in India' },
       sources: [{ url: sourceUrl, title: '2026 India Employee Gifting Survey', excerpt }],
     });
+    expect(research.brief.source).toBeUndefined();
+    expect(reply.content).toContain('What the research shows');
     expect(reply.content).toContain('Prioritize useful reusable gifts');
     expect(reply.content).toContain('[Source 1]');
+    expect(reply.content).not.toMatch(/external merchant listings/i);
     expect(reply.artifacts.some((row) => row.kind === 'product' || row.kind === 'external_product')).toBe(false);
-    expect(stream.mock.calls[0][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 } });
-    expect(JSON.parse(stream.mock.calls[1][0].messages[0].content).verifiedShelfMerch).toEqual([]);
+    expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
+    expect(stream.mock.calls[1][0]).toMatchObject({ tools: [], webSearch: { maxUses: 3 } });
+    expect(JSON.parse(stream.mock.calls[2][0].messages[0].content).verifiedShelfMerch).toEqual([]);
   });
 
-  it('keeps a Discover answer and skips web search when the research kill switch is on', async () => {
+  it('keeps earlier Discover messages available for a follow-up research question', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const excerpt = 'Several 2026 reports describe smaller reusable welcome kits.';
+    stream.mockResolvedValueOnce({
+      text: 'A welcome kit is a small set of useful gifts for someone new.',
+      finishReason: 'end_turn',
+      toolCalls: [],
+      usage: { promptTokens: 4, completionTokens: 8 },
+    }).mockResolvedValueOnce({
+      text: '',
+      finishReason: 'tool_use',
+      toolCalls: [{ name: 'search_public_web', arguments: { question: 'What changed about welcome kits this year?' } }],
+      usage: { promptTokens: 6, completionTokens: 4 },
+    }).mockResolvedValueOnce(native([
+      searchResult(sourceUrl),
+      { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, '2026 welcome kit report'), cited_text: excerpt }] },
+    ])).mockResolvedValueOnce(synthesis([{
+      source: 1,
+      name: 'Smaller reusable welcome kits',
+      evidence: excerpt,
+      reason: 'Recent reports describe smaller reusable welcome kits.',
+    }]));
+    await chat.turn('What is a welcome kit?', 'chat', 'discover');
+    const { reply } = await chat.turn('What changed about that this year?', 'chat', 'discover');
+    const planner = stream.mock.calls[1][0];
+    expect(planner.messages.map((row) => row.content).join('\n')).toMatch(/What is a welcome kit/);
+    expect(reply.content).toContain('smaller reusable welcome kits');
+    expect(reply.artifacts.find((row) => row.kind === 'web_research').research.sources[0].url).toBe(sourceUrl);
+  });
+
+  it('keeps a shopping request on product search and does not call web search', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const previous = env.EMBEDDED_COPILOT_SERPAPI_ENABLED;
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'false';
+    try {
+      stream.mockResolvedValueOnce({
+        text: 'I will look for earbuds.',
+        finishReason: 'tool_use',
+        toolCalls: [{ name: 'find_outside_products', arguments: { queries: ['wireless earbuds'], count: 1 } }],
+        usage: { promptTokens: 5, completionTokens: 4 },
+      });
+      const { reply } = await chat.turn('show me wireless earbuds under 2000', 'chat', 'discover');
+      expect(reply.content).toMatch(/Product search is turned off/);
+      expect(reply.artifacts.filter((row) => row.kind === 'web_research')).toEqual([]);
+      expect(stream).toHaveBeenCalledTimes(1);
+      expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
+    } finally {
+      env.EMBEDDED_COPILOT_SERPAPI_ENABLED = previous;
+    }
+  });
+
+  it('returns cited research and shopping cards when Claude calls both tools', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const excerpt = 'The respondents favored useful reusable gifts over single-use items.';
+    const previous = {
+      enabled: env.EMBEDDED_COPILOT_SERPAPI_ENABLED,
+      kill: env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH,
+      key: env.SERPAPI_API_KEY,
+    };
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    env.SERPAPI_API_KEY = 'synthetic-shopping-key';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        shopping_results: [{
+          title: 'Noise Buds Mini X',
+          extracted_price: 999,
+          price: '₹999',
+          source: 'Amazon.in',
+          link: 'https://www.amazon.in/noise-buds-mini',
+          thumbnail: 'https://m.media-amazon.com/images/noise-buds.jpg',
+        }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      stream.mockResolvedValueOnce({
+        text: '',
+        finishReason: 'tool_use',
+        toolCalls: [
+          { name: 'search_public_web', arguments: { question: 'recent corporate gifting trends in India' } },
+          { name: 'find_outside_products', arguments: { queries: ['wireless earbuds'], count: 1 } },
+        ],
+        usage: { promptTokens: 8, completionTokens: 6 },
+      }).mockResolvedValueOnce(native([
+        searchResult(sourceUrl),
+        { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, '2026 India Employee Gifting Survey'), cited_text: excerpt }] },
+      ])).mockResolvedValueOnce(synthesis([{
+        source: 1,
+        name: 'Survey respondents prefer reusable gifts',
+        evidence: excerpt,
+        reason: 'Prioritize useful reusable gifts and let recipients select what they will use.',
+      }])).mockResolvedValueOnce({
+        text: '{"intro":"These earbuds fit the budget.","reasons":["Noise Buds Mini X is a compact option."]}',
+        finishReason: 'end_turn',
+        toolCalls: [],
+        usage: { promptTokens: 4, completionTokens: 8 },
+      });
+      const { reply } = await chat.turn('show me wireless earbuds under 2000', 'chat', 'discover');
+      expect(reply.content).toContain('Prioritize useful reusable gifts');
+      expect(reply.content).toContain('[Source 1]');
+      expect(reply.artifacts.find((row) => row.kind === 'web_research').research.status).toBe('completed');
+      const product = reply.artifacts.find((row) => row.kind === 'external_product');
+      expect(product.product.name).toMatch(/Noise Buds/);
+      expect(product.product.priceText).toMatch(/999/);
+      expect(fetchMock).toHaveBeenCalled();
+      expect(stream.mock.calls.some(([input]) => input.webSearch)).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      env.EMBEDDED_COPILOT_SERPAPI_ENABLED = previous.enabled;
+      env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = previous.kill;
+      env.SERPAPI_API_KEY = previous.key;
+    }
+  });
+
+  it('keeps the Discover conversation when web search fails', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    stream.mockResolvedValueOnce({
+      text: 'I can keep talking while search is unavailable.',
+      finishReason: 'tool_use',
+      toolCalls: [{ name: 'search_public_web', arguments: { question: 'latest public weather forecasts for Mumbai' } }],
+      usage: { promptTokens: 3, completionTokens: 6 },
+    }).mockRejectedValueOnce(new Error('provider down'));
+    const { reply } = await chat.turn('What is the weather in Mumbai today?', 'chat', 'discover');
+    expect(reply.content).toMatch(/keep talking while search is unavailable/);
+    expect(reply.content).not.toMatch(/provider down/);
+    expect(reply.artifacts.find((row) => row.kind === 'web_research').research).toMatchObject({
+      status: 'unavailable',
+      sources: [],
+    });
+  });
+
+  it('does not offer web search when the research kill switch is on', async () => {
     const { stream } = mockClaude();
     const chat = await workspace();
     env.EMBEDDED_COPILOT_WEB_SEARCH_KILL_SWITCH = 'true';
@@ -722,8 +886,8 @@ describe('general public web research routing', () => {
     });
     const { reply } = await chat.turn('Research recent corporate gifting trends in India.', 'chat', 'discover');
     expect(reply.content).toMatch(/Reusable gifts/);
-    expect(reply.artifacts[0].research.status).toBe('disabled');
-    expect(reply.artifacts[0].research.sources).toEqual([]);
+    expect(reply.artifacts.filter((row) => row.kind === 'web_research')).toEqual([]);
     expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
+    expect(stream.mock.calls[0][0].tools.map((tool) => tool.function.name)).toEqual(['find_outside_products']);
   });
 });

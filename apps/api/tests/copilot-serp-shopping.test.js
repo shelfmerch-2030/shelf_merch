@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env.js';
 import {
   discoverSearchPlan,
+  isConcreteShoppingQuery,
   isProductShoppingRequest,
   isShoppingFollowUp,
   prefersShoppingCards,
@@ -501,5 +502,112 @@ describe('SerpAPI shopping product cards', () => {
     expect(cards).toHaveLength(1);
     expect(cards[0].product.name).toBe('Milton flask');
     expect(cards[0].product.productUrl).toBe(next);
+  });
+
+  it('does not send a vague budget sentence to SerpAPI', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const text = 'my budget is 190 rs show me 10 products';
+    expect(isConcreteShoppingQuery(text)).toBe(false);
+    const plan = shoppingPlan(text, { discover: true });
+    expect(plan.queries).toEqual([]);
+    const search = vi.fn();
+    const result = await runSerpShoppingRecommendation({ text, discover: true, search });
+    expect(search).not.toHaveBeenCalled();
+    expect(result.products).toEqual([]);
+    expect(result.content).toBe('');
+  });
+
+  it('uses Claude searches for a vague request, keeps the stated budget, and returns the requested count', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const text = 'my budget is 190 rs show me 10 products';
+    const plan = discoverSearchPlan({
+      text,
+      toolArgs: { queries: ['gel pen', 'keychain'], budgetInr: 5000, count: 10 },
+    });
+    expect(plan.queries.map((row) => row.query)).toEqual(['gel pen', 'keychain']);
+    expect(plan.budget).toEqual({ inr: 190, exclusive: false });
+    expect(plan.limit).toBe(10);
+    const rows = [
+      listing('Fancy keychain', '₹250', 250),
+      ...Array.from({ length: 12 }, (_, index) => listing(`${String.fromCharCode(65 + index)} gel pen`, '₹40', 40)),
+    ];
+    const search = vi.fn(async () => ({ shopping_results: rows }));
+    const result = await runSerpShoppingRecommendation({
+      text, discover: true, plan, search, config: env,
+    });
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(result.products).toHaveLength(10);
+    expect(result.products.every((row) => row.product.priceNumeric <= 190)).toBe(true);
+    expect(result.products.some((row) => row.product.name === 'Fancy keychain')).toBe(false);
+    expect(result.content).not.toMatch(/took too long/);
+  });
+
+  it('keeps cards from a later search when an earlier SerpAPI call times out', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const search = vi.fn()
+      .mockResolvedValueOnce({ shopping_results: [], failure: 'timeout' })
+      .mockResolvedValueOnce({ shopping_results: [listing('Ceramic mug', '₹120', 120), listing('Steel bottle', '₹400', 400)] });
+    const result = await runSerpShoppingRecommendation({
+      text: 'show me a pen and a mug under 190',
+      discover: true,
+      search,
+      config: env,
+    });
+    expect(search.mock.calls.length).toBeGreaterThan(1);
+    expect(result.products.map((row) => row.product.name)).toEqual(['Ceramic mug']);
+    expect(result.content).not.toMatch(/took too long/);
+  });
+
+  it('says the search took too long only when every search times out', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const search = vi.fn(async () => ({ shopping_results: [], failure: 'timeout' }));
+    const result = await runSerpShoppingRecommendation({
+      text: 'show me a mug under 190',
+      discover: true,
+      search,
+      config: env,
+    });
+    expect(result.products).toEqual([]);
+    expect(result.content).toMatch(/took too long/);
+  });
+
+  it('follows a narrower request from Claude and does not repeat cards already shown', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const shown = listing('Premium earbuds', '₹1800', 1800);
+    const messages = [
+      { role: 'user', content: 'show me wireless earbuds under 2000' },
+      {
+        role: 'assistant',
+        artifacts: [{
+          kind: 'external_product',
+          product: {
+            imageProvenance: 'shopping_result',
+            name: shown.title,
+            productUrl: shown.link,
+            priceNumeric: 1800,
+          },
+        }],
+      },
+    ];
+    const text = 'only tech products';
+    expect(isShoppingFollowUp(text, messages)).toBe(false);
+    const plan = discoverSearchPlan({
+      text,
+      messages,
+      toolArgs: { queries: ['bluetooth speaker', 'power bank'], budgetInr: 2000 },
+    });
+    expect(plan.queries.map((row) => row.query)).toEqual(['mini bluetooth speaker', 'portable power bank']);
+    const search = vi.fn(async () => ({
+      shopping_results: [shown, listing('Mini Bluetooth Speaker', '₹999', 999)],
+    }));
+    const result = await runSerpShoppingRecommendation({
+      text, messages, discover: true, plan, search, config: env,
+    });
+    expect(result.products.map((row) => row.product.name)).toEqual(['Mini Bluetooth Speaker']);
   });
 });

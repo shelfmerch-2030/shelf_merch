@@ -1,3 +1,4 @@
+import { ArrowUpRight } from "lucide-react";
 import { CardImage } from "./CopilotCardImage";
 import type { CopilotExternalProduct } from "./api";
 
@@ -65,8 +66,8 @@ export function CopilotExternalProductCard({ product, index = 0 }: { product: Co
           target="_blank"
           rel="noopener noreferrer"
         >
-          View product
-          <span aria-hidden="true"> ↗</span>
+          <span>View product</span>
+          <ArrowUpRight size={12} aria-hidden="true" />
         </a>
       </div>
     </article>
