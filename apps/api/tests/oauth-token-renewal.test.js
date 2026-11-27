@@ -7,6 +7,7 @@ import { createApp } from '../src/app.js';
 import { makeTenant, makeUser } from './helpers.js';
 import { OauthGrantBinding } from '../src/modules/oauth/oauthGrantBinding.model.js';
 import { getOidcProvider } from '../src/modules/oauth/createOidcProvider.js';
+import * as metadataFetch from '../src/modules/oauth/oauthMetadataFetch.js';
 import {
   LOCAL_OAUTH_CLIENT_ID,
   LOCAL_OAUTH_REDIRECT_URI,
@@ -37,7 +38,7 @@ function claimsOf(token) {
 }
 
 function installFetch(routes) {
-  vi.stubGlobal('fetch', async (url) => {
+  vi.spyOn(metadataFetch, 'oauthMetadataFetch').mockImplementation(async (url) => {
     const route = routes.get(String(url));
     if (!route) return new Response('missing', { status: 404 });
     return route.clone();
@@ -135,6 +136,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('OAuth token renewal', () => {

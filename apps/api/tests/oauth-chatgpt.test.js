@@ -7,6 +7,7 @@ import { createApp } from '../src/app.js';
 import { makeTenant, makeUser } from './helpers.js';
 import { CatalogProduct } from '../src/modules/catalog/catalogProduct.model.js';
 import { mcpResourceUrl, oauthIssuer } from '../src/modules/oauth/oauth.config.js';
+import * as metadataFetch from '../src/modules/oauth/oauthMetadataFetch.js';
 
 const PROTOCOL = '2026-07-28';
 const JWKS_URL = 'https://chatgpt.com/oauth/jwks.json';
@@ -55,7 +56,7 @@ function metadataDocument({ clientId, redirectUris, method, extra = {} }) {
 
 function installFetch(routes) {
   const calls = [];
-  vi.stubGlobal('fetch', async (url) => {
+  vi.spyOn(metadataFetch, 'oauthMetadataFetch').mockImplementation(async (url) => {
     const href = String(url);
     calls.push(href);
     const route = routes.get(href);
@@ -179,6 +180,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('ChatGPT OAuth client compatibility', () => {

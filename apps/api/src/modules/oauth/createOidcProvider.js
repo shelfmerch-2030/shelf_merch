@@ -11,6 +11,7 @@ import {
   oidcJwks,
 } from './oauth.config.js';
 import { allowChatGptClient, allowChatGptMetadataFetch } from './chatgptClient.js';
+import * as metadataFetch from './oauthMetadataFetch.js';
 
 const DAY = 24 * 60 * 60;
 
@@ -89,6 +90,11 @@ export function getOidcProvider() {
       return false;
     },
     findAccount: findOauthAccount,
+    // ChatGPT client metadata and JWKS are fetched here. global fetch on the
+    // Node 20 image rejects the SSRF dispatcher installed by npm undici.
+    fetch(url, options) {
+      return metadataFetch.oauthMetadataFetch(url, options);
+    },
     ttl: {
       AccessToken: 15 * 60,
       AuthorizationCode: 60,
