@@ -192,6 +192,7 @@ describe('ChatGPT OAuth client compatibility', () => {
     expect(discovery.body.registration_endpoint).toBeUndefined();
     expect(discovery.body.code_challenge_methods_supported).toEqual(['S256']);
     expect(discovery.body.token_endpoint_auth_methods_supported).toEqual(['none', 'private_key_jwt']);
+    expect(discovery.body.grant_types_supported).toEqual(['authorization_code', 'refresh_token']);
     expect(discovery.body.scopes_supported).toEqual(expect.arrayContaining(['catalog:read', 'openid']));
     expect(discovery.body.scopes_supported).not.toEqual(expect.arrayContaining(['email', 'profile']));
     expect(discovery.body.userinfo_endpoint).toBeUndefined();
@@ -390,6 +391,10 @@ describe('ChatGPT OAuth client compatibility', () => {
         clientId,
         redirectUris: [redirectUri],
         method: 'private_key_jwt',
+        extra: {
+          token_endpoint_auth_methods_supported: ['none', 'private_key_jwt'],
+          grant_types: ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:jwt-bearer'],
+        },
       }))],
       [JWKS_URL, jsonResponse({ keys: [publicJwk] })],
     ]));

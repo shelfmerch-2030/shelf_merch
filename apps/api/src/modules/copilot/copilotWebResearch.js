@@ -176,6 +176,12 @@ export function publicResearchRequest(text, priorResearch) {
   };
 }
 
+/** Shopping already has live prices. Web search is for a sourced explanation, news, or trends. */
+export function needsPublicSources(text) {
+  return typeof text === 'string'
+    && /\b(?:sources?|citations?|cited|trends?|news|research|latest|recent|announced|announcements?)\b/i.test(text);
+}
+
 export function webResearchEnabled(provider) {
   return env.EMBEDDED_COPILOT_ENABLED === 'true'
     && env.EMBEDDED_COPILOT_WEB_SEARCH_ENABLED === 'true'

@@ -4,8 +4,8 @@ import { streamAnthropicCompletion } from './providers/anthropicChatAdapter.js';
 import { currencyFromPriceText } from './copilotExternalProductArtifacts.js';
 
 const answerSchema = z.object({
-  findings: z.array(z.unknown()).max(12),
-  concepts: z.array(z.unknown()).max(12),
+  findings: z.array(z.unknown()).max(12).optional().default([]),
+  concepts: z.array(z.unknown()).max(12).optional().default([]),
   kits: z.array(z.unknown()).max(12).optional(),
 });
 const findingSchema = z.object({
@@ -123,6 +123,42 @@ export function findingsFromCitedSources(sources, brief) {
     });
   });
   return { selected, rejected };
+}
+
+function researchTitle(title) {
+  if (typeof title !== 'string') return null;
+  const segment = title.split(/\s+[|–—]\s+/)[0].replace(/\s+/g, ' ').trim().slice(0, 160);
+  if (segment.length < 8 || /[<>`]/.test(segment) || /^https?:/i.test(segment)) return null;
+  return segment;
+}
+
+function safeExcerpt(excerpt) {
+  const cleaned = String(excerpt || '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(excerptPrice, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 240);
+  if (cleaned.length < 8 || unsupportedProse.test(cleaned)) return '';
+  return cleaned;
+}
+
+/** Ground a trends or research answer in the pages already retrieved. Does not invent prices or merchants. */
+export function findingsFromResearchSources(sources) {
+  const selected = [];
+  for (const source of sources || []) {
+    if (selected.length >= 5) break;
+    const name = researchTitle(source?.title);
+    if (!name || !source?.url) continue;
+    const reason = safeExcerpt(source.excerpt);
+    selected.push({
+      row: { source: selected.length + 1, name, reason },
+      source,
+      price: null,
+      reason,
+    });
+  }
+  return selected;
 }
 
 function selectFindings(plan, sources, brief) {
@@ -289,6 +325,23 @@ export async function synthesizeResearch({ client, model, brief, sources, catalo
     });
   };
 
+  const researchCitationFallback = (outcome) => {
+    if (products || !sources.length) return empty(outcome);
+    const findings = findingsFromResearchSources(sources);
+    if (!findings.length) return empty(outcome);
+    return researchPayload({
+      usage,
+      findings,
+      concepts: [],
+      kitPlans: [],
+      brief,
+      rejected: { shape: 0, evidence: 0, budget: 0, duplicate: 0 },
+      candidates: sources.length,
+      outcome: 'research_citation_fallback',
+      citationFallback: true,
+    });
+  };
+
   try {
     const requestSignal = signal ? AbortSignal.any([signal, budgetSignal]) : budgetSignal;
     requestSignal.throwIfAborted();
@@ -300,18 +353,23 @@ export async function synthesizeResearch({ client, model, brief, sources, catalo
       maxOutputTokens: Math.min(env.EMBEDDED_COPILOT_MAX_OUTPUT_TOKENS, 2400),
     });
     Object.assign(usage, result.usage);
-    if (result.toolCalls?.length) return empty('unexpected_tool');
-    if (result.finishReason !== 'end_turn') return empty('incomplete');
+    if (result.toolCalls?.length) return researchCitationFallback('unexpected_tool');
+    if (result.finishReason !== 'end_turn') return researchCitationFallback('incomplete');
     let plan;
     try {
       const fenced = result.text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-      plan = answerSchema.parse(JSON.parse(fenced ? fenced[1] : result.text.trim()));
+      const raw = fenced ? fenced[1] : String(result.text || '');
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start < 0 || end <= start) throw new Error('no json');
+      plan = answerSchema.parse(JSON.parse(raw.slice(start, end + 1)));
     } catch {
-      return empty('invalid_response');
+      return researchCitationFallback('invalid_response');
     }
     const { selected: findings, rejected } = selectFindings(plan, sources, brief);
     const concepts = selectConcepts(plan, brief, findings.length);
     const kitPlans = selectKitPlans(plan, findings, concepts, brief);
+    if (!products && !findings.length) return researchCitationFallback(sources.length ? 'no_verified_findings' : 'no_evidence');
     return researchPayload({
       usage,
       findings,
@@ -324,6 +382,8 @@ export async function synthesizeResearch({ client, model, brief, sources, catalo
     });
   } catch {
     const outcome = signal?.aborted ? 'cancelled' : budgetSignal.aborted ? 'timeout' : 'provider_error';
-    return citationTimeoutFallback(outcome);
+    if (outcome === 'cancelled') return empty(outcome);
+    const recovered = researchCitationFallback(outcome);
+    return recovered.sources?.length ? recovered : citationTimeoutFallback(outcome);
   }
 }
