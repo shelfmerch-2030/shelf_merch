@@ -304,6 +304,11 @@ export function buildOpenApi(serverUrl) {
             price: { type: 'object', properties: { amount: { type: 'number' }, currency: { const: 'INR' }, tax_inclusive: { type: 'boolean' }, gst_rate: { type: 'number' } } },
             availability: { type: 'object', properties: { status: { type: 'string', enum: ['in_stock', 'out_of_stock', 'made_to_order', 'discontinued'] }, quantity: { type: ['integer', 'null'] } } },
             specifications: { type: 'object', description: 'material, hsn_code, gst_rate, min_order_quantity, production_days, dimensions_in, printable_areas, customization_methods' },
+            print_areas: {
+              type: 'array',
+              description: 'Where artwork can be printed. Use key as items[].print_areas[].area.',
+              items: { type: 'object', properties: { key: { type: 'string' }, label: { type: 'string' }, width_in: { type: 'number' }, height_in: { type: 'number' }, dpi: { type: 'integer' }, methods: { type: 'array', items: { type: 'string' } } } },
+            },
             variants: {
               type: 'array',
               items: {
@@ -402,6 +407,26 @@ export function buildOpenApi(serverUrl) {
                   sku: { type: 'string', description: 'Your mapped SKU, a branded listing id (`collectionId:productId`), or a ShelfMerch catalog/variant SKU.' },
                   product_id: { type: 'string', description: 'A catalog product `id` (GET /catalog/products); pick the variant with size/color.' },
                   variant_id: { type: 'string', description: 'A catalog variant `id` — the exact size/colour, no size/color needed.' },
+                  print_areas: {
+                    type: 'array',
+                    maxItems: 10,
+                    description:
+                      'Exact artwork placement per print area (instead of artwork_url). Inches from the top-left corner of the area; see print_areas on GET /catalog/products. ' +
+                      'Validated: the area exists, the artwork fits, its shape matches width × height (±3%), and it prints at ≥100 DPI. The file must be a direct PNG, JPEG, WebP or PDF URL (no redirects).',
+                    items: {
+                      type: 'object',
+                      required: ['area', 'artwork_url', 'width_in'],
+                      additionalProperties: false,
+                      properties: {
+                        area: { type: 'string', description: 'Print area key, e.g. "front".' },
+                        artwork_url: { type: 'string', format: 'uri' },
+                        width_in: { type: 'number', exclusiveMinimum: 0 },
+                        height_in: { type: 'number', exclusiveMinimum: 0, description: 'Optional for images (derived from the file); required for PDF.' },
+                        left_in: { type: 'number', minimum: 0, description: 'Default: centred.' },
+                        top_in: { type: 'number', minimum: 0, description: 'Default: centred.' },
+                      },
+                    },
+                  },
                   quantity: { type: 'integer', minimum: 1, maximum: 10000 },
                   size: { type: 'string', description: '"2XL" and "XXL" are treated as the same size.' },
                   color: { type: 'string' },

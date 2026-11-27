@@ -41,6 +41,18 @@ export function serializePublicOrder(order, shipment = null) {
       unit_price: i.unitPriceInr ?? 0,
       image_url: i.imageUrl || null,
       artwork_url: i.artworkUrl || null,
+      // Exact placements the client sent (print_areas); empty for lines placed by a listing or none.
+      print_areas: (i.placements ?? [])
+        .filter((p) => Number(p.widthIn) > 0)
+        .map((p) => ({
+          area: p.key,
+          artwork_url: p.artworkUrl || null,
+          width_in: p.widthIn,
+          height_in: p.heightIn,
+          left_in: p.leftIn,
+          top_in: p.topIn,
+          effective_dpi: p.effectiveDpi ?? null,
+        })),
     })),
     amounts: {
       currency: 'INR',

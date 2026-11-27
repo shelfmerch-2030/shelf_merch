@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
 // Deliveries are asserted as outbox rows; nothing is sent.
 vi.mock('../src/jobs/queues.js', async (importOriginal) => ({
@@ -238,6 +238,92 @@ describe('orders with ShelfMerch ids', () => {
     const res = await order([{ sku: 'APRN-1007', size: 'L', color: 'Midnight Navy', quantity: 1 }], 'ID-6');
     expect(res.status).toBe(201);
     expect(res.body.items[0]).toMatchObject({ sku: 'APRN-1007', size: 'L' });
+  });
+});
+
+describe('artwork placement (print_areas)', () => {
+  const png = (w, h) => {
+    const b = Buffer.alloc(33);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0);
+    b.writeUInt32BE(13, 8);
+    b.write('IHDR', 12, 'ascii');
+    b.writeUInt32BE(w, 16);
+    b.writeUInt32BE(h, 20);
+    return b;
+  };
+  const FILES = {
+    'https://cdn.client.example/logo-2400x1800.png': () => new Response(png(2400, 1800), { status: 206 }),
+    'https://cdn.client.example/tiny-400x300.png': () => new Response(png(400, 300), { status: 200 }),
+    'https://cdn.client.example/logo.svg': () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', { status: 200 }),
+    'https://cdn.client.example/moved.png': () => new Response(null, { status: 302, headers: { Location: 'https://elsewhere.example/x.png' } }),
+  };
+  let cap;
+
+  beforeEach(async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => (FILES[String(url)] ?? (() => new Response('nope', { status: 404 })))());
+    cap = await CatalogProduct.create({
+      sku: 'CAP-PLACE',
+      name: 'Placement Cap',
+      basePriceInr: 224,
+      physicalDimensions: { width: 20, height: 24 },
+      printAreas: [{ key: 'front', label: 'Front', xIn: 5, yIn: 4, widthIn: 10, heightIn: 12, dpi: 300, methods: ['dtf'] }],
+      variants: [{ sku: 'CAP-PLACE', size: '', color: 'White' }],
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const place = (areas, id, extra = {}) =>
+    post('/orders', { external_id: id, shipping_address: ADDRESS, items: [{ sku: 'CAP-PLACE', color: 'White', quantity: 1, print_areas: areas, ...extra }] }, { idem: id });
+
+  it('the catalog lists print areas in inches', async () => {
+    const p = (await get(`/catalog/products/${cap._id}`)).body;
+    expect(p.print_areas).toEqual([{ key: 'front', label: 'Front', width_in: 10, height_in: 12, dpi: 300, methods: ['dtf'] }]);
+  });
+
+  it('stores exact size/position and echoes it back with the effective DPI', async () => {
+    const res = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8, left_in: 1, top_in: 2 }], 'PL-1');
+    expect(res.status).toBe(201);
+    expect(res.body.items[0]).toMatchObject({
+      artwork_url: 'https://cdn.client.example/logo-2400x1800.png',
+      print_areas: [{ area: 'front', width_in: 8, height_in: 6, left_in: 1, top_in: 2, effective_dpi: 300 }],
+    });
+    const { Order } = await import('../src/modules/orders/order.model.js');
+    const stored = (await Order.findOne({ tenantId: tenant._id, 'apiRef.externalId': 'PL-1' }).lean()).items[0];
+    // Centre (1+4, 2+3) in a 10×12 in area → 50% / 41.67%; width 8/10 → 80%.
+    expect(stored.placements[0]).toMatchObject({ key: 'front', printCxPct: 50, printWPct: 80, artworkWidthPx: 2400 });
+    expect(stored.placements[0].printCyPct).toBeCloseTo(41.67, 1);
+    expect(stored.placement).toMatchObject({ printCxPct: 50, printWPct: 80 });
+  });
+
+  it('centres the artwork when left/top are omitted', async () => {
+    const res = await place([{ area: 'Front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8 }], 'PL-2');
+    expect(res.body.items[0].print_areas[0]).toMatchObject({ left_in: 1, top_in: 3, height_in: 6 });
+  });
+
+  it('rejects wrong shape, out of bounds, low resolution, unknown area, SVG and redirects — with the reason', async () => {
+    const cases = [
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8, height_in: 8 }], 'artwork_aspect_mismatch', 'items[0].print_areas[0].height_in'],
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8, left_in: 3 }], 'artwork_out_of_bounds', 'items[0].print_areas[0]'],
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/tiny-400x300.png', width_in: 8 }], 'artwork_low_resolution', 'items[0].print_areas[0].artwork_url'],
+      [[{ area: 'back', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 4 }], 'print_area_not_found', 'items[0].print_areas[0].area'],
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo.svg', width_in: 4 }], 'artwork_unsupported_format', 'items[0].print_areas[0].artwork_url'],
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/moved.png', width_in: 4 }], 'artwork_redirect', 'items[0].print_areas[0].artwork_url'],
+    ];
+    for (const [areas, code, param] of cases) {
+      const res = await place(areas, `PL-${code}`);
+      expect(res.status, code).toBe(422);
+      expect(res.body.error.details[0], code).toMatchObject({ code, param });
+    }
+    const lowRes = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/tiny-400x300.png', width_in: 8 }], 'PL-low-2');
+    expect(lowRes.body.error.details[0].message).toContain('only 50 DPI');
+  });
+
+  it('artwork_url and print_areas are not combined; plain artwork_url lines still work', async () => {
+    const both = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8 }], 'PL-both', { artwork_url: 'https://cdn.client.example/logo-2400x1800.png' });
+    expect(both.status).toBe(400);
+    const plain = await post('/orders', { external_id: 'PL-plain', shipping_address: ADDRESS, items: [{ sku: 'CAP-PLACE', color: 'White', quantity: 1, artwork_url: 'https://cdn.client.example/anything.png' }] }, { idem: 'PL-plain' });
+    expect(plain.status).toBe(201);
+    expect(plain.body.items[0]).toMatchObject({ artwork_url: 'https://cdn.client.example/anything.png', print_areas: [] });
   });
 });
 

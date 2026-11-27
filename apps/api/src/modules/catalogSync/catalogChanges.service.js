@@ -16,7 +16,7 @@ const CURSOR_KEY = 'catalog-change-sweep';
 const PUBLIC_SELECT =
   'sku name slug brand description keyFeatures sizeGuide category subcategory childCategory categoryIds categoryLabels ' +
   'basePriceInr gstRate hsnCode moq material productionDays printableAreas customizationMethods customization ' +
-  'physicalDimensions variants imageUrls primaryImageUrl inventory status createdAt updatedAt';
+  'physicalDimensions printAreas dpi variants imageUrls primaryImageUrl inventory status createdAt updatedAt';
 
 /** What we compare, from the public representation (so only client-visible changes count). */
 export function productState(product) {

@@ -77,10 +77,31 @@ const createOrderBody = z.object({
         size: optStr(40),
         color: optStr(40),
         artwork_url: z.string().trim().url().max(2000).refine((u) => u.startsWith('https://'), 'artwork_url must be https').optional(),
+        // Exact artwork size/position per print area, in inches relative to the area's top-left corner.
+        print_areas: z
+          .array(
+            z
+              .object({
+                area: str(60),
+                artwork_url: z.string().trim().url().max(2000).refine((u) => u.startsWith('https://'), 'artwork_url must be https'),
+                width_in: z.number().positive().max(100),
+                height_in: z.number().positive().max(100).optional(),
+                left_in: z.number().min(0).max(100).optional(),
+                top_in: z.number().min(0).max(100).optional(),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(10)
+          .optional(),
       })
       .refine((i) => [i.sku, i.product_id, i.variant_id].filter(Boolean).length === 1, {
         message: 'Send exactly one of sku, product_id or variant_id',
         path: ['sku'],
+      })
+      .refine((i) => !(i.artwork_url && i.print_areas), {
+        message: 'Send artwork per print area in print_areas[].artwork_url, not artwork_url as well',
+        path: ['artwork_url'],
       }),
     )
     .min(1)

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { CatalogProduct } from '../catalog/catalogProduct.model.js';
 import { Category } from '../catalog/category.model.js';
 import { PublicApiError } from './publicApi.errors.js';
+import { serializePrintAreas } from './printAreas.js';
 
 /**
  * Public Catalog API — ShelfMerch's catalog for clients to import into their own platform and keep in sync.
@@ -13,7 +14,7 @@ const PUBLIC_FIELDS = [
   'sku', 'name', 'slug', 'brand', 'description', 'keyFeatures', 'sizeGuide',
   'category', 'subcategory', 'childCategory', 'categoryIds', 'categoryLabels',
   'basePriceInr', 'gstRate', 'hsnCode', 'moq', 'material', 'productionDays',
-  'printableAreas', 'customizationMethods', 'customization', 'physicalDimensions',
+  'printableAreas', 'customizationMethods', 'customization', 'physicalDimensions', 'printAreas', 'dpi',
   'variants', 'imageUrls', 'primaryImageUrl', 'inventory', 'status', 'createdAt', 'updatedAt',
 ].join(' ');
 
@@ -66,6 +67,8 @@ export function serializeCatalogProduct(p) {
         ? p.customization.map((c) => ({ method: c.method, printable_area: c.printableArea || null, extra_cost: c.extraCostInr ?? 0 }))
         : (p.customizationMethods ?? []).map((m) => ({ method: m, printable_area: null, extra_cost: 0 }))),
     },
+    // Where artwork can go, in inches. Use `key` as items[].print_areas[].area when ordering.
+    print_areas: serializePrintAreas(p),
     variants: (p.variants ?? []).map((v) => ({
       id: String(v._id),
       sku: v.sku || p.sku,

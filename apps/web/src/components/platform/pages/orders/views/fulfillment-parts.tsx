@@ -4,10 +4,22 @@ import { TintedGarment } from "@/components/store/TintedGarment";
 import {
   defaultPlacement,
   pickPrintArea,
+  printAreaStableKey,
   type Placement,
 } from "@/features/swag/mockup-bake";
 import type { UiProduct } from "@/services/mappers";
 import type { OrderItemProduct, PrintArea, ProductVariant } from "../model";
+
+/** Physical spec stored when a client placed the artwork in inches (public API print_areas). */
+export type PlacedSpec = {
+  widthIn?: number;
+  heightIn?: number;
+  leftIn?: number;
+  topIn?: number;
+  effectiveDpi?: number | null;
+  artworkWidthPx?: number | null;
+  artworkHeightPx?: number | null;
+};
 
 type AssetPreview = {
   title: string;
@@ -27,7 +39,7 @@ export type OrderItem = {
   /** Saved Konva placement from the design wizard (collection/kit productRef). */
   placement?: Placement | null;
   /** Per print-area artwork/placements snapshotted from the selected listing. */
-  placements?: Array<{ key?: string; artworkUrl?: string } & Partial<Placement>>;
+  placements?: Array<{ key?: string; artworkUrl?: string } & Partial<Placement> & PlacedSpec>;
   variant?: { size?: string; color?: string };
   product?: OrderItemProduct | null;
 };
@@ -779,7 +791,7 @@ export function FulfillmentAssetStrip({
         )}
       </div>
 
-      {printAreas.length > 0 && <PrintSpecTable areas={printAreas} />}
+      {printAreas.length > 0 && <PrintSpecTable areas={printAreas} placements={placements} />}
 
       {preview && (
         <FulfillmentAssetModal
@@ -795,8 +807,24 @@ export function FulfillmentAssetStrip({
   );
 }
 
-/** Production print spec: one row per print area. */
-export function PrintSpecTable({ areas }: { areas: PrintArea[] }) {
+const fmtIn = (n: number) => String(Math.round(n * 100) / 100);
+
+/**
+ * Production print spec: one row per print area. When the client placed artwork in inches, the row
+ * shows the artwork's own printed size, position and effective DPI (what to actually print).
+ */
+export function PrintSpecTable({
+  areas,
+  placements,
+}: {
+  areas: PrintArea[];
+  placements?: Array<{ key?: string } & PlacedSpec>;
+}) {
+  const placedFor = (a: PrintArea, i: number) => {
+    const key = printAreaStableKey(a, i, areas);
+    return placements?.find((p) => p.key === key && Number(p.widthIn) > 0);
+  };
+  const anyPlaced = areas.some((a, i) => placedFor(a, i));
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <table className="tbl" style={{ fontSize: 12.5, margin: 0 }}>
@@ -807,6 +835,7 @@ export function PrintSpecTable({ areas }: { areas: PrintArea[] }) {
             <th>Print size</th>
             <th>Export px</th>
             <th>DPI</th>
+            {anyPlaced && <th>Artwork (client placement)</th>}
           </tr>
         </thead>
         <tbody>
@@ -834,6 +863,19 @@ export function PrintSpecTable({ areas }: { areas: PrintArea[] }) {
                 <td style={{ fontFamily: "var(--font-family-code)" }}>
                   {a.dpi ?? "N/A"}
                 </td>
+                {anyPlaced && (
+                  <td style={{ fontFamily: "var(--font-family-code)" }}>
+                    {(() => {
+                      const p = placedFor(a, i);
+                      if (!p) return "—";
+                      const size = `${fmtIn(Number(p.widthIn))}×${fmtIn(Number(p.heightIn))} in`;
+                      const at = `${fmtIn(Number(p.leftIn ?? 0))} in from left, ${fmtIn(Number(p.topIn ?? 0))} in from top`;
+                      const px = p.artworkWidthPx && p.artworkHeightPx ? ` · file ${p.artworkWidthPx}×${p.artworkHeightPx} px` : "";
+                      const dpi = p.effectiveDpi ? ` · ${p.effectiveDpi} DPI` : "";
+                      return `${size} @ ${at}${px}${dpi}`;
+                    })()}
+                  </td>
+                )}
               </tr>
             );
           })}

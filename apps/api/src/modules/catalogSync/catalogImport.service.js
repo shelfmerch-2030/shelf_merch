@@ -20,7 +20,7 @@ const CHUNK = 1000;
 const PRODUCT_SELECT =
   'sku name slug brand description keyFeatures sizeGuide category subcategory childCategory categoryIds categoryLabels ' +
   'basePriceInr gstRate hsnCode moq material productionDays printableAreas customizationMethods customization ' +
-  'physicalDimensions variants imageUrls primaryImageUrl inventory status createdAt updatedAt';
+  'physicalDimensions printAreas dpi variants imageUrls primaryImageUrl inventory status createdAt updatedAt';
 
 export function serializeImport(imp) {
   return {

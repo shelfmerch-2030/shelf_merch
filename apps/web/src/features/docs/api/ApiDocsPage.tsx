@@ -14,6 +14,7 @@ const NAV = [
   { to: "#catalog", label: "Catalog import & sync" },
   { to: "#sku-mappings", label: "SKU mappings" },
   { to: "#create-order", label: "Create an order" },
+  { to: "#print-placement", label: "Print placement" },
   { to: "#read-orders", label: "Read orders" },
   { to: "#update-cancel", label: "Update & cancel" },
   { to: "#statuses", label: "Order statuses" },
@@ -357,7 +358,7 @@ export function ApiDocsPage() {
         rows={[
           [<code>external_id</code>, "yes", <>Your order id; unique per mode; ≤100 chars of letters, digits and <code>. _ : # / -</code></>],
           [<code>shipping_address</code>, "yes", "name, phone (≥10 digits), line1, city, state, pincode (6 digits when country is IN); line2 and country optional (default IN)"],
-          [<code>items[]</code>, "yes", <>1–100 lines. Each has exactly one of <code>sku</code>, <code>product_id</code> or <code>variant_id</code>; <code>quantity</code> 1–10,000; optional <code>size</code>, <code>color</code>, <code>artwork_url</code> (https, direct link to a print-ready PNG/PDF)</>],
+          [<code>items[]</code>, "yes", <>1–100 lines. Each has exactly one of <code>sku</code>, <code>product_id</code> or <code>variant_id</code>; <code>quantity</code> 1–10,000; optional <code>size</code>, <code>color</code>, and either <code>artwork_url</code> (https, direct link to a print-ready PNG/PDF) or <a href="#print-placement"><code>print_areas</code></a> for exact size and position</>],
           [<code>customer</code>, "no", "name, email, phone; defaults to the shipping name/phone"],
           [<code>notes</code>, "no", "≤1000 chars, shown to production"],
           [<code>metadata</code>, "no", "Up to 20 key/values, echoed back on reads and webhooks"],
@@ -398,6 +399,40 @@ export function ApiDocsPage() {
         <code>unit_price</code> includes GST, so <code>amounts.tax</code> is <code>0</code> and shipping is currently
         included (<code>0</code>): <code>total</code> = <code>subtotal</code>.
       </p>
+
+      <DocsHeading id="print-placement">Print placement</DocsHeading>
+      <p>
+        <code>artwork_url</code> alone tells us <i>what</i> to print. To control <b>how big and where</b>, send{" "}
+        <code>print_areas</code> on the line instead — one entry per print area, in inches measured from that area's
+        top-left corner. Each product's print areas (key and size) are listed in <code>print_areas</code> on{" "}
+        <code>GET /catalog/products</code>.
+      </p>
+      <Code lang="json">{`"items": [{
+  "sku": "ACCA-1022", "color": "White", "quantity": 1,
+  "print_areas": [
+    { "area": "front", "artwork_url": "https://cdn.example.com/logo.png",
+      "width_in": 8.4, "left_in": 1.15, "top_in": 0 }
+  ]
+}]`}</Code>
+      <ul>
+        <li><code>width_in</code> is required. <code>height_in</code> is optional for images — we derive it from the file's shape; if you send it, it must match that shape within 3%. PDF artwork needs both.</li>
+        <li><code>left_in</code> / <code>top_in</code> default to centred.</li>
+        <li>The artwork must fit inside the area and print at <b>at least 100 DPI</b> (pixels ÷ inches; 300 is ideal). Crop transparent margins from the file so its shape is the printed shape.</li>
+        <li><code>artwork_url</code> must be a direct https link to a PNG, JPEG, WebP or PDF — no redirects, no SVG. We read the file's header when the order is placed.</li>
+      </ul>
+      <p>The order echoes what will be printed in <code>items[].print_areas</code>, including <code>effective_dpi</code>. Problems are returned per entry:</p>
+      <Table
+        head={["Code", "Meaning"]}
+        rows={[
+          [<code>print_area_not_found</code>, "The product has no print area with that key — the message lists the available ones"],
+          [<code>artwork_out_of_bounds</code>, "Size + position don't fit inside the area"],
+          [<code>artwork_aspect_mismatch</code>, "height_in doesn't match the file's shape — crop the file or omit height_in"],
+          [<code>artwork_low_resolution</code>, "Under 100 DPI at that size — send a larger file or print smaller"],
+          [<code>artwork_unsupported_format</code>, "Not a PNG, JPEG, WebP or PDF"],
+          [<code>artwork_redirect</code>, <>The URL redirects — send the final file URL</>],
+          [<code>artwork_unreachable</code>, "We couldn't download the file"],
+        ]}
+      />
 
       <DocsHeading id="read-orders">Read orders</DocsHeading>
       <Endpoint method="GET" path="/orders/{id}" />

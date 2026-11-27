@@ -8,6 +8,7 @@ import { computeAmountBreakdown } from '../../services/pricing.service.js';
 import { canTransition, transitionState } from '../../services/stateMachine.service.js';
 import { scheduleOrderEvent } from '../webhooks/webhooks.service.js';
 import { PublicApiError } from './publicApi.errors.js';
+import { buildPlacements, fetchArtworkInfo } from './printAreas.js';
 import { internalStatusesFor, publicStatus, serializePublicOrder } from './publicOrder.serializer.js';
 
 /** Statuses in which a client may still edit or cancel. */
@@ -85,6 +86,39 @@ export async function serializeWithShipment(order) {
   return serializePublicOrder(order, await loadShipment(order));
 }
 
+/**
+ * Validate print_areas on each line and freeze them onto the resolved items as placements
+ * (the format production views already render). Returns error details; mutates `items` on success.
+ */
+async function applyPrintAreas(lines, items) {
+  const withAreas = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.print_areas?.length);
+  if (!withAreas.length) return [];
+  const urls = [...new Set(withAreas.flatMap(({ l }) => l.print_areas.map((a) => a.artwork_url)))];
+  if (urls.length > 20) {
+    return [{ param: 'items', code: 'too_many_artworks', message: 'An order can reference at most 20 different artwork files' }];
+  }
+  const productIds = [...new Set(withAreas.map(({ i }) => String(items[i].catalogProductId)))];
+  const [infos, products] = await Promise.all([
+    Promise.all(urls.map((u) => fetchArtworkInfo(u))),
+    CatalogProduct.find({ _id: { $in: productIds } }).select('name printAreas physicalDimensions dpi').lean(),
+  ]);
+  const artworkInfoByUrl = new Map(urls.map((u, k) => [u, infos[k]]));
+  const productById = new Map(products.map((p) => [String(p._id), p]));
+
+  const details = [];
+  for (const { l, i } of withAreas) {
+    const product = productById.get(String(items[i].catalogProductId));
+    const { placements, errors } = buildPlacements({ product, printAreas: l.print_areas, artworkInfoByUrl, paramPrefix: `items[${i}]` });
+    details.push(...errors);
+    if (errors.length) continue;
+    const { key: _k, artworkUrl, ...first } = placements[0];
+    items[i].placements = placements;
+    items[i].placement = { printCxPct: first.printCxPct, printCyPct: first.printCyPct, printWPct: first.printWPct, xPct: first.xPct, yPct: first.yPct, wPct: first.wPct, rot: first.rot };
+    items[i].artworkUrl = artworkUrl;
+  }
+  return details;
+}
+
 /** POST /orders */
 export async function createApiOrder({ apiKey, body }) {
   const testMode = isTestKey(apiKey);
@@ -117,6 +151,8 @@ export async function createApiOrder({ apiKey, body }) {
     })),
   });
   for (const e of errors) details.push({ param: `items[${e.index}].${e.field ?? 'sku'}`, code: e.code, message: e.message });
+  // Exact artwork placement (print_areas). Resolved items line up with body.items when no line failed.
+  if (!errors.length) details.push(...(await applyPrintAreas(body.items, items)));
   if (details.length) {
     throw new PublicApiError(422, 'validation_failed', details.length === 1 ? details[0].message : `${details.length} problems with this order`, {
       param: details[0].param,
