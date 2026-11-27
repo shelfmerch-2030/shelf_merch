@@ -10,7 +10,7 @@ import {
   oidcCookieKeys,
   oidcJwks,
 } from './oauth.config.js';
-import { allowChatGptClient, allowChatGptMetadataFetch } from './chatgptClient.js';
+import { allowChatGptClient, allowChatGptMetadataFetch, fetchChatGptOAuthDocument } from './chatgptClient.js';
 
 const DAY = 24 * 60 * 60;
 
@@ -45,6 +45,7 @@ export function getOidcProvider() {
     adapter: OidcMongoAdapter,
     jwks: oidcJwks(),
     clients: localOauthClients(),
+    fetch: fetchChatGptOAuthDocument,
     cookies: {
       keys: oidcCookieKeys(),
       names: {

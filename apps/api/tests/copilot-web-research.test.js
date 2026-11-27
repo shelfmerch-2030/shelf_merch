@@ -839,7 +839,7 @@ describe('general public web research routing', () => {
         toolCalls: [],
         usage: { promptTokens: 4, completionTokens: 8 },
       });
-      const { reply } = await chat.turn('show me wireless earbuds under 2000', 'chat', 'discover');
+      const { reply } = await chat.turn('show me wireless earbuds under 2000 and include sources on the latest trends', 'chat', 'discover');
       expect(reply.content).toContain('Prioritize useful reusable gifts');
       expect(reply.content).toContain('[Source 1]');
       expect(reply.artifacts.find((row) => row.kind === 'web_research').research.status).toBe('completed');
@@ -889,5 +889,145 @@ describe('general public web research routing', () => {
     expect(reply.artifacts.filter((row) => row.kind === 'web_research')).toEqual([]);
     expect(stream.mock.calls[0][0].webSearch).toBeUndefined();
     expect(stream.mock.calls[0][0].tools.map((tool) => tool.function.name)).toEqual(['find_outside_products']);
+  });
+
+  it('answers a Discover trends question from retrieved sources when synthesis JSON fails', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const excerpt = 'Corporate teams are choosing reusable gifts over single-use items.';
+    stream.mockResolvedValueOnce({
+      text: '',
+      finishReason: 'tool_use',
+      toolCalls: [{ name: 'search_public_web', arguments: { question: 'latest corporate gifting trends in India for 2026' } }],
+      usage: { promptTokens: 8, completionTokens: 4 },
+    }).mockResolvedValueOnce(native([
+      searchResult(sourceUrl),
+      { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, '2026 India corporate gifting survey'), cited_text: excerpt }] },
+    ])).mockResolvedValueOnce({
+      text: 'Reusable gifts are popular, but this is not the required JSON.',
+      finishReason: 'end_turn',
+      toolCalls: [],
+      usage: { promptTokens: 6, completionTokens: 8 },
+    });
+    const { reply } = await chat.turn('What are the latest corporate gifting trends in India for 2026? Include sources.', 'chat', 'discover');
+    expect(reply.content).toContain('What the research shows');
+    expect(reply.content).toContain('2026 India corporate gifting survey');
+    expect(reply.content).toContain('reusable gifts');
+    expect(reply.content).toContain(sourceUrl);
+    expect(reply.content).not.toMatch(/Yes\. We can talk here|couldn't finish checking them/i);
+    const research = reply.artifacts.find((row) => row.kind === 'web_research').research;
+    expect(research.status).toBe('completed');
+    expect(research.leadsOnly).toBeFalsy();
+    expect(research.sources[0].url).toBe(sourceUrl);
+  });
+
+  it('keeps a product request off web search and stops SerpAPI when the daily quota is exhausted', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const previous = {
+      enabled: env.EMBEDDED_COPILOT_SERPAPI_ENABLED,
+      kill: env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH,
+      key: env.SERPAPI_API_KEY,
+    };
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    env.SERPAPI_API_KEY = 'synthetic-shopping-key';
+    evaluateReservation.mockReset().mockResolvedValueOnce(1).mockResolvedValue(2);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        shopping_results: [{
+          title: 'Classmate Octane Gel Pen',
+          extracted_price: 94,
+          price: '₹94',
+          source: 'Flipkart',
+          link: 'https://www.flipkart.com/classmate-octane-gel-pen',
+          thumbnail: 'https://m.media-amazon.com/images/classmate-pen.jpg',
+        }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      stream.mockResolvedValueOnce({
+        text: '',
+        finishReason: 'tool_use',
+        toolCalls: [
+          { name: 'search_public_web', arguments: { question: 'latest corporate gifting trends in India' } },
+          { name: 'find_outside_products', arguments: { queries: ['gel pen', 'notebook'], count: 10, budgetInr: 190, exclusive: true, perItem: true } },
+        ],
+        usage: { promptTokens: 8, completionTokens: 6 },
+      }).mockResolvedValueOnce({
+        text: '{"intro":"One pen fits the budget.","reasons":["Classmate Octane Gel Pen is a compact option."]}',
+        finishReason: 'end_turn',
+        toolCalls: [],
+        usage: { promptTokens: 4, completionTokens: 6 },
+      });
+      const { reply } = await chat.turn('Show me 10 corporate gifting products under ₹190 per employee.', 'chat', 'discover');
+      expect(reply.artifacts.filter((row) => row.kind === 'web_research')).toEqual([]);
+      expect(stream.mock.calls.every(([input]) => input.webSearch == null)).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(reply.artifacts.find((row) => row.kind === 'external_product').product.name).toMatch(/Classmate/);
+      expect(reply.content).toMatch(/shopping API allowance/);
+    } finally {
+      vi.unstubAllGlobals();
+      env.EMBEDDED_COPILOT_SERPAPI_ENABLED = previous.enabled;
+      env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = previous.kill;
+      env.SERPAPI_API_KEY = previous.key;
+    }
+  });
+
+  it('keeps a sourced Discover answer when a mixed request has exhausted the shopping quota', async () => {
+    const { stream } = mockClaude();
+    const chat = await workspace();
+    const excerpt = 'Kitchen teams are gifting compact appliances instead of generic hampers.';
+    const previous = {
+      enabled: env.EMBEDDED_COPILOT_SERPAPI_ENABLED,
+      kill: env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH,
+      key: env.SERPAPI_API_KEY,
+    };
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = 'false';
+    env.SERPAPI_API_KEY = 'synthetic-shopping-key';
+    evaluateReservation.mockReset().mockResolvedValueOnce(1).mockResolvedValue(2);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      stream.mockResolvedValueOnce({
+        text: '',
+        finishReason: 'tool_use',
+        toolCalls: [
+          { name: 'search_public_web', arguments: { question: 'latest kitchen technology gifting trends in India' } },
+          { name: 'find_outside_products', arguments: { queries: ['milk frother', 'kitchen scale'], count: 5, budgetInr: 2000, perItem: true } },
+        ],
+        usage: { promptTokens: 8, completionTokens: 6 },
+      }).mockResolvedValueOnce(native([
+        searchResult(sourceUrl),
+        { type: 'text', text: 'ignored', citations: [{ ...cite(sourceUrl, 'India kitchen gifting trends'), cited_text: excerpt }] },
+      ])).mockResolvedValueOnce({
+        text: 'A prose summary that is not valid research JSON.',
+        finishReason: 'end_turn',
+        toolCalls: [],
+        usage: { promptTokens: 4, completionTokens: 6 },
+      });
+      const { reply } = await chat.turn(
+        'Suggest innovative kitchen-tech gifting ideas for Toast employees based on the latest trends in India. Include sources and show suitable products with prices.',
+        'chat',
+        'discover',
+      );
+      expect(reply.content).toContain('What the research shows');
+      expect(reply.content).toContain('India kitchen gifting trends');
+      expect(reply.content).toContain('compact appliances');
+      expect(reply.content).toMatch(/shopping API allowance/);
+      expect(reply.content).not.toMatch(/couldn't finish checking them/i);
+      expect(reply.artifacts.find((row) => row.kind === 'web_research').research.status).toBe('completed');
+      expect(reply.artifacts.some((row) => row.kind === 'external_product')).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      env.EMBEDDED_COPILOT_SERPAPI_ENABLED = previous.enabled;
+      env.EMBEDDED_COPILOT_SERPAPI_KILL_SWITCH = previous.kill;
+      env.SERPAPI_API_KEY = previous.key;
+    }
   });
 });

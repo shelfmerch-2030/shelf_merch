@@ -3,6 +3,7 @@ import { env } from '../src/config/env.js';
 import {
   discoverSearchPlan,
   isConcreteShoppingQuery,
+  requestedCardCount,
   isProductShoppingRequest,
   isShoppingFollowUp,
   prefersShoppingCards,
@@ -542,6 +543,34 @@ describe('SerpAPI shopping product cards', () => {
     expect(result.products.every((row) => row.product.priceNumeric <= 190)).toBe(true);
     expect(result.products.some((row) => row.product.name === 'Fancy keychain')).toBe(false);
     expect(result.content).not.toMatch(/took too long/);
+  });
+
+  it('asks for 10 corporate gifting products and stops when the shopping quota is exhausted', async () => {
+    env.SERPAPI_API_KEY = 'test-key';
+    env.EMBEDDED_COPILOT_SERPAPI_ENABLED = 'true';
+    const text = 'Show me 10 corporate gifting products under ₹190 per employee.';
+    expect(requestedCardCount(text)).toBe(10);
+    const plan = discoverSearchPlan({
+      text,
+      toolArgs: { queries: ['gel pen', 'notebook'], count: 10, budgetInr: 190, exclusive: true, perItem: true },
+    });
+    expect(plan.limit).toBe(10);
+    expect(plan.queries.map((row) => row.query)).toEqual(['gel pen', 'premium hardcover notebook']);
+    const search = vi.fn(async () => ({
+      shopping_results: [
+        listing('Classmate Octane Gel Pen', '₹94', 94),
+        listing('Premium notebook', '₹499', 499),
+      ],
+    }));
+    const reserve = vi.fn().mockResolvedValueOnce('reserved').mockResolvedValue('user_limited');
+    const result = await runSerpShoppingRecommendation({
+      text, discover: true, plan, search, config: env, reserve, tenantId: 'tenant', userId: 'user',
+    });
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(reserve).toHaveBeenCalledTimes(2);
+    expect(result.apiCalls).toBe(1);
+    expect(result.products.map((row) => row.product.name)).toEqual(['Classmate Octane Gel Pen']);
+    expect(result.content).toMatch(/shopping API allowance/);
   });
 
   it('keeps cards from a later search when an earlier SerpAPI call times out', async () => {

@@ -40,7 +40,7 @@ import { enrichWalletArtifacts } from './copilotWalletReconcile.js';
 import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
-import { publicResearchRequest, runCopilotWebResearch, sanitizeGeneralTopic, webResearchEnabled } from './copilotWebResearch.js';
+import { needsPublicSources, publicResearchRequest, runCopilotWebResearch, sanitizeGeneralTopic, webResearchEnabled } from './copilotWebResearch.js';
 import { discoverSearchPlan, isProductShoppingRequest, isShoppingFollowUp, prefersShoppingCards, rememberedShoppingPlan, runSerpShoppingRecommendation, serpShoppingEnabled, shownShoppingProducts } from './copilotSerpShopping.js';
 import { reserveSerpCall, serpFeatureState, shoppingUnavailableMessage } from './copilotSerpQuota.js';
 import {
@@ -327,7 +327,7 @@ const DISCOVER_WEB_TOOL = {
   type: 'function',
   function: {
     name: 'search_public_web',
-    description: 'Look up live public information and return sources. Call this when the conversation needs current information. Do not call it for products to buy.',
+    description: 'Look up public information and return cited sources. Call this for news, trends, research, or a sourced explanation. Do not call it to find products, prices, or stores.',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -339,7 +339,7 @@ const DISCOVER_WEB_TOOL = {
   },
 };
 
-const DISCOVER_PROMPT = 'You are ShelfMerch Discover. Answer the latest question directly, using the conversation. Discuss gift plans, budgets, occasions, and ordinary questions. When you list items, options, or questions, use Markdown bullets or numbers and put each point on its own line. Do not write a list as one paragraph. When the person wants products to buy, wants more or cheaper products, or narrows what they already saw, call find_outside_products. You are able to search. Do not say you cannot look up products. Never invent a price, a store, or a link. Do not use the ShelfMerch catalog, wallets, points, campaigns, or orders. If they ask for those, tell them to use the ShelfMerch tab. While they are planning, reply briefly and do not call the tool. Each query must be a short shopping search, not their sentence and not a budget sentence. For a vague request, choose a few different product searches that fit the budget and the conversation. Set count when they ask for a number of products, at most 10. Put skipped products in exclude. Do not search for products already shown. Set perItem to false when one budget covers the whole kit. Call search_public_web only when the answer depends on live public information.';
+const DISCOVER_PROMPT = 'You are ShelfMerch Discover. Answer the latest question directly, using the conversation. Discuss gift plans, budgets, occasions, and ordinary questions. When you list items, options, or questions, use Markdown bullets or numbers and put each point on its own line. Do not write a list as one paragraph. When the person wants products to buy, wants more or cheaper products, or narrows what they already saw, call find_outside_products. You are able to search. Do not say you cannot look up products. Never invent a price, a store, or a link. Do not use the ShelfMerch catalog, wallets, points, campaigns, or orders. If they ask for those, tell them to use the ShelfMerch tab. While they are planning, reply briefly and do not call the tool. Each query must be a short shopping search, not their sentence and not a budget sentence. For a vague request, choose a few different product searches that fit the budget and the conversation. Set count when they ask for a number of products, at most 10. Put skipped products in exclude. Do not search for products already shown. Set perItem to false when one budget covers the whole kit. Set perItem to true when the budget is per product. Call search_public_web only for a sourced explanation, news, or trends. Do not call it when the person only wants products to buy. Call both tools only when the same message asks for that explanation and also asks to see products.';
 
 function toolArguments(call) {
   if (!call?.arguments) return {};
@@ -399,9 +399,11 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
     ? replyText
     : '';
   let cited = null;
-  if (webCall && researchOn) {
-    const question = toolArguments(webCall).question;
-    const topic = sanitizeGeneralTopic(typeof question === 'string' ? question : '') || sanitizeGeneralTopic(text);
+  const webQuestion = webCall ? toolArguments(webCall).question : '';
+  const topic = webCall ? (sanitizeGeneralTopic(typeof webQuestion === 'string' ? webQuestion : '') || sanitizeGeneralTopic(text)) : '';
+  // A product request does not spend web search unless the person also asked for sources, news, or trends.
+  const runWeb = Boolean(webCall && researchOn && topic && (!shoppingCards || needsPublicSources(text)));
+  if (runWeb) {
     if (topic) {
       try {
         cited = await citeDiscoverQuestion({
@@ -460,7 +462,7 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
     plan: discoverSearchPlan({ text, messages, toolArgs: call ? toolArgs : null }) || undefined,
     describeCards: (input) => describeShoppingCards({ ...input, signal, providerStatus }),
   });
-  if (cited?.content) shopping.content = shopping.notice && !shopping.products?.length ? `${cited.content}\n\n${shopping.notice}` : cited.content;
+  if (cited?.content) shopping.content = shopping.notice ? `${cited.content}\n\n${shopping.notice}` : cited.content;
   else if (!shopping.products?.length && shopping.notice) shopping.content = shopping.notice;
   else if (usableReply) shopping.content = shopping.notice ? `${usableReply}\n\n${shopping.notice}` : usableReply;
   shopping.copyUsage = {
@@ -488,8 +490,9 @@ async function citeDiscoverQuestion({ brief, signal, providerStatus, onEvent, te
     : { content: '', sources: [], usage: {}, diagnostics: { outcome: 'skipped' } };
   const leads = synthesis.sources.length ? [] : fallbackResearchLeads(brief, [...external.sources, ...external.leads]);
   const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics?.outcome);
+  const productFallback = synthesis.diagnostics?.citationFallback && ['listings', 'comparison'].includes(brief.purpose);
   const status = synthesis.sources.length
-    ? (synthesis.diagnostics?.citationFallback && external.status === 'completed' ? 'partial' : external.status)
+    ? (productFallback && external.status === 'completed' ? 'partial' : external.status)
     : external.sources.length
       ? (synthesisFailed ? 'synthesis_failed' : 'unverified')
       : external.status;
@@ -860,7 +863,9 @@ export async function streamAssistantTurn({
     }
     if (!shopping.content) shopping.content = shopping.products?.length
       ? 'Here are the products that match.'
-      : 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.';
+      : researchArtifact?.research?.sources?.length
+        ? 'I found public sources for this, but could not finish the summary.'
+        : 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.';
     const artifacts = [...(researchArtifact ? [researchArtifact] : []), ...(shopping.products || [])];
     conversation.messages.push({ role: 'assistant', content: shopping.content, artifacts });
     await persistTurn();
@@ -951,8 +956,9 @@ export async function streamAssistantTurn({
       ? fallbackResearchLeads(brief, [...external.sources, ...external.leads]) : [];
     // Citation fallback after a synthesis timeout returns verified sources; keep that distinct from hard synthesis_failed.
     const synthesisFailed = ['unexpected_tool', 'incomplete', 'invalid_response', 'timeout', 'provider_error'].includes(synthesis.diagnostics.outcome);
+    const productFallback = synthesis.diagnostics?.citationFallback && ['listings', 'comparison'].includes(brief.purpose);
     const status = synthesis.sources.length
-      ? (synthesis.diagnostics?.citationFallback && external.status === 'completed' ? 'partial' : external.status)
+      ? (productFallback && external.status === 'completed' ? 'partial' : external.status)
       : external.sources.length
         ? (synthesisFailed ? 'synthesis_failed' : 'unverified')
         : external.status;

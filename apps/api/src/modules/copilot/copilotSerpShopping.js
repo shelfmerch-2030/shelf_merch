@@ -290,7 +290,7 @@ export function isConcreteShoppingQuery(query) {
 /** How many cards the person asked for. Unspecified stays at 5. Never above 10. */
 export function requestedCardCount(text) {
   if (typeof text !== 'string') return null;
-  const match = text.match(/\b(?:top|first|only|just)\s+(\d{1,2})\b|\b(\d{1,2})\s+(?:products?|items?|options?|gifts?)\b/i);
+  const match = text.match(/\b(?:top|first|only|just)\s+(\d{1,2})\b|\b(\d{1,2})(?:\s+(?!emp(?:loyee)?s?\b|staff\b|people\b|recipients?\b)[a-z][a-z0-9-]*){0,4}\s+(?:products?|items?|options?|gifts?)\b/i);
   const value = Number(match?.[1] || match?.[2]);
   if (!Number.isInteger(value) || value < 1) return null;
   return Math.min(10, value);
@@ -549,7 +549,7 @@ async function listingsForQuery(item, { plan, search, signal, apiKey, exclude, r
     relaxed.sort((a, b) => (a.product.priceNumeric ?? Number.POSITIVE_INFINITY) - (b.product.priceNumeric ?? Number.POSITIVE_INFINITY));
     cards = relaxed.slice(0, plan.perQuery);
   }
-  if (cards.length < plan.perQuery && exclude?.urls?.size) {
+  if (cards.length < plan.perQuery) {
     const next = await search(query, { signal, apiKey, start: 20 });
     if (next?.failure) return cards.slice(0, plan.perQuery);
     const extra = mapShoppingResults(next, {
