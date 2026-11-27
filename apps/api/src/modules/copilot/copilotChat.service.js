@@ -40,8 +40,8 @@ import { enrichWalletArtifacts } from './copilotWalletReconcile.js';
 import { streamCuratorTurn } from './copilotCurator.service.js';
 import { isCopilotBusinessRequest, isCreativeGiftingRequest, isGiftingAdvisorRequest } from './giftingAdvisor.js';
 import { creativeGiftingReply, streamGiftingAdvisorTurn } from './giftingAdvisor.service.js';
-import { publicResearchRequest, runCopilotWebResearch, webResearchEnabled } from './copilotWebResearch.js';
-import { discoverSearchPlan, isProductShoppingRequest, isShoppingFollowUp, prefersShoppingCards, rememberedShoppingPlan, runSerpShoppingRecommendation, serpShoppingEnabled } from './copilotSerpShopping.js';
+import { publicResearchRequest, runCopilotWebResearch, sanitizeGeneralTopic, webResearchEnabled } from './copilotWebResearch.js';
+import { discoverSearchPlan, isProductShoppingRequest, isShoppingFollowUp, prefersShoppingCards, rememberedShoppingPlan, runSerpShoppingRecommendation, serpShoppingEnabled, shownShoppingProducts } from './copilotSerpShopping.js';
 import { reserveSerpCall, serpFeatureState, shoppingUnavailableMessage } from './copilotSerpQuota.js';
 import {
   applyImageToExternalProducts,
@@ -312,8 +312,9 @@ const DISCOVER_PRODUCT_TOOL = {
       additionalProperties: false,
       required: ['queries'],
       properties: {
-        queries: { type: 'array', items: { type: 'string' }, description: 'One short shopping search per product type, at most 5.' },
-        budgetInr: { type: 'integer', description: 'Budget in INR when the person gave one.' },
+        queries: { type: 'array', items: { type: 'string' }, description: 'Up to 5 short shopping searches. Each one is a few words a shopper would type. Never the person\'s whole sentence.' },
+        count: { type: 'integer', description: 'How many product cards they asked for, from 1 to 10. Omit it when they did not ask for a number.' },
+        budgetInr: { type: 'integer', description: 'Budget in INR when the person gave one. Never higher than the budget they stated.' },
         perItem: { type: 'boolean', description: 'True when the budget applies to each product. False when one budget covers the whole kit.' },
         exclusive: { type: 'boolean', description: 'True when the person said under or below the budget.' },
         exclude: { type: 'array', items: { type: 'string' }, description: 'Product words the person said to leave out.' },
@@ -322,7 +323,23 @@ const DISCOVER_PRODUCT_TOOL = {
   },
 };
 
-const DISCOVER_PROMPT = 'You are ShelfMerch Discover. Answer the latest question directly, using the conversation. Discuss gift plans, budgets, occasions, and ordinary questions. When you list items, options, or questions, use Markdown bullets or numbers and put each point on its own line. Do not write a list as one paragraph. When the person wants products to buy, or says show them or show more, call find_outside_products. You are able to search. Do not say you cannot look up products. Never invent a price, a store, or a link. Do not use the ShelfMerch catalog, wallets, points, campaigns, or orders. If they ask for those, tell them to use the ShelfMerch tab. While they are planning, reply briefly and do not call the tool. For a vague gift or tech request, pass up to 5 different product searches. Put skipped products in exclude. Set perItem to false when one budget covers the whole kit.';
+const DISCOVER_WEB_TOOL = {
+  type: 'function',
+  function: {
+    name: 'search_public_web',
+    description: 'Look up live public information and return sources. Call this when the conversation needs current information. Do not call it for products to buy.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['question'],
+      properties: {
+        question: { type: 'string', description: 'The public question to research, using the conversation so far.' },
+      },
+    },
+  },
+};
+
+const DISCOVER_PROMPT = 'You are ShelfMerch Discover. Answer the latest question directly, using the conversation. Discuss gift plans, budgets, occasions, and ordinary questions. When you list items, options, or questions, use Markdown bullets or numbers and put each point on its own line. Do not write a list as one paragraph. When the person wants products to buy, wants more or cheaper products, or narrows what they already saw, call find_outside_products. You are able to search. Do not say you cannot look up products. Never invent a price, a store, or a link. Do not use the ShelfMerch catalog, wallets, points, campaigns, or orders. If they ask for those, tell them to use the ShelfMerch tab. While they are planning, reply briefly and do not call the tool. Each query must be a short shopping search, not their sentence and not a budget sentence. For a vague request, choose a few different product searches that fit the budget and the conversation. Set count when they ask for a number of products, at most 10. Put skipped products in exclude. Do not search for products already shown. Set perItem to false when one budget covers the whole kit. Call search_public_web only when the answer depends on live public information.';
 
 function toolArguments(call) {
   if (!call?.arguments) return {};
@@ -338,16 +355,25 @@ function toolArguments(call) {
 async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEvent, tenantId, userId }) {
   const complete = providerStatus.provider === 'anthropic' ? streamAnthropicCompletion : streamOpenAiCompletion;
   const client = providerStatus.provider === 'anthropic' ? createAnthropicClient() : createOpenAiClient();
+  const shownNames = [...shownShoppingProducts(messages).names].slice(0, 12);
   const recent = messages
     .filter(message => (message.role === 'user' || message.role === 'assistant') && message.content)
     .slice(-8)
     .map(message => ({ role: message.role, content: String(message.content).slice(0, 800) }));
+  if (shownNames.length && recent.at(-1)?.role === 'user') {
+    recent[recent.length - 1] = {
+      ...recent.at(-1),
+      content: `${recent.at(-1).content}\n\nProducts already shown: ${shownNames.join('; ')}`,
+    };
+  }
+  const researchOn = webResearchEnabled(providerStatus.provider);
   let turn = { text: '', toolCalls: [], usage: {} };
   try {
     if (client) {
       turn = await complete({
         client, model: providerStatus.model, systemPrompt: DISCOVER_PROMPT, messages: recent,
-        tools: [DISCOVER_PRODUCT_TOOL], maxOutputTokens: 700, signal,
+        tools: researchOn ? [DISCOVER_PRODUCT_TOOL, DISCOVER_WEB_TOOL] : [DISCOVER_PRODUCT_TOOL],
+        maxOutputTokens: 700, signal,
       });
     }
   } catch (error) {
@@ -355,6 +381,7 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
     logger.info({ outcome: 'discover_chat_failed' }, 'Copilot discover chat failed');
   }
   const call = (turn.toolCalls || []).find((item) => item.name === 'find_outside_products');
+  const webCall = (turn.toolCalls || []).find((item) => item.name === 'search_public_web');
   const toolArgs = toolArguments(call);
   const shoppingCards = Boolean(call)
     || isProductShoppingRequest(text)
@@ -371,25 +398,60 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
   const usableReply = replyText.length >= 12 && replyText.length <= 2000 && !/\b(?:cannot|can't|unable to)\b/i.test(replyText)
     ? replyText
     : '';
+  let cited = null;
+  if (webCall && researchOn) {
+    const question = toolArguments(webCall).question;
+    const topic = sanitizeGeneralTopic(typeof question === 'string' ? question : '') || sanitizeGeneralTopic(text);
+    if (topic) {
+      try {
+        cited = await citeDiscoverQuestion({
+          brief: { purpose: 'research', topic }, signal, providerStatus, onEvent, tenantId, userId,
+        });
+      } catch (error) {
+        if (signal?.aborted || error?.name === 'AbortError') throw error;
+        logger.info({ outcome: 'discover_research_failed' }, 'Copilot discover web search failed');
+        cited = {
+          content: '',
+          webSearchRequests: 0,
+          artifact: {
+            kind: 'web_research',
+            research: { brief: { purpose: 'research', topic }, status: 'unavailable', sources: [], summarized: true },
+          },
+        };
+      }
+    }
+  }
   if (!shoppingCards) {
     return {
-      content: replyText || 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.',
+      content: cited?.content || replyText || 'Yes. We can talk here. Tell me who the gift is for, the budget, and what to skip, and I can search when you want products.',
       products: [],
       queries: 0,
       followUp: false,
-      copyUsage: turn.usage || {},
+      copyUsage: {
+        promptTokens: (turn.usage?.promptTokens || 0) + (cited?.copyUsage?.promptTokens || 0),
+        completionTokens: (turn.usage?.completionTokens || 0) + (cited?.copyUsage?.completionTokens || 0),
+      },
+      researchArtifact: cited?.artifact || null,
+      webSearchRequests: cited?.webSearchRequests || 0,
+      searched: Boolean(cited),
     };
   }
   const feature = serpFeatureState(env);
   if (feature !== 'ready') {
     const note = shoppingUnavailableMessage(feature);
     return {
-      content: usableReply ? `${usableReply}\n\n${note}` : note,
+      content: cited?.content ? `${cited.content}\n\n${note}` : (usableReply ? `${usableReply}\n\n${note}` : note),
       products: [],
       queries: 0,
       followUp: false,
-      copyUsage: turn.usage || {},
+      copyUsage: {
+        promptTokens: (turn.usage?.promptTokens || 0) + (cited?.copyUsage?.promptTokens || 0),
+        completionTokens: (turn.usage?.completionTokens || 0) + (cited?.copyUsage?.completionTokens || 0),
+      },
       notice: note,
+      researchArtifact: cited?.artifact || null,
+      webSearchRequests: cited?.webSearchRequests || 0,
+      searched: Boolean(cited),
     };
   }
   if (shoppingCards) onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
@@ -398,27 +460,20 @@ async function answerDiscoverTurn({ text, messages, signal, providerStatus, onEv
     plan: discoverSearchPlan({ text, messages, toolArgs: call ? toolArgs : null }) || undefined,
     describeCards: (input) => describeShoppingCards({ ...input, signal, providerStatus }),
   });
-  if (!shopping.products?.length && shopping.notice) shopping.content = shopping.notice;
+  if (cited?.content) shopping.content = shopping.notice && !shopping.products?.length ? `${cited.content}\n\n${shopping.notice}` : cited.content;
+  else if (!shopping.products?.length && shopping.notice) shopping.content = shopping.notice;
   else if (usableReply) shopping.content = shopping.notice ? `${usableReply}\n\n${shopping.notice}` : usableReply;
   shopping.copyUsage = {
-    promptTokens: (turn.usage?.promptTokens || 0) + (shopping.copyUsage?.promptTokens || 0),
-    completionTokens: (turn.usage?.completionTokens || 0) + (shopping.copyUsage?.completionTokens || 0),
+    promptTokens: (turn.usage?.promptTokens || 0) + (shopping.copyUsage?.promptTokens || 0) + (cited?.copyUsage?.promptTokens || 0),
+    completionTokens: (turn.usage?.completionTokens || 0) + (shopping.copyUsage?.completionTokens || 0) + (cited?.copyUsage?.completionTokens || 0),
   };
+  shopping.researchArtifact = cited?.artifact || null;
+  shopping.webSearchRequests = cited?.webSearchRequests || 0;
+  shopping.searched = Boolean(cited);
   return shopping;
 }
 
-function discoverCitationRequest(text, messages) {
-  if (isProductShoppingRequest(text) || isShoppingFollowUp(text, messages) || prefersShoppingCards(text) || rememberedShoppingPlan(text, messages)) return null;
-  const prior = [...messages].reverse().find((message) => message.role === 'assistant'
-    && message.artifacts?.some?.((row) => row.kind === 'web_research'));
-  const priorResearch = prior?.artifacts?.find((row) => row.kind === 'web_research')?.research;
-  const request = publicResearchRequest(text, priorResearch);
-  if (!request?.topic || !['research', 'trends'].includes(request.purpose)) return null;
-  const { category, company, ...brief } = request;
-  return { brief: { ...brief, source: 'external' }, company };
-}
-
-async function citeDiscoverQuestion({ brief, company, signal, providerStatus, onEvent, tenantId, userId }) {
+async function citeDiscoverQuestion({ brief, signal, providerStatus, onEvent, tenantId, userId }) {
   const client = createAnthropicClient();
   if (!client) return null;
   onEvent?.({ type: 'tool', name: 'web_search', status: 'running' });
@@ -428,7 +483,7 @@ async function citeDiscoverQuestion({ brief, company, signal, providerStatus, on
   const canSynthesize = !signal?.aborted && (external.status !== 'limited' || external.sources.length);
   const synthesis = canSynthesize
     ? await synthesizeResearch({
-      client, model: providerStatus.model, brief: { ...brief, company }, sources: external.sources, catalog: [], signal,
+      client, model: providerStatus.model, brief, sources: external.sources, catalog: [], signal,
     })
     : { content: '', sources: [], usage: {}, diagnostics: { outcome: 'skipped' } };
   const leads = synthesis.sources.length ? [] : fallbackResearchLeads(brief, [...external.sources, ...external.leads]);
@@ -794,25 +849,10 @@ export async function streamAssistantTurn({
     let citedSearches = 0;
     let searched = false;
     try {
-      const citation = discoverCitationRequest(text, conversation.messages);
-      if (citation && webResearchEnabled(providerStatus.provider)) {
-        searched = true;
-        const cited = await citeDiscoverQuestion({
-          ...citation, signal, providerStatus, onEvent, tenantId, userId,
-        });
-        citedSearches = cited?.webSearchRequests || 0;
-        researchArtifact = cited?.artifact || null;
-        if (cited?.content) {
-          shopping = { content: cited.content, products: [], queries: 0, followUp: false, copyUsage: cited.copyUsage || {} };
-        } else {
-          shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
-        }
-      } else {
-        if (citation) {
-          researchArtifact = { kind: 'web_research', research: { brief: citation.brief, status: 'disabled', sources: [], summarized: true } };
-        }
-        shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
-      }
+      shopping = await answerDiscoverTurn({ text, messages: conversation.messages, signal, providerStatus, onEvent, tenantId, userId });
+      researchArtifact = shopping.researchArtifact || null;
+      citedSearches = shopping.webSearchRequests || 0;
+      searched = Boolean(shopping.searched);
     } catch (error) {
       if (signal?.aborted || error?.name === 'AbortError') throw Object.assign(new Error('Request aborted'), { code: 'ABORT_ERR' });
       logger.info({ outcome: 'error' }, 'Copilot discover turn failed');
