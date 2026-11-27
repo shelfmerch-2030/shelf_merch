@@ -197,6 +197,43 @@ describe('orders with ShelfMerch ids', () => {
     expect(mapped.body.items[0]).toMatchObject({ size: 'S', color: 'White', product_id: String(shared._id) });
   });
 
+  it('the product SKU sitting on ONE variant never pins that variant (cap: White ordered → White made)', async () => {
+    // Real shape: 14-colour cap, only Navy Blue carries the product SKU, no sizes at all.
+    await CatalogProduct.create({
+      sku: 'ACCA-1022',
+      name: 'Customized Cap',
+      basePriceInr: 224,
+      variants: [
+        { sku: 'ACCA-1022', size: '', color: 'Navy Blue' },
+        { sku: '', size: '', color: 'White' },
+        { sku: '', size: '', color: 'Black' },
+        { sku: 'CAP-RED', size: '', color: 'Red' },
+      ],
+    });
+    // Storefront sends "One Size" for caps; the cap has no sizes, so it is ignored.
+    const white = await order([{ sku: 'ACCA-1022', size: 'One Size', color: 'White', quantity: 1 }], 'CAP-1');
+    expect(white.status).toBe(201);
+    expect(white.body.items[0]).toMatchObject({ color: 'White', size: 'One Size' });
+    const two = await order([{ sku: 'ACCA-1022', size: 'One Size', color: 'Navy Blue', quantity: 1 }, { sku: 'ACCA-1022', size: 'One Size', color: 'Black', quantity: 2 }], 'CAP-2');
+    expect(two.body.items.map((i) => i.color)).toEqual(['Navy Blue', 'Black']);
+
+    // No colour → rejected, never defaulted to Navy Blue.
+    const noColor = await order([{ sku: 'ACCA-1022', quantity: 1 }], 'CAP-3');
+    expect(noColor.status).toBe(422);
+    expect(noColor.body.error.details[0].message).toContain('send color');
+
+    // A colour the cap doesn't come in → rejected.
+    const pink = await order([{ sku: 'ACCA-1022', color: 'Pink', quantity: 1 }], 'CAP-4');
+    expect(pink.body.error.details[0]).toMatchObject({ code: 'variant_unavailable', message: expect.stringContaining('not available in Pink') });
+
+    // A true variant SKU still pins its variant; a contradicting colour is rejected, not ignored.
+    const red = await order([{ sku: 'CAP-RED', quantity: 1 }], 'CAP-5');
+    expect(red.body.items[0].color).toBe('Red');
+    const clash = await order([{ sku: 'CAP-RED', color: 'White', quantity: 1 }], 'CAP-6');
+    expect(clash.status).toBe(422);
+    expect(clash.body.error.details[0].message).toContain('is the Red variant');
+  });
+
   it('existing SKU ordering is unchanged', async () => {
     const res = await order([{ sku: 'APRN-1007', size: 'L', color: 'Midnight Navy', quantity: 1 }], 'ID-6');
     expect(res.status).toBe(201);

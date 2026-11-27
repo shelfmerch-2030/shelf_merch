@@ -48,13 +48,26 @@ export function sizeKey(s) {
  * match is returned.
  */
 export function pickCatalogVariant(product, { sku, size, color }, { requireUnique = false } = {}) {
-  let pool = (product.variants ?? []).filter((v) => v.enabled !== false);
-  if (sku) {
+  const lc = (s) => String(s ?? '').trim().toLowerCase();
+  const enabled = (product.variants ?? []).filter((v) => v.enabled !== false);
+  // An option the product doesn't have is ignored, e.g. "One Size" for a cap whose variants have no size.
+  if (!enabled.some((v) => String(v.size ?? '').trim())) size = undefined;
+  if (!enabled.some((v) => String(v.color ?? '').trim())) color = undefined;
+
+  let pool = enabled;
+  // The product's own SKU identifies the product, never one of its variants — even when one variant
+  // happens to carry it (stores often put the product SKU on the first variant only). Only a SKU that
+  // differs from the product SKU is a variant SKU.
+  if (sku && sku !== product.sku) {
     const bySku = pool.filter((v) => v.sku && v.sku === sku);
-    if (bySku.length === 1) return bySku[0];
+    if (bySku.length === 1) {
+      const v = bySku[0];
+      // A variant SKU with a size/colour that contradicts it is ambiguous: reject rather than guess.
+      const conflicts = (size && sizeKey(v.size) !== sizeKey(size)) || (color && lc(v.color) !== lc(color));
+      return requireUnique && conflicts ? null : v;
+    }
     if (bySku.length > 1) pool = bySku;
   }
-  const lc = (s) => String(s ?? '').trim().toLowerCase();
   const matches = pool.filter(
     (v) => (!size || sizeKey(v.size) === sizeKey(size)) && (!color || lc(v.color) === lc(color)),
   );
@@ -194,6 +207,16 @@ export async function resolveLineItems({ tenantId, connectionId = null, lines, r
       pickCatalogVariant(product, { sku: skuHint, size: variantHint.size, color: variantHint.color }, { requireUnique: true });
     if ((product.variants ?? []).some((v) => v.enabled !== false) && !catalogVariant) {
       const wanted = [variantHint.size, variantHint.color].filter(Boolean).join(' / ');
+      const skuVariants = skuHint && skuHint !== product.sku
+        ? (product.variants ?? []).filter((v) => v.enabled !== false && v.sku === skuHint)
+        : [];
+      if (skuVariants.length === 1) {
+        const v = skuVariants[0];
+        return fail(
+          LINE_ERRORS.variant_unavailable,
+          `SKU ${skuHint} is the ${[v.size, v.color].filter(Boolean).join(' / ')} variant of ${product.name}, but the line asks for ${wanted} — send the matching variant's SKU, or the product SKU ${product.sku} with size/color`,
+        );
+      }
       const exists = pickCatalogVariant(product, { size: variantHint.size, color: variantHint.color });
       const missing = missingOptions(product, variantHint);
       // Never guess: an ambiguous line (e.g. no colour for a tee sold in 6 colours) is rejected.
