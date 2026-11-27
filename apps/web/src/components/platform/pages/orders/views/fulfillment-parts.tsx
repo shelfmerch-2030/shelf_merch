@@ -17,6 +17,8 @@ export type PlacedSpec = {
   leftIn?: number;
   topIn?: number;
   effectiveDpi?: number | null;
+  /** Under 150 DPI at the printed size: accepted, but it will print soft/blurry. */
+  lowResolution?: boolean;
   artworkWidthPx?: number | null;
   artworkHeightPx?: number | null;
 };
@@ -610,6 +612,14 @@ export function FulfillmentAssetStrip({
   const primaryArtworkUrl = artworkUrl || areaArtwork[0]?.artworkUrl || "";
   const overlayArtworkUrl = referenceArtworkUrl ?? artworkUrl;
   const hasReferenceMockup = Boolean(primaryArtworkUrl || resolvedDesigned);
+  // Artwork sent without any placement (API line with artwork_url only): the mockup can only show a
+  // default centred guess, and the real printed size is unknown — say so instead of looking exact.
+  const placementUnspecified = Boolean(artworkUrl) && !placement && !(placements?.length) && !resolvedDesigned;
+  const mockupTitle = hasReferenceMockup
+    ? placementUnspecified
+      ? "Reference mockup · default placement"
+      : "Reference mockup"
+    : "Print areas";
   const referencePlacements = resolvedDesigned ? undefined : placements;
   const artworkTiles = areaArtwork.length
     ? areaArtwork
@@ -757,7 +767,7 @@ export function FulfillmentAssetStrip({
         {printAreas.length > 0 && mockup && (
           <div>
             <div className="lbl" style={{ marginBottom: 6, fontSize: 10.5, letterSpacing: ".05em" }}>
-              {hasReferenceMockup ? "Reference mockup" : "Print areas"}
+              {mockupTitle}
             </div>
             <PrintAreaPreview
               mockup={mockup}
@@ -769,7 +779,7 @@ export function FulfillmentAssetStrip({
               product={product}
               onOpen={() =>
                 setPreview({
-                  title: hasReferenceMockup ? "Reference mockup" : "Print areas",
+                  title: mockupTitle,
                   downloadUrl: resolvedDesigned || primaryArtworkUrl || mockup,
                   downloadName: `${fileBase}-mockup`,
                   body: (
@@ -791,6 +801,13 @@ export function FulfillmentAssetStrip({
         )}
       </div>
 
+      {printAreas.length > 0 && placementUnspecified && (
+        <p className="mut3" style={{ fontSize: 12.5, margin: "0 0 8px", color: "var(--warning, #b45309)" }}>
+          The client sent only the artwork file — no print size or position. The mockup shows a default centred
+          placement and the table lists the print area's maximum size, not the artwork's. Confirm the intended size
+          with the client before printing.
+        </p>
+      )}
       {printAreas.length > 0 && <PrintSpecTable areas={printAreas} placements={placements} />}
 
       {preview && (
@@ -825,14 +842,22 @@ export function PrintSpecTable({
     return placements?.find((p) => p.key === key && Number(p.widthIn) > 0);
   };
   const anyPlaced = areas.some((a, i) => placedFor(a, i));
+  const lowRes = (placements ?? []).filter((p) => p.lowResolution && Number(p.widthIn) > 0);
   return (
+    <>
+    {lowRes.length > 0 && (
+      <p role="alert" style={{ fontSize: 12.5, margin: "0 0 8px", color: "var(--danger)" }}>
+        Low-resolution artwork: {lowRes.map((p) => `${p.key} ${p.effectiveDpi} DPI`).join(", ")} at the printed size — it
+        will print soft or blurry (150+ needed, 300 ideal). Ask the client for a larger file, or confirm before printing.
+      </p>
+    )}
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <table className="tbl" style={{ fontSize: 12.5, margin: 0 }}>
         <thead>
           <tr>
             <th>Print area</th>
             <th>Method</th>
-            <th>Print size</th>
+            <th>Print area (max)</th>
             <th>Export px</th>
             <th>DPI</th>
             {anyPlaced && <th>Artwork (client placement)</th>}
@@ -871,8 +896,16 @@ export function PrintSpecTable({
                       const size = `${fmtIn(Number(p.widthIn))}×${fmtIn(Number(p.heightIn))} in`;
                       const at = `${fmtIn(Number(p.leftIn ?? 0))} in from left, ${fmtIn(Number(p.topIn ?? 0))} in from top`;
                       const px = p.artworkWidthPx && p.artworkHeightPx ? ` · file ${p.artworkWidthPx}×${p.artworkHeightPx} px` : "";
-                      const dpi = p.effectiveDpi ? ` · ${p.effectiveDpi} DPI` : "";
-                      return `${size} @ ${at}${px}${dpi}`;
+                      const text = `${size} @ ${at}${px}`;
+                      if (!p.effectiveDpi) return text;
+                      return (
+                        <>
+                          {text} ·{" "}
+                          <span style={p.lowResolution ? { color: "var(--danger)", fontWeight: 600 } : undefined}>
+                            {p.effectiveDpi} DPI{p.lowResolution ? " — low resolution" : ""}
+                          </span>
+                        </>
+                      );
                     })()}
                   </td>
                 )}
@@ -882,5 +915,6 @@ export function PrintSpecTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

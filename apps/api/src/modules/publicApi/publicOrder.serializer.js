@@ -52,6 +52,8 @@ export function serializePublicOrder(order, shipment = null) {
           left_in: p.leftIn,
           top_in: p.topIn,
           effective_dpi: p.effectiveDpi ?? null,
+          // true when under 150 DPI at the printed size: accepted, but it will print soft/blurry.
+          low_resolution: Boolean(p.lowResolution),
         })),
     })),
     amounts: {

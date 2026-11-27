@@ -417,17 +417,18 @@ export function ApiDocsPage() {
       <ul>
         <li><code>width_in</code> is required. <code>height_in</code> is optional for images — we derive it from the file's shape; if you send it, it must match that shape within 3%. PDF artwork needs both.</li>
         <li><code>left_in</code> / <code>top_in</code> default to centred.</li>
-        <li>The artwork must fit inside the area and print at <b>at least 100 DPI</b> (pixels ÷ inches; 300 is ideal). Crop transparent margins from the file so its shape is the printed shape.</li>
+        <li>The artwork must fit inside the area. Resolution is pixels ÷ printed inches: <b>300 DPI is ideal</b>. Under <b>150 DPI</b> the order is still accepted, but the line is flagged <code>low_resolution: true</code> (it will print soft or blurry) and our team may contact you. Under <b>30 DPI</b> it is rejected as unprintable.</li>
+        <li>Crop transparent margins from the file so its shape is the printed shape.</li>
         <li><code>artwork_url</code> must be a direct https link to a PNG, JPEG, WebP or PDF — no redirects, no SVG. We read the file's header when the order is placed.</li>
       </ul>
-      <p>The order echoes what will be printed in <code>items[].print_areas</code>, including <code>effective_dpi</code>. Problems are returned per entry:</p>
+      <p>The order echoes what will be printed in <code>items[].print_areas</code>, including <code>effective_dpi</code> and <code>low_resolution</code>. Problems are returned per entry:</p>
       <Table
         head={["Code", "Meaning"]}
         rows={[
           [<code>print_area_not_found</code>, "The product has no print area with that key — the message lists the available ones"],
           [<code>artwork_out_of_bounds</code>, "Size + position don't fit inside the area"],
           [<code>artwork_aspect_mismatch</code>, "height_in doesn't match the file's shape — crop the file or omit height_in"],
-          [<code>artwork_low_resolution</code>, "Under 100 DPI at that size — send a larger file or print smaller"],
+          [<code>artwork_low_resolution</code>, "Under 30 DPI at that size — unprintable; send a larger file or print smaller"],
           [<code>artwork_unsupported_format</code>, "Not a PNG, JPEG, WebP or PDF"],
           [<code>artwork_redirect</code>, <>The URL redirects — send the final file URL</>],
           [<code>artwork_unreachable</code>, "We couldn't download the file"],

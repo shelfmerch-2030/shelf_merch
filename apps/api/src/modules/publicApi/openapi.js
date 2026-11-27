@@ -412,7 +412,7 @@ export function buildOpenApi(serverUrl) {
                     maxItems: 10,
                     description:
                       'Exact artwork placement per print area (instead of artwork_url). Inches from the top-left corner of the area; see print_areas on GET /catalog/products. ' +
-                      'Validated: the area exists, the artwork fits, its shape matches width × height (±3%), and it prints at ≥100 DPI. The file must be a direct PNG, JPEG, WebP or PDF URL (no redirects).',
+                      'Validated: the area exists, the artwork fits, its shape matches width × height (±3%), and it prints at ≥30 DPI. Artwork under 150 DPI is accepted but flagged (low_resolution: true in the response). The file must be a direct PNG, JPEG, WebP or PDF URL (no redirects).',
                     items: {
                       type: 'object',
                       required: ['area', 'artwork_url', 'width_in'],

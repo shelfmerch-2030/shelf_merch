@@ -16,7 +16,13 @@ import {
  * placement format branded listings use, so production views render it exactly.
  */
 
-export const MIN_EFFECTIVE_DPI = 100;
+/**
+ * Resolution policy: accept and flag. Below LOW_RESOLUTION_DPI the order is accepted but the placement is
+ * flagged (API response, webhooks, admin) so ops can contact the client; only below MIN_EFFECTIVE_DPI —
+ * unprintable — is the line rejected.
+ */
+export const MIN_EFFECTIVE_DPI = 30;
+export const LOW_RESOLUTION_DPI = 150;
 export const ASPECT_TOLERANCE = 0.03;
 const FIT_TOLERANCE_IN = 0.05;
 const HEADER_BYTES = 256 * 1024;
@@ -173,7 +179,7 @@ export function buildPlacements({ product, printAreas, artworkInfoByUrl, paramPr
         j,
         'artwork_url',
         'artwork_low_resolution',
-        `The artwork is ${info.width}×${info.height} px — only ${effectiveDpi} DPI at ${widthIn}×${round(heightIn, 2)} in (minimum ${MIN_EFFECTIVE_DPI}; ${area.dpi} recommended). Send a larger file or print it smaller.`,
+        `The artwork is ${info.width}×${info.height} px — only ${effectiveDpi} DPI at ${widthIn}×${round(heightIn, 2)} in, too low to print (minimum ${MIN_EFFECTIVE_DPI}; ${area.dpi} recommended). Send a larger file or print it smaller.`,
       );
     }
 
@@ -194,6 +200,8 @@ export function buildPlacements({ product, printAreas, artworkInfoByUrl, paramPr
       leftIn: round(leftIn),
       topIn: round(topIn),
       effectiveDpi,
+      // Accepted, but will print soft/blurry — surfaced to the client and to production.
+      lowResolution: effectiveDpi != null && effectiveDpi < LOW_RESOLUTION_DPI,
       artworkWidthPx: hasPixels ? info.width : null,
       artworkHeightPx: hasPixels ? info.height : null,
       artworkFormat: info.format,

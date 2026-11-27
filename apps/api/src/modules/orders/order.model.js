@@ -141,6 +141,7 @@ const orderSchema = new mongoose.Schema(
               leftIn: Number,
               topIn: Number,
               effectiveDpi: Number,
+              lowResolution: Boolean,
               artworkWidthPx: Number,
               artworkHeightPx: Number,
               artworkFormat: String,

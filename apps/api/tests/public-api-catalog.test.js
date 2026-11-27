@@ -254,6 +254,7 @@ describe('artwork placement (print_areas)', () => {
   const FILES = {
     'https://cdn.client.example/logo-2400x1800.png': () => new Response(png(2400, 1800), { status: 206 }),
     'https://cdn.client.example/tiny-400x300.png': () => new Response(png(400, 300), { status: 200 }),
+    'https://cdn.client.example/micro-200x150.png': () => new Response(png(200, 150), { status: 200 }),
     'https://cdn.client.example/logo.svg': () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', { status: 200 }),
     'https://cdn.client.example/moved.png': () => new Response(null, { status: 302, headers: { Location: 'https://elsewhere.example/x.png' } }),
   };
@@ -304,7 +305,7 @@ describe('artwork placement (print_areas)', () => {
     const cases = [
       [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8, height_in: 8 }], 'artwork_aspect_mismatch', 'items[0].print_areas[0].height_in'],
       [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8, left_in: 3 }], 'artwork_out_of_bounds', 'items[0].print_areas[0]'],
-      [[{ area: 'front', artwork_url: 'https://cdn.client.example/tiny-400x300.png', width_in: 8 }], 'artwork_low_resolution', 'items[0].print_areas[0].artwork_url'],
+      [[{ area: 'front', artwork_url: 'https://cdn.client.example/micro-200x150.png', width_in: 8 }], 'artwork_low_resolution', 'items[0].print_areas[0].artwork_url'],
       [[{ area: 'back', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 4 }], 'print_area_not_found', 'items[0].print_areas[0].area'],
       [[{ area: 'front', artwork_url: 'https://cdn.client.example/logo.svg', width_in: 4 }], 'artwork_unsupported_format', 'items[0].print_areas[0].artwork_url'],
       [[{ area: 'front', artwork_url: 'https://cdn.client.example/moved.png', width_in: 4 }], 'artwork_redirect', 'items[0].print_areas[0].artwork_url'],
@@ -314,8 +315,16 @@ describe('artwork placement (print_areas)', () => {
       expect(res.status, code).toBe(422);
       expect(res.body.error.details[0], code).toMatchObject({ code, param });
     }
-    const lowRes = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/tiny-400x300.png', width_in: 8 }], 'PL-low-2');
-    expect(lowRes.body.error.details[0].message).toContain('only 50 DPI');
+    const unprintable = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/micro-200x150.png', width_in: 8 }], 'PL-low-2');
+    expect(unprintable.body.error.details[0].message).toContain('only 25 DPI at 8×6 in, too low to print');
+  });
+
+  it('accepts low-resolution artwork (≥30 DPI) but flags it', async () => {
+    const res = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/tiny-400x300.png', width_in: 8 }], 'PL-lowres');
+    expect(res.status).toBe(201);
+    expect(res.body.items[0].print_areas[0]).toMatchObject({ effective_dpi: 50, low_resolution: true });
+    const ok = await place([{ area: 'front', artwork_url: 'https://cdn.client.example/logo-2400x1800.png', width_in: 8 }], 'PL-hires');
+    expect(ok.body.items[0].print_areas[0]).toMatchObject({ effective_dpi: 300, low_resolution: false });
   });
 
   it('artwork_url and print_areas are not combined; plain artwork_url lines still work', async () => {
