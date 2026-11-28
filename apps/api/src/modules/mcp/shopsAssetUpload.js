@@ -122,7 +122,7 @@ export const shopsGetAssetUploadInputSchema = z.object({
 
 export const shopsGetAssetUploadOutputSchema = z.object({
   ticketId: z.string(),
-  kind: z.enum(['logo', 'banner']),
+  kind: z.enum(['logo', 'banner', 'product_artwork']),
   status: z.enum(['pending', 'ready', 'expired', 'consumed']),
   assetUrl: z.string().optional(),
   mimeType: z.string().optional(),
@@ -130,14 +130,8 @@ export const shopsGetAssetUploadOutputSchema = z.object({
   expiresAt: z.string(),
 });
 
-export async function prepareShopAssetUpload({ tenantId, actorUserId, input }) {
+export async function createPendingAssetTicket({ tenantId, userId, kind, originalName = '' }) {
   await ensureIndexes();
-  const actor = await loadMcpActor({ tenantId, actorUserId });
-  assertWriter(actor);
-  const parsed = shopsPrepareAssetUploadInputSchema.safeParse(input || {});
-  if (!parsed.success) {
-    throw new ApiError(400, 'Store asset upload details are not valid', 'VALIDATION');
-  }
   const ticketId = randomBytes(16).toString('hex');
   const uploadToken = randomBytes(24).toString('base64url');
   const expiresAt = new Date(Date.now() + TICKET_TTL_MS);
@@ -145,24 +139,41 @@ export async function prepareShopAssetUpload({ tenantId, actorUserId, input }) {
     tenantId,
     ticketId,
     tokenHash: sha256(uploadToken),
-    userId: actorUserId,
-    kind: parsed.data.kind,
+    userId,
+    kind,
     status: 'pending',
-    originalName: parsed.data.originalName || '',
+    originalName,
     expiresAt,
   });
   const uploadUrl = `${apiBase()}/api/v1/mcp/shop-assets/${ticketId}`;
-  const uploadPageUrl = `${uploadUrl}#uploadToken=${encodeURIComponent(uploadToken)}`;
+  return {
+    ticketId,
+    kind,
+    uploadUrl,
+    uploadPageUrl: `${uploadUrl}#uploadToken=${encodeURIComponent(uploadToken)}`,
+    uploadToken,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+export async function prepareShopAssetUpload({ tenantId, actorUserId, input }) {
+  const actor = await loadMcpActor({ tenantId, actorUserId });
+  assertWriter(actor);
+  const parsed = shopsPrepareAssetUploadInputSchema.safeParse(input || {});
+  if (!parsed.success) {
+    throw new ApiError(400, 'Store asset upload details are not valid', 'VALIDATION');
+  }
+  const created = await createPendingAssetTicket({
+    tenantId,
+    userId: actorUserId,
+    kind: parsed.data.kind,
+    originalName: parsed.data.originalName || '',
+  });
   const kindLabel = parsed.data.kind === 'logo'
     ? 'PNG logo (300 DPI both axes, max 5 MB)'
     : 'banner image (png/webp/jpeg, max 10 MB)';
   return {
-    ticketId,
-    kind: parsed.data.kind,
-    uploadUrl,
-    uploadPageUrl,
-    uploadToken,
-    expiresAt: expiresAt.toISOString(),
+    ...created,
     instructions: [
       'Open uploadPageUrl in a browser (clickable link). The secure token is in the URL fragment (after #), not the query string.',
       'Do not paste the file into chat — ChatGPT cannot forward binaries to ShelfMerch.',
@@ -255,10 +266,14 @@ export async function completeShopAssetUpload({ ticketId, uploadToken, file }) {
     throw new ApiError(409, 'Upload ticket was already used', 'CONFIRMATION_REUSED');
   }
 
-  if (ticket.kind === 'logo') validateLogoFile(file);
+  if (ticket.kind === 'logo' || ticket.kind === 'product_artwork') validateLogoFile(file);
   else validateBannerFile(file);
 
-  const storageKind = ticket.kind === 'banner' ? 'mockup' : 'logo';
+  const storageKind = ticket.kind === 'banner'
+    ? 'mockup'
+    : ticket.kind === 'product_artwork'
+      ? 'artwork'
+      : 'logo';
   const { url } = await uploadFile({ tenantId: ticket.tenantId, kind: storageKind, file });
   const deadHash = sha256(`used:${randomBytes(16).toString('hex')}`);
   const updated = await McpShopAssetTicket.findOneAndUpdate(

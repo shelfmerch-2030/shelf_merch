@@ -204,6 +204,26 @@ import {
   shopsPrepareAssetUploadOutputSchema,
 } from './shopsAssetUpload.js';
 import {
+  PRODUCT_ARTWORK_EXECUTE_DESIGN_DESCRIPTION,
+  PRODUCT_ARTWORK_GET_UPLOAD_DESCRIPTION,
+  PRODUCT_ARTWORK_PREPARE_DESIGN_DESCRIPTION,
+  PRODUCT_ARTWORK_PREPARE_UPLOAD_DESCRIPTION,
+  executeProductArtworkDesignForCaller,
+  getProductArtworkUploadForCaller,
+  prepareProductArtworkDesignForCaller,
+  prepareProductArtworkUploadForCaller,
+  productArtworkError,
+  productArtworkExecuteDesignInputSchema,
+  productArtworkExecuteDesignOutputSchema,
+  productArtworkGetUploadInputSchema,
+  productArtworkGetUploadOutputSchema,
+  productArtworkPrepareDesignInputSchema,
+  productArtworkPrepareDesignOutputSchema,
+  productArtworkPrepareUploadInputSchema,
+  productArtworkPrepareUploadOutputSchema,
+  productArtworkText,
+} from './productArtworkWrite.js';
+import {
   SHOPS_EXECUTE_CATALOG_DESCRIPTION,
   SHOPS_PREPARE_CATALOG_DESCRIPTION,
   executeShopCatalogUpdateForCaller,
@@ -1015,6 +1035,8 @@ export const shelfMerchMcpHandler = createMcpHandler(
     const shopAssetUploadTools = [
       ['shops_prepare_asset_upload', 'Prepare store asset upload', SHOPS_PREPARE_ASSET_UPLOAD_DESCRIPTION, shopsPrepareAssetUploadInputSchema, shopsPrepareAssetUploadOutputSchema, false, prepareShopAssetUploadForCaller, 'Store asset upload ticket failed.', shopAssetUploadText, shopAssetUploadError],
       ['shops_get_asset_upload', 'Get store asset upload', SHOPS_GET_ASSET_UPLOAD_DESCRIPTION, shopsGetAssetUploadInputSchema, shopsGetAssetUploadOutputSchema, true, getShopAssetUploadForCaller, 'Store asset upload status failed.', shopAssetUploadText, shopAssetUploadError],
+      ['products_prepare_artwork_upload', 'Prepare product artwork upload', PRODUCT_ARTWORK_PREPARE_UPLOAD_DESCRIPTION, productArtworkPrepareUploadInputSchema, productArtworkPrepareUploadOutputSchema, false, prepareProductArtworkUploadForCaller, 'Product artwork upload ticket failed.', productArtworkText, productArtworkError],
+      ['products_get_artwork_upload', 'Get product artwork upload', PRODUCT_ARTWORK_GET_UPLOAD_DESCRIPTION, productArtworkGetUploadInputSchema, productArtworkGetUploadOutputSchema, true, getProductArtworkUploadForCaller, 'Product artwork upload status failed.', productArtworkText, productArtworkError],
     ];
     for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, textFor, errorFor] of shopAssetUploadTools) {
       server.registerTool(
@@ -1025,7 +1047,7 @@ export const shelfMerchMcpHandler = createMcpHandler(
           inputSchema,
           outputSchema,
           annotations: {
-            readOnlyHint: name === 'shops_get_asset_upload',
+            readOnlyHint: name.includes('_get_'),
             destructiveHint: false,
             idempotentHint: idempotent,
             openWorldHint: false,
@@ -1551,6 +1573,8 @@ export const shelfMerchMcpHandler = createMcpHandler(
       ['shops_execute_collection_draft', 'Save collection draft', COLLECTION_EXECUTE_DRAFT_DESCRIPTION, collectionExecuteDraftInputSchema, collectionExecuteDraftOutputSchema, true, executeCollectionDraftForCaller, 'Collection save failed.', 'shops:publish', collectionText, collectionError],
       ['shops_prepare_collection_publish', 'Prepare collection publish', COLLECTION_PREPARE_PUBLISH_DESCRIPTION, collectionPreparePublishInputSchema, collectionPreparePublishOutputSchema, false, prepareCollectionPublishForCaller, 'Publish preview failed.', 'shops:publish', collectionText, collectionError],
       ['shops_execute_collection_publish', 'Publish collection', COLLECTION_EXECUTE_PUBLISH_DESCRIPTION, collectionExecutePublishInputSchema, collectionExecutePublishOutputSchema, true, executeCollectionPublishForCaller, 'Collection publish failed.', 'shops:publish', collectionText, collectionError],
+      ['products_prepare_design', 'Prepare product artwork design', PRODUCT_ARTWORK_PREPARE_DESIGN_DESCRIPTION, productArtworkPrepareDesignInputSchema, productArtworkPrepareDesignOutputSchema, false, prepareProductArtworkDesignForCaller, 'Product artwork preview failed.', 'shops:publish', productArtworkText, productArtworkError],
+      ['products_execute_design', 'Save product artwork design', PRODUCT_ARTWORK_EXECUTE_DESIGN_DESCRIPTION, productArtworkExecuteDesignInputSchema, productArtworkExecuteDesignOutputSchema, true, executeProductArtworkDesignForCaller, 'Product artwork save failed.', 'shops:publish', productArtworkText, productArtworkError],
     ];
     for (const [name, title, description, inputSchema, outputSchema, idempotent, call, fallback, scope, textFor, errorFor] of merchandiseTools) {
       server.registerTool(

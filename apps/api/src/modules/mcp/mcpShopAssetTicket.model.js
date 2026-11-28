@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { tenantScopePlugin } from '../../plugins/tenantScope.plugin.js';
 
 const STATUSES = ['pending', 'ready', 'expired', 'consumed'];
-const KINDS = ['logo', 'banner'];
+const KINDS = ['logo', 'banner', 'product_artwork'];
 
 const mcpShopAssetTicketSchema = new mongoose.Schema(
   {

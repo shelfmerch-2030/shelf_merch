@@ -31,16 +31,37 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;');
 }
 
+function uploadPageCopy(kind) {
+  if (kind === 'product_artwork') {
+    return {
+      title: 'Upload product artwork',
+      accept: '.png,image/png',
+      hint: 'PNG only · at least 300 DPI on both axes · max 5 MB.',
+      label: 'Product artwork PNG',
+      success: 'Return to your assistant. It should call products_get_artwork_upload, then products_prepare_design. The design is not saved until you confirm.',
+    };
+  }
+  if (kind === 'banner') {
+    return {
+      title: 'Upload store banner',
+      accept: '.png,.webp,.jpeg,.jpg,image/png,image/webp,image/jpeg',
+      hint: 'PNG, JPEG, or WebP · max 10 MB. Recommended 960 × 240 px (4:1).',
+      label: 'Store banner image',
+      success: 'Return to your assistant and continue. It should call shops_get_asset_upload next (then shops_prepare_create or shops_prepare_update).',
+    };
+  }
+  return {
+    title: 'Upload store logo',
+    accept: '.png,image/png',
+    hint: 'PNG only · at least 300 DPI on both axes · max 5 MB.',
+    label: 'Store logo PNG',
+    success: 'Return to your assistant and continue. It should call shops_get_asset_upload next (then shops_prepare_create or shops_prepare_update).',
+  };
+}
+
 function uploadPageHtml({ ticketId, kind, errorMessage, success }) {
   const safeTicket = encodeURIComponent(ticketId || '');
-  const isLogo = kind !== 'banner';
-  const title = isLogo ? 'Upload store logo' : 'Upload store banner';
-  const accept = isLogo
-    ? '.png,image/png'
-    : '.png,.webp,.jpeg,.jpg,image/png,image/webp,image/jpeg';
-  const hint = isLogo
-    ? 'PNG only · at least 300 DPI on both axes · max 5 MB.'
-    : 'PNG, JPEG, or WebP · max 10 MB. Recommended 960 × 240 px (4:1).';
+  const copy = uploadPageCopy(kind);
   if (success) {
     return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -52,13 +73,13 @@ body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0
 .ok{color:#0a7a32;font-weight:600}
 </style></head><body>
 <div class="card"><p class="ok">Image uploaded</p>
-<p>Return to your assistant and continue. It should call shops_get_asset_upload next (then shops_prepare_create or shops_prepare_update).</p>
+<p>${escapeHtml(copy.success)}</p>
 </div></body></html>`;
   }
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="referrer" content="no-referrer"/>
-<title>${escapeHtml(title)} · ShelfMerch</title>
+<title>${escapeHtml(copy.title)} · ShelfMerch</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1.25rem;color:#111;line-height:1.45}
 .card{border:1px solid #ddd;border-radius:12px;padding:1.25rem}
@@ -70,13 +91,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .mut{color:#666;font-size:.85rem}
 </style></head><body>
 <div class="card">
-<h1 style="font-size:1.15rem;margin:0 0 .35rem">${escapeHtml(title)}</h1>
-<p class="mut">${escapeHtml(hint)} For ShelfMerch MCP clients that cannot attach files to tools.</p>
+<h1 style="font-size:1.15rem;margin:0 0 .35rem">${escapeHtml(copy.title)}</h1>
+<p class="mut">${escapeHtml(copy.hint)} For ShelfMerch MCP clients that cannot attach files to tools.</p>
 ${errorMessage ? `<p class="err" id="boot-err">${escapeHtml(errorMessage)}</p>` : '<p class="err" id="boot-err" hidden></p>'}
 <form id="asset-form" method="post" enctype="multipart/form-data" action="./${safeTicket}">
 <input type="hidden" name="uploadToken" id="uploadToken" value=""/>
-<label for="asset">${isLogo ? 'Store logo PNG' : 'Store banner image'}</label>
-<input id="asset" name="asset" type="file" accept="${accept}" required/>
+<label for="asset">${escapeHtml(copy.label)}</label>
+<input id="asset" name="asset" type="file" accept="${copy.accept}" required/>
 <button type="submit" id="submit-btn" disabled>Upload image</button>
 </form>
 </div>
